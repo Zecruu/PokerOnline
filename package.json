@@ -1,0 +1,31 @@
+{
+  "name": "poker-online",
+  "version": "1.0.0",
+  "description": "A beautiful, feature-rich online poker game where you can play Texas Hold'em with friends using shareable room codes.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "server": "node server/index.js",
+    "dev": "npx nodemon server/index.js",
+    "client": "npx http-server -p 8000 -c-1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zecruu/PokerOnline.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Zecruu/PokerOnline/issues"
+  },
+  "homepage": "https://github.com/Zecruu/PokerOnline#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "mongoose": "^9.1.5",
+    "socket.io": "^4.8.3"
+  }
+}

@@ -1,5 +1,5 @@
 // Main Application Logic - Full Featured Version
-// With settings UI, showdown display, card reveal, timer, and buy-back
+// Supports both local AI games and online multiplayer via WebSocket
 
 class PokerApp {
     constructor() {
@@ -12,8 +12,70 @@ class PokerApp {
         this.lastRenderedOpponents = '';
         this.gameSettings = { ...DEFAULT_SETTINGS };
 
+        // Multiplayer mode
+        this.isOnlineMode = false;
+        this.currentRoom = null;
+
+        // Setup socket callbacks
+        this.setupSocketCallbacks();
+
         this.initializeEventListeners();
         this.showScreen('home');
+    }
+
+    setupSocketCallbacks() {
+        const client = window.socketClient;
+        if (!client) return;
+
+        client.onRoomCreated = (data) => {
+            this.currentPlayerId = data.playerId;
+            this.currentRoom = data.room;
+            this.showOnlineLobby(data.roomCode);
+        };
+
+        client.onRoomJoined = (data) => {
+            this.currentPlayerId = data.playerId;
+            this.currentRoom = data.room;
+            this.showOnlineLobby(data.roomCode);
+        };
+
+        client.onPlayerJoined = (data) => {
+            this.currentRoom = data.room;
+            this.updateOnlinePlayersList();
+        };
+
+        client.onGameStarted = (data) => {
+            this.currentRoom = data.room;
+            this.showScreen('game');
+            this.resetRenderCache();
+            this.renderOnlineGame();
+            this.createChatUI();
+        };
+
+        client.onGameUpdate = (data) => {
+            this.currentRoom = data.room;
+            if (this.currentScreen === 'game') {
+                this.renderOnlineGame();
+            }
+        };
+
+        client.onShowdown = (data) => {
+            this.currentRoom = data.room;
+            this.showOnlineShowdown(data);
+        };
+
+        client.onRoundEnd = (data) => {
+            this.currentRoom = data.room;
+            this.showOnlineRoundEnd(data);
+        };
+
+        client.onChatMessage = (data) => {
+            this.addChatMessage(data);
+        };
+
+        client.onError = (data) => {
+            alert(data.message || 'An error occurred');
+        };
     }
 
     initializeEventListeners() {
@@ -161,14 +223,21 @@ class PokerApp {
         };
 
         this.gameSettings = settings;
+        document.getElementById('settings-modal').classList.remove('active');
 
+        // For multiplayer without AI - try online first
+        if (!withDealer) {
+            this.createOnlineRoom(playerName, settings, false);
+            return;
+        }
+
+        // For single player vs AI - use local game (faster, works offline)
+        this.isOnlineMode = false;
         const { roomCode, game } = this.roomManager.createRoom(playerName, settings, withDealer);
         this.currentGame = game;
         this.currentPlayerId = game.players[0].id;
 
         this.setupGameCallbacks();
-
-        document.getElementById('settings-modal').classList.remove('active');
         this.showLobby(roomCode);
 
         if (withDealer && game.players.length === 2) {
@@ -190,16 +259,8 @@ class PokerApp {
             return;
         }
 
-        const result = this.roomManager.joinRoom(roomCode, playerName);
-
-        if (result.success) {
-            this.currentGame = result.game;
-            this.currentPlayerId = result.game.players[result.game.players.length - 1].id;
-            this.setupGameCallbacks();
-            this.showLobby(roomCode);
-        } else {
-            alert(result.message || 'Failed to join room');
-        }
+        // Always use online for joining rooms (local rooms can't be joined remotely)
+        this.joinOnlineRoom(roomCode, playerName);
     }
 
     setupGameCallbacks() {
@@ -460,16 +521,22 @@ class PokerApp {
     }
 
     startGame() {
-        const result = this.currentGame.startGame();
-
-        if (result.success) {
-            this.showScreen('game');
-            this.resetRenderCache();
-            this.forceFullRender();
-            this.addCardRevealButtons();
-            this.createChatUI();
+        if (this.isOnlineMode) {
+            // Online multiplayer - send to server
+            window.socketClient.startGame();
         } else {
-            alert(result.message);
+            // Local game
+            const result = this.currentGame.startGame();
+
+            if (result.success) {
+                this.showScreen('game');
+                this.resetRenderCache();
+                this.forceFullRender();
+                this.addCardRevealButtons();
+                this.createChatUI();
+            } else {
+                alert(result.message);
+            }
         }
     }
 
@@ -739,9 +806,15 @@ class PokerApp {
     }
 
     playerAction(action, amount = 0) {
-        const result = this.currentGame.playerAction(this.currentPlayerId, action, amount);
-        if (!result.success) {
-            alert(result.message);
+        if (this.isOnlineMode) {
+            // Online multiplayer - send to server
+            window.socketClient.playerAction(action, amount);
+        } else {
+            // Local game
+            const result = this.currentGame.playerAction(this.currentPlayerId, action, amount);
+            if (!result.success) {
+                alert(result.message);
+            }
         }
     }
 
@@ -800,8 +873,12 @@ class PokerApp {
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
 
-        if (message && this.currentGame) {
-            this.currentGame.sendChatMessage(this.currentPlayerId, message);
+        if (message) {
+            if (this.isOnlineMode) {
+                window.socketClient.sendChatMessage(message);
+            } else if (this.currentGame) {
+                this.currentGame.sendChatMessage(this.currentPlayerId, message);
+            }
             input.value = '';
         }
     }
@@ -842,6 +919,248 @@ class PokerApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // ===== ONLINE MULTIPLAYER METHODS =====
+
+    async createOnlineRoom(playerName, settings, withAI) {
+        try {
+            await window.socketClient.connect();
+            this.isOnlineMode = true;
+            window.socketClient.createRoom(playerName, settings, withAI);
+        } catch (error) {
+            alert('Failed to connect to server. Playing locally instead.');
+            this.isOnlineMode = false;
+            this.createLocalRoom(playerName, settings, withAI);
+        }
+    }
+
+    async joinOnlineRoom(roomCode, playerName) {
+        try {
+            await window.socketClient.connect();
+            this.isOnlineMode = true;
+            window.socketClient.joinRoom(roomCode, playerName);
+        } catch (error) {
+            alert('Failed to connect to server: ' + error.message);
+        }
+    }
+
+    showOnlineLobby(roomCode) {
+        document.getElementById('display-room-code').textContent = roomCode;
+        this.updateOnlinePlayersList();
+        this.showScreen('lobby');
+        this.updateOnlineStartButton();
+    }
+
+    updateOnlinePlayersList() {
+        if (!this.currentRoom) return;
+
+        const playersList = document.getElementById('players-list');
+        playersList.innerHTML = '';
+
+        this.currentRoom.players.forEach((player) => {
+            const playerItem = document.createElement('div');
+            playerItem.className = 'player-item' + (player.isHost ? ' host' : '');
+            playerItem.innerHTML = `
+                <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
+                <div class="player-details">
+                    <div class="player-name">${player.name}</div>
+                    ${player.isHost ? '<div class="player-badge">👑 Host</div>' : ''}
+                    ${player.isAI ? '<div class="player-badge" style="color:#00d4aa">🤖 AI</div>' : ''}
+                    ${!player.isConnected ? '<div class="player-badge" style="color:#ff3b5c">Disconnected</div>' : ''}
+                </div>
+            `;
+            playersList.appendChild(playerItem);
+        });
+    }
+
+    updateOnlineStartButton() {
+        const startBtn = document.getElementById('start-game-btn');
+        const countSpan = startBtn.querySelector('.player-count');
+
+        if (!this.currentRoom) return;
+
+        const playerCount = this.currentRoom.players.length;
+        const myPlayer = this.currentRoom.players.find(p => p.oderId === this.currentPlayerId);
+
+        if (playerCount >= 2 && myPlayer?.isHost) {
+            startBtn.disabled = false;
+            countSpan.textContent = `(${playerCount} players ready)`;
+        } else if (!myPlayer?.isHost) {
+            startBtn.disabled = true;
+            countSpan.textContent = '(Waiting for host)';
+        } else {
+            startBtn.disabled = true;
+            countSpan.textContent = `(${playerCount}/2+ players)`;
+        }
+    }
+
+    renderOnlineGame() {
+        if (!this.currentRoom) return;
+
+        const myPlayer = this.currentRoom.players.find(p => p.oderId === this.currentPlayerId);
+        if (!myPlayer) return;
+
+        // Update pot and chips
+        document.getElementById('pot-amount').textContent = `$${this.currentRoom.pot}`;
+        document.getElementById('player-chips-amount').textContent = `$${myPlayer.chips}`;
+
+        // Render cards
+        this.renderPlayerCards(myPlayer.cards || []);
+        this.renderCommunityCards(this.currentRoom.communityCards || []);
+        this.renderOnlineOpponents();
+
+        // Update controls
+        this.updateOnlineActionControls(myPlayer);
+        this.updateOnlineBetSlider(myPlayer);
+    }
+
+    renderOnlineOpponents() {
+        const opponents = this.currentRoom.players.filter(p => p.oderId !== this.currentPlayerId);
+        const container = document.getElementById('players-container');
+        container.innerHTML = '';
+
+        if (opponents.length === 0) return;
+
+        const positions = this.calculateOpponentPositions(opponents.length);
+
+        opponents.forEach((opponent, index) => {
+            const opponentDiv = document.createElement('div');
+            opponentDiv.className = 'opponent-player' +
+                (opponent.isActive ? ' active' : '') +
+                (opponent.folded ? ' folded' : '');
+            opponentDiv.style.left = positions[index].x;
+            opponentDiv.style.top = positions[index].y;
+            opponentDiv.style.transform = 'translate(-50%, -50%)';
+
+            opponentDiv.innerHTML = `
+                <div class="opponent-info">
+                    <div class="opponent-name">${opponent.name}${opponent.isAI ? ' 🤖' : ''}</div>
+                    <div class="opponent-chips">$${opponent.chips}</div>
+                    ${opponent.bet > 0 ? `<div style="color:#00d4aa;font-size:0.75rem">Bet: $${opponent.bet}</div>` : ''}
+                </div>
+                <div class="opponent-cards">
+                    ${this.renderOpponentCards(opponent)}
+                </div>
+            `;
+
+            container.appendChild(opponentDiv);
+        });
+    }
+
+    renderOpponentCards(opponent) {
+        if (opponent.folded || !opponent.cards) return '';
+
+        const isShowdown = this.currentRoom.gamePhase === 'showdown';
+        const revealed = this.currentRoom.revealedCards?.[opponent.oderId] || [];
+
+        let html = '';
+        for (let i = 0; i < 2; i++) {
+            if ((opponent.isAI && isShowdown) || revealed.includes(i)) {
+                if (opponent.cards[i]) {
+                    html += `<div class="mini-card">${opponent.cards[i].rank}${this.getSuitSymbol(opponent.cards[i].suit)}</div>`;
+                }
+            } else {
+                html += `<div class="mini-card back">🂠</div>`;
+            }
+        }
+        return html;
+    }
+
+    getSuitSymbol(suit) {
+        const symbols = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+        return symbols[suit] || '';
+    }
+
+    updateOnlineActionControls(player) {
+        const isMyTurn = player.isActive && !player.folded;
+        const isGameActive = this.currentRoom.gamePhase !== 'showdown' && this.currentRoom.gamePhase !== 'waiting';
+        const canCheck = player.bet >= this.currentRoom.currentBet;
+        const callAmount = this.currentRoom.currentBet - player.bet;
+        const canAct = isMyTurn && isGameActive;
+
+        document.getElementById('fold-btn').disabled = !canAct;
+        document.getElementById('check-btn').disabled = !canAct || !canCheck;
+        document.getElementById('call-btn').disabled = !canAct || canCheck;
+        document.getElementById('raise-btn').disabled = !canAct || player.chips <= 0;
+
+        const callBtn = document.getElementById('call-btn');
+        callBtn.textContent = callAmount > 0 ? `Call $${callAmount}` : 'Call';
+
+        const controls = document.getElementById('action-controls');
+        if (canAct) {
+            controls.classList.add('my-turn');
+        } else {
+            controls.classList.remove('my-turn');
+        }
+    }
+
+    updateOnlineBetSlider(player) {
+        const slider = document.getElementById('bet-slider');
+        const bigBlind = this.currentRoom.settings?.bigBlind || 20;
+        const minRaise = Math.max(this.currentRoom.currentBet + bigBlind, bigBlind);
+        slider.min = minRaise;
+        slider.max = player.chips + player.bet;
+        slider.value = minRaise;
+        document.getElementById('bet-amount').textContent = minRaise;
+    }
+
+    showOnlineShowdown(data) {
+        let modal = document.getElementById('showdown-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'showdown-modal';
+            modal.className = 'showdown-overlay';
+            document.body.appendChild(modal);
+        }
+
+        let html = '<div class="showdown-content"><h2>🏆 Showdown!</h2><div class="showdown-hands">';
+
+        data.hands.forEach(hand => {
+            const isWinner = hand.playerId === data.winner.playerId;
+            html += `
+                <div class="showdown-hand ${isWinner ? 'winner' : ''}">
+                    <div class="showdown-player-name">${hand.playerName} ${isWinner ? '👑' : ''}</div>
+                    <div class="showdown-cards">
+                        ${hand.cards.map(card => `
+                            <div class="showdown-card" style="background:white;padding:10px;border-radius:8px;">
+                                <span style="color:${card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : 'black'}">
+                                    ${card.rank}${this.getSuitSymbol(card.suit)}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="showdown-hand-name">${hand.hand.name}</div>
+                </div>
+            `;
+        });
+
+        html += `</div><p style="margin-top:20px;color:#fbbf24">${data.winner.name} wins $${data.winner.winAmount}!</p></div>`;
+        modal.innerHTML = html;
+        modal.classList.add('active');
+
+        // Auto-hide and prompt for next round
+        setTimeout(() => {
+            modal.classList.remove('active');
+            if (confirm('Play another round?')) {
+                window.socketClient.nextRound();
+            }
+        }, 4000);
+    }
+
+    showOnlineRoundEnd(data) {
+        setTimeout(() => {
+            alert(`${data.winner.name} wins $${data.winner.winAmount}!\n${data.winner.reason || ''}`);
+
+            const myPlayer = this.currentRoom.players.find(p => p.oderId === this.currentPlayerId);
+            if (myPlayer && myPlayer.chips <= 0) {
+                if (confirm('You are out of chips! Buy back?')) {
+                    window.socketClient.buyBack();
+                }
+            } else if (confirm('Play another round?')) {
+                window.socketClient.nextRound();
+            }
+        }, 1000);
     }
 }
 
