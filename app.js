@@ -838,7 +838,7 @@ class PokerApp {
         chatContainer.id = 'game-chat';
         chatContainer.className = 'game-chat';
         chatContainer.innerHTML = `
-            <div class="chat-header">
+            <div class="chat-header" id="chat-header">
                 <span>💬 Chat</span>
                 <button class="chat-toggle" id="chat-toggle">−</button>
             </div>
@@ -851,14 +851,21 @@ class PokerApp {
 
         document.querySelector('.game-container').appendChild(chatContainer);
 
-        // Event listeners
-        document.getElementById('chat-toggle').addEventListener('click', () => {
+        // Toggle function
+        const toggleChat = (e) => {
+            // Prevent triggering when clicking the input or messages if they bubble up (they shouldn't due to structure)
+            if (e.target.closest('.chat-input-container') || e.target.closest('.chat-messages')) return;
+
             chatContainer.classList.toggle('minimized');
             const btn = document.getElementById('chat-toggle');
             btn.textContent = chatContainer.classList.contains('minimized') ? '+' : '−';
-        });
+        };
 
-        document.getElementById('chat-send').addEventListener('click', () => {
+        // Event listeners
+        document.getElementById('chat-header').addEventListener('click', toggleChat);
+
+        document.getElementById('chat-send').addEventListener('click', (e) => {
+            e.stopPropagation();
             this.sendChatMessage();
         });
 
@@ -866,6 +873,14 @@ class PokerApp {
             if (e.key === 'Enter') {
                 this.sendChatMessage();
             }
+        });
+
+        // Prevent mobile keyboard from scrolling the whole view too much
+        document.getElementById('chat-input').addEventListener('focus', () => {
+            // Optional: Scroll chat into view if needed, or handle viewport resize
+            setTimeout(() => {
+                chatContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 300);
         });
     }
 

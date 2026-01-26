@@ -1127,8 +1127,9 @@ h2 {
 .game-chat {
     position: fixed;
     bottom: 20px;
-    right: 20px;
-    width: 320px;
+    left: 20px;
+    /* Moved to left */
+    width: 300px;
     max-height: 400px;
     background: var(--surface);
     border-radius: var(--radius-lg);
@@ -1159,6 +1160,75 @@ h2 {
     border-bottom: 1px solid var(--surface-light);
     cursor: pointer;
     font-weight: 600;
+}
+
+.chat-toggle {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 8px;
+}
+
+.chat-toggle:hover {
+    color: var(--text-primary);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-sm);
+    max-height: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    overscroll-behavior: contain;
+    /* Prevents parent scroll chaining */
+}
+
+/* Fix mobile viewport height issues */
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    /* Prevent body scroll */
+    position: fixed;
+    /* Lock body in place */
+    width: 100%;
+}
+
+.game-container {
+    height: 100%;
+    overflow-y: auto;
+    /* Allow game container to scroll if needed */
+    -webkit-overflow-scrolling: touch;
+}
+
+.game-chat.minimized {
+    max-height: 45px;
+    width: 160px;
+    /* Smaller width when minimized */
+}
+
+.game-chat.minimized .chat-messages,
+.game-chat.minimized .chat-input-container {
+    display: none;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-dark);
+    border-bottom: 1px solid var(--surface-light);
+    cursor: pointer;
+    /* Click header to toggle */
+    font-weight: 600;
+    user-select: none;
 }
 
 .chat-toggle {
@@ -1291,9 +1361,37 @@ h2 {
 /* Responsive chat */
 @media (max-width: 768px) {
     .game-chat {
-        width: calc(100% - 40px);
-        left: 20px;
-        right: 20px;
-        bottom: 10px;
+        width: 250px;
+        /* Slightly smaller on mobile */
+        left: 10px;
+        bottom: 80px;
+        /* Moved up to avoid covering bottom controls */
+    }
+
+    .game-chat.minimized {
+        width: 140px;
+        bottom: 80px;
+    }
+
+    /* Optimize table for mobile */
+    .poker-table {
+        transform: scale(0.85);
+        /* Scale down table slightly */
+        margin-top: -20px;
+    }
+
+    .player-cards {
+        bottom: 15%;
+        /* Move cards up */
+    }
+
+    .action-controls {
+        padding: 5px;
+        gap: 5px;
+    }
+
+    .action-btn {
+        padding: 8px 12px;
+        font-size: 0.9rem;
     }
 }
