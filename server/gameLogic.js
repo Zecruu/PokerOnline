@@ -98,28 +98,43 @@ const AI_TAUNTS = {
         "No chips left? What a shame! 🤭",
         "Yoink! My chips now! 😎",
         "Get good, kid! 🎯",
-        "GG EZ! No re! 🏆"
+        "GG EZ! No re! 🏆",
+        "Cash out while you can! 📉"
     ],
     bigWin: [
         "HUGE POT! Thanks for the donation! 💸",
         "CLEANING YOU OUT! 🧹💰",
         "That's gotta hurt! 😈",
-        "DOMINATED! You never had a chance! 🔥"
+        "DOMINATED! You never had a chance! 🔥",
+        "I'm owning this table! 🦁"
     ],
+    // When AI Raises
     raise: [
-        "Let's make this interesting! 📈",
+        "Just fold, we all know you ain't him. ✋",
         "Can you afford this? 💵",
-        "Feeling lucky? 🍀",
-        "Let's see what you're made of! 💪"
+        "I smell fear. 👃",
+        "Put your chips where your mouth is!",
+        "Don't hurt yourself trying to call this. 🚑",
+        "I'm raising... pray if you want to. 🙏",
+        "This is where the big boys play. 🕴️"
+    ],
+    // When AI Calls/Checks (Responding to player)
+    call: [
+        "You probably got shit cards. 🚽",
+        "I'll pay to see that bluff. 👀",
+        "Nice try, I'm not going anywhere. 🧱",
+        "Stop wasting my time with these baby bets. 🍼"
     ],
     playerFolded: [
         "That's right, run away! 🏃",
         "Chicken! 🐔",
-        "Another one bites the dust! 💀"
+        "Another one bites the dust! 💀",
+        "Smart fold... for a coward. 🤡"
     ],
     playerLowChips: [
         "Running low there, buddy! 😬",
-        "Your stack is looking... sad 😢"
+        "Your stack is looking... sad 😢",
+        "Need a loan? Interest is 100%. 🏦"
     ]
 };
 
@@ -150,7 +165,9 @@ function makeAIDecision(gameState, myCards, communityCards) {
         if (raiseAmount > currentBet && myChips > raiseAmount) {
             return { action: 'raise', amount: raiseAmount, taunt: getRandomTaunt('raise') };
         }
-        return { action: 'call' };
+
+        // Taunt when calling with a strong hand
+        return { action: 'call', taunt: Math.random() < 0.4 ? getRandomTaunt('call') : null };
     }
 
     // Medium hand
@@ -159,7 +176,7 @@ function makeAIDecision(gameState, myCards, communityCards) {
             if (isAggressive || handStrength > 0.5) {
                 const betAmount = Math.floor(pot * 0.4) + (bigBlind || 20);
                 if (betAmount > 0 && myChips > betAmount) {
-                    return { action: 'raise', amount: Math.max(betAmount, currentBet + 20) };
+                    return { action: 'raise', amount: Math.max(betAmount, currentBet + 20), taunt: Math.random() < 0.3 ? getRandomTaunt('raise') : null };
                 }
             }
             return { action: 'check' };
@@ -169,7 +186,8 @@ function makeAIDecision(gameState, myCards, communityCards) {
             if (randomFactor < 0.3 && myChips > currentBet * 2) {
                 return { action: 'raise', amount: currentBet * 2, taunt: getRandomTaunt('raise') };
             }
-            return { action: 'call' };
+            // Calling a bet with medium hand
+            return { action: 'call', taunt: Math.random() < 0.3 ? getRandomTaunt('call') : null };
         }
         return { action: 'fold' };
     }
@@ -179,14 +197,14 @@ function makeAIDecision(gameState, myCards, communityCards) {
         if (shouldBluff && myChips > pot) {
             const bluffAmount = Math.floor(pot * 0.6);
             if (bluffAmount > 20) {
-                return { action: 'raise', amount: bluffAmount };
+                return { action: 'raise', amount: bluffAmount, taunt: getRandomTaunt('raise') }; // Bluff with confidence
             }
         }
         return { action: 'check' };
     }
 
     if (callAmount <= pot * 0.3 && randomFactor < 0.2) {
-        return { action: 'call' };
+        return { action: 'call', taunt: "I'll swim. 🐟" };
     }
 
     return { action: 'fold' };

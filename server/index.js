@@ -27,9 +27,16 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../')));
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('✅ Connected to MongoDB'))
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+const mongoUri = process.env.MONGODB_URI;
+if (!mongoUri || (!mongoUri.startsWith('mongodb://') && !mongoUri.startsWith('mongodb+srv://'))) {
+    console.error('❌ MONGODB_URI is missing or invalid. It must start with "mongodb://" or "mongodb+srv://"');
+    console.error('   Current value:', mongoUri ? mongoUri.substring(0, 15) + '...' : 'undefined');
+    console.error('   Please check your Railway variables or .env file.');
+} else {
+    mongoose.connect(mongoUri)
+        .then(() => console.log('✅ Connected to MongoDB'))
+        .catch(err => console.error('❌ MongoDB connection error:', err));
+}
 
 // Generate room code
 function generateRoomCode() {

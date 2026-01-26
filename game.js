@@ -17,19 +17,17 @@ const AI_TAUNTS = {
         "Is that all you got? 😏",
         "Too easy! Better luck next time!",
         "No chips left? What a shame! 🤭",
-        "I'll take that, thank you very much!",
         "Yoink! My chips now! 😎",
         "Get good, kid! 🎯",
-        "You call that poker? 🤣",
-        "Maybe try Go Fish instead? 🐟",
-        "GG EZ! No re! 🏆"
+        "GG EZ! No re! 🏆",
+        "Cash out while you can! 📉"
     ],
     bigWin: [
         "HUGE POT! Thanks for the donation! 💸",
         "CLEANING YOU OUT! 🧹💰",
         "That's gotta hurt! 😈",
-        "Your chips look better with me! 💎",
-        "DOMINATED! You never had a chance! 🔥"
+        "DOMINATED! You never had a chance! 🔥",
+        "I'm owning this table! 🦁"
     ],
     bluff: [
         "Scared money don't make money! 😤",
@@ -38,11 +36,19 @@ const AI_TAUNTS = {
         "I might have had nothing... who knows? 😏"
     ],
     raise: [
-        "Let's make this interesting! 📈",
+        "Just fold, we all know you ain't him. ✋",
         "Can you afford this? 💵",
-        "Feeling lucky? 🍀",
+        "I smell fear. 👃",
         "Put your chips where your mouth is!",
-        "Let's see what you're made of! 💪"
+        "Don't hurt yourself trying to call this. 🚑",
+        "I'm raising... pray if you want to. 🙏",
+        "This is where the big boys play. 🕴️"
+    ],
+    call: [
+        "You probably got shit cards. 🚽",
+        "I'll pay to see that bluff. 👀",
+        "Nice try, I'm not going anywhere. 🧱",
+        "Stop wasting my time with these baby bets. 🍼"
     ],
     allIn: [
         "ALL IN! You feeling brave? 🎲",
@@ -54,11 +60,11 @@ const AI_TAUNTS = {
         "That's right, run away! 🏃",
         "Wise choice... or was it? 😈",
         "Another one bites the dust! 💀",
-        "Chicken! 🐔"
+        "Smart fold... or are you just chicken? 🐔"
     ],
     playerLowChips: [
         "Running low there, buddy! 😬",
-        "Need a loan? Oh wait, I'm the house! 🏦",
+        "Need a loan? Interest is 100%. 🏦",
         "Your stack is looking... sad 😢",
         "Might wanna hit that buy-back button! 💸"
     ]
@@ -132,6 +138,7 @@ class AIDealer {
                 return { action: 'raise', amount: raiseAmount };
             }
 
+            if (Math.random() < 0.4) this.sendTaunt('call');
             return { action: 'call' };
         }
 
@@ -142,7 +149,7 @@ class AIDealer {
                 if (isAggressive || handStrength > 0.5) {
                     const betAmount = Math.floor(pot * 0.4) + (gameState.bigBlind || 20);
                     if (betAmount > 0 && myChips > betAmount) {
-                        this.sendTaunt('raise');
+                        if (Math.random() < 0.3) this.sendTaunt('raise');
                         return { action: 'raise', amount: Math.max(betAmount, currentBet + 20) };
                     }
                 }
@@ -157,6 +164,7 @@ class AIDealer {
                     this.sendTaunt('raise');
                     return { action: 'raise', amount: reRaise };
                 }
+                if (Math.random() < 0.3) this.sendTaunt('call');
                 return { action: 'call' };
             }
 
@@ -169,7 +177,7 @@ class AIDealer {
             if (shouldBluff && myChips > pot) {
                 const bluffAmount = Math.floor(pot * 0.6);
                 if (bluffAmount > 20) {
-                    this.sendTaunt('raise');
+                    this.sendTaunt('raise'); // Bluffing
                     return { action: 'raise', amount: bluffAmount };
                 }
             }
@@ -178,7 +186,8 @@ class AIDealer {
 
         // Facing a bet with weak hand - mostly fold, occasionally call
         if (callAmount <= pot * 0.3 && randomFactor < 0.2) {
-            return { action: 'call' }; // Occasionally call small bets
+            this.sendTaunt('call'); // Occasionally call small bets
+            return { action: 'call' };
         }
 
         return { action: 'fold' };
