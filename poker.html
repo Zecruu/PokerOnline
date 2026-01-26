@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poker Online - Play with Friends</title>
+    <meta name="description"
+        content="Play poker online with friends. Create or join a lobby with a room code and enjoy Texas Hold'em poker.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Home Screen -->
+    <div id="home-screen" class="screen active">
+        <div class="poker-table-bg"></div>
+        <div class="container">
+            <div class="logo-section">
+                <h1 class="game-title">
+                    <span class="card-icon">♠</span>
+                    Poker Online
+                    <span class="card-icon">♥</span>
+                </h1>
+                <p class="tagline">Play Texas Hold'em with friends anywhere</p>
+            </div>
+
+            <div class="menu-card">
+                <button id="create-room-btn" class="primary-btn">
+                    <span class="btn-icon">+</span>
+                    Create New Room
+                </button>
+                <button id="join-room-btn" class="secondary-btn">
+                    <span class="btn-icon">→</span>
+                    Join Room
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join Room Screen -->
+    <div id="join-screen" class="screen">
+        <div class="poker-table-bg"></div>
+        <div class="container">
+            <div class="back-btn-container">
+                <button id="back-from-join" class="back-btn">← Back</button>
+            </div>
+
+            <div class="join-card">
+                <h2>Join a Room</h2>
+                <p class="subtitle">Enter the room code shared by your friend</p>
+
+                <div class="input-group">
+                    <label for="room-code-input">Room Code</label>
+                    <input type="text" id="room-code-input" placeholder="Enter 6-digit code" maxlength="6"
+                        autocomplete="off">
+                </div>
+
+                <div class="input-group">
+                    <label for="player-name-join">Your Name</label>
+                    <input type="text" id="player-name-join" placeholder="Enter your name" maxlength="20">
+                </div>
+
+                <button id="join-room-submit" class="primary-btn">Join Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lobby Screen -->
+    <div id="lobby-screen" class="screen">
+        <div class="poker-table-bg"></div>
+        <div class="container">
+            <div class="lobby-header">
+                <button id="leave-lobby-btn" class="back-btn">← Leave</button>
+                <div class="room-code-display">
+                    <span class="label">Room Code:</span>
+                    <span id="display-room-code" class="code">------</span>
+                    <button id="copy-code-btn" class="icon-btn" title="Copy code">
+                        <span>📋</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="lobby-content">
+                <h2>Waiting for Players</h2>
+                <p class="subtitle">Share the room code with your friends</p>
+
+                <div id="players-list" class="players-list">
+                    <!-- Players will be added dynamically -->
+                </div>
+
+                <div class="lobby-actions">
+                    <button id="start-game-btn" class="primary-btn" disabled>
+                        Start Game
+                        <span class="player-count">(2-8 players needed)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <div class="game-container">
+            <div class="game-header">
+                <div class="game-info">
+                    <span class="pot-label">Pot:</span>
+                    <span id="pot-amount" class="pot-amount">$0</span>
+                </div>
+                <button id="leave-game-btn" class="icon-btn">Exit</button>
+            </div>
+
+            <div class="poker-table">
+                <div class="community-cards" id="community-cards">
+                    <!-- Community cards will be added here -->
+                </div>
+
+                <div class="players-container" id="players-container">
+                    <!-- Player positions will be added dynamically -->
+                </div>
+            </div>
+
+            <div class="player-hand-section">
+                <div class="player-cards" id="player-cards">
+                    <!-- Player's hole cards -->
+                </div>
+
+                <div class="player-info-bar">
+                    <div class="player-chips">
+                        <span class="label">Your Chips:</span>
+                        <span id="player-chips-amount">$1000</span>
+                    </div>
+                </div>
+
+                <div class="action-controls" id="action-controls">
+                    <div class="bet-controls">
+                        <input type="range" id="bet-slider" min="0" max="1000" value="0" step="10">
+                        <div class="bet-amount-display">
+                            <span>Bet: $</span>
+                            <span id="bet-amount">0</span>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="fold-btn" class="action-btn fold-btn">Fold</button>
+                        <button id="check-btn" class="action-btn check-btn">Check</button>
+                        <button id="call-btn" class="action-btn call-btn">Call</button>
+                        <button id="raise-btn" class="action-btn raise-btn">Raise</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="cards.js"></script>
+    <script src="game.js"></script>
+    <script src="socket-client.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
