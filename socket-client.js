@@ -24,13 +24,13 @@ class SocketClient {
     }
 
     getServerUrl() {
-        // Check if we're on localhost or production
+        // Check if we're on localhost
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             return 'http://localhost:3002';
         }
-        // For production, use your deployed server URL
-        // Replace this with your actual server URL when deployed
-        return window.SOCKET_SERVER_URL || 'https://your-poker-server.railway.app';
+        // For production, default to the same origin (monolith deployment)
+        // Or check for environment variable injected by build process
+        return window.SOCKET_SERVER_URL || window.location.origin;
     }
 
     connect() {
