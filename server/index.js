@@ -27,7 +27,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../')));
 
 // Connect to MongoDB
-const mongoUri = process.env.MONGODB_URI;
+const mongoUri = process.env.MONGODB_URI?.trim();
 let mongoConnected = false;
 
 async function connectMongoDB() {
