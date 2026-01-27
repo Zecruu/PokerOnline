@@ -28,15 +28,44 @@ app.use(express.static(path.join(__dirname, '../')));
 
 // Connect to MongoDB
 const mongoUri = process.env.MONGODB_URI;
-if (!mongoUri || (!mongoUri.startsWith('mongodb://') && !mongoUri.startsWith('mongodb+srv://'))) {
-    console.error('❌ MONGODB_URI is missing or invalid. It must start with "mongodb://" or "mongodb+srv://"');
-    console.error('   Current value:', mongoUri ? mongoUri.substring(0, 15) + '...' : 'undefined');
-    console.error('   Please check your Railway variables or .env file.');
-} else {
-    mongoose.connect(mongoUri)
-        .then(() => console.log('✅ Connected to MongoDB'))
-        .catch(err => console.error('❌ MongoDB connection error:', err));
+let mongoConnected = false;
+
+async function connectMongoDB() {
+    if (!mongoUri || (!mongoUri.startsWith('mongodb://') && !mongoUri.startsWith('mongodb+srv://'))) {
+        console.error('❌ MONGODB_URI is missing or invalid. It must start with "mongodb://" or "mongodb+srv://"');
+        console.error('   Current value:', mongoUri ? mongoUri.substring(0, 15) + '...' : 'undefined');
+        console.error('   Please check your Railway variables or .env file.');
+        return;
+    }
+
+    try {
+        await mongoose.connect(mongoUri, {
+            serverSelectionTimeoutMS: 15000,
+            socketTimeoutMS: 45000,
+        });
+        mongoConnected = true;
+        console.log('✅ Connected to MongoDB');
+    } catch (err) {
+        console.error('❌ MongoDB connection error:', err);
+        mongoConnected = false;
+        // Retry connection after 5 seconds
+        setTimeout(connectMongoDB, 5000);
+    }
 }
+
+// Handle disconnection
+mongoose.connection.on('disconnected', () => {
+    console.log('⚠️ MongoDB disconnected. Attempting to reconnect...');
+    mongoConnected = false;
+    setTimeout(connectMongoDB, 5000);
+});
+
+mongoose.connection.on('connected', () => {
+    mongoConnected = true;
+});
+
+// Initial connection
+connectMongoDB();
 
 // Generate room code
 function generateRoomCode() {
@@ -807,6 +836,11 @@ function containsProfanity(text) {
 // Register
 app.post('/api/auth/register', async (req, res) => {
     try {
+        // Check MongoDB connection
+        if (!mongoConnected || mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ error: 'Database temporarily unavailable. Please try again.' });
+        }
+
         const { username, email, password } = req.body;
 
         if (!username || !email || !password) {
@@ -865,6 +899,11 @@ app.post('/api/auth/register', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
     try {
+        // Check MongoDB connection
+        if (!mongoConnected || mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ error: 'Database temporarily unavailable. Please try again.' });
+        }
+
         const { login, password } = req.body;
 
         if (!login || !password) {
