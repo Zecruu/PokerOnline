@@ -601,6 +601,14 @@ class DotsSurvivor {
             this.conversionChance = this.selectedClass.bonuses.conversionChance || 0;
         }
 
+        // Initialize available perks for control points
+        this.availablePerks = [...LEGENDARY_PERKS];
+        // Add Diamond Augments to the pool? Or are they separate?
+        // User request implied "Diamond Augments" are what's being shown.
+        // Let's add them to the pool or use them exclusively for a specific event
+        // Current code likely wasn't using them if grep failed, but let's ensure they are used
+        this.diamondAugments = [...DIAMOND_AUGMENTS];
+
         // Class-specific starting abilities
         if (this.selectedClass.bonuses.orbitalCount) for (let i = 0; i < this.selectedClass.bonuses.orbitalCount; i++) this.orbitals.push(this.createOrbital());
 
@@ -615,6 +623,32 @@ class DotsSurvivor {
         this.currentElement = 0; // 0=Fire, 1=Ice, 2=Lightning
         this.elementNames = ['fire', 'ice', 'lightning'];
         this.elementColors = ['#ff4400', '#00ccff', '#ffff00'];
+
+        // Event System
+        this.activeEvent = null;
+        this.eventTimer = 0;
+        this.nextEventWave = 10; // First event at wave 10
+        this.eventCooldown = 0;
+
+        // Ring of Fire event data
+        this.ringOfFire = {
+            active: false,
+            radius: 200,
+            duration: 15,
+            timer: 0,
+            damagePerSecond: 8,
+            burnTimer: 0,
+            burnDuration: 5
+        };
+
+        // Unescapable Square event data
+        this.trapSquare = {
+            active: false,
+            size: 400,
+            duration: 30,
+            timer: 0,
+            spawnBoost: 3
+        };
 
         // Start Game Loop
         this.gameRunning = true;
@@ -818,12 +852,209 @@ class DotsSurvivor {
         }
     }
 
+    // ==================== EVENT SYSTEM ====================
+
+    checkEvents() {
+        // Check if we should trigger an event
+        if (this.activeEvent) return; // Event already active
+        if (this.eventCooldown > 0) return; // On cooldown
+
+        // Trigger event at specific waves
+        if (this.wave >= this.nextEventWave) {
+            this.triggerRandomEvent();
+            this.nextEventWave = this.wave + 8 + Math.floor(Math.random() * 5); // Next event 8-12 waves later
+        }
+    }
+
+    triggerRandomEvent() {
+        const eventTypes = ['ring_of_fire', 'trap_square'];
+        const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+
+        this.activeEvent = eventType;
+        this.eventTimer = 0;
+
+        if (eventType === 'ring_of_fire') {
+            this.ringOfFire.active = true;
+            this.ringOfFire.timer = 0;
+            this.ringOfFire.burnTimer = 0;
+            this.ringOfFire.radius = 200 + Math.min(this.wave * 5, 200); // Grows with wave
+
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 80,
+                value: '🔥 RING OF FIRE 🔥',
+                lifetime: 3,
+                color: '#ff4400',
+                scale: 1.5
+            });
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 40,
+                value: 'Stay inside the ring!',
+                lifetime: 3,
+                color: '#ffaa00'
+            });
+        } else if (eventType === 'trap_square') {
+            this.trapSquare.active = true;
+            this.trapSquare.timer = 0;
+            this.trapSquare.centerX = this.worldX;
+            this.trapSquare.centerY = this.worldY;
+            this.trapSquare.size = 350 + Math.min(this.wave * 3, 150);
+
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 80,
+                value: '⬛ TRAPPED! ⬛',
+                lifetime: 3,
+                color: '#8844ff',
+                scale: 1.5
+            });
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 40,
+                value: 'Survive 30 seconds!',
+                lifetime: 3,
+                color: '#aa66ff'
+            });
+
+            // Spawn flood of enemies outside
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const side = Math.floor(Math.random() * 4);
+                    const offset = (Math.random() - 0.5) * this.trapSquare.size * 2;
+                    let wx, wy;
+                    const dist = this.trapSquare.size / 2 + 100;
+                    switch (side) {
+                        case 0: wx = this.trapSquare.centerX - dist; wy = this.trapSquare.centerY + offset; break;
+                        case 1: wx = this.trapSquare.centerX + dist; wy = this.trapSquare.centerY + offset; break;
+                        case 2: wx = this.trapSquare.centerX + offset; wy = this.trapSquare.centerY - dist; break;
+                        case 3: wx = this.trapSquare.centerX + offset; wy = this.trapSquare.centerY + dist; break;
+                    }
+                    this.enemies.push(this.createEnemy(wx, wy, 'swarm'));
+                }, i * 100);
+            }
+        }
+    }
+
+    updateEvents(dt) {
+        if (!this.activeEvent) {
+            this.checkEvents();
+            if (this.eventCooldown > 0) this.eventCooldown -= dt;
+            return;
+        }
+
+        this.eventTimer += dt;
+
+        // Ring of Fire
+        if (this.ringOfFire.active) {
+            this.ringOfFire.timer += dt;
+
+            // Check if player is outside ring
+            const playerDist = 0; // Player is always at center of ring
+            const ringRadius = this.ringOfFire.radius;
+
+            // Check if player moved outside the ring (ring is centered on player's start position)
+            // Actually ring should follow player - if player crosses the boundary they take damage
+            // Let's make it so the ring surrounds player's current position
+            // Damage is applied if player is AT the ring edge (crossing it)
+
+            // Simpler: player takes burn damage if they're near the edge
+            // We'll check this in updatePlayer to restrict movement
+
+            // Update burn status
+            if (this.ringOfFire.burnTimer > 0) {
+                this.ringOfFire.burnTimer -= dt;
+                // Apply burn damage
+                const burnDmg = Math.floor(this.ringOfFire.damagePerSecond * dt);
+                if (burnDmg > 0) {
+                    this.player.health -= burnDmg;
+                    if (Math.random() < 0.3) {
+                        this.damageNumbers.push({
+                            x: this.player.x + (Math.random() - 0.5) * 30,
+                            y: this.player.y - 20 + (Math.random() - 0.5) * 20,
+                            value: -burnDmg, lifetime: 0.5, color: '#ff4400'
+                        });
+                        this.spawnParticles(this.player.x, this.player.y, '#ff4400', 3);
+                    }
+                }
+            }
+
+            // End event
+            if (this.ringOfFire.timer >= this.ringOfFire.duration) {
+                this.ringOfFire.active = false;
+                this.activeEvent = null;
+                this.eventCooldown = 10;
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 50,
+                    value: '🔥 Ring fades... 🔥',
+                    lifetime: 2,
+                    color: '#ff8800'
+                });
+            }
+        }
+
+        // Trap Square
+        if (this.trapSquare.active) {
+            this.trapSquare.timer += dt;
+
+            // End event
+            if (this.trapSquare.timer >= this.trapSquare.duration) {
+                this.trapSquare.active = false;
+                this.activeEvent = null;
+                this.eventCooldown = 10;
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 50,
+                    value: '⬛ Barrier breaks! ⬛',
+                    lifetime: 2,
+                    color: '#aa88ff'
+                });
+            }
+        }
+    }
+
+    // Check if player crosses ring of fire
+    checkRingOfFireCollision(newWorldX, newWorldY) {
+        if (!this.ringOfFire.active) return false;
+
+        // Ring is always centered on current player position
+        // If player tries to move beyond radius, they hit the ring
+        const moveDistX = newWorldX - this.worldX;
+        const moveDistY = newWorldY - this.worldY;
+        const moveDist = Math.sqrt(moveDistX * moveDistX + moveDistY * moveDistY);
+
+        // Don't allow movement beyond ring boundary at screen edge
+        // Ring is rendered at a fixed radius from player center
+        // Player moving doesn't cross the ring - but we need to damage if at edge
+        // Let's simplify: damage player over time while event is active based on proximity to edge
+        return false; // Movement not blocked, damage handled separately
+    }
+
+    // Check trap square bounds
+    checkTrapSquareBounds(newWorldX, newWorldY) {
+        if (!this.trapSquare.active) return { x: newWorldX, y: newWorldY };
+
+        const halfSize = this.trapSquare.size / 2;
+        const minX = this.trapSquare.centerX - halfSize;
+        const maxX = this.trapSquare.centerX + halfSize;
+        const minY = this.trapSquare.centerY - halfSize;
+        const maxY = this.trapSquare.centerY + halfSize;
+
+        return {
+            x: Math.max(minX, Math.min(maxX, newWorldX)),
+            y: Math.max(minY, Math.min(maxY, newWorldY))
+        };
+    }
+
+
     update(dt) {
         this.updatePlayer(dt);
         this.updateShield(dt);
         this.updateRegen(dt);
         this.updateChronoField(dt);
         this.updateElementalCycle(dt);
+        this.updateEvents(dt);
         this.spawnEnemies();
         this.spawnHealthPacks();
         this.updateControlPoints(dt);
@@ -941,21 +1172,84 @@ class DotsSurvivor {
 
     captureControlPoint() {
         this.playSound('capture');
-        // Award legendary perk
-        if (this.availablePerks.length > 0) {
-            const idx = Math.floor(Math.random() * this.availablePerks.length);
-            const perk = this.availablePerks.splice(idx, 1)[0];
-            this.perks.push(perk);
-            this.applyPerk(perk);
-            this.damageNumbers.push({
-                x: this.player.x, y: this.player.y - 60,
-                value: `✨ ${perk.name}! ✨`, lifetime: 3, color: '#fbbf24'
-            });
+
+        // Show Augment Menu instead of random
+        // Filter available diamond augments based on prereqs?
+        let available = this.diamondAugments.filter(a => !a.req || this[a.req] || (a.req === 'demonSet' && this.demonSetBonusActive));
+
+        // If no diamond augments left or available, fallback to legendary perks
+        if (available.length === 0) {
+            available = this.availablePerks;
         }
-        // Trigger horde!
-        this.spawnHorde();
-        // Spawn next control point
-        this.spawnControlPoint();
+
+        if (available.length > 0) {
+            // Pick 3 random
+            const choices = [];
+            // Clone available to avoid modifying original array directly here if we want to pick w/o removing yet
+            // But we want to ensure we don't pick duplicates in choices
+            let pool = [...available];
+
+            for (let i = 0; i < 3 && pool.length > 0; i++) {
+                const idx = Math.floor(Math.random() * pool.length);
+                choices.push(pool[idx]);
+                pool.splice(idx, 1);
+            }
+            this.showAugmentMenu(choices, () => {
+                this.spawnHorde();
+                this.spawnControlPoint();
+            });
+        } else {
+            // Just heal or XP if absolutely nothing left
+            this.player.health = this.player.maxHealth;
+            this.damageNumbers.push({ x: this.player.x, y: this.player.y, value: 'Fully Healed!', color: '#00ff00' });
+            this.spawnHorde();
+            this.spawnControlPoint();
+        }
+    }
+
+    showAugmentMenu(choices) {
+        this.gamePaused = true;
+        const container = document.getElementById('augment-choices');
+        container.innerHTML = '';
+
+        choices.forEach(u => {
+            const card = document.createElement('div');
+            card.className = 'upgrade-card rare'; // Use rare styling for diamonds or custom? CSS had .diamond-badge logic maybe?
+            // Reusing basic card structure but maybe adding glow
+            card.style.borderColor = '#00ffff';
+            card.style.boxShadow = '0 0 15px rgba(0, 255, 255, 0.2)';
+
+            card.innerHTML = `
+                <div class="upgrade-icon">${u.icon}</div>
+                <div class="upgrade-details-container">
+                    <div class="upgrade-name" style="color:#00ffff">${u.name}</div>
+                    <div class="upgrade-desc">${u.desc}</div>
+                </div>
+            `;
+
+            card.addEventListener('click', () => {
+                u.effect(this);
+                // Remove from pools
+                const dIdx = this.diamondAugments.findIndex(a => a.id === u.id);
+                if (dIdx >= 0) this.diamondAugments.splice(dIdx, 1);
+
+                const pIdx = this.availablePerks.findIndex(a => a.id === u.id);
+                if (pIdx >= 0) this.availablePerks.splice(pIdx, 1);
+
+                document.getElementById('augment-menu').classList.add('hidden');
+                this.gamePaused = false;
+                this.spawnHorde();
+                this.spawnControlPoint();
+
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 60,
+                    value: `💎 ${u.name}! 💎`, lifetime: 3, color: '#00ffff'
+                });
+            });
+            container.appendChild(card);
+        });
+
+        document.getElementById('augment-menu').classList.remove('hidden');
     }
 
     applyPerk(perk) {
@@ -987,10 +1281,65 @@ class DotsSurvivor {
             this.lastMoveDir = { x: dx, y: dy };
         }
 
-        // Infinite world - move world offset instead of clamping player
+        // Calculate intended new position
         const moveX = dx * this.player.speed * dt;
         const moveY = dy * this.player.speed * dt;
-        this.worldX += moveX; this.worldY += moveY;
+        let newWorldX = this.worldX + moveX;
+        let newWorldY = this.worldY + moveY;
+
+        // Ring of Fire - check if crossing boundary
+        if (this.ringOfFire.active) {
+            // Ring moves with player, but if player tries to move beyond visible ring edge, they get burned
+            // The ring is always at a fixed screen radius from player center
+            // So effectively the ring moves with the player - no movement restriction
+            // But we visually show the ring and damage if player is near edge
+            // Let's instead make it: ring has fixed world position, player can't leave
+            // Actually per user request: ring surrounds player, crossing it damages them
+            // I'll interpret as: a visible ring at radius X, player moving past it = burn
+            // But ring moves with player... so they can never cross? 
+            // Better interpretation: ring is at fixed world position when spawned
+            // Player must stay inside that world-space circle
+
+            // Let's set ring center at spawn time
+            if (!this.ringOfFire.centerX) {
+                this.ringOfFire.centerX = this.worldX;
+                this.ringOfFire.centerY = this.worldY;
+            }
+
+            const distFromCenter = Math.sqrt(
+                (newWorldX - this.ringOfFire.centerX) ** 2 +
+                (newWorldY - this.ringOfFire.centerY) ** 2
+            );
+
+            if (distFromCenter > this.ringOfFire.radius) {
+                // Player is crossing the ring - apply burn and push back
+                this.ringOfFire.burnTimer = this.ringOfFire.burnDuration;
+
+                // Clamp to ring boundary
+                const angle = Math.atan2(newWorldY - this.ringOfFire.centerY, newWorldX - this.ringOfFire.centerX);
+                newWorldX = this.ringOfFire.centerX + Math.cos(angle) * (this.ringOfFire.radius - 5);
+                newWorldY = this.ringOfFire.centerY + Math.sin(angle) * (this.ringOfFire.radius - 5);
+
+                this.damageNumbers.push({
+                    x: this.player.x,
+                    y: this.player.y - 30,
+                    value: '🔥 BURNING!',
+                    lifetime: 0.5,
+                    color: '#ff4400'
+                });
+            }
+        }
+
+        // Trap Square - restrict movement to square bounds
+        if (this.trapSquare.active) {
+            const bounds = this.checkTrapSquareBounds(newWorldX, newWorldY);
+            newWorldX = bounds.x;
+            newWorldY = bounds.y;
+        }
+
+        this.worldX = newWorldX;
+        this.worldY = newWorldY;
+
         // Keep player centered
         this.player.x = this.canvas.width / 2;
         this.player.y = this.canvas.height / 2;
@@ -1129,10 +1478,20 @@ class DotsSurvivor {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i];
 
-            // Skip movement if frozen by Chrono Field
+            // Calculate screen position (needed for death effects too)
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+
+            // Check death FIRST (before freeze check) so frozen enemies can die
+            if (e.health <= 0) {
+                this.handleEnemyDeath(e, sx, sy, i);
+                continue;
+            }
+
+            // Skip movement/collision if frozen by Chrono Field
             if (e.frozen) {
                 if (e.hitFlash > 0) e.hitFlash -= dt * 5;
-                continue; // Skip all actions for frozen enemies
+                continue; // Skip movement and collision for frozen enemies
             }
 
             // Move towards player (world coords)
@@ -1140,15 +1499,15 @@ class DotsSurvivor {
             const d = Math.sqrt(dx * dx + dy * dy);
             if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
-            // Screen position
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
+            // Update screen position after movement
+            const sxMoved = this.player.x + (e.wx - this.worldX);
+            const syMoved = this.player.y + (e.wy - this.worldY);
 
             // Apply time warp perk
             const speedMult = this.timewarp ? 0.7 : 1;
 
-            // Collision with player
-            const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+            // Collision with player (use updated position)
+            const pd = Math.sqrt((sxMoved - this.player.x) ** 2 + (syMoved - this.player.y) ** 2);
             if (pd < e.radius + this.player.radius && this.player.invincibleTime <= 0) {
                 if (this.shieldActive) { this.shieldActive = false; this.shieldTimer = 0; this.spawnParticles(this.player.x, this.player.y, '#00aaff', 10); }
                 else { this.player.health -= e.damage; this.player.invincibleTime = 0.5; this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' }); this.playSound('hit'); }
@@ -1166,116 +1525,104 @@ class DotsSurvivor {
                 e.health -= tick;
                 if (e.impBurn.duration <= 0) delete e.impBurn;
                 // Visual effect for burn?
-                if (Math.random() < 0.1) this.spawnParticles(sx, sy, '#ff4400', 3);
+                if (Math.random() < 0.1) this.spawnParticles(sxMoved, syMoved, '#ff4400', 3);
             }
 
             // Dead
             if (e.health <= 0) {
-                this.player.kills++;
-                this.playSound('kill');
-
-                // Dotomancer Conversion
-                if (this.conversionChance > 0 && Math.random() < this.conversionChance) {
-                    // Turn into minion
-                    if (this.minions.length < (this.maxMinions || 5) + 5) { // Allow overflowing max slightly for conversions, or cap it? 
-                        // Let's cap it at maxMinions + some buffer, OR just normal max. 
-                        // Usually summoner classes allow temporary minions beyond limit or hard cap.
-                        // Let's enforce maxMinions but maybe upgrades increase it.
-                        // Actually, converted minions should probably be temporary or count towards cap? 
-                        // If they count towards cap, they might block strong summoned ones.
-                        // Let's make them separate or just count them.
-                        // "Necromancer should be able to turn killed dots into its minions"
-                        // I'll make a special 'undead' minion type that inherits stats.
-
-                        const undead = {
-                            x: sx, y: sy,
-                            radius: e.radius,
-                            speed: e.speed * 0.8,
-                            damage: Math.floor(e.damage * 0.5), // 25% stats was requested, higher with attributes. Let's start at 50% as base is weak.
-                            health: Math.floor(e.maxHealth * 0.25),
-                            maxHealth: Math.floor(e.maxHealth * 0.25),
-                            color: '#88ff88',
-                            icon: '🧟',
-                            isRanged: false,
-                            target: null,
-                            attackCooldown: 0,
-                            lifetime: 20 // Undead expire? The prompt didn't say. Let's keep them permanent until death.
-                        };
-
-                        // Apply bonuses
-                        if (this.selectedClass.bonuses.minionDamage) undead.damage = Math.floor(undead.damage * this.selectedClass.bonuses.minionDamage);
-
-                        this.minions.push(undead);
-                        this.spawnParticles(sx, sy, '#88ff88', 10);
-                        this.damageNumbers.push({ x: sx, y: sy - 20, value: 'Rise!', lifetime: 1, color: '#88ff88' });
-                    }
-                }
-
-                // Vampiric perk
-                if (this.vampiric) {
-                    this.player.health = Math.min(this.player.maxHealth, this.player.health + 2);
-                }
-
-                // Splitter spawns mini enemies
-                if (e.splits) {
-                    for (let j = 0; j < 3; j++) {
-                        const angle = (j / 3) * Math.PI * 2;
-                        const mini = this.createEnemy(e.wx + Math.cos(angle) * 20, e.wy + Math.sin(angle) * 20, 'mini', true);
-                        this.enemies.push(mini);
-                    }
-                }
-
-                // Bomber explodes
-                if (e.explodes) {
-                    this.spawnParticles(sx, sy, '#ff8800', 20);
-                    // Damage player if close
-                    if (pd < 80) {
-                        const dmg = Math.floor(e.damage * 1.5);
-                        this.player.health -= dmg;
-                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -dmg, lifetime: 1, color: '#ff8800' });
-                    }
-                }
-
-                // Nuclear perk - enemies explode
-                if (this.nuclear) {
-                    this.spawnParticles(sx, sy, '#ffff00', 15);
-                    // Damage nearby enemies
-                    for (const other of this.enemies) {
-                        if (other === e) continue;
-                        const osx = this.player.x + (other.wx - this.worldX);
-                        const osy = this.player.y + (other.wy - this.worldY);
-                        const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
-                        if (od < 60) other.health -= 15;
-                    }
-                }
-
-                const xpGain = Math.floor(e.xp * this.xpMultiplier);
-                this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#4ade80', isItem: false });
-                this.spawnParticles(sx, sy, e.color, 10);
-                // Boss drops item
-                if (e.isBoss) {
-                    if (e.type === 'general') {
-                        // Drop Demon Piece
-                        // Find uncollected piece
-                        const missing = DEMON_SET_PIECES.filter(p => !this.demonSet[p.id]);
-                        if (missing.length > 0) {
-                            const piece = missing[Math.floor(Math.random() * missing.length)];
-                            this.pickups.push({
-                                wx: e.wx, wy: e.wy,
-                                radius: 12, color: '#ff0044',
-                                isDemonPiece: true, pieceId: piece.id
-                            });
-                        } else {
-                            // All collected? Maybe big XP or random item
-                            this.dropItem(e.wx, e.wy);
-                        }
-                    } else {
-                        this.dropItem(e.wx, e.wy);
-                    }
-                }
-                this.enemies.splice(i, 1);
+                this.handleEnemyDeath(e, sxMoved, syMoved, i);
             }
         }
+    }
+
+    handleEnemyDeath(e, sx, sy, index) {
+        this.player.kills++;
+        this.playSound('kill');
+
+        // Dotomancer Conversion
+        if (this.conversionChance > 0 && Math.random() < this.conversionChance) {
+            if (this.minions.length < (this.maxMinions || 5) + 5) {
+                const undead = {
+                    x: sx, y: sy,
+                    radius: e.radius,
+                    speed: e.speed * 0.8,
+                    damage: Math.floor(e.damage * 0.5),
+                    health: Math.floor(e.maxHealth * 0.25),
+                    maxHealth: Math.floor(e.maxHealth * 0.25),
+                    color: '#88ff88',
+                    icon: '🧟',
+                    isRanged: false,
+                    target: null,
+                    attackCooldown: 0,
+                    lifetime: 20
+                };
+                if (this.selectedClass.bonuses.minionDamage) undead.damage = Math.floor(undead.damage * this.selectedClass.bonuses.minionDamage);
+                this.minions.push(undead);
+                this.spawnParticles(sx, sy, '#88ff88', 10);
+                this.damageNumbers.push({ x: sx, y: sy - 20, value: 'Rise!', lifetime: 1, color: '#88ff88' });
+            }
+        }
+
+        // Vampiric perk
+        if (this.vampiric) {
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + 2);
+        }
+
+        // Splitter spawns mini enemies
+        if (e.splits) {
+            for (let j = 0; j < 3; j++) {
+                const angle = (j / 3) * Math.PI * 2;
+                const mini = this.createEnemy(e.wx + Math.cos(angle) * 20, e.wy + Math.sin(angle) * 20, 'mini', true);
+                this.enemies.push(mini);
+            }
+        }
+
+        // Bomber explodes
+        if (e.explodes) {
+            this.spawnParticles(sx, sy, '#ff8800', 20);
+            const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+            if (pd < 80) {
+                const dmg = Math.floor(e.damage * 1.5);
+                this.player.health -= dmg;
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -dmg, lifetime: 1, color: '#ff8800' });
+            }
+        }
+
+        // Nuclear perk - enemies explode
+        if (this.nuclear) {
+            this.spawnParticles(sx, sy, '#ffff00', 15);
+            for (const other of this.enemies) {
+                if (other === e) continue;
+                const osx = this.player.x + (other.wx - this.worldX);
+                const osy = this.player.y + (other.wy - this.worldY);
+                const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
+                if (od < 60) other.health -= 15;
+            }
+        }
+
+        const xpGain = Math.floor(e.xp * this.xpMultiplier);
+        this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#4ade80', isItem: false });
+        this.spawnParticles(sx, sy, e.color, 10);
+
+        // Boss drops item
+        if (e.isBoss) {
+            if (e.type === 'general') {
+                const missing = DEMON_SET_PIECES.filter(p => !this.demonSet[p.id]);
+                if (missing.length > 0) {
+                    const piece = missing[Math.floor(Math.random() * missing.length)];
+                    this.pickups.push({
+                        wx: e.wx, wy: e.wy,
+                        radius: 12, color: '#ff0044',
+                        isDemonPiece: true, pieceId: piece.id
+                    });
+                } else {
+                    this.dropItem(e.wx, e.wy);
+                }
+            } else {
+                this.dropItem(e.wx, e.wy);
+            }
+        }
+        this.enemies.splice(index, 1);
     }
 
     dropItem(wx, wy) {
@@ -1680,7 +2027,14 @@ class DotsSurvivor {
             const desc = u.getDesc ? u.getDesc(this) : u.desc;
             const card = document.createElement('div');
             card.className = `upgrade-card ${u.rarity}`;
-            card.innerHTML = `<div class="upgrade-rarity">${u.rarity}</div><div class="upgrade-icon">${u.icon}</div><div class="upgrade-name">${u.name}</div><div class="upgrade-desc">${desc}</div>`;
+            card.innerHTML = `
+                <div class="upgrade-rarity">${u.rarity}</div>
+                <div class="upgrade-icon">${u.icon}</div>
+                <div class="upgrade-details-container">
+                    <div class="upgrade-name">${u.name}</div>
+                    <div class="upgrade-desc">${desc}</div>
+                </div>
+            `;
             card.addEventListener('click', () => {
                 u.effect(this);
                 document.getElementById('levelup-menu').classList.add('hidden');
@@ -1708,29 +2062,38 @@ class DotsSurvivor {
         }
     }
 
-    showAugmentMenu() {
+    showAugmentMenu(choices = null, onComplete = null) {
+        // If first arg is function, it's onComplete (legacy support or if no choices passed)
+        if (typeof choices === 'function') {
+            onComplete = choices;
+            choices = null;
+        }
+
         this.gamePaused = true;
         this.playSound('levelup');
 
-        // Use the flattened DIAMOND_AUGMENTS
-        const available = DIAMOND_AUGMENTS.filter(a => {
-            if (this.augments.includes(a.id)) return false;
-            if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
-            return true;
-        });
+        if (!choices) {
+            // Internal selection logic (only Diamond Augments by default)
+            // Use the flattened DIAMOND_AUGMENTS
+            const available = DIAMOND_AUGMENTS.filter(a => {
+                if (this.augments.includes(a.id)) return false;
+                if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
+                return true;
+            });
 
-        if (available.length === 0) {
-            this.showLevelUpMenu();
-            return;
-        }
+            if (available.length === 0) {
+                // No augments available?
+                this.gamePaused = false;
+                if (onComplete) onComplete();
+                return;
+            }
 
-        const choices = [];
-        // Pick 2 random available augments
-        // Since we removed strict class paths, all are available
-        const pool = [...available];
-        while (choices.length < 2 && pool.length > 0) {
-            const idx = Math.floor(Math.random() * pool.length);
-            choices.push(pool.splice(idx, 1)[0]);
+            choices = [];
+            const pool = [...available];
+            while (choices.length < 2 && pool.length > 0) {
+                const idx = Math.floor(Math.random() * pool.length);
+                choices.push(pool.splice(idx, 1)[0]);
+            }
         }
 
         const container = document.getElementById('augment-choices');
@@ -1741,13 +2104,21 @@ class DotsSurvivor {
             card.className = `upgrade-card legendary`;
             card.style.borderColor = '#00ffff';
             card.style.boxShadow = '0 0 15px rgba(0,255,255,0.2)';
-            card.innerHTML = `<div class="upgrade-rarity" style="background:#00ffff;color:#000;">DIAMOND</div><div class="upgrade-icon">${u.icon}</div><div class="upgrade-name" style="color:#00ffff;">${u.name}</div><div class="upgrade-desc" style="color:#aee;">${u.desc}</div>`;
+            card.innerHTML = `
+                <div class="upgrade-rarity" style="background:#00ffff;color:#000;">DIAMOND</div>
+                <div class="upgrade-icon">${u.icon}</div>
+                <div class="upgrade-details-container">
+                    <div class="upgrade-name" style="color:#00ffff;">${u.name}</div>
+                    <div class="upgrade-desc" style="color:#aee;">${u.desc}</div>
+                </div>
+            `;
             card.addEventListener('click', () => {
                 u.effect(this);
                 document.getElementById('augment-menu').classList.add('hidden');
                 this.gamePaused = false;
                 this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: `💎 ${u.name}!`, lifetime: 3, color: '#00ffff' });
                 this.updateAugmentDisplay();
+                if (onComplete) onComplete();
             });
             container.appendChild(card);
         });
@@ -1790,20 +2161,7 @@ class DotsSurvivor {
         }
     }
 
-    // ... (rest of methods until drawHUD) ...
 
-    drawHUD() {
-        // This is not an existing method, the HUD is HTML based in this codebase (checked earlier).
-        // Wait, line 1370 suggests item drawing on canvas? 
-        // "ctx.fillRect(20, y, 100, 20)" -> Yes, `drawHUD` or similar exists but I don't see the method definition in the snippet.
-        // Ah, looking at previous `view_file` (1370-1378), it seems to be inside `render` or a `drawHUD` method.
-        // It uses `ctx`. Let's assume it's part of `render` or called by it.
-        // The snippet 1370 starts with `if (lvl > 0)`.
-        // I need to insert the diamond augment display *after* the items loop.
-
-        // Let's find where the items loop ends. Line 1377 `});`.
-        // I will append code there.
-    }
 
     updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) this.particles.splice(i, 1); } }
     updateDamageNumbers(dt) { for (let i = this.damageNumbers.length - 1; i >= 0; i--) { const d = this.damageNumbers[i]; d.y -= 35 * dt; d.lifetime -= dt; if (d.lifetime <= 0) this.damageNumbers.splice(i, 1); } }
@@ -1840,6 +2198,86 @@ class DotsSurvivor {
         }
     }
 
+    drawEvents(ctx) {
+        if (!this.activeEvent) return;
+
+        // Ring of Fire
+        if (this.ringOfFire.active) {
+            // Check if ring is fixed or centered on player
+            // Logic in updatePlayer suggests it tracks worldX/worldY if not set, or we used set center
+            // Let's assume it has a center
+            const centerX = this.ringOfFire.centerX || this.worldX;
+            const centerY = this.ringOfFire.centerY || this.worldY;
+
+            // Convert to screen coords
+            const sx = this.player.x + (centerX - this.worldX);
+            const sy = this.player.y + (centerY - this.worldY);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(sx, sy, this.ringOfFire.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ff4400';
+            ctx.lineWidth = 4 + Math.sin(this.gameTime / 100) * 2;
+            ctx.setLineDash([10, 5]);
+            ctx.stroke();
+
+            // Burning effects on ring
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff4400';
+            ctx.stroke();
+
+            // Inner danger zone indication
+            ctx.fillStyle = 'rgba(255, 68, 0, 0.1)';
+            ctx.fill();
+            ctx.restore();
+
+            // Draw particles on ring
+            if (Math.random() < 0.3) {
+                const angle = Math.random() * Math.PI * 2;
+                const px = sx + Math.cos(angle) * this.ringOfFire.radius;
+                const py = sy + Math.sin(angle) * this.ringOfFire.radius;
+                // We're in render loop, better not spawn logic particles here usually, 
+                // but visual only particles are fine if we had a visual-only list. 
+                // Or just draw directly.
+                // Let's sticking to standard particles via spawn in updateEvents, 
+                // but we can draw some glow here.
+            }
+        }
+
+        // Trap Square
+        if (this.trapSquare.active) {
+            const centerX = this.trapSquare.centerX;
+            const centerY = this.trapSquare.centerY;
+
+            const sx = this.player.x + (centerX - this.worldX);
+            const sy = this.player.y + (centerY - this.worldY);
+            const size = this.trapSquare.size;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(sx - size / 2, sy - size / 2, size, size);
+            ctx.strokeStyle = '#8844ff';
+            ctx.lineWidth = 5;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#aa66ff';
+            ctx.stroke();
+
+            // Walls effect
+            ctx.fillStyle = 'rgba(136, 68, 255, 0.05)';
+            ctx.fill();
+
+            // Corner markers
+            const cornerSize = 20;
+            ctx.fillStyle = '#aa66ff';
+            ctx.fillRect(sx - size / 2 - 5, sy - size / 2 - 5, cornerSize, cornerSize);
+            ctx.fillRect(sx + size / 2 - cornerSize + 5, sy - size / 2 - 5, cornerSize, cornerSize);
+            ctx.fillRect(sx - size / 2 - 5, sy + size / 2 - cornerSize + 5, cornerSize, cornerSize);
+            ctx.fillRect(sx + size / 2 - cornerSize + 5, sy + size / 2 - cornerSize + 5, cornerSize, cornerSize);
+
+            ctx.restore();
+        }
+    }
+
     render() {
         const ctx = this.ctx;
         ctx.fillStyle = '#0a0a0f';
@@ -1855,6 +2293,10 @@ class DotsSurvivor {
         ctx.translate(-centerX, -centerY);
 
         this.drawGrid();
+
+        // Draw events
+        this.drawEvents(ctx);
+
         // Pickups
         this.pickups.forEach(pk => {
             const sx = this.player.x + (pk.wx - this.worldX);
@@ -2046,15 +2488,23 @@ class DotsSurvivor {
     drawItems() {
         const ctx = this.ctx;
         let y = 50;
+        const compact = this.canvas.width < 768;
 
         // Items
         Object.entries(this.items).forEach(([key, lvl]) => {
             if (lvl > 0) {
                 const item = ITEMS[key];
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(20, y, 100, 20);
-                ctx.font = '12px Inter'; ctx.fillStyle = '#fbbf24'; ctx.textAlign = 'left';
-                ctx.fillText(`${item.icon} Lv${lvl}`, 25, y + 14);
-                y += 24;
+                if (compact) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(10, y, 50, 24);
+                    ctx.font = '14px Inter'; ctx.fillStyle = '#fbbf24'; ctx.textAlign = 'left';
+                    ctx.fillText(`${item.icon}${lvl}`, 15, y + 17);
+                    y += 28;
+                } else {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(20, y, 100, 20);
+                    ctx.font = '12px Inter'; ctx.fillStyle = '#fbbf24'; ctx.textAlign = 'left';
+                    ctx.fillText(`${item.icon} Lv${lvl}`, 25, y + 14);
+                    y += 24;
+                }
             }
         });
 
@@ -2063,11 +2513,20 @@ class DotsSurvivor {
         this.augments.forEach(augId => {
             const aug = DIAMOND_AUGMENTS.find(a => a.id === augId);
             if (aug) {
-                ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(20, y, 120, 20);
-                ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(20, y, 120, 20);
-                ctx.font = '12px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'left';
-                ctx.fillText(`${aug.icon} ${aug.name}`, 25, y + 14);
-                y += 24;
+                if (compact) {
+                    ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(10, y, 30, 30);
+                    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(10, y, 30, 30);
+                    ctx.font = '18px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'center';
+                    // Center icon in the box
+                    ctx.fillText(`${aug.icon}`, 25, y + 20);
+                    y += 35;
+                } else {
+                    ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(20, y, 120, 20);
+                    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(20, y, 120, 20);
+                    ctx.font = '12px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'left';
+                    ctx.fillText(`${aug.icon} ${aug.name}`, 25, y + 14);
+                    y += 24;
+                }
             }
         });
     }
