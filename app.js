@@ -225,9 +225,27 @@ class PokerApp {
         this.gameSettings = settings;
         document.getElementById('settings-modal').classList.remove('active');
 
-        // For multiplayer without AI - try online first
+        // For multiplayer without AI - use local sync for same-browser tabs, online for remote
         if (!withDealer) {
-            this.createOnlineRoom(playerName, settings, false);
+            // Use local cross-tab sync (works without server, across browser tabs on same machine)
+            if (window.roomSync) {
+                const result = window.roomSync.createRoom(playerName, settings);
+                this.isOnlineMode = false;
+                this.useLocalSync = true;
+                this.currentPlayerId = result.playerId;
+
+                // Also create local game instance
+                const { roomCode, game } = this.roomManager.createRoom(playerName, settings, false);
+                this.currentGame = game;
+
+                // Setup sync callbacks
+                this.setupSyncCallbacks();
+                this.setupGameCallbacks();
+                this.showLobby(result.roomCode);
+            } else {
+                // Fall back to online server
+                this.createOnlineRoom(playerName, settings, false);
+            }
             return;
         }
 
@@ -259,8 +277,39 @@ class PokerApp {
             return;
         }
 
-        // Always use online for joining rooms (local rooms can't be joined remotely)
-        this.joinOnlineRoom(roomCode, playerName);
+        // Try local cross-tab sync first (works without server)
+        if (window.roomSync) {
+            window.roomSync.joinRoom(roomCode, playerName).then(result => {
+                if (result.success) {
+                    this.isOnlineMode = false;
+                    this.useLocalSync = true;
+                    this.currentPlayerId = result.playerId;
+
+                    // Setup sync callbacks
+                    this.setupSyncCallbacks();
+
+                    // Create a local game instance from the synced data
+                    this.currentGame = this.roomManager.getRoom(roomCode);
+                    if (!this.currentGame) {
+                        // Create game from sync data
+                        const room = window.roomSync.getRoom();
+                        this.currentGame = new PokerGame(roomCode, '', false, room.settings || {});
+                        this.currentGame.players = room.players;
+                        this.roomManager.rooms.set(roomCode, this.currentGame);
+                    }
+
+                    this.setupGameCallbacks();
+                    this.showLobby(roomCode);
+                } else {
+                    // Fall back to online server
+                    console.log('Local sync failed, trying online server:', result.message);
+                    this.joinOnlineRoom(roomCode, playerName);
+                }
+            });
+        } else {
+            // No local sync available, use online
+            this.joinOnlineRoom(roomCode, playerName);
+        }
     }
 
     setupGameCallbacks() {
@@ -306,6 +355,60 @@ class PokerApp {
                     }
                 }
             }, 2000);
+        };
+    }
+
+    setupSyncCallbacks() {
+        if (!window.roomSync) return;
+
+        // When another player joins
+        window.roomSync.callbacks.onPlayerJoined = (player, room) => {
+            // Update local game with new player
+            if (this.currentGame && !this.currentGame.players.find(p => p.id === player.id)) {
+                this.currentGame.players.push(player);
+            }
+            this.updatePlayersList();
+            this.updateStartButton();
+        };
+
+        // When a player leaves
+        window.roomSync.callbacks.onPlayerLeft = (playerId, room) => {
+            if (this.currentGame) {
+                const player = this.currentGame.players.find(p => p.id === playerId);
+                if (player) player.isConnected = false;
+            }
+            this.updatePlayersList();
+        };
+
+        // When game updates
+        window.roomSync.callbacks.onGameUpdate = (room) => {
+            if (this.currentGame && this.currentScreen === 'game') {
+                // Sync game state
+                this.currentGame.players = room.players;
+                this.currentGame.communityCards = room.gameState.communityCards || [];
+                this.currentGame.pot = room.gameState.pot;
+                this.currentGame.currentBet = room.gameState.currentBet;
+                this.currentGame.gamePhase = room.gameState.phase;
+                this.currentGame.currentPlayerIndex = room.gameState.currentPlayerIndex;
+
+                this.updateGameDisplay();
+            }
+        };
+
+        // When chat message received
+        window.roomSync.callbacks.onChatMessage = (message) => {
+            this.addChatMessage(message);
+        };
+
+        // When room updates (general)
+        window.roomSync.callbacks.onRoomUpdate = (room) => {
+            if (this.currentScreen === 'lobby') {
+                if (this.currentGame) {
+                    this.currentGame.players = room.players;
+                }
+                this.updatePlayersList();
+                this.updateStartButton();
+            }
         };
     }
 

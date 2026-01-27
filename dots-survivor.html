@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dots Survivor - Zecruu Games</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="dots-survivor.css">
+</head>
+
+<body>
+    <!-- Start Menu -->
+    <div id="start-menu" class="menu-overlay">
+        <div class="menu-content">
+            <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
+            <p class="game-subtitle">How long can you survive?</p>
+            <button id="start-btn" class="menu-btn primary">START GAME</button>
+            <div class="controls-info">
+                <p>🎮 WASD or Arrow Keys to move</p>
+                <p>🔫 Auto-fire enabled</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Game HUD -->
+    <div id="game-hud" class="hidden">
+        <div class="hud-top">
+            <div class="timer-display">
+                <span id="timer">00:00</span>
+            </div>
+            <div class="wave-display">
+                Wave <span id="wave-num">1</span>
+            </div>
+        </div>
+        <div class="hud-bottom">
+            <div class="xp-bar-container">
+                <div id="xp-bar" class="xp-bar"></div>
+                <span id="level-display">Lv. 1</span>
+            </div>
+            <div class="stats-display">
+                <span id="kill-count">💀 0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Up Menu -->
+    <div id="levelup-menu" class="menu-overlay hidden">
+        <div class="levelup-content">
+            <h2>⬆️ LEVEL UP!</h2>
+            <p class="choose-text">Choose an upgrade:</p>
+            <div id="upgrade-choices" class="upgrade-choices">
+                <!-- Choices injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Menu -->
+    <div id="gameover-menu" class="menu-overlay hidden">
+        <div class="menu-content gameover">
+            <h1>💀 GAME OVER</h1>
+            <div class="final-stats">
+                <p>⏱️ Survived: <span id="final-time">00:00</span></p>
+                <p>💀 Kills: <span id="final-kills">0</span></p>
+                <p>📈 Level: <span id="final-level">1</span></p>
+            </div>
+            <button id="restart-btn" class="menu-btn primary">PLAY AGAIN</button>
+            <a href="index.html" class="menu-btn secondary">BACK TO HUB</a>
+        </div>
+    </div>
+
+    <script src="dots-survivor.js"></script>
+</body>
+
+</html>
