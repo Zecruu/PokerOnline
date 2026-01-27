@@ -410,3 +410,138 @@ body {
         width: 250px;
     }
 }
+
+/* Auth Styles */
+.auth-tab {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
+    border: 2px solid #333;
+    color: var(--text-secondary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.auth-tab:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.auth-tab:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+.auth-tab.active {
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    border-color: var(--accent-primary);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.auth-form input {
+    padding: 0.875rem 1rem;
+    background: var(--bg-card);
+    border: 2px solid #333;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.auth-form input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.auth-form input::placeholder {
+    color: var(--text-secondary);
+}
+
+.auth-error {
+    color: var(--danger);
+    font-size: 0.875rem;
+    min-height: 1.25rem;
+}
+
+/* Leaderboard Styles */
+.lb-tab {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
+    border: 2px solid #333;
+    color: var(--text-secondary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.lb-tab:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.lb-tab:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+.lb-tab.active {
+    background: var(--legendary);
+    color: var(--bg-dark);
+    border-color: var(--legendary);
+}
+
+.lb-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.lb-entry {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
+    border: 2px solid #333;
+    border-radius: 8px;
+    gap: 1rem;
+}
+
+.lb-entry.lb-me {
+    border-color: var(--accent-primary);
+    background: rgba(0, 255, 170, 0.1);
+}
+
+.lb-rank {
+    font-size: 1.25rem;
+    min-width: 3rem;
+    text-align: center;
+}
+
+.lb-name {
+    flex: 1;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.lb-value {
+    color: var(--legendary);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.lb-loading,
+.lb-empty,
+.lb-error {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.lb-error {
+    color: var(--danger);
+}

@@ -761,6 +761,335 @@ function sanitizeRoom(room) {
     return data;
 }
 
+// ================== USER AUTHENTICATION & DOTS SURVIVOR API ==================
+
+const { User, LeaderboardEntry } = require('./userModels');
+
+// Generate session token (simple implementation)
+function generateToken() {
+    return require('crypto').randomBytes(32).toString('hex');
+}
+
+// In-memory session store (for production, use Redis)
+const sessions = new Map();
+
+// Middleware to check auth
+function authenticateToken(req, res, next) {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+
+    const session = sessions.get(token);
+    if (!session) return res.status(401).json({ error: 'Invalid or expired token' });
+
+    req.userId = session.userId;
+    req.username = session.username;
+    next();
+}
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+
+        if (!username || !email || !password) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        if (username.length < 3 || username.length > 20) {
+            return res.status(400).json({ error: 'Username must be 3-20 characters' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        // Check if username or email exists
+        const existingUser = await User.findOne({ $or: [{ username }, { email: email.toLowerCase() }] });
+        if (existingUser) {
+            if (existingUser.username === username) {
+                return res.status(400).json({ error: 'Username already taken' });
+            }
+            return res.status(400).json({ error: 'Email already registered' });
+        }
+
+        const user = new User({ username, email: email.toLowerCase() });
+        user.setPassword(password);
+        await user.save();
+
+        // Auto-login after registration
+        const token = generateToken();
+        sessions.set(token, { userId: user._id, username: user.username });
+
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                savedGame: user.savedGame,
+                stats: user.dotsSurvivorStats
+            }
+        });
+
+        console.log(`✅ User registered: ${username}`);
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({ error: 'Registration failed' });
+    }
+});
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { login, password } = req.body;
+
+        if (!login || !password) {
+            return res.status(400).json({ error: 'Login and password required' });
+        }
+
+        // Find by username or email
+        const user = await User.findOne({
+            $or: [{ username: login }, { email: login.toLowerCase() }]
+        });
+
+        if (!user || !user.validatePassword(password)) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        user.lastLogin = new Date();
+        await user.save();
+
+        const token = generateToken();
+        sessions.set(token, { userId: user._id, username: user.username });
+
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                savedGame: user.savedGame,
+                stats: user.dotsSurvivorStats
+            }
+        });
+
+        console.log(`✅ User logged in: ${user.username}`);
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// Logout
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    sessions.delete(token);
+    res.json({ success: true });
+});
+
+// Get current user
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        res.json({
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            savedGame: user.savedGame,
+            stats: user.dotsSurvivorStats
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get user' });
+    }
+});
+
+// ================== DOTS SURVIVOR SAVE/LOAD ==================
+
+// Save game
+app.post('/api/dots-survivor/save', authenticateToken, async (req, res) => {
+    try {
+        const { gameState } = req.body;
+
+        if (!gameState) {
+            return res.status(400).json({ error: 'No game state provided' });
+        }
+
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.savedGame = {
+            exists: true,
+            savedAt: new Date(),
+            gameState
+        };
+        await user.save();
+
+        res.json({ success: true, savedAt: user.savedGame.savedAt });
+        console.log(`💾 Game saved for ${user.username}`);
+    } catch (error) {
+        console.error('Save game error:', error);
+        res.status(500).json({ error: 'Failed to save game' });
+    }
+});
+
+// Load game
+app.get('/api/dots-survivor/load', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (!user.savedGame?.exists) {
+            return res.status(404).json({ error: 'No saved game found' });
+        }
+
+        res.json({
+            success: true,
+            savedAt: user.savedGame.savedAt,
+            gameState: user.savedGame.gameState
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load game' });
+    }
+});
+
+// Delete saved game
+app.delete('/api/dots-survivor/save', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.savedGame = { exists: false };
+        await user.save();
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete save' });
+    }
+});
+
+// Submit score (end of game)
+app.post('/api/dots-survivor/submit-score', authenticateToken, async (req, res) => {
+    try {
+        const { score, wave, kills, timePlayed } = req.body;
+
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const stats = user.dotsSurvivorStats;
+        let updated = false;
+
+        // Update personal bests
+        if (score > stats.highestScore) {
+            stats.highestScore = score;
+            updated = true;
+        }
+        if (wave > stats.highestWave) {
+            stats.highestWave = wave;
+            updated = true;
+        }
+        if (kills > stats.highestKills) {
+            stats.highestKills = kills;
+            updated = true;
+        }
+
+        stats.totalGamesPlayed++;
+        stats.totalTimePlayed += timePlayed || 0;
+
+        // Clear saved game on submission
+        user.savedGame = { exists: false };
+        await user.save();
+
+        // Update leaderboards
+        await updateLeaderboard(user._id, user.username, 'score', score);
+        await updateLeaderboard(user._id, user.username, 'wave', wave);
+        await updateLeaderboard(user._id, user.username, 'kills', kills);
+
+        res.json({
+            success: true,
+            newPersonalBest: updated,
+            stats: user.dotsSurvivorStats
+        });
+
+        console.log(`🏆 Score submitted: ${user.username} - Wave ${wave}, ${kills} kills`);
+    } catch (error) {
+        console.error('Submit score error:', error);
+        res.status(500).json({ error: 'Failed to submit score' });
+    }
+});
+
+async function updateLeaderboard(userId, username, category, value) {
+    try {
+        await LeaderboardEntry.findOneAndUpdate(
+            { userId, category },
+            { userId, username, category, value: Math.max(value, 0), achievedAt: new Date() },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+    } catch (error) {
+        console.error('Leaderboard update error:', error);
+    }
+}
+
+// ================== LEADERBOARDS ==================
+
+// Get leaderboard
+app.get('/api/leaderboard/:category', async (req, res) => {
+    try {
+        const { category } = req.params;
+        const limit = parseInt(req.query.limit) || 10;
+
+        if (!['score', 'wave', 'kills'].includes(category)) {
+            return res.status(400).json({ error: 'Invalid category' });
+        }
+
+        const entries = await LeaderboardEntry
+            .find({ category })
+            .sort({ value: -1 })
+            .limit(limit)
+            .lean();
+
+        res.json({
+            category,
+            entries: entries.map((e, i) => ({
+                rank: i + 1,
+                username: e.username,
+                value: e.value,
+                achievedAt: e.achievedAt
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get leaderboard' });
+    }
+});
+
+// Get user rank
+app.get('/api/leaderboard/:category/rank', authenticateToken, async (req, res) => {
+    try {
+        const { category } = req.params;
+
+        if (!['score', 'wave', 'kills'].includes(category)) {
+            return res.status(400).json({ error: 'Invalid category' });
+        }
+
+        const userEntry = await LeaderboardEntry.findOne({ userId: req.userId, category });
+        if (!userEntry) {
+            return res.json({ rank: null, value: 0 });
+        }
+
+        const rank = await LeaderboardEntry.countDocuments({
+            category,
+            value: { $gt: userEntry.value }
+        }) + 1;
+
+        res.json({ rank, value: userEntry.value });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get rank' });
+    }
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 });

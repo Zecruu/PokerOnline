@@ -289,24 +289,160 @@ class DotsSurvivor {
             pauseMenu = document.createElement('div');
             pauseMenu.id = 'pause-menu';
             pauseMenu.className = 'menu-overlay';
-            pauseMenu.innerHTML = `
-                <div class="menu-content" style="text-align:center;">
-                    <h1 style="font-size:3rem;margin-bottom:1rem;">⏸️ PAUSED</h1>
-                    <p style="color:#888;margin-bottom:2rem;">Press ESC or P to resume</p>
-                    <button id="resume-btn" class="menu-btn" style="background:linear-gradient(135deg,#00ffaa,#00aa66);border:none;padding:1rem 2rem;border-radius:12px;color:#000;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;">▶️ Resume</button>
-                    <button id="quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#ff4466,#cc2244);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;">🚪 Quit</button>
-                </div>
-            `;
             document.body.appendChild(pauseMenu);
-            document.getElementById('resume-btn').addEventListener('click', () => this.togglePause());
-            document.getElementById('quit-btn').addEventListener('click', () => { this.togglePause(); this.gameOver(); });
         }
+
+        // Show save option only if logged in
+        const canSave = typeof authManager !== 'undefined' && authManager.user;
+
+        pauseMenu.innerHTML = `
+            <div class="menu-content" style="text-align:center;">
+                <h1 style="font-size:3rem;margin-bottom:1rem;">⏸️ PAUSED</h1>
+                <p style="color:#888;margin-bottom:2rem;">Press ESC or P to resume</p>
+                <button id="resume-btn" class="menu-btn" style="background:linear-gradient(135deg,#00ffaa,#00aa66);border:none;padding:1rem 2rem;border-radius:12px;color:#000;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:200px;margin-left:auto;margin-right:auto;">▶️ Resume</button>
+                ${canSave ? `<button id="save-quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#4da6ff,#2266aa);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:200px;margin-left:auto;margin-right:auto;">💾 Save & Quit</button>` : ''}
+                <button id="quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#ff4466,#cc2244);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:200px;margin-left:auto;margin-right:auto;">🚪 Quit</button>
+            </div>
+        `;
+
+        document.getElementById('resume-btn').addEventListener('click', () => this.togglePause());
+        document.getElementById('quit-btn').addEventListener('click', () => {
+            this.togglePause();
+            this.gameOver();
+        });
+
+        if (canSave) {
+            document.getElementById('save-quit-btn').addEventListener('click', async () => {
+                await this.saveGame();
+                this.gameRunning = false;
+                document.getElementById('pause-menu').classList.add('hidden');
+                document.getElementById('game-hud').classList.add('hidden');
+                document.getElementById('start-menu').classList.remove('hidden');
+                authManager.showStartMenu();
+            });
+        }
+
         pauseMenu.classList.remove('hidden');
     }
 
     hidePauseMenu() {
         const pauseMenu = document.getElementById('pause-menu');
         if (pauseMenu) pauseMenu.classList.add('hidden');
+    }
+
+    // Get serializable game state for saving
+    getGameState() {
+        return {
+            // Player state
+            playerX: this.worldX,
+            playerY: this.worldY,
+            playerHealth: this.player.health,
+            playerMaxHealth: this.player.maxHealth,
+            playerLevel: this.player.level,
+            playerXp: this.player.xp,
+            playerXpToLevel: this.player.xpToLevel,
+            playerKills: this.player.kills,
+            playerSpeed: this.player.speed,
+            playerHpRegen: this.player.hpRegen || 0,
+
+            // Game state
+            wave: this.wave,
+            gameTime: this.gameTime,
+            magnetRadius: this.magnetRadius,
+
+            // Weapons
+            weapons: this.weapons,
+
+            // Stars/Orbitals
+            starsCount: this.stars.length,
+            orbitalsCount: this.orbitals.length,
+
+            // Perks and augments
+            perks: this.perks,
+            augments: this.augments,
+
+            // Class
+            selectedClassName: this.selectedClass?.name,
+
+            // Minion data
+            maxMinions: this.maxMinions,
+            conversionChance: this.conversionChance,
+
+            // Demon set
+            demonSet: this.demonSet,
+            demonSetBonusActive: this.demonSetBonusActive,
+            impStats: this.impStats,
+
+            // Boosts
+            startBoost: this.startBoost
+        };
+    }
+
+    // Load game state from saved data
+    loadGameState(state) {
+        if (!state) return false;
+
+        // Player
+        this.worldX = state.playerX || 0;
+        this.worldY = state.playerY || 0;
+        this.player.health = state.playerHealth || 100;
+        this.player.maxHealth = state.playerMaxHealth || 100;
+        this.player.level = state.playerLevel || 1;
+        this.player.xp = state.playerXp || 0;
+        this.player.xpToLevel = state.playerXpToLevel || 50;
+        this.player.kills = state.playerKills || 0;
+        this.player.speed = state.playerSpeed || 220;
+        this.player.hpRegen = state.playerHpRegen || 0;
+
+        // Game
+        this.wave = state.wave || 1;
+        this.gameTime = state.gameTime || 0;
+        this.magnetRadius = state.magnetRadius || 100;
+
+        // Weapons
+        if (state.weapons) this.weapons = state.weapons;
+
+        // Stars/Orbitals
+        this.stars = [];
+        for (let i = 0; i < (state.starsCount || 0); i++) {
+            this.stars.push(this.createStar());
+        }
+        this.orbitals = [];
+        for (let i = 0; i < (state.orbitalsCount || 0); i++) {
+            this.orbitals.push(this.createOrbital());
+        }
+
+        // Perks and augments
+        this.perks = state.perks || [];
+        this.augments = state.augments || [];
+        this.perks.forEach(p => this.applyPerk(p));
+
+        // Minions
+        this.maxMinions = state.maxMinions || 0;
+        this.conversionChance = state.conversionChance || 0;
+
+        // Demon set
+        this.demonSet = state.demonSet || { helm: false, chest: false, boots: false };
+        this.demonSetBonusActive = state.demonSetBonusActive || false;
+        if (state.impStats) this.impStats = state.impStats;
+
+        return true;
+    }
+
+    async saveGame() {
+        if (typeof authManager === 'undefined' || !authManager.user) return false;
+
+        const state = this.getGameState();
+        const saved = await authManager.saveGame(state);
+
+        if (saved) {
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 50,
+                value: '💾 GAME SAVED', lifetime: 2, color: '#00ffaa', scale: 1.2
+            });
+        }
+
+        return saved;
     }
 
     setupTouch() {
@@ -498,6 +634,26 @@ class DotsSurvivor {
 
         this.gameRunning = true; this.gamePaused = false; this.lastTime = performance.now();
         requestAnimationFrame((t) => this.gameLoop(t));
+    }
+
+    // Start game with a saved state
+    startGameWithState(savedState) {
+        // First initialize with fresh state (uses default settings)
+        this.startGame('fresh');
+
+        // Then override with saved state
+        if (savedState) {
+            this.loadGameState(savedState);
+
+            // Update HUD immediately
+            this.updateHUD();
+
+            // Show resume message
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 60,
+                value: '▶️ GAME RESUMED', lifetime: 3, color: '#00ffaa', scale: 1.5
+            });
+        }
     }
 
     spawnControlPoint() {
@@ -1661,7 +1817,7 @@ class DotsSurvivor {
         document.getElementById('kill-count').textContent = `💀 ${this.player.kills}`;
     }
 
-    gameOver() {
+    async gameOver() {
         this.gameRunning = false;
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
         document.getElementById('final-time').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
@@ -1669,6 +1825,19 @@ class DotsSurvivor {
         document.getElementById('final-level').textContent = this.player.level;
         document.getElementById('game-hud').classList.add('hidden');
         document.getElementById('gameover-menu').classList.remove('hidden');
+
+        // Submit score if logged in
+        if (typeof authManager !== 'undefined' && authManager.user) {
+            const score = this.player.kills * 10 + this.wave * 100; // Simple score formula
+            const result = await authManager.submitScore(score, this.wave, this.player.kills, Math.floor(this.gameTime / 1000));
+            if (result?.newPersonalBest) {
+                document.getElementById('new-record').classList.remove('hidden');
+            } else {
+                document.getElementById('new-record').classList.add('hidden');
+            }
+        } else {
+            document.getElementById('new-record').classList.add('hidden');
+        }
     }
 
     render() {

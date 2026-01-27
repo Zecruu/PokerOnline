@@ -10,16 +10,83 @@
 </head>
 
 <body>
+    <!-- Auth Menu -->
+    <div id="auth-menu" class="menu-overlay">
+        <div class="menu-content" style="max-width: 400px;">
+            <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
+            <p class="game-subtitle">Sign in to save progress & compete on leaderboards!</p>
+
+            <!-- Login/Register Toggle -->
+            <div id="auth-tabs" style="display:flex;gap:0;margin:1.5rem 0;">
+                <button id="tab-login" class="auth-tab active" onclick="showAuthTab('login')">LOGIN</button>
+                <button id="tab-register" class="auth-tab" onclick="showAuthTab('register')">REGISTER</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form">
+                <input type="text" id="login-username" placeholder="Username or Email" required>
+                <input type="password" id="login-password" placeholder="Password" required>
+                <div id="login-error" class="auth-error"></div>
+                <button type="submit" class="menu-btn primary">LOGIN</button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form hidden">
+                <input type="text" id="register-username" placeholder="Username (3-20 chars)" required minlength="3"
+                    maxlength="20">
+                <input type="email" id="register-email" placeholder="Email" required>
+                <input type="password" id="register-password" placeholder="Password (6+ chars)" required minlength="6">
+                <div id="register-error" class="auth-error"></div>
+                <button type="submit" class="menu-btn primary">CREATE ACCOUNT</button>
+            </form>
+
+            <button id="play-guest-btn" class="menu-btn secondary" style="margin-top:1rem;">PLAY AS GUEST</button>
+        </div>
+    </div>
+
     <!-- Start Menu -->
-    <div id="start-menu" class="menu-overlay">
+    <div id="start-menu" class="menu-overlay hidden">
         <div class="menu-content">
+            <div id="user-info" style="position:absolute;top:1rem;right:1rem;text-align:right;"></div>
             <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
             <p class="game-subtitle">How long can you survive?</p>
+
+            <!-- Saved Game Notice -->
+            <div id="saved-game-notice" class="hidden"
+                style="background:#00ffaa22;border:2px solid #00ffaa;border-radius:12px;padding:1rem;margin:1rem 0;">
+                <p style="color:#00ffaa;margin:0;">💾 You have a saved game!</p>
+                <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                    <button id="continue-btn" class="menu-btn primary" style="flex:1;">CONTINUE</button>
+                    <button id="new-game-btn" class="menu-btn secondary" style="flex:1;">NEW GAME</button>
+                </div>
+            </div>
+
             <button id="start-btn" class="menu-btn primary">START GAME</button>
+            <button id="leaderboard-btn" class="menu-btn secondary" style="margin-top:0.5rem;">🏆 LEADERBOARDS</button>
+
             <div class="controls-info">
                 <p>🎮 WASD or Arrow Keys to move</p>
                 <p>🔫 Auto-fire enabled</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Menu -->
+    <div id="leaderboard-menu" class="menu-overlay hidden">
+        <div class="menu-content" style="max-width:500px;">
+            <h1 style="color:#fbbf24;margin-bottom:1rem;">🏆 LEADERBOARDS</h1>
+
+            <div id="leaderboard-tabs" style="display:flex;gap:0;margin-bottom:1rem;">
+                <button class="lb-tab active" data-category="wave">🌊 Waves</button>
+                <button class="lb-tab" data-category="kills">💀 Kills</button>
+                <button class="lb-tab" data-category="score">⭐ Score</button>
+            </div>
+
+            <div id="leaderboard-content" style="min-height:300px;">
+                <div class="lb-loading">Loading...</div>
+            </div>
+
+            <button id="lb-back-btn" class="menu-btn secondary" style="margin-top:1rem;">← BACK</button>
         </div>
     </div>
 
@@ -82,11 +149,14 @@
                 <p>💀 Kills: <span id="final-kills">0</span></p>
                 <p>📈 Level: <span id="final-level">1</span></p>
             </div>
+            <div id="new-record" class="hidden" style="color:#fbbf24;font-size:1.2rem;margin:1rem 0;">🏆 NEW PERSONAL
+                BEST!</div>
             <button id="restart-btn" class="menu-btn primary">PLAY AGAIN</button>
             <a href="index.html" class="menu-btn secondary">BACK TO HUB</a>
         </div>
     </div>
 
+    <script src="dots-survivor-auth.js"></script>
     <script src="dots-survivor.js"></script>
 </body>
 
