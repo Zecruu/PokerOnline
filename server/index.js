@@ -786,6 +786,24 @@ function authenticateToken(req, res, next) {
     next();
 }
 
+// Profanity filter
+const BANNED_WORDS = [
+    'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'pussy', 'cock', 'nigger', 'nigga',
+    'faggot', 'fag', 'retard', 'whore', 'slut', 'bastard', 'damn', 'piss', 'penis',
+    'vagina', 'anus', 'dildo', 'porn', 'sex', 'rape', 'nazi', 'hitler', 'kill', 'murder',
+    'suicide', 'terrorist', 'bomb', 'kys', 'kms', 'n1gger', 'n1gga', 'f4g', 'f4ggot',
+    'b1tch', 'sh1t', 'a55', 'd1ck', 'p0rn', 'wh0re', 'sl00t'
+];
+
+function containsProfanity(text) {
+    const normalized = text.toLowerCase().replace(/[0-9@!$]/g, match => {
+        const replacements = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '@': 'a', '!': 'i', '$': 's' };
+        return replacements[match] || match;
+    });
+
+    return BANNED_WORDS.some(word => normalized.includes(word));
+}
+
 // Register
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -797,6 +815,11 @@ app.post('/api/auth/register', async (req, res) => {
 
         if (username.length < 3 || username.length > 20) {
             return res.status(400).json({ error: 'Username must be 3-20 characters' });
+        }
+
+        // Profanity check
+        if (containsProfanity(username)) {
+            return res.status(400).json({ error: 'Username contains inappropriate language' });
         }
 
         if (password.length < 6) {
