@@ -6,44 +6,47 @@ const BOSS_NAMES = ['Destroyer', 'Eater', 'Bringer', 'Lord', 'King', 'Master', '
 const BOSS_SUFFIXES = ['of Pain', 'of Souls', 'the Cruel', 'the Mighty', 'Supreme', 'Eternal', 'Unstoppable', 'the Devourer'];
 
 // Class definitions
-const CLASSES = {
-    soldier: {
-        name: 'Soldier',
-        icon: '🔫',
-        color: '#ff6600',
-        desc: 'Master of firearms. Shoots more projectiles.',
-        bonuses: { bulletCount: 2, fireRate: 0.8, damage: 1.2 },
-        upgrades: [
-            { id: 'barrage', name: 'Barrage', icon: '🎯', desc: '+2 projectiles', rarity: 'rare', effect: (g) => g.weapons.bullet.count += 2 },
-            { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+40% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.6) },
-            { id: 'explosive', name: 'Explosive Rounds', icon: '💣', desc: '+25 damage', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 25 },
-        ]
-    },
-    mage: {
-        name: 'Mage',
-        icon: '🔮',
-        color: '#aa44ff',
-        desc: 'Wields arcane power. Summons magical orbitals.',
-        bonuses: { orbitalCount: 2, spellDamage: 1.5, xpBonus: 1.2 },
-        upgrades: [
-            { id: 'orbital', name: 'Arcane Orbital', icon: '🌀', desc: '+1 orbiting spell', rarity: 'rare', effect: (g) => g.orbitals.push(g.createOrbital()) },
-            { id: 'nova', name: 'Nova Burst', icon: '✨', desc: 'Orbital damage +15', rarity: 'epic', effect: (g) => g.orbitals.forEach(o => o.damage += 15) },
-            { id: 'meteor', name: 'Meteor Storm', icon: '☄️', desc: '+3 orbitals', rarity: 'legendary', effect: (g) => { for (let i = 0; i < 3; i++) g.orbitals.push(g.createOrbital()); } },
-        ]
-    },
-    necromancer: {
-        name: 'Necromancer',
-        icon: '💀',
-        color: '#44ff88',
-        desc: 'Raises the dead. More enemies spawn to fuel your army.',
-        bonuses: { minionCount: 3, minionDamage: 1.3, minionSpeed: 1.2, spawnsMoreEnemies: true },
-        upgrades: [
-            { id: 'gunner', name: 'Summon Gunner', icon: '🔫', desc: '+1 ranged minion', rarity: 'rare', effect: (g) => g.minions.push(g.createMinion('gunner')) },
-            { id: 'tank', name: 'Summon Tank', icon: '🛡️', desc: '+1 tank minion', rarity: 'epic', effect: (g) => g.minions.push(g.createMinion('tank')) },
-            { id: 'ravager', name: 'Summon Ravager', icon: '⚔️', desc: '+1 ravager minion', rarity: 'legendary', effect: (g) => g.minions.push(g.createMinion('ravager')) },
-        ]
-    }
+// Basic class (no selection)
+const SURVIVOR_CLASS = {
+    name: 'Survivor',
+    icon: '👤',
+    color: '#00ccff',
+    desc: 'The last hope.',
+    bonuses: { bulletCount: 0, fireRate: 1, damage: 1 },
+    upgrades: [
+        // Consolidated upgrades from all classes
+        { id: 'barrage', name: 'Barrage', icon: '🎯', desc: '+1 projectile', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
+        { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+40% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.6), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.6)).toFixed(1)}/s` },
+        { id: 'orbital', name: 'Arcane Orbital', icon: '🌀', desc: '+1 orbiting spell', rarity: 'rare', effect: (g) => g.orbitals.push(g.createOrbital()), getDesc: (g) => `Orbitals: ${g.orbitals.length} → ${g.orbitals.length + 1}` },
+        { id: 'guard', name: 'Summon Guard', icon: '🛡️', desc: '+1 guard minion', rarity: 'rare', effect: (g) => g.addMinion('guard'), getDesc: (g) => `Minions: ${g.minions.length}/${g.maxMinions || 5}` },
+    ]
 };
+
+// Diamond Augments (All combined)
+const DIAMOND_AUGMENTS = [
+    // Soldier Path
+    { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke') },
+    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +100%, but accuracy decreases slightly', effect: (g) => { g.weapons.bullet.fireRate *= 0.5; g.spread = 0.2; } },
+    { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm') },
+    { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +200% damage to Bosses and Tank enemies', effect: (g) => g.augments.push('titan_killer') },
+    // Mage Path
+    { id: 'black_hole', name: 'Black Hole', icon: '⚫', desc: 'Orbitals have a chance to pull enemies in and crush them', effect: (g) => g.augments.push('black_hole') },
+    { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop') },
+    { id: 'elemental_mastery', name: 'Elemental Mastery', icon: '🌈', desc: 'Orbitals cycle between Fire, Ice, and Lightning effects', effect: (g) => g.augments.push('elemental_mastery') },
+    { id: 'unlimited_power', name: 'Unlimited Power', icon: '⚡', desc: 'Cooldowns reduced by 50%, Orbitals spin 2x faster', effect: (g) => g.orbitals.forEach(o => o.speed *= 2) },
+    // Dotomancer Path
+    { id: 'army_of_dead', name: 'Army of the Dead', icon: '🧟', desc: 'Max minions +5, conversion chance +10%', effect: (g) => { g.maxMinions = (g.maxMinions || 0) + 5; g.conversionChance += 0.1; } },
+
+    { id: 'soul_explosion', name: 'Soul Explosion', icon: '💥', desc: 'Minions explode on death dealing 500 damage', effect: (g) => g.augments.push('soul_explosion') },
+    { id: 'lich_king', name: 'Lich King', icon: '👑', desc: 'You gain +10% damage for every active minion', effect: (g) => g.augments.push('lich_king') },
+    // New Hybrid Paths
+    { id: 'tech_wizard', name: 'Tech Wizard', icon: '🔮', desc: 'Projectiles spawn Orbitals on hit (10% chance)', effect: (g) => g.augments.push('tech_wizard') },
+    { id: 'commander', name: 'Field Commander', icon: '📣', desc: 'Your fire rate boosts minion attack speed', effect: (g) => g.augments.push('commander') },
+    // Demon Set Augments
+    { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5 },
+    { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2 },
+    { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5 }
+];
 
 // Items that can drop
 const ITEMS = {
@@ -116,11 +119,16 @@ const LEGENDARY_PERKS = [
     { id: 'nuclear', name: 'Nuclear Core', icon: '☢️', desc: '+50% damage, enemies explode on death' },
     { id: 'timewarp', name: 'Time Warp', icon: '⏰', desc: 'Enemies move 30% slower' },
     { id: 'goldenheart', name: 'Golden Heart', icon: '💛', desc: '+100 max HP, +3 HP regen/s' },
-    { id: 'magnetking', name: 'Magnet King', icon: '🧲', desc: 'Pickup radius +200, auto-collect XP' },
     { id: 'berserk', name: 'Berserker', icon: '😤', desc: '+100% damage when below 30% HP' },
     { id: 'guardian', name: 'Guardian Angel', icon: '👼', desc: 'Revive once with 50% HP' },
     { id: 'inferno', name: 'Inferno Aura', icon: '🔥', desc: 'Burn nearby enemies for 5 DPS' },
     { id: 'frozen', name: 'Frozen Heart', icon: '❄️', desc: 'Chance to freeze enemies on hit' }
+];
+
+const DEMON_SET_PIECES = [
+    { id: 'helm', name: 'Demon Helm', icon: '👹', desc: '+500 Max HP' },
+    { id: 'chest', name: 'Demon Plate', icon: '🛡️', desc: '+20% Damage Reduction' },
+    { id: 'boots', name: 'Demon Greaves', icon: '👢', desc: '+50 Move Speed' }
 ];
 
 class DotsSurvivor {
@@ -177,19 +185,20 @@ class DotsSurvivor {
 
         // Base upgrades with descriptions
         this.baseUpgrades = [
-            { id: 'speed', name: 'Swift Feet', icon: '👟', desc: 'Move 30 units faster', rarity: 'common', effect: (g) => g.player.speed += 30 },
-            { id: 'health', name: 'Vitality', icon: '❤️', desc: 'Increases max HP by 30', rarity: 'common', effect: (g) => { g.player.maxHealth += 30; g.player.health += 30; } },
-            { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +5 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 5 },
-            { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 20% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.8) },
-            { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++ },
-            { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++ },
-            { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50 },
-            { id: 'healregen', name: 'Regeneration', icon: '💚', desc: 'Regenerate +1 HP per second', rarity: 'rare', effect: (g) => g.player.hpRegen = (g.player.hpRegen || 0) + 1 },
-            { id: 'stars', name: 'Orbiting Stars', icon: '⭐', desc: 'Adds a star that circles around you', rarity: 'rare', effect: (g) => g.stars.push(g.createStar()) },
-            { id: 'crit', name: 'Critical Hit', icon: '⚡', desc: 'All attacks deal +8 damage', rarity: 'epic', effect: (g) => g.weapons.bullet.damage += 8 },
-            { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; } },
-            { id: 'morestars', name: 'Star Shower', icon: '🌟', desc: 'Adds 3 orbiting stars', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) g.stars.push(g.createStar()); } },
-            { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20 },
+            { id: 'speed', name: 'Swift Feet', icon: '👟', desc: 'Move 30 units faster', rarity: 'common', effect: (g) => g.player.speed += 30, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 30}` },
+            { id: 'health', name: 'Vitality', icon: '❤️', desc: 'Increases max HP by 30', rarity: 'common', effect: (g) => { g.player.maxHealth += 30; g.player.health += 30; }, getDesc: (g) => `Max HP: ${g.player.maxHealth} → ${g.player.maxHealth + 30}` },
+            { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +5 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 5, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 5}` },
+            { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 20% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.8), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.8)).toFixed(1)}/s` },
+            { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
+            { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}` },
+            { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
+            { id: 'healregen', name: 'Regeneration', icon: '💚', desc: 'Regenerate +1 HP per second', rarity: 'rare', effect: (g) => g.player.hpRegen = (g.player.hpRegen || 0) + 1, getDesc: (g) => `HP Regen: ${g.player.hpRegen || 0}/s → ${(g.player.hpRegen || 0) + 1}/s` },
+            { id: 'stars', name: 'Orbiting Stars', icon: '⭐', desc: 'Adds a star that circles around you', rarity: 'rare', effect: (g) => g.stars.push(g.createStar()), getDesc: (g) => `Stars: ${g.stars.length} → ${g.stars.length + 1}` },
+            { id: 'crit', name: 'Critical Hit', icon: '⚡', desc: '+15% Crit Chance (Max 100%)', rarity: 'epic', effect: (g) => g.weapons.bullet.critChance = Math.min(1.0, (g.weapons.bullet.critChance || 0.05) + 0.15), getDesc: (g) => `Crit Chance: ${Math.floor((g.weapons.bullet.critChance || 0.05) * 100)}% → ${Math.min(100, Math.floor(((g.weapons.bullet.critChance || 0.05) + 0.15) * 100))}%` },
+            { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
+            { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 50}, Speed: ${g.player.speed}→${g.player.speed + 25}` },
+            { id: 'morestars', name: 'Star Shower', icon: '🌟', desc: 'Adds 3 orbiting stars', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) g.stars.push(g.createStar()); }, getDesc: (g) => `Stars: ${g.stars.length} → ${g.stars.length + 3}` },
+            { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
         ];
 
         this.initSound();
@@ -248,8 +257,20 @@ class DotsSurvivor {
         });
         window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
         this.setupTouch();
-        this.setupClassSelection();
-        document.getElementById('restart-btn').addEventListener('click', () => this.showClassSelect());
+
+        // Skip class select, go straight to difficulty or start
+        this.selectedClass = SURVIVOR_CLASS;
+        this.player.color = this.selectedClass.color;
+
+        // Default to Medium difficulty
+        this.selectedDifficulty = DIFFICULTIES.medium;
+        this.showBoostSelect();
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            this.selectedDifficulty = DIFFICULTIES.medium;
+            this.showBoostSelect();
+        });
+        document.getElementById('hud-pause-btn').addEventListener('click', (e) => { e.stopPropagation(); this.togglePause(); });
     }
 
     togglePause() {
@@ -294,48 +315,15 @@ class DotsSurvivor {
         this.canvas.addEventListener('touchend', () => { this.joystick.active = false; this.joystick.dx = 0; this.joystick.dy = 0; });
     }
 
-    setupClassSelection() {
-        const menu = document.getElementById('start-menu');
-        const content = menu.querySelector('.menu-content');
-        content.innerHTML = `
-            <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
-            <p class="game-subtitle">Choose your class:</p>
-            <div class="class-selection" style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin:1.5rem 0;">
-                ${Object.entries(CLASSES).map(([id, c]) => `
-                    <div class="class-card" data-class="${id}" style="background:${c.color}22;border:2px solid ${c.color};border-radius:12px;padding:1rem;width:140px;cursor:pointer;transition:all 0.2s;text-align:center;">
-                        <div style="font-size:2.5rem;">${c.icon}</div>
-                        <div style="font-weight:700;color:${c.color};margin:0.5rem 0;">${c.name}</div>
-                        <div style="font-size:0.75rem;color:#888;">${c.desc}</div>
-                    </div>
-                `).join('')}
-            </div>
-            <div class="controls-info"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
-        `;
-        content.querySelectorAll('.class-card').forEach(card => {
-            card.addEventListener('click', () => this.selectClass(card.dataset.class));
-            card.addEventListener('mouseenter', () => card.style.transform = 'scale(1.05)');
-            card.addEventListener('mouseleave', () => card.style.transform = 'scale(1)');
-        });
-    }
-
-    showClassSelect() {
-        document.getElementById('gameover-menu').classList.add('hidden');
-        this.setupClassSelection();
-        document.getElementById('start-menu').classList.remove('hidden');
-    }
-
-    selectClass(classId) {
-        this.selectedClass = CLASSES[classId];
-        this.player.color = this.selectedClass.color;
-        this.showDifficultySelect();
-    }
-
     showDifficultySelect() {
+        document.getElementById('gameover-menu').classList.add('hidden');
+        document.getElementById('start-menu').classList.remove('hidden');
+
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
         content.innerHTML = `
             <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
-            <p class="game-subtitle">Playing as <span style="color:${this.selectedClass.color}">${this.selectedClass.icon} ${this.selectedClass.name}</span></p>
+            <p class="game-subtitle">Survive the endless horde!</p>
             <p style="color:#888;margin-bottom:1rem;">Select difficulty:</p>
             <div class="difficulty-selection" style="display:flex;gap:0.8rem;flex-wrap:wrap;justify-content:center;margin:1rem 0;">
                 ${Object.entries(DIFFICULTIES).map(([id, d]) => `
@@ -346,25 +334,52 @@ class DotsSurvivor {
                     </div>
                 `).join('')}
             </div>
-            <button id="back-to-class" style="background:transparent;border:1px solid #666;color:#888;padding:0.5rem 1.5rem;border-radius:8px;cursor:pointer;margin-top:1rem;">← Back</button>
+            <div class="controls-info"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
         `;
         content.querySelectorAll('.diff-card').forEach(card => {
             card.addEventListener('click', () => this.selectDifficulty(card.dataset.diff));
             card.addEventListener('mouseenter', () => card.style.transform = 'scale(1.05)');
             card.addEventListener('mouseleave', () => card.style.transform = 'scale(1)');
         });
-        document.getElementById('back-to-class').addEventListener('click', () => this.setupClassSelection());
     }
 
     selectDifficulty(diffId) {
         this.selectedDifficulty = DIFFICULTIES[diffId];
-        this.startGame();
+        this.showBoostSelect();
+    }
+
+    showBoostSelect() {
+        const menu = document.getElementById('start-menu');
+        const content = menu.querySelector('.menu-content');
+        content.innerHTML = `
+            <h1 class="game-title">START<span>BOOST</span></h1>
+            <p class="game-subtitle">Choose your starting bonus:</p>
+            <div style="display:flex;gap:1.5rem;justify-content:center;margin:2rem 0;">
+                <div class="diff-card" id="btn-fresh" style="background:#44ff8822;border:2px solid #44ff88;border-radius:12px;padding:1.5rem;width:180px;cursor:pointer;text-align:center;">
+                    <div style="font-size:2.5rem;">🌱</div>
+                    <div style="font-weight:700;color:#44ff88;font-size:1.2rem;margin:0.5rem 0;">Fresh Start</div>
+                    <div style="font-size:0.85rem;color:#ccc;">Start at Level 1</div>
+                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+3 Free Upgrades</div>
+                </div>
+                <div class="diff-card" id="btn-boosted" style="background:#00ccff22;border:2px solid #00ccff;border-radius:12px;padding:1.5rem;width:180px;cursor:pointer;text-align:center;">
+                    <div style="font-size:2.5rem;">🚀</div>
+                    <div style="font-weight:700;color:#00ccff;font-size:1.2rem;margin:0.5rem 0;">Head Start</div>
+                    <div style="font-size:0.85rem;color:#ccc;">Start at Level 5</div>
+                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+5 Free Upgrades</div>
+                </div>
+            </div>
+            <p style="color:#666;font-size:0.8rem;">Select one to begin</p>
+        `;
+
+        document.getElementById('btn-fresh').addEventListener('click', () => this.startGame('fresh'));
+        document.getElementById('btn-boosted').addEventListener('click', () => this.startGame('boosted'));
     }
 
     resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
 
-    startGame() {
+    startGame(mode = 'fresh') {
         const diff = this.selectedDifficulty;
+        document.getElementById('start-menu').classList.add('hidden'); // Ensure menu hidden
 
         this.worldX = 0; this.worldY = 0;
         this.player.x = this.canvas.width / 2; this.player.y = this.canvas.height / 2;
@@ -372,10 +387,21 @@ class DotsSurvivor {
         // Apply difficulty to player
         const baseHealth = Math.floor(100 * diff.playerHealthMult);
         this.player.health = baseHealth; this.player.maxHealth = baseHealth; this.player.speed = 220;
-        this.player.xp = 0; this.player.xpToLevel = 50; this.player.level = 1; this.player.kills = 0;
+        this.player.xp = 0; this.player.xpToLevel = 50; this.player.kills = 0;
         this.player.hpRegen = 0;
 
-        this.weapons.bullet = { damage: 8, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color };
+        // Mode logic
+        if (mode === 'boosted') {
+            this.player.level = 5;
+            this.pendingUpgrades = 5;
+            // Scale XP requirement for lvl 5
+            for (let i = 1; i < 5; i++) this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.15);
+        } else {
+            this.player.level = 1;
+            this.pendingUpgrades = 3; // 3 Free attributes for Fresh start
+        }
+
+        this.weapons.bullet = { damage: 10, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
@@ -386,8 +412,8 @@ class DotsSurvivor {
         this.orbitals = []; this.minions = []; this.items = {}; this.stars = [];
         this.wave = 1; this.waveTimer = 0; this.gameTime = 0;
 
-        // INTENSE spawn rate (much faster)
-        this.baseSpawnRate = Math.floor(400 * diff.spawnRateMult);
+        // INTENSE spawn rate (faster spawns)
+        this.baseSpawnRate = Math.floor(500 * diff.spawnRateMult);
         // Necromancer gets even more enemies
         if (this.selectedClass.bonuses.spawnsMoreEnemies) this.baseSpawnRate = Math.floor(this.baseSpawnRate * 0.6);
         this.enemySpawnRate = this.baseSpawnRate;
@@ -402,6 +428,12 @@ class DotsSurvivor {
         this.controlPoints = [];
         this.perks = [];
         this.availablePerks = [...LEGENDARY_PERKS];
+
+        // Boss tracking
+        this.bossesSpawnedThisWave = 0;
+        this.generalSpawnedThisWave = false;
+        this.lastBossWave = 0;
+        this.bossStatMultiplier = 1.0;
         this.spawnControlPoint();
 
         // Health packs (rare spawns)
@@ -414,9 +446,50 @@ class DotsSurvivor {
         // Regen timer
         this.regenTimer = 0;
 
+        // Diamond Augments & Dotomancer Stats
+        this.augments = [];
+        this.maxMinions = 0;
+        this.minionRespawnTime = 0;
+        this.conversionChance = 0;
+
+        // Demon Set
+        this.demonSet = { helm: false, chest: false, boots: false };
+        this.demonSetBonusActive = false;
+        this.imps = [];
+        this.impSpawnTimer = 0;
+        this.impStats = { damage: 300, maxImps: 5, spawnInterval: 10, burnDuration: 5 };
+
+        if (this.selectedClass.bonuses.minionCount) {
+            this.maxMinions = this.selectedClass.bonuses.minionCount;
+            this.minionRespawnTime = this.selectedClass.bonuses.minionRespawn || 0;
+            this.conversionChance = this.selectedClass.bonuses.conversionChance || 0;
+        }
+
         // Class-specific starting abilities
         if (this.selectedClass.bonuses.orbitalCount) for (let i = 0; i < this.selectedClass.bonuses.orbitalCount; i++) this.orbitals.push(this.createOrbital());
-        if (this.selectedClass.bonuses.minionCount) for (let i = 0; i < this.selectedClass.bonuses.minionCount; i++) this.minions.push(this.createMinion('basic'));
+
+        // Chrono Field (time_stop augment)
+        this.chronoFieldTimer = 0;
+        this.chronoFieldCooldown = 15; // seconds between freezes
+        this.chronoFieldActive = false;
+        this.chronoFieldDuration = 3; // 3 second freeze
+
+        // Elemental Mastery
+        this.elementalCycleTimer = 0;
+        this.currentElement = 0; // 0=Fire, 1=Ice, 2=Lightning
+        this.elementNames = ['fire', 'ice', 'lightning'];
+        this.elementColors = ['#ff4400', '#00ccff', '#ffff00'];
+
+        // Start Game Loop
+        this.gameRunning = true;
+        this.gamePaused = false;
+        this.lastTime = performance.now();
+        this.gameLoop(this.lastTime);
+
+        if (this.selectedClass.bonuses.minionCount) {
+            // Initial minions
+            for (let i = 0; i < this.maxMinions; i++) this.addMinion('basic');
+        }
 
         document.getElementById('start-menu').classList.add('hidden');
         document.getElementById('gameover-menu').classList.add('hidden');
@@ -435,7 +508,8 @@ class DotsSurvivor {
             wy: this.worldY + Math.sin(angle) * dist,
             radius: 50,
             captureProgress: 0,
-            captured: false
+            captured: false,
+            spawnWave: this.wave
         });
     }
 
@@ -464,19 +538,30 @@ class DotsSurvivor {
         };
     }
 
-    createMinion(type = 'basic') {
+    addMinion(type) {
+        const m = this.createMinion();
+        this.minions.push(m);
+    }
+
+    createMinion() {
         const angle = Math.random() * Math.PI * 2;
-        const types = {
-            basic: { radius: 12, speed: 180, damage: 12, health: 40, color: '#44ff88', icon: '👻', isRanged: false },
-            gunner: { radius: 10, speed: 150, damage: 8, health: 30, color: '#66aaff', icon: '🔫', isRanged: true },
-            tank: { radius: 18, speed: 100, damage: 20, health: 100, color: '#ffaa44', icon: '🛡️', isRanged: false },
-            ravager: { radius: 14, speed: 220, damage: 25, health: 50, color: '#ff4466', icon: '⚔️', isRanged: false }
-        };
-        const t = types[type] || types.basic;
+        const radius = 60 + Math.random() * 40;
+
+        // Guard Stats - Scale with level
+        const levelMult = 1 + (this.player.level * 0.15); // 15% scaling per level
+
         return {
-            x: this.player.x + Math.cos(angle) * 50,
-            y: this.player.y + Math.sin(angle) * 50,
-            type, ...t, maxHealth: t.health, target: null, attackCooldown: 0
+            x: this.player.x + Math.cos(angle) * 80,
+            y: this.player.y + Math.sin(angle) * 80,
+            radius: 14,
+            speed: 220,
+            damage: Math.floor(30 * levelMult),
+            health: Math.floor(1500 * levelMult),
+            maxHealth: Math.floor(1500 * levelMult),
+            color: '#44ff88',
+            icon: '🛡️',
+            attackCooldown: 0,
+            type: 'guard'
         };
     }
 
@@ -484,12 +569,39 @@ class DotsSurvivor {
         if (!this.gameRunning) return;
         const dt = (t - this.lastTime) / 1000; this.lastTime = t;
         if (!this.gamePaused) {
+            // Check for pending upgrades (Starting Boost)
+            if (this.pendingUpgrades > 0) {
+                this.showLevelUpMenu();
+                // do not return, let the loop continue so requestAnimationFrame is called
+            }
             this.gameTime += dt * 1000;
             this.waveTimer += dt * 1000;
             if (this.waveTimer >= this.waveDuration) {
                 this.wave++;
                 this.waveTimer = 0;
                 this.enemySpawnRate = Math.max(200, this.enemySpawnRate - 80);
+
+                // Reset boss tracking for new wave
+                this.bossesSpawnedThisWave = 0;
+                this.generalSpawnedThisWave = false;
+
+                // Check for expired control points (10 waves without capture)
+                for (let i = this.controlPoints.length - 1; i >= 0; i--) {
+                    const cp = this.controlPoints[i];
+                    if (!cp.captured && this.wave - cp.spawnWave >= 10) {
+                        // Despawn and trigger horde
+                        this.controlPoints.splice(i, 1);
+                        this.damageNumbers.push({
+                            x: this.canvas.width / 2,
+                            y: this.canvas.height / 2 - 100,
+                            value: '⚠️ CONTROL POINT LOST! HORDE INCOMING! ⚠️',
+                            lifetime: 3,
+                            color: '#ff0044',
+                            scale: 1.5
+                        });
+                        this.spawnHorde();
+                    }
+                }
             }
             this.checkHorde();
             this.update(dt);
@@ -499,13 +611,26 @@ class DotsSurvivor {
     }
 
     checkHorde() {
-        // Horde every 5 minutes (300000ms)
-        const hordeInterval = 300000;
-        const currentHordeCount = Math.floor(this.gameTime / hordeInterval);
+        // Horde every 5 waves starting at wave 5
+        const hordeWaveInterval = 5;
+        const currentHordeCount = Math.floor(this.wave / hordeWaveInterval);
 
-        if (currentHordeCount > this.lastHordeCount) {
+        if (this.wave >= 5 && currentHordeCount > this.lastHordeCount) {
             this.lastHordeCount = currentHordeCount;
             this.spawnHorde();
+        }
+
+        // Update HUD horde indicator
+        const wavesRemaining = hordeWaveInterval - (this.wave % hordeWaveInterval);
+        const indicator = document.getElementById('horde-indicator');
+        const wavesSpan = document.getElementById('horde-waves');
+        if (indicator && wavesSpan) {
+            if (this.wave >= 2 && wavesRemaining <= 3) {
+                indicator.style.display = 'block';
+                wavesSpan.textContent = wavesRemaining === 5 ? 'NOW!' : wavesRemaining;
+            } else {
+                indicator.style.display = 'none';
+            }
         }
     }
 
@@ -541,6 +666,8 @@ class DotsSurvivor {
         this.updatePlayer(dt);
         this.updateShield(dt);
         this.updateRegen(dt);
+        this.updateChronoField(dt);
+        this.updateElementalCycle(dt);
         this.spawnEnemies();
         this.spawnHealthPacks();
         this.updateControlPoints(dt);
@@ -548,6 +675,8 @@ class DotsSurvivor {
         this.updateOrbitals(dt);
         this.updateStars(dt);
         this.updateMinions(dt);
+        this.updateActiveMinions(dt);
+        this.updateImps(dt);
         this.fireWeapons();
         this.updateProjectiles(dt);
         this.updatePickups(dt);
@@ -563,6 +692,58 @@ class DotsSurvivor {
             if (this.regenTimer >= 1) {
                 this.regenTimer = 0;
                 this.player.health = Math.min(this.player.maxHealth, this.player.health + this.player.hpRegen);
+            }
+        }
+    }
+
+    updateChronoField(dt) {
+        if (!this.augments.includes('time_stop')) return;
+
+        this.chronoFieldTimer += dt;
+
+        if (this.chronoFieldActive) {
+            // Freeze is active - enemies are frozen
+            if (this.chronoFieldTimer >= this.chronoFieldDuration) {
+                // End freeze
+                this.chronoFieldActive = false;
+                this.chronoFieldTimer = 0;
+                // Unfreeze enemies
+                for (const e of this.enemies) {
+                    e.frozen = false;
+                }
+            }
+        } else {
+            // Freeze is on cooldown
+            if (this.chronoFieldTimer >= this.chronoFieldCooldown) {
+                // Activate freeze
+                this.chronoFieldActive = true;
+                this.chronoFieldTimer = 0;
+                // Freeze all enemies (except bosses)
+                for (const e of this.enemies) {
+                    if (!e.isBoss) e.frozen = true;
+                }
+                // Visual announcement
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 80,
+                    value: '⏳ TIME FROZEN ⏳', lifetime: 2, color: '#00ccff', scale: 1.5
+                });
+                this.spawnParticles(this.player.x, this.player.y, '#00ccff', 30);
+            }
+        }
+    }
+
+    updateElementalCycle(dt) {
+        if (!this.augments.includes('elemental_mastery')) return;
+
+        this.elementalCycleTimer += dt;
+        if (this.elementalCycleTimer >= 3) { // Cycle every 3 seconds
+            this.elementalCycleTimer = 0;
+            this.currentElement = (this.currentElement + 1) % 3;
+
+            // Update orbital colors
+            for (const o of this.orbitals) {
+                o.element = this.elementNames[this.currentElement];
+                o.color = this.elementColors[this.currentElement];
             }
         }
     }
@@ -675,7 +856,7 @@ class DotsSurvivor {
 
         // Spawn around player in world coordinates
         const angle = Math.random() * Math.PI * 2;
-        const dist = 400 + Math.random() * 200;
+        const dist = 300 + Math.random() * 200; // Closer spawns (was 400-600)
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
@@ -685,9 +866,35 @@ class DotsSurvivor {
         if (this.wave >= 4) types.push('swarm', 'swarm', 'bomber');
         if (this.wave >= 5) types.push('splitter', 'bomber');
 
-        // Boss every 3 waves
-        if (this.wave >= 3 && this.wave % 3 === 0 && Math.random() < 0.15) {
-            this.enemies.push(this.createBoss(wx, wy));
+        // Boss spawning logic - controlled per wave
+        const isBossWave = this.wave >= 5 && this.wave % 5 === 0;
+        const isGeneralWave = this.wave >= 20 && this.wave % 20 === 0;
+
+        if (isBossWave && this.lastBossWave !== this.wave) {
+            // Calculate how many bosses should spawn this wave
+            const bossWaveNumber = Math.floor(this.wave / 5);
+            const maxBossesThisWave = Math.min(bossWaveNumber, 5); // Cap at 5 bosses
+
+            // If we're past the cap, increase boss stats
+            if (bossWaveNumber > 5) {
+                this.bossStatMultiplier = 1 + (bossWaveNumber - 5) * 0.2; // +20% per wave past cap
+            }
+
+            // Spawn Demonic General (1 per 20 waves)
+            if (isGeneralWave && !this.generalSpawnedThisWave) {
+                this.enemies.push(this.createBoss(wx, wy, 'general'));
+                this.generalSpawnedThisWave = true;
+                this.bossesSpawnedThisWave++;
+            } else if (this.bossesSpawnedThisWave < maxBossesThisWave) {
+                // Spawn normal boss
+                this.enemies.push(this.createBoss(wx, wy, 'boss'));
+                this.bossesSpawnedThisWave++;
+            }
+
+            // Mark this wave as processed if we've spawned all bosses
+            if (this.bossesSpawnedThisWave >= maxBossesThisWave) {
+                this.lastBossWave = this.wave;
+            }
         } else {
             const type = types[Math.floor(Math.random() * types.length)];
             this.enemies.push(this.createEnemy(wx, wy, type));
@@ -698,7 +905,7 @@ class DotsSurvivor {
         const diff = this.selectedDifficulty;
         const waveMult = 1 + (this.wave - 1) * diff.scalingPerWave;
         const data = {
-            basic: { radius: 14, speed: 85, health: 100, damage: 12, xp: 6, color: '#ff4466', icon: '' },
+            basic: { radius: 14, speed: 85, health: 30, damage: 12, xp: 6, color: '#ff4466', icon: '' },
             runner: { radius: 10, speed: 180, health: 40, damage: 8, xp: 5, color: '#00ffff', icon: '💨' },
             tank: { radius: 28, speed: 50, health: 350, damage: 25, xp: 25, color: '#8844ff', icon: '' },
             swarm: { radius: 8, speed: 110, health: 35, damage: 8, xp: 4, color: '#ff66aa', icon: '' },
@@ -722,27 +929,56 @@ class DotsSurvivor {
         };
     }
 
-    createBoss(wx, wy) {
+    createBoss(wx, wy, type = 'boss') {
         const diff = this.selectedDifficulty;
         const waveMult = 1 + this.wave * diff.scalingPerWave;
-        const name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
-        const faces = ['😈', '👹', '💀', '👿', '🤡', '👺', '☠️', '🔥'];
+
+        let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
+        let face = '😈';
+        let color = '#ff0044';
+        let stats = { health: 2500, damage: 50, speed: 40, radius: 80, xp: 500 };
+
+        if (type === 'general') {
+            name = `DEMON GENERAL ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]}`;
+            face = '👹';
+            color = '#8800ff';
+            stats = { health: 6000, damage: 80, speed: 50, radius: 100, xp: 2000 };
+        } else {
+            const faces = ['😈', '👹', '💀', '👿', '🤡', '👺', '☠️', '🔥'];
+            face = faces[Math.floor(Math.random() * faces.length)];
+            stats.radius += this.wave * 8;
+        }
+
+        // Crit Resistance (Max 75% at wave 25)
+        const critResist = Math.min(0.75, (this.wave * 0.03));
+
+        // Apply stat multiplier for waves past boss cap
+        const statMult = this.bossStatMultiplier || 1.0;
+
         return {
-            wx, wy, type: 'boss', name,
-            face: faces[Math.floor(Math.random() * faces.length)],
-            radius: 60 + this.wave * 5,
-            speed: Math.floor(35 * diff.enemySpeedMult),
-            health: Math.floor(1000 * waveMult * diff.enemyHealthMult),
-            maxHealth: Math.floor(1000 * waveMult * diff.enemyHealthMult),
-            damage: Math.floor(40 * waveMult * diff.enemyDamageMult),
-            xp: Math.floor(200 * waveMult),
-            color: '#ff0044', hitFlash: 0, isBoss: true
+            wx, wy, type, name,
+            face,
+            radius: stats.radius,
+            speed: Math.floor(stats.speed * diff.enemySpeedMult), // Speed does NOT scale
+            health: Math.floor(stats.health * waveMult * diff.enemyHealthMult * statMult),
+            maxHealth: Math.floor(stats.health * waveMult * diff.enemyHealthMult * statMult),
+            damage: Math.floor(stats.damage * waveMult * diff.enemyDamageMult * statMult),
+            xp: Math.floor(stats.xp * waveMult),
+            color, hitFlash: 0, isBoss: true,
+            critResistance: critResist
         };
     }
 
     updateEnemies(dt) {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i];
+
+            // Skip movement if frozen by Chrono Field
+            if (e.frozen) {
+                if (e.hitFlash > 0) e.hitFlash -= dt * 5;
+                continue; // Skip all actions for frozen enemies
+            }
+
             // Move towards player (world coords)
             const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
             const d = Math.sqrt(dx * dx + dy * dy);
@@ -767,10 +1003,57 @@ class DotsSurvivor {
                 e.health -= 5 * dt;
             }
 
+            // Imp Burn (True Damage)
+            if (e.impBurn) {
+                e.impBurn.duration -= dt;
+                const tick = e.impBurn.dps * dt;
+                e.health -= tick;
+                if (e.impBurn.duration <= 0) delete e.impBurn;
+                // Visual effect for burn?
+                if (Math.random() < 0.1) this.spawnParticles(sx, sy, '#ff4400', 3);
+            }
+
             // Dead
             if (e.health <= 0) {
                 this.player.kills++;
                 this.playSound('kill');
+
+                // Dotomancer Conversion
+                if (this.conversionChance > 0 && Math.random() < this.conversionChance) {
+                    // Turn into minion
+                    if (this.minions.length < (this.maxMinions || 5) + 5) { // Allow overflowing max slightly for conversions, or cap it? 
+                        // Let's cap it at maxMinions + some buffer, OR just normal max. 
+                        // Usually summoner classes allow temporary minions beyond limit or hard cap.
+                        // Let's enforce maxMinions but maybe upgrades increase it.
+                        // Actually, converted minions should probably be temporary or count towards cap? 
+                        // If they count towards cap, they might block strong summoned ones.
+                        // Let's make them separate or just count them.
+                        // "Necromancer should be able to turn killed dots into its minions"
+                        // I'll make a special 'undead' minion type that inherits stats.
+
+                        const undead = {
+                            x: sx, y: sy,
+                            radius: e.radius,
+                            speed: e.speed * 0.8,
+                            damage: Math.floor(e.damage * 0.5), // 25% stats was requested, higher with attributes. Let's start at 50% as base is weak.
+                            health: Math.floor(e.maxHealth * 0.25),
+                            maxHealth: Math.floor(e.maxHealth * 0.25),
+                            color: '#88ff88',
+                            icon: '🧟',
+                            isRanged: false,
+                            target: null,
+                            attackCooldown: 0,
+                            lifetime: 20 // Undead expire? The prompt didn't say. Let's keep them permanent until death.
+                        };
+
+                        // Apply bonuses
+                        if (this.selectedClass.bonuses.minionDamage) undead.damage = Math.floor(undead.damage * this.selectedClass.bonuses.minionDamage);
+
+                        this.minions.push(undead);
+                        this.spawnParticles(sx, sy, '#88ff88', 10);
+                        this.damageNumbers.push({ x: sx, y: sy - 20, value: 'Rise!', lifetime: 1, color: '#88ff88' });
+                    }
+                }
 
                 // Vampiric perk
                 if (this.vampiric) {
@@ -814,7 +1097,26 @@ class DotsSurvivor {
                 this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#4ade80', isItem: false });
                 this.spawnParticles(sx, sy, e.color, 10);
                 // Boss drops item
-                if (e.isBoss) this.dropItem(e.wx, e.wy);
+                if (e.isBoss) {
+                    if (e.type === 'general') {
+                        // Drop Demon Piece
+                        // Find uncollected piece
+                        const missing = DEMON_SET_PIECES.filter(p => !this.demonSet[p.id]);
+                        if (missing.length > 0) {
+                            const piece = missing[Math.floor(Math.random() * missing.length)];
+                            this.pickups.push({
+                                wx: e.wx, wy: e.wy,
+                                radius: 12, color: '#ff0044',
+                                isDemonPiece: true, pieceId: piece.id
+                            });
+                        } else {
+                            // All collected? Maybe big XP or random item
+                            this.dropItem(e.wx, e.wy);
+                        }
+                    } else {
+                        this.dropItem(e.wx, e.wy);
+                    }
+                }
                 this.enemies.splice(i, 1);
             }
         }
@@ -831,6 +1133,22 @@ class DotsSurvivor {
             o.angle += o.speed * dt;
             const ox = this.player.x + Math.cos(o.angle) * o.radius;
             const oy = this.player.y + Math.sin(o.angle) * o.radius;
+
+            // Black Hole Effect: Pull enemies
+            if (this.augments.includes('black_hole')) {
+                for (const e of this.enemies) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    const d = Math.sqrt((ox - sx) ** 2 + (oy - sy) ** 2);
+                    if (d < 200) { // Pull range
+                        const pullForce = 150 * (1 - d / 200); // Stronger closer
+                        const ang = Math.atan2(oy - sy, ox - sx);
+                        e.wx += Math.cos(ang) * pullForce * dt;
+                        e.wy += Math.sin(ang) * pullForce * dt;
+                    }
+                }
+            }
+
             // Check collision with enemies
             for (const e of this.enemies) {
                 const sx = this.player.x + (e.wx - this.worldX);
@@ -838,7 +1156,41 @@ class DotsSurvivor {
                 const d = Math.sqrt((ox - sx) ** 2 + (oy - sy) ** 2);
                 if (d < o.size + e.radius) {
                     e.health -= o.damage; e.hitFlash = 1;
-                    this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#aa44ff' });
+
+                    // Elemental effects
+                    if (o.element === 'fire') {
+                        // Fire: Burn damage
+                        e.health -= o.damage * 0.5;
+                        this.spawnParticles(sx, sy, '#ff4400', 5);
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: Math.floor(o.damage * 1.5), lifetime: 0.6, color: '#ff4400' });
+                    } else if (o.element === 'ice') {
+                        // Ice: Slow enemy
+                        e.speed = Math.max(20, e.speed * 0.7);
+                        this.spawnParticles(sx, sy, '#00ccff', 5);
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#00ccff' });
+                    } else if (o.element === 'lightning') {
+                        // Lightning: Chain to nearby enemy
+                        let chainTarget = null;
+                        let chainDist = 150;
+                        for (const other of this.enemies) {
+                            if (other === e) continue;
+                            const otherSx = this.player.x + (other.wx - this.worldX);
+                            const otherSy = this.player.y + (other.wy - this.worldY);
+                            const chainD = Math.sqrt((sx - otherSx) ** 2 + (sy - otherSy) ** 2);
+                            if (chainD < chainDist) {
+                                chainDist = chainD;
+                                chainTarget = other;
+                            }
+                        }
+                        if (chainTarget) {
+                            chainTarget.health -= Math.floor(o.damage * 0.5);
+                            chainTarget.hitFlash = 1;
+                        }
+                        this.spawnParticles(sx, sy, '#ffff00', 5);
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#ffff00' });
+                    } else {
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#aa44ff' });
+                    }
                 }
             }
         });
@@ -863,31 +1215,137 @@ class DotsSurvivor {
     }
 
     updateMinions(dt) {
-        this.minions.forEach(m => {
-            // Find target
+        // Respawn logic
+        if (this.maxMinions > 0 && this.minions.length < this.maxMinions) {
+            if (!this.minionRespawnTimer) this.minionRespawnTimer = 0;
+            this.minionRespawnTimer += dt;
+            if (this.minionRespawnTimer >= 15) {
+                this.minionRespawnTimer = 0;
+                this.addMinion('guard');
+            }
+        }
+    }
+
+    updateImps(dt) {
+        if (!this.demonSetBonusActive) return;
+
+        // Spawn
+        if (this.imps.length < this.impStats.maxImps) {
+            this.impSpawnTimer += dt;
+            if (this.impSpawnTimer >= this.impStats.spawnInterval) {
+                this.impSpawnTimer = 0;
+                const angle = Math.random() * Math.PI * 2;
+                this.imps.push({
+                    x: this.player.x + Math.cos(angle) * 40,
+                    y: this.player.y + Math.sin(angle) * 40,
+                    radius: 8, speed: 250,
+                    color: '#ff4400',
+                    lifetime: 10
+                });
+                this.spawnParticles(this.player.x, this.player.y, '#ff4400', 5);
+            }
+        }
+
+        // Update
+        for (let i = this.imps.length - 1; i >= 0; i--) {
+            const imp = this.imps[i];
+            imp.lifetime -= dt;
+            if (imp.lifetime <= 0) { this.imps.splice(i, 1); continue; }
+
+            // Seek nearest
             let nearest = null, nd = Infinity;
             for (const e of this.enemies) {
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
-                const d = Math.sqrt((m.x - sx) ** 2 + (m.y - sy) ** 2);
-                if (d < nd) { nd = d; nearest = e; }
+                const d = Math.sqrt((imp.x - sx) ** 2 + (imp.y - sy) ** 2);
+                if (d < nd) { nd = d; nearest = { e, sx, sy }; }
             }
-            if (nearest && nd < 300) {
-                const sx = this.player.x + (nearest.wx - this.worldX);
-                const sy = this.player.y + (nearest.wy - this.worldY);
-                const dx = sx - m.x, dy = sy - m.y, d = Math.sqrt(dx * dx + dy * dy);
-                if (d > 0) { m.x += (dx / d) * m.speed * dt; m.y += (dy / d) * m.speed * dt; }
-                // Attack
-                if (d < m.radius + nearest.radius) {
-                    nearest.health -= m.damage; nearest.hitFlash = 1;
-                    this.damageNumbers.push({ x: sx, y: sy - 10, value: m.damage, lifetime: 0.5, color: '#44ff88' });
+
+            if (nearest && nd < 400) {
+                const dx = nearest.sx - imp.x, dy = nearest.sy - imp.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 0) {
+                    imp.x += (dx / dist) * imp.speed * dt;
+                    imp.y += (dy / dist) * imp.speed * dt;
+                }
+
+                // Contact
+                if (dist < 20 + nearest.e.radius) {
+                    // Explode
+                    this.spawnParticles(imp.x, imp.y, '#ff4400', 15);
+                    this.playSound('shoot'); // boom sound ideally
+
+                    nearest.e.health -= this.impStats.damage; // True damage checks? Armor? No armor mainly.
+                    nearest.e.hitFlash = 1;
+                    this.damageNumbers.push({ x: nearest.sx, y: nearest.sy - 20, value: this.impStats.damage, color: '#ff4400', scale: 1.2 });
+
+                    // Apply Burn (True Damage)
+                    nearest.e.impBurn = {
+                        duration: this.impStats.burnDuration,
+                        dps: nearest.e.maxHealth * 0.01 // 1% max hp per second
+                    };
+
+                    this.imps.splice(i, 1);
                 }
             } else {
                 // Follow player
-                const dx = this.player.x - m.x, dy = this.player.y - m.y, d = Math.sqrt(dx * dx + dy * dy);
-                if (d > 50) { m.x += (dx / d) * m.speed * 0.5 * dt; m.y += (dy / d) * m.speed * 0.5 * dt; }
+                const dx = this.player.x - imp.x, dy = this.player.y - imp.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 60) {
+                    imp.x += (dx / dist) * imp.speed * dt;
+                    imp.y += (dy / dist) * imp.speed * dt;
+                }
             }
-        });
+        }
+    }
+
+    updateActiveMinions(dt) {
+        for (let i = this.minions.length - 1; i >= 0; i--) {
+            const m = this.minions[i];
+
+            if (m.health <= 0) {
+                this.spawnParticles(m.x, m.y, m.color, 10);
+                this.minions.splice(i, 1);
+                continue;
+            }
+
+            // Guard Logic: Stay near player, seek enemy if close
+            const distToPlayer = Math.sqrt((m.x - this.player.x) ** 2 + (m.y - this.player.y) ** 2);
+            let target = null;
+            let moveTarget = null;
+
+            // Find nearest enemy in range
+            let nd = Infinity;
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const d = Math.sqrt((m.x - sx) ** 2 + (m.y - sy) ** 2);
+                if (d < 300 && d < nd) { nd = d; target = e; moveTarget = { x: sx, y: sy }; }
+            }
+
+            // Move logic
+            if (target) {
+                // Chase enemy
+                const dx = moveTarget.x - m.x, dy = moveTarget.y - m.y, d = Math.sqrt(dx * dx + dy * dy);
+                if (d > 0) { m.x += (dx / d) * m.speed * dt; m.y += (dy / d) * m.speed * dt; }
+            } else if (distToPlayer > 100) {
+                // Return to player (orbit loosely)
+                const angle = Math.atan2(this.player.y - m.y, this.player.x - m.x);
+                m.x += Math.cos(angle) * m.speed * dt;
+                m.y += Math.sin(angle) * m.speed * dt;
+            }
+
+            // Attack cooldown
+            if (m.attackCooldown > 0) m.attackCooldown -= dt;
+
+            // Attack
+            if (target && nd < m.radius + target.radius + 15 && m.attackCooldown <= 0) {
+                m.attackCooldown = 0.8;
+                target.health -= m.damage;
+                target.hitFlash = 1;
+                this.damageNumbers.push({ x: moveTarget.x, y: moveTarget.y - 10, value: m.damage, lifetime: 0.5, color: '#44ff88' });
+            }
+        }
     }
 
     fireWeapons() {
@@ -928,10 +1386,34 @@ class DotsSurvivor {
                 const sy = this.player.y + (e.wy - this.worldY);
                 const d = Math.sqrt((p.x - sx) ** 2 + (p.y - sy) ** 2);
                 if (d < p.radius + e.radius) {
-                    e.health -= p.damage; e.hitFlash = 1;
+                    // Crit Calculation
+                    let damage = p.damage;
+                    const isCrit = Math.random() < (this.weapons.bullet.critChance || 0.05);
+                    let color = '#fff';
+                    let text = damage;
+
+                    if (isCrit) {
+                        const multiplier = this.weapons.bullet.critMultiplier || 2.0;
+                        damage = Math.floor(damage * multiplier);
+                        color = '#ff0000';
+                        text = `💥 ${damage}`;
+                    }
+
+                    e.health -= damage; e.hitFlash = 1;
                     p.hitEnemies.push(e);
-                    this.damageNumbers.push({ x: sx, y: sy - 10, value: p.damage, lifetime: 0.6, color: '#fff' });
-                    this.spawnParticles(p.x, p.y, '#fff', 3);
+
+                    this.damageNumbers.push({
+                        x: sx,
+                        y: sy - 10,
+                        value: text,
+                        lifetime: isCrit ? 1.0 : 0.6,
+                        color: color,
+                        scale: isCrit ? 1.5 : 1
+                    });
+
+                    if (isCrit) this.spawnParticles(p.x, p.y, '#ff0000', 5);
+                    else this.spawnParticles(p.x, p.y, '#fff', 3);
+
                     if (p.hitEnemies.length >= p.pierce) { this.projectiles.splice(i, 1); break; }
                 }
             }
@@ -957,6 +1439,31 @@ class DotsSurvivor {
                     const healed = Math.min(pk.healAmount, this.player.maxHealth - this.player.health);
                     this.player.health += healed;
                     this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `+${healed} HP`, lifetime: 1.5, color: '#ff4488' });
+                } else if (pk.isDemonPiece) {
+                    // Demon Piece Collection
+                    if (!this.demonSet[pk.pieceId]) {
+                        this.demonSet[pk.pieceId] = true;
+                        this.playSound('levelup'); // Reusing sound
+
+                        // Apply piece bonus
+                        const piece = DEMON_SET_PIECES.find(p => p.id === pk.pieceId);
+                        if (piece.id === 'helm') this.player.maxHealth += 500; this.player.health += 500;
+                        if (piece.id === 'boots') this.player.speed += 50;
+
+                        this.damageNumbers.push({
+                            x: this.player.x, y: this.player.y - 80,
+                            value: `EQUIPPED: ${piece.name}`, lifetime: 3, color: '#ff0044', scale: 1.5
+                        });
+
+                        // Check Full Set
+                        if (this.demonSet.helm && this.demonSet.chest && this.demonSet.boots && !this.demonSetBonusActive) {
+                            this.demonSetBonusActive = true;
+                            this.damageNumbers.push({
+                                x: this.player.x, y: this.player.y - 120,
+                                value: `🔥 HELLFIRE SET ACTIVE! 🔥`, lifetime: 4, color: '#ff0044', scale: 2.0
+                            });
+                        }
+                    }
                 } else {
                     this.player.xp += pk.xp;
                     this.checkLevelUp();
@@ -980,24 +1487,115 @@ class DotsSurvivor {
         while (this.player.xp >= this.player.xpToLevel) {
             this.player.xp -= this.player.xpToLevel;
             this.player.level++;
-            this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.25);
-            this.showLevelUpMenu();
+
+            // Spawn rate scaling (Aggressive)
+            if (this.player.level % 2 === 0) {
+                this.enemySpawnRate = Math.max(50, Math.floor(this.enemySpawnRate * 0.9));
+            }
+
+            // XP Curve Adjustment
+            if (this.player.level < 20) {
+                // Easier early game (linear-ish growth)
+                this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.15);
+            } else if (this.player.level < 60) {
+                // Mid game
+                this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.1);
+            } else {
+                // Harder late game
+                this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.3);
+            }
+
+            // Check for Diamond Augment (Every 5 levels)
+            if (this.player.level % 5 === 0) {
+                this.showAugmentMenu();
+            } else {
+                this.showLevelUpMenu();
+            }
         }
     }
 
     showLevelUpMenu() {
         this.gamePaused = true;
+        this.playSound('levelup');
         const choices = this.getRandomUpgrades(3);
         const container = document.getElementById('upgrade-choices');
         container.innerHTML = '';
         choices.forEach(u => {
+            const desc = u.getDesc ? u.getDesc(this) : u.desc;
             const card = document.createElement('div');
             card.className = `upgrade-card ${u.rarity}`;
-            card.innerHTML = `<div class="upgrade-rarity">${u.rarity}</div><div class="upgrade-icon">${u.icon}</div><div class="upgrade-name">${u.name}</div><div class="upgrade-desc">${u.desc}</div>`;
-            card.addEventListener('click', () => { u.effect(this); document.getElementById('levelup-menu').classList.add('hidden'); this.gamePaused = false; });
+            card.innerHTML = `<div class="upgrade-rarity">${u.rarity}</div><div class="upgrade-icon">${u.icon}</div><div class="upgrade-name">${u.name}</div><div class="upgrade-desc">${desc}</div>`;
+            card.addEventListener('click', () => {
+                u.effect(this);
+                document.getElementById('levelup-menu').classList.add('hidden');
+
+                // Handle multiple pending upgrades
+                if (this.pendingUpgrades > 0) {
+                    this.pendingUpgrades--;
+                    if (this.pendingUpgrades > 0) {
+                        // Show next upgrade immediately
+                        setTimeout(() => this.showLevelUpMenu(), 100);
+                        return;
+                    }
+                }
+
+                this.gamePaused = false;
+            });
             container.appendChild(card);
         });
         document.getElementById('levelup-menu').classList.remove('hidden');
+
+        // Update title to show pending count if applicable
+        const title = document.querySelector('#levelup-menu h2');
+        if (title) {
+            title.textContent = this.pendingUpgrades > 0 ? `LEVEL UP! (${this.pendingUpgrades} Remaining)` : 'LEVEL UP!';
+        }
+    }
+
+    showAugmentMenu() {
+        this.gamePaused = true;
+        this.playSound('levelup');
+
+        // Use the flattened DIAMOND_AUGMENTS
+        const available = DIAMOND_AUGMENTS.filter(a => {
+            if (this.augments.includes(a.id)) return false;
+            if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
+            return true;
+        });
+
+        if (available.length === 0) {
+            this.showLevelUpMenu();
+            return;
+        }
+
+        const choices = [];
+        // Pick 2 random available augments
+        // Since we removed strict class paths, all are available
+        const pool = [...available];
+        while (choices.length < 2 && pool.length > 0) {
+            const idx = Math.floor(Math.random() * pool.length);
+            choices.push(pool.splice(idx, 1)[0]);
+        }
+
+        const container = document.getElementById('augment-choices');
+        container.innerHTML = '';
+        choices.forEach(u => {
+            // For Diamond Augments, we don't usually need comparison stats as they are unique toggles, but could add if needed
+            const card = document.createElement('div');
+            card.className = `upgrade-card legendary`;
+            card.style.borderColor = '#00ffff';
+            card.style.boxShadow = '0 0 15px rgba(0,255,255,0.2)';
+            card.innerHTML = `<div class="upgrade-rarity" style="background:#00ffff;color:#000;">DIAMOND</div><div class="upgrade-icon">${u.icon}</div><div class="upgrade-name" style="color:#00ffff;">${u.name}</div><div class="upgrade-desc" style="color:#aee;">${u.desc}</div>`;
+            card.addEventListener('click', () => {
+                u.effect(this);
+                document.getElementById('augment-menu').classList.add('hidden');
+                this.gamePaused = false;
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: `💎 ${u.name}!`, lifetime: 3, color: '#00ffff' });
+                this.updateAugmentDisplay();
+            });
+            container.appendChild(card);
+        });
+        document.getElementById('augment-menu').classList.remove('hidden');
     }
 
     getRandomUpgrades(count) {
@@ -1014,10 +1612,41 @@ class DotsSurvivor {
     }
 
     spawnParticles(x, y, color, count) {
-        for (let i = 0; i < count; i++) {
+        if (this.particles.length > 60) return; // Hard cap
+        const limit = Math.min(count, 5); // Limit per spawn
+        for (let i = 0; i < limit; i++) {
             const a = Math.random() * Math.PI * 2, s = 50 + Math.random() * 100;
             this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, radius: 2 + Math.random() * 3, color, lifetime: 0.3 + Math.random() * 0.3 });
         }
+    }
+
+    updateDamageNumbers(dt) {
+        // Limit max active numbers
+        if (this.damageNumbers.length > 40) {
+            this.damageNumbers.splice(0, this.damageNumbers.length - 40);
+        }
+
+        for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+            const d = this.damageNumbers[i];
+            d.y -= 30 * dt;
+            d.lifetime -= dt;
+            if (d.lifetime <= 0) this.damageNumbers.splice(i, 1);
+        }
+    }
+
+    // ... (rest of methods until drawHUD) ...
+
+    drawHUD() {
+        // This is not an existing method, the HUD is HTML based in this codebase (checked earlier).
+        // Wait, line 1370 suggests item drawing on canvas? 
+        // "ctx.fillRect(20, y, 100, 20)" -> Yes, `drawHUD` or similar exists but I don't see the method definition in the snippet.
+        // Ah, looking at previous `view_file` (1370-1378), it seems to be inside `render` or a `drawHUD` method.
+        // It uses `ctx`. Let's assume it's part of `render` or called by it.
+        // The snippet 1370 starts with `if (lvl > 0)`.
+        // I need to insert the diamond augment display *after* the items loop.
+
+        // Let's find where the items loop ends. Line 1377 `});`.
+        // I will append code there.
     }
 
     updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) this.particles.splice(i, 1); } }
@@ -1139,6 +1768,12 @@ class DotsSurvivor {
             ctx.font = `${m.radius + 4}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(m.icon, m.x, m.y);
         });
+        // Imps
+        this.imps.forEach(imp => {
+            ctx.beginPath(); ctx.arc(imp.x, imp.y, imp.radius, 0, Math.PI * 2);
+            ctx.fillStyle = imp.color; ctx.shadowBlur = 10; ctx.shadowColor = '#ff4400'; ctx.fill(); ctx.shadowBlur = 0;
+            ctx.font = '12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🔥', imp.x, imp.y);
+        });
         // Particles
         this.particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * (p.lifetime * 2), 0, Math.PI * 2); ctx.globalAlpha = p.lifetime * 2; ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1; });
         // Player
@@ -1152,13 +1787,64 @@ class DotsSurvivor {
         ctx.restore();
 
         // Damage numbers (UI - not scaled)
-        this.damageNumbers.forEach(d => { ctx.font = 'bold 16px Inter'; ctx.fillStyle = d.color; ctx.globalAlpha = d.lifetime; ctx.textAlign = 'center'; ctx.fillText(typeof d.value === 'number' ? Math.abs(d.value) : d.value, d.x, d.y); ctx.globalAlpha = 1; });
+        this.damageNumbers.forEach(d => {
+            const fontSize = Math.floor(16 * (d.scale || 1));
+            ctx.font = `bold ${fontSize}px Inter`;
+            ctx.fillStyle = d.color;
+            ctx.globalAlpha = d.lifetime;
+            ctx.textAlign = 'center';
+            ctx.fillText(d.value, d.x, d.y);
+            ctx.globalAlpha = 1;
+        });
         // Health bar
         this.drawHealthBar();
         // Items display
         this.drawItems();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
+
+        // Armor HUD
+        this.drawArmorHUD();
+    }
+
+    drawArmorHUD() {
+        const ctx = this.ctx;
+        const x = this.canvas.width - 140, y = 20;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(x, y, 120, 50);
+        ctx.strokeStyle = '#444';
+        ctx.strokeRect(x, y, 120, 50);
+
+        DEMON_SET_PIECES.forEach((p, i) => {
+            const has = this.demonSet && this.demonSet[p.id];
+            const px = x + 10 + i * 35;
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            if (has) {
+                ctx.fillStyle = '#fff';
+                ctx.fillText(p.icon, px + 15, y + 32);
+                ctx.strokeStyle = '#ff0044';
+                ctx.strokeRect(px, y + 5, 30, 40);
+                // Glow
+                ctx.shadowBlur = 10; ctx.shadowColor = '#ff0044';
+                ctx.strokeRect(px, y + 5, 30, 40);
+                ctx.shadowBlur = 0;
+            } else {
+                ctx.fillStyle = '#444';
+                ctx.fillText(p.icon, px + 15, y + 32);
+                ctx.strokeStyle = '#333';
+                ctx.strokeRect(px, y + 5, 30, 40);
+            }
+        });
+
+        // Set Bonus text
+        if (this.demonSetBonusActive) {
+            ctx.font = 'bold 10px Inter';
+            ctx.fillStyle = '#ff0044';
+            ctx.textAlign = 'center';
+            ctx.fillText('HELLFIRE ACTIVE', x + 60, y + 62);
+        }
     }
 
     drawGrid() {
@@ -1191,12 +1877,27 @@ class DotsSurvivor {
     drawItems() {
         const ctx = this.ctx;
         let y = 50;
+
+        // Items
         Object.entries(this.items).forEach(([key, lvl]) => {
             if (lvl > 0) {
                 const item = ITEMS[key];
                 ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(20, y, 100, 20);
                 ctx.font = '12px Inter'; ctx.fillStyle = '#fbbf24'; ctx.textAlign = 'left';
                 ctx.fillText(`${item.icon} Lv${lvl}`, 25, y + 14);
+                y += 24;
+            }
+        });
+
+        // Diamond Augments
+        y += 10;
+        this.augments.forEach(augId => {
+            const aug = DIAMOND_AUGMENTS.find(a => a.id === augId);
+            if (aug) {
+                ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(20, y, 120, 20);
+                ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(20, y, 120, 20);
+                ctx.font = '12px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'left';
+                ctx.fillText(`${aug.icon} ${aug.name}`, 25, y + 14);
                 y += 24;
             }
         });

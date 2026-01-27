@@ -29,8 +29,12 @@
     <!-- Game HUD -->
     <div id="game-hud" class="hidden">
         <div class="hud-top">
+            <button id="hud-pause-btn"
+                style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#fff;margin-right:1rem;">⏸️</button>
             <div class="timer-display">
                 <span id="timer">00:00</span>
+                <div id="horde-indicator" style="font-size:0.8rem;color:#ff4466;margin-top:0.2rem;display:none;">⚠️
+                    Horde in <span id="horde-waves">0</span> waves</div>
             </div>
             <div class="wave-display">
                 Wave <span id="wave-num">1</span>
@@ -53,6 +57,17 @@
             <h2>⬆️ LEVEL UP!</h2>
             <p class="choose-text">Choose an upgrade:</p>
             <div id="upgrade-choices" class="upgrade-choices">
+                <!-- Choices injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Diamond Augment Menu -->
+    <div id="augment-menu" class="menu-overlay hidden" style="background: rgba(0, 20, 40, 0.95);">
+        <div class="levelup-content" style="border-color: #00ffff; box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);">
+            <h2 style="color: #00ffff; text-shadow: 0 0 20px cyan;">💎 DIAMOND AUGMENT 💎</h2>
+            <p class="choose-text" style="color: #aee;">Choose a powerful class enhancement:</p>
+            <div id="augment-choices" class="upgrade-choices">
                 <!-- Choices injected by JS -->
             </div>
         </div>
