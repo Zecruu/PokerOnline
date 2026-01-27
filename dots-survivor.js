@@ -35,12 +35,12 @@ const CLASSES = {
         name: 'Necromancer',
         icon: '💀',
         color: '#44ff88',
-        desc: 'Raises the dead. Summons minions to fight.',
-        bonuses: { minionCount: 2, minionDamage: 1.3, minionSpeed: 1.2 },
+        desc: 'Raises the dead. More enemies spawn to fuel your army.',
+        bonuses: { minionCount: 3, minionDamage: 1.3, minionSpeed: 1.2, spawnsMoreEnemies: true },
         upgrades: [
-            { id: 'summon', name: 'Raise Dead', icon: '👻', desc: '+1 minion', rarity: 'rare', effect: (g) => g.minions.push(g.createMinion()) },
-            { id: 'empower', name: 'Dark Empowerment', icon: '⚡', desc: 'Minion damage +10', rarity: 'epic', effect: (g) => g.minions.forEach(m => m.damage += 10) },
-            { id: 'army', name: 'Undead Army', icon: '☠️', desc: '+3 minions', rarity: 'legendary', effect: (g) => { for (let i = 0; i < 3; i++) g.minions.push(g.createMinion()); } },
+            { id: 'gunner', name: 'Summon Gunner', icon: '🔫', desc: '+1 ranged minion', rarity: 'rare', effect: (g) => g.minions.push(g.createMinion('gunner')) },
+            { id: 'tank', name: 'Summon Tank', icon: '🛡️', desc: '+1 tank minion', rarity: 'epic', effect: (g) => g.minions.push(g.createMinion('tank')) },
+            { id: 'ravager', name: 'Summon Ravager', icon: '⚔️', desc: '+1 ravager minion', rarity: 'legendary', effect: (g) => g.minions.push(g.createMinion('ravager')) },
         ]
     }
 };
@@ -109,6 +109,20 @@ const DIFFICULTIES = {
     }
 };
 
+// Legendary Perks (from control points)
+const LEGENDARY_PERKS = [
+    { id: 'vampiric', name: 'Vampiric Touch', icon: '🧛', desc: 'Heal 2 HP per enemy killed' },
+    { id: 'doubleshot', name: 'Double Trouble', icon: '👯', desc: 'Fire 2x projectiles' },
+    { id: 'nuclear', name: 'Nuclear Core', icon: '☢️', desc: '+50% damage, enemies explode on death' },
+    { id: 'timewarp', name: 'Time Warp', icon: '⏰', desc: 'Enemies move 30% slower' },
+    { id: 'goldenheart', name: 'Golden Heart', icon: '💛', desc: '+100 max HP, +3 HP regen/s' },
+    { id: 'magnetking', name: 'Magnet King', icon: '🧲', desc: 'Pickup radius +200, auto-collect XP' },
+    { id: 'berserk', name: 'Berserker', icon: '😤', desc: '+100% damage when below 30% HP' },
+    { id: 'guardian', name: 'Guardian Angel', icon: '👼', desc: 'Revive once with 50% HP' },
+    { id: 'inferno', name: 'Inferno Aura', icon: '🔥', desc: 'Burn nearby enemies for 5 DPS' },
+    { id: 'frozen', name: 'Frozen Heart', icon: '❄️', desc: 'Chance to freeze enemies on hit' }
+];
+
 class DotsSurvivor {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
@@ -161,32 +175,117 @@ class DotsSurvivor {
         this.joystick = { active: false, startX: 0, startY: 0, dx: 0, dy: 0 };
         this.isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        // Base upgrades
+        // Base upgrades with descriptions
         this.baseUpgrades = [
-            { id: 'speed', name: 'Swift Feet', icon: '👟', desc: '+30 speed', rarity: 'common', effect: (g) => g.player.speed += 30 },
-            { id: 'health', name: 'Vitality', icon: '❤️', desc: '+30 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 30; g.player.health += 30; } },
-            { id: 'damage', name: 'Power Shot', icon: '💥', desc: '+5 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 5 },
-            { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: '+20% fire rate', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.8) },
-            { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: '+1 projectile', rarity: 'rare', effect: (g) => g.weapons.bullet.count++ },
-            { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: '+1 pierce', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++ },
-            { id: 'magnet', name: 'Magnet', icon: '🧲', desc: '+50 pickup range', rarity: 'common', effect: (g) => g.magnetRadius += 50 },
-            { id: 'regen', name: 'Regeneration', icon: '💚', desc: 'Heal 30 HP', rarity: 'rare', effect: (g) => g.player.health = Math.min(g.player.maxHealth, g.player.health + 30) },
-            { id: 'crit', name: 'Critical Hit', icon: '⚡', desc: '+8 damage', rarity: 'epic', effect: (g) => g.weapons.bullet.damage += 8 },
-            { id: 'armor', name: 'Armor', icon: '🛡️', desc: '+50 HP, +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; } },
-            { id: 'devastation', name: 'Devastation', icon: '☠️', desc: '+20 damage', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20 },
+            { id: 'speed', name: 'Swift Feet', icon: '👟', desc: 'Move 30 units faster', rarity: 'common', effect: (g) => g.player.speed += 30 },
+            { id: 'health', name: 'Vitality', icon: '❤️', desc: 'Increases max HP by 30', rarity: 'common', effect: (g) => { g.player.maxHealth += 30; g.player.health += 30; } },
+            { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +5 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 5 },
+            { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 20% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.8) },
+            { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++ },
+            { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++ },
+            { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50 },
+            { id: 'healregen', name: 'Regeneration', icon: '💚', desc: 'Regenerate +1 HP per second', rarity: 'rare', effect: (g) => g.player.hpRegen = (g.player.hpRegen || 0) + 1 },
+            { id: 'stars', name: 'Orbiting Stars', icon: '⭐', desc: 'Adds a star that circles around you', rarity: 'rare', effect: (g) => g.stars.push(g.createStar()) },
+            { id: 'crit', name: 'Critical Hit', icon: '⚡', desc: 'All attacks deal +8 damage', rarity: 'epic', effect: (g) => g.weapons.bullet.damage += 8 },
+            { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; } },
+            { id: 'morestars', name: 'Star Shower', icon: '🌟', desc: 'Adds 3 orbiting stars', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) g.stars.push(g.createStar()); } },
+            { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20 },
         ];
 
+        this.initSound();
         this.init();
+    }
+
+    initSound() {
+        this.sounds = {};
+        this.audioCtx = null;
+        try {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) { console.log('Audio not supported'); }
+    }
+
+    playSound(type) {
+        if (!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+
+        if (type === 'shoot') {
+            // Star Wars style laser pew pew
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1800, this.audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, this.audioCtx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.08);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.08);
+            return;
+        }
+
+        gain.gain.value = 0.1;
+        if (type === 'hit') { osc.frequency.value = 200; osc.type = 'sawtooth'; }
+        else if (type === 'kill') { osc.frequency.value = 600; osc.type = 'sine'; }
+        else if (type === 'levelup') { osc.frequency.value = 800; osc.type = 'sine'; }
+        else if (type === 'horde') { osc.frequency.value = 150; osc.type = 'sawtooth'; gain.gain.value = 0.2; }
+        else if (type === 'capture') { osc.frequency.value = 1000; osc.type = 'sine'; }
+
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.15);
+        osc.stop(this.audioCtx.currentTime + 0.15);
     }
 
     init() {
         this.resizeCanvas();
         window.addEventListener('resize', () => this.resizeCanvas());
-        window.addEventListener('keydown', (e) => { this.keys[e.key.toLowerCase()] = true; if ('wasd'.includes(e.key.toLowerCase()) || e.key.startsWith('Arrow')) e.preventDefault(); });
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.key.toLowerCase()] = true;
+            if ('wasd'.includes(e.key.toLowerCase()) || e.key.startsWith('Arrow')) e.preventDefault();
+            // Pause toggle
+            if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && this.gameRunning) {
+                this.togglePause();
+            }
+        });
         window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
         this.setupTouch();
         this.setupClassSelection();
         document.getElementById('restart-btn').addEventListener('click', () => this.showClassSelect());
+    }
+
+    togglePause() {
+        this.gamePaused = !this.gamePaused;
+        if (this.gamePaused) {
+            this.showPauseMenu();
+        } else {
+            this.hidePauseMenu();
+        }
+    }
+
+    showPauseMenu() {
+        // Create pause overlay if doesn't exist
+        let pauseMenu = document.getElementById('pause-menu');
+        if (!pauseMenu) {
+            pauseMenu = document.createElement('div');
+            pauseMenu.id = 'pause-menu';
+            pauseMenu.className = 'menu-overlay';
+            pauseMenu.innerHTML = `
+                <div class="menu-content" style="text-align:center;">
+                    <h1 style="font-size:3rem;margin-bottom:1rem;">⏸️ PAUSED</h1>
+                    <p style="color:#888;margin-bottom:2rem;">Press ESC or P to resume</p>
+                    <button id="resume-btn" class="menu-btn" style="background:linear-gradient(135deg,#00ffaa,#00aa66);border:none;padding:1rem 2rem;border-radius:12px;color:#000;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;">▶️ Resume</button>
+                    <button id="quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#ff4466,#cc2244);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;">🚪 Quit</button>
+                </div>
+            `;
+            document.body.appendChild(pauseMenu);
+            document.getElementById('resume-btn').addEventListener('click', () => this.togglePause());
+            document.getElementById('quit-btn').addEventListener('click', () => { this.togglePause(); this.gameOver(); });
+        }
+        pauseMenu.classList.remove('hidden');
+    }
+
+    hidePauseMenu() {
+        const pauseMenu = document.getElementById('pause-menu');
+        if (pauseMenu) pauseMenu.classList.add('hidden');
     }
 
     setupTouch() {
@@ -210,7 +309,7 @@ class DotsSurvivor {
                     </div>
                 `).join('')}
             </div>
-            <div class="controls-info"><p>🎮 WASD/Arrows to move</p><p>🔫 Auto-fire enabled</p></div>
+            <div class="controls-info"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
         `;
         content.querySelectorAll('.class-card').forEach(card => {
             card.addEventListener('click', () => this.selectClass(card.dataset.class));
@@ -274,8 +373,9 @@ class DotsSurvivor {
         const baseHealth = Math.floor(100 * diff.playerHealthMult);
         this.player.health = baseHealth; this.player.maxHealth = baseHealth; this.player.speed = 220;
         this.player.xp = 0; this.player.xpToLevel = 50; this.player.level = 1; this.player.kills = 0;
+        this.player.hpRegen = 0;
 
-        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color };
+        this.weapons.bullet = { damage: 8, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
@@ -283,19 +383,40 @@ class DotsSurvivor {
         if (this.selectedClass.bonuses.damage) this.weapons.bullet.damage = Math.floor(this.weapons.bullet.damage * this.selectedClass.bonuses.damage);
 
         this.enemies = []; this.projectiles = []; this.pickups = []; this.particles = []; this.damageNumbers = [];
-        this.orbitals = []; this.minions = []; this.items = {};
+        this.orbitals = []; this.minions = []; this.items = {}; this.stars = [];
         this.wave = 1; this.waveTimer = 0; this.gameTime = 0;
 
-        // Apply difficulty to spawn rate
-        this.baseSpawnRate = Math.floor(1200 * diff.spawnRateMult);
+        // INTENSE spawn rate (much faster)
+        this.baseSpawnRate = Math.floor(400 * diff.spawnRateMult);
+        // Necromancer gets even more enemies
+        if (this.selectedClass.bonuses.spawnsMoreEnemies) this.baseSpawnRate = Math.floor(this.baseSpawnRate * 0.6);
         this.enemySpawnRate = this.baseSpawnRate;
 
         this.magnetRadius = 100; this.xpMultiplier = diff.xpMult;
         this.shieldActive = false; this.shieldTimer = 0; this.shieldCooldown = 60;
 
+        // Horde system
+        this.lastHordeCount = 0;
+
+        // Control points and perks
+        this.controlPoints = [];
+        this.perks = [];
+        this.availablePerks = [...LEGENDARY_PERKS];
+        this.spawnControlPoint();
+
+        // Health packs (rare spawns)
+        this.lastHealthPackSpawn = 0;
+        this.healthPackInterval = 45000; // Every 45 seconds chance
+
+        // Camera zoom
+        this.cameraScale = 0.65;
+
+        // Regen timer
+        this.regenTimer = 0;
+
         // Class-specific starting abilities
         if (this.selectedClass.bonuses.orbitalCount) for (let i = 0; i < this.selectedClass.bonuses.orbitalCount; i++) this.orbitals.push(this.createOrbital());
-        if (this.selectedClass.bonuses.minionCount) for (let i = 0; i < this.selectedClass.bonuses.minionCount; i++) this.minions.push(this.createMinion());
+        if (this.selectedClass.bonuses.minionCount) for (let i = 0; i < this.selectedClass.bonuses.minionCount; i++) this.minions.push(this.createMinion('basic'));
 
         document.getElementById('start-menu').classList.add('hidden');
         document.getElementById('gameover-menu').classList.add('hidden');
@@ -306,29 +427,126 @@ class DotsSurvivor {
         requestAnimationFrame((t) => this.gameLoop(t));
     }
 
+    spawnControlPoint() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 800 + Math.random() * 500;
+        this.controlPoints.push({
+            wx: this.worldX + Math.cos(angle) * dist,
+            wy: this.worldY + Math.sin(angle) * dist,
+            radius: 50,
+            captureProgress: 0,
+            captured: false
+        });
+    }
+
+    spawnHealthPack() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 200 + Math.random() * 400;
+        this.pickups.push({
+            wx: this.worldX + Math.cos(angle) * dist,
+            wy: this.worldY + Math.sin(angle) * dist,
+            xp: 0, radius: 12, color: '#ff4488', isItem: false, isHealth: true, healAmount: 30
+        });
+    }
+
     createOrbital() {
         return { angle: Math.random() * Math.PI * 2, radius: 80 + this.orbitals.length * 15, speed: 2 + Math.random(), damage: 12, size: 12, color: '#aa44ff' };
     }
 
-    createMinion() {
+    createStar() {
+        return {
+            angle: Math.random() * Math.PI * 2,
+            radius: 60 + this.stars.length * 12,
+            speed: 3 + Math.random() * 0.5,
+            damage: 15,
+            size: 10,
+            color: '#ffdd00'
+        };
+    }
+
+    createMinion(type = 'basic') {
         const angle = Math.random() * Math.PI * 2;
-        return { x: this.player.x + Math.cos(angle) * 50, y: this.player.y + Math.sin(angle) * 50, radius: 10, speed: 180, damage: 10, health: 30, maxHealth: 30, color: '#44ff88', target: null };
+        const types = {
+            basic: { radius: 12, speed: 180, damage: 12, health: 40, color: '#44ff88', icon: '👻', isRanged: false },
+            gunner: { radius: 10, speed: 150, damage: 8, health: 30, color: '#66aaff', icon: '🔫', isRanged: true },
+            tank: { radius: 18, speed: 100, damage: 20, health: 100, color: '#ffaa44', icon: '🛡️', isRanged: false },
+            ravager: { radius: 14, speed: 220, damage: 25, health: 50, color: '#ff4466', icon: '⚔️', isRanged: false }
+        };
+        const t = types[type] || types.basic;
+        return {
+            x: this.player.x + Math.cos(angle) * 50,
+            y: this.player.y + Math.sin(angle) * 50,
+            type, ...t, maxHealth: t.health, target: null, attackCooldown: 0
+        };
     }
 
     gameLoop(t) {
         if (!this.gameRunning) return;
         const dt = (t - this.lastTime) / 1000; this.lastTime = t;
-        if (!this.gamePaused) { this.gameTime += dt * 1000; this.waveTimer += dt * 1000; if (this.waveTimer >= this.waveDuration) { this.wave++; this.waveTimer = 0; this.enemySpawnRate = Math.max(400, this.enemySpawnRate - 100); } this.update(dt); }
+        if (!this.gamePaused) {
+            this.gameTime += dt * 1000;
+            this.waveTimer += dt * 1000;
+            if (this.waveTimer >= this.waveDuration) {
+                this.wave++;
+                this.waveTimer = 0;
+                this.enemySpawnRate = Math.max(200, this.enemySpawnRate - 80);
+            }
+            this.checkHorde();
+            this.update(dt);
+        }
         this.render();
         requestAnimationFrame((t) => this.gameLoop(t));
+    }
+
+    checkHorde() {
+        // Horde every 5 minutes (300000ms)
+        const hordeInterval = 300000;
+        const currentHordeCount = Math.floor(this.gameTime / hordeInterval);
+
+        if (currentHordeCount > this.lastHordeCount) {
+            this.lastHordeCount = currentHordeCount;
+            this.spawnHorde();
+        }
+    }
+
+    spawnHorde() {
+        // Spawn a massive wave of enemies
+        const hordeSize = 30 + this.wave * 5;
+
+        // Show horde warning
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 50,
+            value: '⚠️ HORDE INCOMING! ⚠️',
+            lifetime: 3,
+            color: '#ff0044'
+        });
+
+        // Spawn enemies in a circle around player
+        for (let i = 0; i < hordeSize; i++) {
+            setTimeout(() => {
+                const angle = (i / hordeSize) * Math.PI * 2 + Math.random() * 0.5;
+                const dist = 500 + Math.random() * 300;
+                const wx = this.worldX + Math.cos(angle) * dist;
+                const wy = this.worldY + Math.sin(angle) * dist;
+
+                const types = ['basic', 'fast', 'swarm', 'swarm'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                this.enemies.push(this.createEnemy(wx, wy, type));
+            }, i * 50); // Stagger spawns for dramatic effect
+        }
     }
 
     update(dt) {
         this.updatePlayer(dt);
         this.updateShield(dt);
+        this.updateRegen(dt);
         this.spawnEnemies();
+        this.spawnHealthPacks();
+        this.updateControlPoints(dt);
         this.updateEnemies(dt);
         this.updateOrbitals(dt);
+        this.updateStars(dt);
         this.updateMinions(dt);
         this.fireWeapons();
         this.updateProjectiles(dt);
@@ -339,6 +557,85 @@ class DotsSurvivor {
         this.updateHUD();
     }
 
+    updateRegen(dt) {
+        if (this.player.hpRegen > 0) {
+            this.regenTimer += dt;
+            if (this.regenTimer >= 1) {
+                this.regenTimer = 0;
+                this.player.health = Math.min(this.player.maxHealth, this.player.health + this.player.hpRegen);
+            }
+        }
+    }
+
+    spawnHealthPacks() {
+        const now = performance.now();
+        if (now - this.lastHealthPackSpawn > this.healthPackInterval) {
+            this.lastHealthPackSpawn = now;
+            if (Math.random() < 0.3) { // 30% chance every 45s
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 300 + Math.random() * 400;
+                this.pickups.push({
+                    wx: this.worldX + Math.cos(angle) * dist,
+                    wy: this.worldY + Math.sin(angle) * dist,
+                    xp: 0, radius: 14, color: '#ff4488', isItem: false, isHealth: true, healAmount: 40
+                });
+            }
+        }
+    }
+
+    updateControlPoints(dt) {
+        for (const cp of this.controlPoints) {
+            if (cp.captured) continue;
+            const sx = this.player.x + (cp.wx - this.worldX);
+            const sy = this.player.y + (cp.wy - this.worldY);
+            const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+            if (d < cp.radius + this.player.radius) {
+                cp.captureProgress += dt * 20; // Capture speed
+                if (cp.captureProgress >= 100) {
+                    cp.captured = true;
+                    this.captureControlPoint();
+                }
+            } else {
+                cp.captureProgress = Math.max(0, cp.captureProgress - dt * 10);
+            }
+        }
+    }
+
+    captureControlPoint() {
+        this.playSound('capture');
+        // Award legendary perk
+        if (this.availablePerks.length > 0) {
+            const idx = Math.floor(Math.random() * this.availablePerks.length);
+            const perk = this.availablePerks.splice(idx, 1)[0];
+            this.perks.push(perk);
+            this.applyPerk(perk);
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 60,
+                value: `✨ ${perk.name}! ✨`, lifetime: 3, color: '#fbbf24'
+            });
+        }
+        // Trigger horde!
+        this.spawnHorde();
+        // Spawn next control point
+        this.spawnControlPoint();
+    }
+
+    applyPerk(perk) {
+        switch (perk.id) {
+            case 'vampiric': this.vampiric = true; break;
+            case 'doubleshot': this.weapons.bullet.count *= 2; break;
+            case 'nuclear': this.weapons.bullet.damage = Math.floor(this.weapons.bullet.damage * 1.5); this.nuclear = true; break;
+            case 'timewarp': this.timewarp = true; break;
+            case 'goldenheart': this.player.maxHealth += 100; this.player.health += 100; this.player.hpRegen += 3; break;
+            case 'magnetking': this.magnetRadius += 200; this.autoCollect = true; break;
+            case 'berserk': this.berserk = true; break;
+            case 'guardian': this.guardian = true; break;
+            case 'inferno': this.inferno = true; break;
+            case 'frozen': this.frozen = true; break;
+        }
+    }
+
     updatePlayer(dt) {
         let dx = 0, dy = 0;
         if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
@@ -347,6 +644,11 @@ class DotsSurvivor {
         if (this.keys['d'] || this.keys['arrowright']) dx += 1;
         if (this.joystick.dx || this.joystick.dy) { dx = this.joystick.dx; dy = this.joystick.dy; }
         if (dx && dy) { const len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; }
+
+        // Track last movement direction for shooting
+        if (dx !== 0 || dy !== 0) {
+            this.lastMoveDir = { x: dx, y: dy };
+        }
 
         // Infinite world - move world offset instead of clamping player
         const moveX = dx * this.player.speed * dt;
@@ -377,10 +679,11 @@ class DotsSurvivor {
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
-        const types = ['basic'];
-        if (this.wave >= 2) types.push('fast');
-        if (this.wave >= 3) types.push('tank');
-        if (this.wave >= 4) types.push('swarm', 'swarm');
+        const types = ['basic', 'basic'];
+        if (this.wave >= 2) types.push('runner', 'runner');
+        if (this.wave >= 3) types.push('tank', 'splitter');
+        if (this.wave >= 4) types.push('swarm', 'swarm', 'bomber');
+        if (this.wave >= 5) types.push('splitter', 'bomber');
 
         // Boss every 3 waves
         if (this.wave >= 3 && this.wave % 3 === 0 && Math.random() < 0.15) {
@@ -391,24 +694,31 @@ class DotsSurvivor {
         }
     }
 
-    createEnemy(wx, wy, type) {
+    createEnemy(wx, wy, type, isSplit = false) {
         const diff = this.selectedDifficulty;
         const waveMult = 1 + (this.wave - 1) * diff.scalingPerWave;
         const data = {
-            basic: { radius: 14, speed: 120, health: 35, damage: 12, xp: 6, color: '#ff4466' },
-            fast: { radius: 10, speed: 200, health: 20, damage: 10, xp: 8, color: '#ff9900' },
-            tank: { radius: 28, speed: 70, health: 120, damage: 25, xp: 25, color: '#8844ff' },
-            swarm: { radius: 8, speed: 160, health: 12, damage: 8, xp: 4, color: '#ff66aa' }
-        }[type];
+            basic: { radius: 14, speed: 85, health: 100, damage: 12, xp: 6, color: '#ff4466', icon: '' },
+            runner: { radius: 10, speed: 180, health: 40, damage: 8, xp: 5, color: '#00ffff', icon: '💨' },
+            tank: { radius: 28, speed: 50, health: 350, damage: 25, xp: 25, color: '#8844ff', icon: '' },
+            swarm: { radius: 8, speed: 110, health: 35, damage: 8, xp: 4, color: '#ff66aa', icon: '' },
+            splitter: { radius: 20, speed: 70, health: 150, damage: 15, xp: 15, color: '#44ddff', icon: '💧', splits: true },
+            bomber: { radius: 16, speed: 90, health: 75, damage: 10, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
+            mini: { radius: 8, speed: 120, health: 30, damage: 6, xp: 3, color: '#44ddff', icon: '' }
+        }[type] || data.basic;
+
+        const sizeMult = isSplit ? 0.6 : 1;
         return {
             wx, wy, type,
-            radius: data.radius,
+            radius: Math.floor(data.radius * sizeMult),
             speed: Math.floor(data.speed * diff.enemySpeedMult),
-            health: Math.floor(data.health * waveMult * diff.enemyHealthMult),
-            maxHealth: Math.floor(data.health * waveMult * diff.enemyHealthMult),
+            health: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult),
+            maxHealth: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult),
             damage: Math.floor(data.damage * waveMult * diff.enemyDamageMult),
             xp: Math.floor(data.xp * waveMult),
-            color: data.color, hitFlash: 0, isBoss: false
+            color: data.color, icon: data.icon || '', hitFlash: 0, isBoss: false,
+            splits: data.splits || false,
+            explodes: data.explodes || false
         };
     }
 
@@ -421,9 +731,9 @@ class DotsSurvivor {
             wx, wy, type: 'boss', name,
             face: faces[Math.floor(Math.random() * faces.length)],
             radius: 60 + this.wave * 5,
-            speed: Math.floor(50 * diff.enemySpeedMult),
-            health: Math.floor(500 * waveMult * diff.enemyHealthMult),
-            maxHealth: Math.floor(500 * waveMult * diff.enemyHealthMult),
+            speed: Math.floor(35 * diff.enemySpeedMult),
+            health: Math.floor(1000 * waveMult * diff.enemyHealthMult),
+            maxHealth: Math.floor(1000 * waveMult * diff.enemyHealthMult),
             damage: Math.floor(40 * waveMult * diff.enemyDamageMult),
             xp: Math.floor(200 * waveMult),
             color: '#ff0044', hitFlash: 0, isBoss: true
@@ -438,21 +748,68 @@ class DotsSurvivor {
             const d = Math.sqrt(dx * dx + dy * dy);
             if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
-
             // Screen position
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
+
+            // Apply time warp perk
+            const speedMult = this.timewarp ? 0.7 : 1;
 
             // Collision with player
             const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
             if (pd < e.radius + this.player.radius && this.player.invincibleTime <= 0) {
                 if (this.shieldActive) { this.shieldActive = false; this.shieldTimer = 0; this.spawnParticles(this.player.x, this.player.y, '#00aaff', 10); }
-                else { this.player.health -= e.damage; this.player.invincibleTime = 0.5; this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' }); }
+                else { this.player.health -= e.damage; this.player.invincibleTime = 0.5; this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' }); this.playSound('hit'); }
+            }
+
+            // Inferno aura damage
+            if (this.inferno && pd < 100) {
+                e.health -= 5 * dt;
             }
 
             // Dead
             if (e.health <= 0) {
                 this.player.kills++;
+                this.playSound('kill');
+
+                // Vampiric perk
+                if (this.vampiric) {
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + 2);
+                }
+
+                // Splitter spawns mini enemies
+                if (e.splits) {
+                    for (let j = 0; j < 3; j++) {
+                        const angle = (j / 3) * Math.PI * 2;
+                        const mini = this.createEnemy(e.wx + Math.cos(angle) * 20, e.wy + Math.sin(angle) * 20, 'mini', true);
+                        this.enemies.push(mini);
+                    }
+                }
+
+                // Bomber explodes
+                if (e.explodes) {
+                    this.spawnParticles(sx, sy, '#ff8800', 20);
+                    // Damage player if close
+                    if (pd < 80) {
+                        const dmg = Math.floor(e.damage * 1.5);
+                        this.player.health -= dmg;
+                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -dmg, lifetime: 1, color: '#ff8800' });
+                    }
+                }
+
+                // Nuclear perk - enemies explode
+                if (this.nuclear) {
+                    this.spawnParticles(sx, sy, '#ffff00', 15);
+                    // Damage nearby enemies
+                    for (const other of this.enemies) {
+                        if (other === e) continue;
+                        const osx = this.player.x + (other.wx - this.worldX);
+                        const osy = this.player.y + (other.wy - this.worldY);
+                        const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
+                        if (od < 60) other.health -= 15;
+                    }
+                }
+
                 const xpGain = Math.floor(e.xp * this.xpMultiplier);
                 this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#4ade80', isItem: false });
                 this.spawnParticles(sx, sy, e.color, 10);
@@ -482,6 +839,24 @@ class DotsSurvivor {
                 if (d < o.size + e.radius) {
                     e.health -= o.damage; e.hitFlash = 1;
                     this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#aa44ff' });
+                }
+            }
+        });
+    }
+
+    updateStars(dt) {
+        this.stars.forEach(s => {
+            s.angle += s.speed * dt;
+            const sx = this.player.x + Math.cos(s.angle) * s.radius;
+            const sy = this.player.y + Math.sin(s.angle) * s.radius;
+            // Check collision with enemies
+            for (const e of this.enemies) {
+                const ex = this.player.x + (e.wx - this.worldX);
+                const ey = this.player.y + (e.wy - this.worldY);
+                const d = Math.sqrt((sx - ex) ** 2 + (sy - ey) ** 2);
+                if (d < s.size + e.radius) {
+                    e.health -= s.damage; e.hitFlash = 1;
+                    this.damageNumbers.push({ x: ex, y: ey - 10, value: s.damage, lifetime: 0.6, color: '#ffdd00' });
                 }
             }
         });
@@ -519,6 +894,8 @@ class DotsSurvivor {
         const now = performance.now(), w = this.weapons.bullet;
         if (now - w.lastFired < w.fireRate) return;
         w.lastFired = now;
+
+        // Auto-aim at nearest enemy
         let nearest = null, nd = Infinity;
         for (const e of this.enemies) {
             const sx = this.player.x + (e.wx - this.worldX);
@@ -527,7 +904,11 @@ class DotsSurvivor {
             if (d < nd) { nd = d; nearest = { sx, sy }; }
         }
         if (!nearest) return;
+
         const baseAngle = Math.atan2(nearest.sy - this.player.y, nearest.sx - this.player.x);
+
+        this.playSound('shoot');
+
         for (let i = 0; i < w.count; i++) {
             const offset = (i - (w.count - 1) / 2) * 0.15;
             const a = baseAngle + offset;
@@ -563,10 +944,19 @@ class DotsSurvivor {
             const sx = this.player.x + (pk.wx - this.worldX);
             const sy = this.player.y + (pk.wy - this.worldY);
             const dx = this.player.x - sx, dy = this.player.y - sy, d = Math.sqrt(dx * dx + dy * dy);
-            if (d < this.magnetRadius) { pk.wx += (dx / d) * 350 * dt; pk.wy += (dy / d) * 350 * dt; }
+
+            // Auto-collect with magnet king perk for XP
+            const magnetDist = this.autoCollect && !pk.isItem && !pk.isHealth ? Infinity : this.magnetRadius;
+
+            if (d < magnetDist) { pk.wx += (dx / d) * 350 * dt; pk.wy += (dy / d) * 350 * dt; }
             if (d < this.player.radius + pk.radius) {
                 if (pk.isItem) {
                     this.collectItem(pk.itemKey);
+                } else if (pk.isHealth) {
+                    // Health pack
+                    const healed = Math.min(pk.healAmount, this.player.maxHealth - this.player.health);
+                    this.player.health += healed;
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `+${healed} HP`, lifetime: 1.5, color: '#ff4488' });
                 } else {
                     this.player.xp += pk.xp;
                     this.checkLevelUp();
@@ -656,6 +1046,16 @@ class DotsSurvivor {
         const ctx = this.ctx;
         ctx.fillStyle = '#0a0a0f';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Apply camera zoom (centered on player)
+        ctx.save();
+        const scale = this.cameraScale || 1;
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.translate(-centerX, -centerY);
+
         this.drawGrid();
         // Pickups
         this.pickups.forEach(pk => {
@@ -671,9 +1071,14 @@ class DotsSurvivor {
         this.enemies.forEach(e => {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
-            if (sx < -100 || sx > this.canvas.width + 100 || sy < -100 || sy > this.canvas.height + 100) return;
+            if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
             ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
             ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
+            // Enemy icon
+            if (e.icon) {
+                ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(e.icon, sx, sy);
+            }
             if (e.isBoss) {
                 // Boss face
                 ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -685,12 +1090,32 @@ class DotsSurvivor {
                 const bw = e.radius * 2;
                 ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 6);
                 ctx.fillStyle = '#ff0044'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 6);
-            } else if (e.type === 'tank') {
+            } else if (e.type === 'tank' || e.type === 'splitter') {
                 const bw = e.radius * 1.5;
                 ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 4);
                 ctx.fillStyle = '#ff4444'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 4);
             }
         });
+
+        // Control points
+        this.controlPoints.forEach(cp => {
+            if (cp.captured) return;
+            const sx = this.player.x + (cp.wx - this.worldX);
+            const sy = this.player.y + (cp.wy - this.worldY);
+            // Outer ring
+            ctx.beginPath(); ctx.arc(sx, sy, cp.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 4; ctx.stroke();
+            // Capture progress
+            if (cp.captureProgress > 0) {
+                ctx.beginPath();
+                ctx.arc(sx, sy, cp.radius - 5, -Math.PI / 2, -Math.PI / 2 + (cp.captureProgress / 100) * Math.PI * 2);
+                ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 6; ctx.stroke();
+            }
+            // Icon
+            ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fbbf24'; ctx.fillText('🏴', sx, sy);
+        });
+
         // Orbitals
         this.orbitals.forEach(o => {
             const ox = this.player.x + Math.cos(o.angle) * o.radius;
@@ -698,11 +1123,21 @@ class DotsSurvivor {
             ctx.beginPath(); ctx.arc(ox, oy, o.size, 0, Math.PI * 2);
             ctx.fillStyle = o.color; ctx.shadowBlur = 10; ctx.shadowColor = o.color; ctx.fill(); ctx.shadowBlur = 0;
         });
+        // Stars
+        this.stars.forEach(s => {
+            const sx = this.player.x + Math.cos(s.angle) * s.radius;
+            const sy = this.player.y + Math.sin(s.angle) * s.radius;
+            ctx.font = `${s.size + 6}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 15; ctx.shadowColor = '#ffdd00';
+            ctx.fillText('⭐', sx, sy);
+            ctx.shadowBlur = 0;
+        });
         // Minions
         this.minions.forEach(m => {
             ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
             ctx.fillStyle = m.color; ctx.fill();
-            ctx.font = '12px Arial'; ctx.fillText('👻', m.x - 6, m.y + 4);
+            ctx.font = `${m.radius + 4}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(m.icon, m.x, m.y);
         });
         // Particles
         this.particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * (p.lifetime * 2), 0, Math.PI * 2); ctx.globalAlpha = p.lifetime * 2; ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1; });
@@ -710,7 +1145,13 @@ class DotsSurvivor {
         this.drawPlayer();
         // Shield indicator
         if (this.shieldActive) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, this.player.radius + 12, 0, Math.PI * 2); ctx.strokeStyle = '#00aaff'; ctx.lineWidth = 3; ctx.stroke(); }
-        // Damage numbers
+        // Inferno aura
+        if (this.inferno) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 100, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,100,0,0.3)'; ctx.lineWidth = 2; ctx.stroke(); }
+
+        // Restore transform before drawing UI
+        ctx.restore();
+
+        // Damage numbers (UI - not scaled)
         this.damageNumbers.forEach(d => { ctx.font = 'bold 16px Inter'; ctx.fillStyle = d.color; ctx.globalAlpha = d.lifetime; ctx.textAlign = 'center'; ctx.fillText(typeof d.value === 'number' ? Math.abs(d.value) : d.value, d.x, d.y); ctx.globalAlpha = 1; });
         // Health bar
         this.drawHealthBar();
