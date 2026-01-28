@@ -1972,7 +1972,6 @@ class DotsSurvivor {
                 else {
                     this.player.health -= e.damage;
                     this.player.invincibleTime = 0.5;
-                    this.triggerScreenShake(8 + e.damage * 0.5, 0.2); // Screen shake on hit
                     this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' });
                     this.playSound('hit');
 
@@ -2026,15 +2025,12 @@ class DotsSurvivor {
         this.killStreak++;
         this.killStreakTimer = 2; // Reset streak timer
 
-        // Screen shake based on enemy type
+        // Screen shake only on boss kills (small shake)
         if (e.isBoss) {
-            this.triggerScreenShake(25, 0.5);
+            this.triggerScreenShake(8, 0.2);
             this.triggerSlowmo(0.2, 0.8); // Epic slowmo for boss kills
         } else if (e.isVector) {
-            this.triggerScreenShake(15, 0.3);
             this.triggerSlowmo(0.3, 0.4);
-        } else {
-            this.triggerScreenShake(3 + Math.min(this.killStreak * 0.5, 10), 0.1);
         }
 
         // Multi-kill slowmo
