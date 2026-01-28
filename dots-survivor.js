@@ -870,7 +870,9 @@ class DotsSurvivor {
             consumedCount: 0,
             rotationAngle: 0,
             consumeRadius: 120, // Range to consume other enemies
-            critResistance: 0.3
+            critResistance: 0.3,
+            lifeTimer: 0, // Explodes after 90 seconds
+            maxLifeTime: 90 // 1 minute 30 seconds
         };
 
         this.enemies.push(consumer);
@@ -899,8 +901,42 @@ class DotsSurvivor {
         const consumer = this.enemies.find(e => e.isConsumer);
         if (!consumer) return;
 
-        // Update rotation for visual effect
-        consumer.rotationAngle += dt * 2;
+        // Update life timer
+        consumer.lifeTimer += dt;
+
+        // Warning at 60 seconds
+        if (consumer.lifeTimer >= 60 && consumer.lifeTimer < 60 + dt) {
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 50,
+                value: '⚠️ CONSUMER UNSTABLE! 30 SECONDS! ⚠️',
+                lifetime: 3,
+                color: '#ff4400',
+                scale: 1.5
+            });
+        }
+
+        // Warning at 80 seconds
+        if (consumer.lifeTimer >= 80 && consumer.lifeTimer < 80 + dt) {
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 50,
+                value: '💀 CONSUMER CRITICAL! 10 SECONDS! 💀',
+                lifetime: 3,
+                color: '#ff0000',
+                scale: 2
+            });
+        }
+
+        // EXPLOSION at 90 seconds
+        if (consumer.lifeTimer >= consumer.maxLifeTime) {
+            this.consumerExplode(consumer);
+            return;
+        }
+
+        // Update rotation for visual effect (faster as time runs out)
+        const urgency = Math.max(1, (consumer.lifeTimer / consumer.maxLifeTime) * 5);
+        consumer.rotationAngle += dt * 2 * urgency;
 
         // Move toward player (slowly)
         const dx = this.worldX - consumer.wx;
@@ -962,6 +998,75 @@ class DotsSurvivor {
                 }
             }
         }
+    }
+
+    consumerExplode(consumer) {
+        const sx = this.player.x + (consumer.wx - this.worldX);
+        const sy = this.player.y + (consumer.wy - this.worldY);
+
+        // Massive explosion effect
+        this.spawnParticles(sx, sy, '#8800ff', 50);
+        this.spawnParticles(sx, sy, '#ffffff', 30);
+        this.spawnParticles(sx, sy, '#ff00ff', 40);
+
+        // Screen shake
+        this.triggerScreenShake(20, 0.5);
+        this.triggerSlowmo(0.2, 1.0);
+
+        // Explosion damage to ALL enemies in huge radius
+        const explosionRadius = 300 + consumer.consumedCount * 5;
+        const explosionDamage = 500 + consumer.consumedCount * 50;
+
+        for (const e of this.enemies) {
+            if (e === consumer) continue;
+            const edx = consumer.wx - e.wx;
+            const edy = consumer.wy - e.wy;
+            const edist = Math.sqrt(edx * edx + edy * edy);
+
+            if (edist < explosionRadius) {
+                e.health -= explosionDamage;
+                e.hitFlash = 1;
+                const esx = this.player.x + (e.wx - this.worldX);
+                const esy = this.player.y + (e.wy - this.worldY);
+                this.damageNumbers.push({ x: esx, y: esy - 10, value: explosionDamage, lifetime: 1, color: '#ff00ff' });
+            }
+        }
+
+        // Damage player if close
+        const playerDist = Math.sqrt((this.worldX - consumer.wx) ** 2 + (this.worldY - consumer.wy) ** 2);
+        if (playerDist < explosionRadius) {
+            const playerDmg = Math.floor(explosionDamage * 0.5);
+            this.player.health -= playerDmg;
+            this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: -playerDmg, lifetime: 1, color: '#ff0000' });
+        }
+
+        // Announcement
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 80,
+            value: '💥 THE CONSUMER EXPLODES! 💥',
+            lifetime: 3,
+            color: '#ff00ff',
+            scale: 2.5
+        });
+
+        // Drop massive XP
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * 100;
+            this.pickups.push({
+                wx: consumer.wx + Math.cos(angle) * dist,
+                wy: consumer.wy + Math.sin(angle) * dist,
+                xp: 50 + consumer.consumedCount * 5,
+                radius: 10,
+                color: '#d4e600',
+                isItem: false
+            });
+        }
+
+        // Remove consumer
+        const idx = this.enemies.indexOf(consumer);
+        if (idx >= 0) this.enemies.splice(idx, 1);
     }
 
     spawnVector() {
