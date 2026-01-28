@@ -184,60 +184,15 @@ const BUILD_SETS = {
     }
 };
 
-// Difficulty settings
-const DIFFICULTIES = {
-    easy: {
-        name: 'Easy',
-        icon: '😊',
-        color: '#4ade80',
-        desc: 'Relaxed gameplay for casual fun',
-        enemyHealthMult: 0.8,
-        enemyDamageMult: 0.5,
-        enemySpeedMult: 0.8,
-        spawnRateMult: 1.3,
-        scalingPerWave: 0.18,
-        playerHealthMult: 1.3,
-        xpMult: 1.5
-    },
-    medium: {
-        name: 'Medium',
-        icon: '😐',
-        color: '#fbbf24',
-        desc: 'Balanced challenge for most players',
-        enemyHealthMult: 1.2,
-        enemyDamageMult: 1.0,
-        enemySpeedMult: 1.0,
-        spawnRateMult: 1.0,
-        scalingPerWave: 0.30,
-        playerHealthMult: 1.0,
-        xpMult: 1.0
-    },
-    hard: {
-        name: 'Hard',
-        icon: '😠',
-        color: '#f97316',
-        desc: 'For experienced survivors only',
-        enemyHealthMult: 1.8,
-        enemyDamageMult: 1.3,
-        enemySpeedMult: 1.2,
-        spawnRateMult: 0.7,
-        scalingPerWave: 0.40,
-        playerHealthMult: 0.8,
-        xpMult: 0.8
-    },
-    extreme: {
-        name: '☠️ EXTREME',
-        icon: '☠️',
-        color: '#dc2626',
-        desc: 'You WILL die. How long can you last?',
-        enemyHealthMult: 2.5,
-        enemyDamageMult: 1.8,
-        enemySpeedMult: 1.4,
-        spawnRateMult: 0.5,
-        scalingPerWave: 0.55,
-        playerHealthMult: 0.6,
-        xpMult: 0.6
-    }
+// Game balance settings (balanced around medium difficulty)
+const GAME_SETTINGS = {
+    enemyHealthMult: 1.2,
+    enemyDamageMult: 1.0,
+    enemySpeedMult: 1.0,
+    spawnRateMult: 1.0,
+    scalingPerWave: 0.30,
+    playerHealthMult: 1.0,
+    xpMult: 1.0
 };
 
 // Legendary Perks (from control points)
@@ -394,16 +349,13 @@ class DotsSurvivor {
         window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
         this.setupTouch();
 
-        // Skip class select, go straight to difficulty or start
+        // Skip class select, go straight to boost select
         this.selectedClass = SURVIVOR_CLASS;
         this.player.color = this.selectedClass.color;
 
-        // Default to Medium difficulty
-        this.selectedDifficulty = DIFFICULTIES.medium;
         this.showBoostSelect();
 
         document.getElementById('restart-btn').addEventListener('click', () => {
-            this.selectedDifficulty = DIFFICULTIES.medium;
             this.showBoostSelect();
         });
         document.getElementById('hud-pause-btn').addEventListener('click', (e) => { e.stopPropagation(); this.togglePause(); });
@@ -613,39 +565,6 @@ class DotsSurvivor {
         this.canvas.addEventListener('touchend', () => { this.joystick.active = false; this.joystick.dx = 0; this.joystick.dy = 0; });
     }
 
-    showDifficultySelect() {
-        document.getElementById('gameover-menu').classList.add('hidden');
-        document.getElementById('start-menu').classList.remove('hidden');
-
-        const menu = document.getElementById('start-menu');
-        const content = menu.querySelector('.menu-content');
-        content.innerHTML = `
-            <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
-            <p class="game-subtitle">Survive the endless horde!</p>
-            <p style="color:#888;margin-bottom:1rem;">Select difficulty:</p>
-            <div class="difficulty-selection" style="display:flex;gap:0.8rem;flex-wrap:wrap;justify-content:center;margin:1rem 0;">
-                ${Object.entries(DIFFICULTIES).map(([id, d]) => `
-                    <div class="diff-card" data-diff="${id}" style="background:${d.color}22;border:2px solid ${d.color};border-radius:12px;padding:1rem;width:130px;cursor:pointer;transition:all 0.2s;text-align:center;">
-                        <div style="font-size:2rem;">${d.icon}</div>
-                        <div style="font-weight:700;color:${d.color};margin:0.3rem 0;">${d.name}</div>
-                        <div style="font-size:0.7rem;color:#888;">${d.desc}</div>
-                    </div>
-                `).join('')}
-            </div>
-            <div class="controls-info"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
-        `;
-        content.querySelectorAll('.diff-card').forEach(card => {
-            card.addEventListener('click', () => this.selectDifficulty(card.dataset.diff));
-            card.addEventListener('mouseenter', () => card.style.transform = 'scale(1.05)');
-            card.addEventListener('mouseleave', () => card.style.transform = 'scale(1)');
-        });
-    }
-
-    selectDifficulty(diffId) {
-        this.selectedDifficulty = DIFFICULTIES[diffId];
-        this.showBoostSelect();
-    }
-
     showBoostSelect() {
         // Hide game over menu and show start menu
         document.getElementById('gameover-menu').classList.add('hidden');
@@ -654,8 +573,8 @@ class DotsSurvivor {
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
         content.innerHTML = `
-            <h1 class="game-title">START<span>BOOST</span></h1>
-            <p class="game-subtitle">Choose your starting bonus:</p>
+            <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
+            <p class="game-subtitle">Survive the endless horde!</p>
             <div style="display:flex;gap:1.5rem;justify-content:center;margin:2rem 0;">
                 <div class="diff-card" id="btn-fresh" style="background:#44ff8822;border:2px solid #44ff88;border-radius:12px;padding:1.5rem;width:180px;cursor:pointer;text-align:center;">
                     <div style="font-size:2.5rem;">🌱</div>
@@ -670,7 +589,7 @@ class DotsSurvivor {
                     <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+5 Free Upgrades</div>
                 </div>
             </div>
-            <p style="color:#666;font-size:0.8rem;">Select one to begin</p>
+            <div class="controls-info" style="margin-top:1rem;color:#888;font-size:0.8rem;"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Auto-shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
         `;
 
         document.getElementById('btn-fresh').addEventListener('click', () => this.startGame('fresh'));
@@ -680,14 +599,13 @@ class DotsSurvivor {
     resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
 
     startGame(mode = 'fresh') {
-        const diff = this.selectedDifficulty;
         document.getElementById('start-menu').classList.add('hidden'); // Ensure menu hidden
 
         this.worldX = 0; this.worldY = 0;
         this.player.x = this.canvas.width / 2; this.player.y = this.canvas.height / 2;
 
-        // Apply difficulty to player
-        const baseHealth = Math.floor(100 * diff.playerHealthMult);
+        // Apply game settings to player
+        const baseHealth = Math.floor(100 * GAME_SETTINGS.playerHealthMult);
         this.player.health = baseHealth; this.player.maxHealth = baseHealth; this.player.speed = 220;
         this.player.xp = 0; this.player.xpToLevel = 50; this.player.kills = 0;
         this.player.hpRegen = 0;
@@ -715,12 +633,12 @@ class DotsSurvivor {
         this.wave = 1; this.waveTimer = 0; this.gameTime = 0;
 
         // INTENSE spawn rate (faster spawns)
-        this.baseSpawnRate = Math.floor(500 * diff.spawnRateMult);
+        this.baseSpawnRate = Math.floor(500 * GAME_SETTINGS.spawnRateMult);
         // Necromancer gets even more enemies
         if (this.selectedClass.bonuses.spawnsMoreEnemies) this.baseSpawnRate = Math.floor(this.baseSpawnRate * 0.6);
         this.enemySpawnRate = this.baseSpawnRate;
 
-        this.magnetRadius = 100; this.xpMultiplier = diff.xpMult;
+        this.magnetRadius = 100; this.xpMultiplier = GAME_SETTINGS.xpMult;
         this.shieldActive = false; this.shieldTimer = 0; this.shieldCooldown = 60;
 
         // Item drop chance (base 1% - reduced due to high mob count)
@@ -1894,8 +1812,7 @@ class DotsSurvivor {
     }
 
     createEnemy(wx, wy, type, isSplit = false, isHorde = false) {
-        const diff = this.selectedDifficulty;
-        const waveMult = 1 + (this.wave - 1) * diff.scalingPerWave;
+        const waveMult = 1 + (this.wave - 1) * GAME_SETTINGS.scalingPerWave;
         const data = {
             // Swarm is now the default enemy from wave 1 - smaller, faster spawns, surrounds player
             swarm: { radius: 5, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
@@ -1922,10 +1839,10 @@ class DotsSurvivor {
         return {
             wx, wy, type,
             radius: Math.floor(data.radius * sizeMult),
-            speed: Math.floor(data.speed * diff.enemySpeedMult * hordeSpeedMult),
-            health: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult * hordeHealthMult),
-            maxHealth: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult * hordeHealthMult),
-            damage: Math.floor(data.damage * waveMult * diff.enemyDamageMult),
+            speed: Math.floor(data.speed * GAME_SETTINGS.enemySpeedMult * hordeSpeedMult),
+            health: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult),
+            maxHealth: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult),
+            damage: Math.floor(data.damage * waveMult * GAME_SETTINGS.enemyDamageMult),
             xp: Math.floor(data.xp * waveMult),
             color: data.color, icon: data.icon || '', hitFlash: 0, isBoss: false,
             splits: data.splits || false,
@@ -1937,8 +1854,7 @@ class DotsSurvivor {
     }
 
     createBoss(wx, wy, type = 'boss') {
-        const diff = this.selectedDifficulty;
-        const waveMult = 1 + this.wave * diff.scalingPerWave;
+        const waveMult = 1 + this.wave * GAME_SETTINGS.scalingPerWave;
 
         let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
         let face = '😈';
@@ -1966,10 +1882,10 @@ class DotsSurvivor {
             wx, wy, type, name,
             face,
             radius: stats.radius,
-            speed: Math.floor(stats.speed * diff.enemySpeedMult), // Speed does NOT scale
-            health: Math.floor(stats.health * waveMult * diff.enemyHealthMult * statMult),
-            maxHealth: Math.floor(stats.health * waveMult * diff.enemyHealthMult * statMult),
-            damage: Math.floor(stats.damage * waveMult * diff.enemyDamageMult * statMult),
+            speed: Math.floor(stats.speed * GAME_SETTINGS.enemySpeedMult), // Speed does NOT scale
+            health: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult),
+            maxHealth: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult),
+            damage: Math.floor(stats.damage * waveMult * GAME_SETTINGS.enemyDamageMult * statMult),
             xp: Math.floor(stats.xp * waveMult),
             color, hitFlash: 0, isBoss: true,
             critResistance: critResist
