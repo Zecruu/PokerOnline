@@ -10,13 +10,21 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Map Boundaries
+### Current Task: Game Juice & Augments
+[X] Add Aura Fire Circle diamond augment with burn effect
+[X] Add screen shake on damage/kills
+[X] Add death pop animation effect
+[X] Add kill streak tracking with multi-kill slowmo
+[X] Add low health danger pulse on player
+[X] Increase enemy health scaling per wave
+
+### Previous Task: Map Boundaries
 [X] Add bounded map (2000x2000 units)
 [X] Add white border edges with glow effect
 [X] Add red warning gradient near edges
 [X] Clamp player movement to stay within bounds
 
-### Previous Task: New Enemy Types
+### New Enemy Types
 [X] Add Vector enemy - V-shaped, 15k HP, circles player, spawns enemies
 [X] Add Spawn enemy - V-shaped, low HP, fast, spawned by Vectors
 

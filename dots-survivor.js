@@ -46,7 +46,9 @@ const DIAMOND_AUGMENTS = [
     // Demon Set Augments
     { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5 },
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2 },
-    { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5 }
+    { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5 },
+    // Aura augment
+    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Burning aura surrounds you - enemies take burn damage on contact', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 15, burnDuration: 3 }; } }
 ];
 
 // Items that can drop
@@ -189,11 +191,11 @@ const DIFFICULTIES = {
         icon: '😊',
         color: '#4ade80',
         desc: 'Relaxed gameplay for casual fun',
-        enemyHealthMult: 0.6,
+        enemyHealthMult: 0.8,
         enemyDamageMult: 0.5,
         enemySpeedMult: 0.8,
         spawnRateMult: 1.3,
-        scalingPerWave: 0.12,
+        scalingPerWave: 0.18,
         playerHealthMult: 1.3,
         xpMult: 1.5
     },
@@ -202,11 +204,11 @@ const DIFFICULTIES = {
         icon: '😐',
         color: '#fbbf24',
         desc: 'Balanced challenge for most players',
-        enemyHealthMult: 1.0,
+        enemyHealthMult: 1.2,
         enemyDamageMult: 1.0,
         enemySpeedMult: 1.0,
         spawnRateMult: 1.0,
-        scalingPerWave: 0.20,
+        scalingPerWave: 0.30,
         playerHealthMult: 1.0,
         xpMult: 1.0
     },
@@ -215,11 +217,11 @@ const DIFFICULTIES = {
         icon: '😠',
         color: '#f97316',
         desc: 'For experienced survivors only',
-        enemyHealthMult: 1.4,
+        enemyHealthMult: 1.8,
         enemyDamageMult: 1.3,
         enemySpeedMult: 1.2,
         spawnRateMult: 0.7,
-        scalingPerWave: 0.28,
+        scalingPerWave: 0.40,
         playerHealthMult: 0.8,
         xpMult: 0.8
     },
@@ -228,11 +230,11 @@ const DIFFICULTIES = {
         icon: '☠️',
         color: '#dc2626',
         desc: 'You WILL die. How long can you last?',
-        enemyHealthMult: 2.0,
+        enemyHealthMult: 2.5,
         enemyDamageMult: 1.8,
         enemySpeedMult: 1.4,
         spawnRateMult: 0.5,
-        scalingPerWave: 0.40,
+        scalingPerWave: 0.55,
         playerHealthMult: 0.6,
         xpMult: 0.6
     }
@@ -769,6 +771,13 @@ class DotsSurvivor {
 
         // Camera zoom
         this.cameraScale = 0.65;
+
+        // Game Juice Effects
+        this.screenShake = { intensity: 0, duration: 0 };
+        this.slowmo = { active: false, factor: 1, duration: 0 };
+        this.killStreak = 0;
+        this.killStreakTimer = 0;
+        this.auraFire = null; // Fire aura augment
 
         // Regen timer
         this.regenTimer = 0;
@@ -1376,28 +1385,107 @@ class DotsSurvivor {
 
 
     update(dt) {
-        this.updatePlayer(dt);
-        this.updateShield(dt);
-        this.updateRegen(dt);
-        this.updateChronoField(dt);
-        this.updateElementalCycle(dt);
-        this.updateEvents(dt);
+        // Apply slowmo effect
+        const effectiveDt = this.slowmo.active ? dt * this.slowmo.factor : dt;
+        
+        this.updatePlayer(effectiveDt);
+        this.updateShield(effectiveDt);
+        this.updateRegen(effectiveDt);
+        this.updateChronoField(effectiveDt);
+        this.updateElementalCycle(effectiveDt);
+        this.updateEvents(effectiveDt);
         this.spawnEnemies();
         this.spawnHealthPacks();
-        this.updateControlPoints(dt);
-        this.updateEnemies(dt);
-        this.updateOrbitals(dt);
-        this.updateStars(dt);
-        this.updateMinions(dt);
-        this.updateActiveMinions(dt);
-        this.updateImps(dt);
+        this.updateControlPoints(effectiveDt);
+        this.updateEnemies(effectiveDt);
+        this.updateOrbitals(effectiveDt);
+        this.updateStars(effectiveDt);
+        this.updateMinions(effectiveDt);
+        this.updateActiveMinions(effectiveDt);
+        this.updateImps(effectiveDt);
+        this.updateAuraFire(effectiveDt);
         this.fireWeapons();
-        this.updateProjectiles(dt);
-        this.updatePickups(dt);
-        this.updateParticles(dt);
-        this.updateDamageNumbers(dt);
+        this.updateProjectiles(effectiveDt);
+        this.updatePickups(effectiveDt);
+        this.updateParticles(effectiveDt);
+        this.updateDamageNumbers(effectiveDt);
+        this.updateGameJuice(dt); // Always real-time for juice effects
         if (this.player.health <= 0) this.gameOver();
         this.updateHUD();
+    }
+
+    // Game Juice - Screen shake, slowmo, kill streaks
+    triggerScreenShake(intensity, duration = 0.2) {
+        this.screenShake.intensity = Math.max(this.screenShake.intensity, intensity);
+        this.screenShake.duration = Math.max(this.screenShake.duration, duration);
+    }
+
+    triggerSlowmo(factor = 0.3, duration = 0.5) {
+        this.slowmo.active = true;
+        this.slowmo.factor = factor;
+        this.slowmo.duration = duration;
+    }
+
+    updateGameJuice(dt) {
+        // Screen shake decay
+        if (this.screenShake.duration > 0) {
+            this.screenShake.duration -= dt;
+            if (this.screenShake.duration <= 0) {
+                this.screenShake.intensity = 0;
+            }
+        }
+
+        // Slowmo decay
+        if (this.slowmo.active && this.slowmo.duration > 0) {
+            this.slowmo.duration -= dt;
+            if (this.slowmo.duration <= 0) {
+                this.slowmo.active = false;
+                this.slowmo.factor = 1;
+            }
+        }
+
+        // Kill streak decay
+        if (this.killStreakTimer > 0) {
+            this.killStreakTimer -= dt;
+            if (this.killStreakTimer <= 0) {
+                this.killStreak = 0;
+            }
+        }
+    }
+
+    // Aura Fire Circle - burns enemies that get close
+    updateAuraFire(dt) {
+        if (!this.auraFire) return;
+
+        for (const e of this.enemies) {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+            if (dist < this.auraFire.radius + e.radius) {
+                // Apply burn if not already burning from aura
+                if (!e.auraBurn) {
+                    e.auraBurn = { timer: this.auraFire.burnDuration, dps: this.auraFire.damage };
+                    e.hitFlash = 0.5;
+                    this.spawnParticles(sx, sy, '#ff4400', 3);
+                }
+            }
+        }
+
+        // Process aura burns
+        for (const e of this.enemies) {
+            if (e.auraBurn && e.auraBurn.timer > 0) {
+                e.auraBurn.timer -= dt;
+                e.health -= this.auraFire.damage * dt;
+                
+                // Visual burn effect
+                if (Math.random() < 0.1) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.spawnParticles(sx, sy, '#ff6600', 1);
+                }
+            }
+        }
     }
 
     updateRegen(dt) {
@@ -1968,6 +2056,7 @@ class DotsSurvivor {
                 else {
                     this.player.health -= e.damage;
                     this.player.invincibleTime = 0.5;
+                    this.triggerScreenShake(8 + e.damage * 0.5, 0.2); // Screen shake on hit
                     this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' });
                     this.playSound('hit');
 
@@ -2016,6 +2105,44 @@ class DotsSurvivor {
     handleEnemyDeath(e, sx, sy, index) {
         this.player.kills++;
         this.playSound('kill');
+
+        // GAME JUICE: Kill streak and effects
+        this.killStreak++;
+        this.killStreakTimer = 2; // Reset streak timer
+
+        // Screen shake based on enemy type
+        if (e.isBoss) {
+            this.triggerScreenShake(25, 0.5);
+            this.triggerSlowmo(0.2, 0.8); // Epic slowmo for boss kills
+        } else if (e.isVector) {
+            this.triggerScreenShake(15, 0.3);
+            this.triggerSlowmo(0.3, 0.4);
+        } else {
+            this.triggerScreenShake(3 + Math.min(this.killStreak * 0.5, 10), 0.1);
+        }
+
+        // Multi-kill slowmo
+        if (this.killStreak === 5) {
+            this.triggerSlowmo(0.4, 0.3);
+            this.damageNumbers.push({ x: sx, y: sy - 40, value: '🔥 MULTI-KILL!', lifetime: 1.2, color: '#ffaa00', scale: 1.5 });
+        } else if (this.killStreak === 10) {
+            this.triggerSlowmo(0.3, 0.5);
+            this.damageNumbers.push({ x: sx, y: sy - 40, value: '💀 MASSACRE!', lifetime: 1.5, color: '#ff4400', scale: 2 });
+        } else if (this.killStreak >= 20 && this.killStreak % 10 === 0) {
+            this.triggerSlowmo(0.2, 0.6);
+            this.damageNumbers.push({ x: sx, y: sy - 40, value: '☠️ UNSTOPPABLE!', lifetime: 2, color: '#ff0000', scale: 2.5 });
+        }
+
+        // Death pop effect - scale up then burst
+        this.deathPops = this.deathPops || [];
+        this.deathPops.push({
+            x: sx, y: sy,
+            radius: e.radius,
+            maxRadius: e.radius * 1.8,
+            color: e.color,
+            alpha: 1,
+            timer: 0.15
+        });
 
         // Dotomancer Conversion
         if (this.conversionChance > 0 && Math.random() < this.conversionChance) {
@@ -2982,12 +3109,20 @@ class DotsSurvivor {
         ctx.fillStyle = '#0a0a0f';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Apply camera zoom (centered on player)
+        // Apply camera zoom (centered on player) and screen shake
         ctx.save();
         const scale = this.cameraScale || 1;
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
-        ctx.translate(centerX, centerY);
+        
+        // Screen shake offset
+        let shakeX = 0, shakeY = 0;
+        if (this.screenShake.intensity > 0) {
+            shakeX = (Math.random() - 0.5) * this.screenShake.intensity * 2;
+            shakeY = (Math.random() - 0.5) * this.screenShake.intensity * 2;
+        }
+        
+        ctx.translate(centerX + shakeX, centerY + shakeY);
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
 
@@ -3209,6 +3344,62 @@ class DotsSurvivor {
         });
         // Particles
         this.particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * (p.lifetime * 2), 0, Math.PI * 2); ctx.globalAlpha = p.lifetime * 2; ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1; });
+        
+        // Death pop effects (GAME JUICE)
+        if (this.deathPops) {
+            this.deathPops = this.deathPops.filter(pop => {
+                pop.timer -= 0.016;
+                const progress = 1 - (pop.timer / 0.15);
+                const currentRadius = pop.radius + (pop.maxRadius - pop.radius) * progress;
+                pop.alpha = 1 - progress;
+                
+                ctx.save();
+                ctx.globalAlpha = pop.alpha;
+                ctx.beginPath();
+                ctx.arc(pop.x, pop.y, currentRadius, 0, Math.PI * 2);
+                ctx.fillStyle = pop.color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+                
+                return pop.timer > 0;
+            });
+        }
+
+        // Aura Fire Circle (augment)
+        if (this.auraFire) {
+            ctx.save();
+            const pulse = 1 + Math.sin(this.gameTime * 5) * 0.1;
+            const auraRadius = this.auraFire.radius * pulse;
+            
+            // Outer glow
+            const gradient = ctx.createRadialGradient(
+                this.player.x, this.player.y, auraRadius * 0.6,
+                this.player.x, this.player.y, auraRadius
+            );
+            gradient.addColorStop(0, 'rgba(255, 100, 0, 0)');
+            gradient.addColorStop(0.5, 'rgba(255, 80, 0, 0.2)');
+            gradient.addColorStop(1, 'rgba(255, 50, 0, 0.4)');
+            
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Fire ring
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, ${100 + Math.sin(this.gameTime * 10) * 50}, 0, 0.8)`;
+            ctx.lineWidth = 3 + Math.sin(this.gameTime * 8) * 1;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff4400';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
         // Player
         this.drawPlayer();
         // Shield indicator
@@ -3379,6 +3570,19 @@ class DotsSurvivor {
 
     drawPlayer() {
         const ctx = this.ctx, p = this.player;
+        const healthPercent = p.health / p.maxHealth;
+        
+        // Low health danger pulse (GAME JUICE)
+        if (healthPercent < 0.25) {
+            const pulse = Math.sin(this.gameTime * 10) * 0.5 + 0.5;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius + 20 + pulse * 10, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 0, 0, ${0.1 + pulse * 0.15})`;
+            ctx.fill();
+            ctx.restore();
+        }
+        
         if (p.invincibleTime > 0 && Math.floor(p.invincibleTime * 10) % 2 === 0) ctx.globalAlpha = 0.5;
         ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 8, 0, Math.PI * 2); ctx.fillStyle = `${p.color}33`; ctx.fill();
         ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
