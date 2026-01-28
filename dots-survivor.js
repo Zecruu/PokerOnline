@@ -16,7 +16,7 @@ const SURVIVOR_CLASS = {
     upgrades: [
         // Consolidated upgrades from all classes
         { id: 'barrage', name: 'Barrage', icon: '🎯', desc: '+1 projectile', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
-        { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+40% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.6), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.6)).toFixed(1)}/s` },
+        { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+15% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.85), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.85)).toFixed(1)}/s` },
         { id: 'orbital', name: 'Arcane Orbital', icon: '🌀', desc: '+1 orbiting spell', rarity: 'rare', effect: (g) => g.orbitals.push(g.createOrbital()), getDesc: (g) => `Orbitals: ${g.orbitals.length} → ${g.orbitals.length + 1}` },
         { id: 'guard', name: 'Summon Guard', icon: '🛡️', desc: '+1 guard minion', rarity: 'rare', effect: (g) => g.addMinion('guard'), getDesc: (g) => `Minions: ${g.minions.length}/${g.maxMinions || 5}` },
     ]
@@ -57,10 +57,10 @@ const ITEMS = {
     luckyCharm: {
         name: 'Lucky Charm',
         icon: '🍀',
-        desc: '+2% item drop chance per level',
+        desc: '+1.5% item drop chance per level',
         maxLevel: 10,
         effect: (g, lvl) => {
-            g.itemDropChance = 0.05 + lvl * 0.02;
+            g.itemDropChance = 0.01 + lvl * 0.015;
         }
     },
 
@@ -112,6 +112,72 @@ const ITEMS = {
         maxLevel: 5,
         effect: (g, lvl) => {
             g.freezeChance = lvl * 0.1;
+        }
+    },
+
+    // === BUILD SET ITEMS ===
+    // Warrior Set (Red) - Damage focused
+    warriorHelm: { name: 'Warrior Helm', icon: '⚔️', desc: 'Warrior Set (1/3): +10% damage', maxLevel: 1, set: 'warrior', effect: (g, lvl) => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.1; } },
+    warriorChest: { name: 'Warrior Plate', icon: '🛡️', desc: 'Warrior Set (2/3): +50 max HP', maxLevel: 1, set: 'warrior', effect: (g, lvl) => { g.player.maxHealth += 50; g.player.health += 50; } },
+    warriorBoots: { name: 'Warrior Greaves', icon: '🥾', desc: 'Warrior Set (3/3): +20 speed', maxLevel: 1, set: 'warrior', effect: (g, lvl) => { g.player.speed += 20; } },
+
+    // Mage Set (Blue) - Orbital/Magic focused
+    mageHat: { name: 'Arcane Hat', icon: '🎩', desc: 'Mage Set (1/3): +1 Orbital', maxLevel: 1, set: 'mage', effect: (g, lvl) => { g.orbitals.push(g.createOrbital()); } },
+    mageRobe: { name: 'Arcane Robe', icon: '🧥', desc: 'Mage Set (2/3): Orbitals +50% damage', maxLevel: 1, set: 'mage', effect: (g, lvl) => { g.orbitals.forEach(o => o.damage *= 1.5); } },
+    mageStaff: { name: 'Arcane Staff', icon: '🪄', desc: 'Mage Set (3/3): Orbitals spin faster', maxLevel: 1, set: 'mage', effect: (g, lvl) => { g.orbitals.forEach(o => o.speed *= 1.5); } },
+
+    // Hunter Set (Green) - Speed/Crit focused
+    hunterHood: { name: 'Hunter Hood', icon: '🏹', desc: 'Hunter Set (1/3): +15% crit chance', maxLevel: 1, set: 'hunter', effect: (g, lvl) => { g.weapons.bullet.critChance = (g.weapons.bullet.critChance || 0.05) + 0.15; } },
+    hunterCloak: { name: 'Hunter Cloak', icon: '🧣', desc: 'Hunter Set (2/3): +30 speed', maxLevel: 1, set: 'hunter', effect: (g, lvl) => { g.player.speed += 30; } },
+    hunterBow: { name: 'Hunter Quiver', icon: '🎯', desc: 'Hunter Set (3/3): +1 projectile', maxLevel: 1, set: 'hunter', effect: (g, lvl) => { g.weapons.bullet.count++; } },
+
+    // Necro Set (Purple) - Minion/Lifesteal focused
+    necroSkull: { name: 'Necro Skull', icon: '💀', desc: 'Necro Set (1/3): +2 HP per kill', maxLevel: 1, set: 'necro', effect: (g, lvl) => { g.vampiricHeal = (g.vampiricHeal || 0) + 2; } },
+    necroRobe: { name: 'Necro Shroud', icon: '👻', desc: 'Necro Set (2/3): +1 guard minion', maxLevel: 1, set: 'necro', effect: (g, lvl) => { g.addMinion('guard'); } },
+    necroScythe: { name: 'Necro Scythe', icon: '⚰️', desc: 'Necro Set (3/3): 5% convert killed enemies', maxLevel: 1, set: 'necro', effect: (g, lvl) => { g.conversionChance = (g.conversionChance || 0) + 0.05; } }
+};
+
+// Build Set Bonuses - activated when all 3 pieces are collected
+const BUILD_SETS = {
+    warrior: {
+        name: 'Warrior Set',
+        pieces: ['warriorHelm', 'warriorChest', 'warriorBoots'],
+        color: '#ff4444',
+        bonus: '+50% damage, attacks cause explosions',
+        effect: (g) => {
+            g.damageMultiplier = (g.damageMultiplier || 1) * 1.5;
+            g.bulletExplosion = true;
+            g.explosionRadius = Math.max(g.explosionRadius || 0, 50);
+        }
+    },
+    mage: {
+        name: 'Mage Set',
+        pieces: ['mageHat', 'mageRobe', 'mageStaff'],
+        color: '#4488ff',
+        bonus: '+3 Orbitals, orbitals deal 2x damage',
+        effect: (g) => {
+            for (let i = 0; i < 3; i++) g.orbitals.push(g.createOrbital());
+            g.orbitals.forEach(o => o.damage *= 2);
+        }
+    },
+    hunter: {
+        name: 'Hunter Set',
+        pieces: ['hunterHood', 'hunterCloak', 'hunterBow'],
+        color: '#44ff44',
+        bonus: 'Crits deal 3x damage, +2 projectiles',
+        effect: (g) => {
+            g.weapons.bullet.critMultiplier = 3;
+            g.weapons.bullet.count += 2;
+        }
+    },
+    necro: {
+        name: 'Necro Set',
+        pieces: ['necroSkull', 'necroRobe', 'necroScythe'],
+        color: '#aa44ff',
+        bonus: 'Killed enemies explode, +3 minions',
+        effect: (g) => {
+            g.necroExplosion = true;
+            for (let i = 0; i < 3; i++) g.addMinion('guard');
         }
     }
 };
@@ -248,7 +314,7 @@ class DotsSurvivor {
             { id: 'speed', name: 'Swift Feet', icon: '👟', desc: 'Move 30 units faster', rarity: 'common', effect: (g) => g.player.speed += 30, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 30}` },
             { id: 'health', name: 'Vitality', icon: '❤️', desc: 'Increases max HP by 30', rarity: 'common', effect: (g) => { g.player.maxHealth += 30; g.player.health += 30; }, getDesc: (g) => `Max HP: ${g.player.maxHealth} → ${g.player.maxHealth + 30}` },
             { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +5 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 5, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 5}` },
-            { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 20% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.8), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.8)).toFixed(1)}/s` },
+            { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 10% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.9), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}` },
             { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
@@ -644,8 +710,8 @@ class DotsSurvivor {
         this.magnetRadius = 100; this.xpMultiplier = diff.xpMult;
         this.shieldActive = false; this.shieldTimer = 0; this.shieldCooldown = 60;
 
-        // Item drop chance (base 5%)
-        this.itemDropChance = 0.05;
+        // Item drop chance (base 1% - reduced due to high mob count)
+        this.itemDropChance = 0.01;
 
         // Ice zones array for ice mob death effect
         this.iceZones = [];
@@ -684,6 +750,7 @@ class DotsSurvivor {
         this.lastBossWave = 0;
         this.bossStatMultiplier = 1.0;
         this.spawnControlPoint();
+        this.lastControlPointWave = 1;
 
         // Health packs (rare spawns)
         this.lastHealthPackSpawn = 0;
@@ -746,7 +813,7 @@ class DotsSurvivor {
         // Ring of Fire event data
         this.ringOfFire = {
             active: false,
-            radius: 200,
+            radius: 350, // Increased size
             duration: 15,
             timer: 0,
             damagePerSecond: 8,
@@ -918,6 +985,12 @@ class DotsSurvivor {
                 this.waveTimer = 0;
                 this.enemySpawnRate = Math.max(200, this.enemySpawnRate - 80);
 
+                // Spawn control points every 5 waves
+                if (this.wave % 5 === 0 || this.wave - this.lastControlPointWave >= 5) {
+                    this.spawnControlPoint();
+                    this.lastControlPointWave = this.wave;
+                }
+
                 // Reset boss tracking for new wave
                 this.bossesSpawnedThisWave = 0;
                 this.generalSpawnedThisWave = false;
@@ -1029,7 +1102,7 @@ class DotsSurvivor {
             this.ringOfFire.active = true;
             this.ringOfFire.timer = 0;
             this.ringOfFire.burnTimer = 0;
-            this.ringOfFire.radius = 200 + Math.min(this.wave * 5, 200); // Grows with wave
+            this.ringOfFire.radius = 400 + Math.min(this.wave * 8, 300); // Increased size - grows with wave
 
             this.damageNumbers.push({
                 x: this.canvas.width / 2,
@@ -1671,8 +1744,9 @@ class DotsSurvivor {
         if (this.wave >= 3) types.push('runner', 'runner', 'swarm');
         if (this.wave >= 4) types.push('tank', 'splitter', 'swarm');
         if (this.wave >= 5) types.push('bomber', 'splitter', 'swarm');
-        // Add sticky and ice enemies to spawn pool
+        // Add sticky, ice, and poison enemies to spawn pool
         if (this.wave >= 6) types.push('sticky', 'sticky', 'swarm');
+        if (this.wave >= 7) types.push('poison', 'poison'); // Poison enemies at wave 7+
         if (this.wave >= 8) types.push('ice', 'swarm');
         // Vector spawns at wave 10+ (rare but dangerous)
         if (this.wave >= 10 && Math.random() < 0.02) {
@@ -1731,6 +1805,7 @@ class DotsSurvivor {
             // New enemy types
             sticky: { radius: 12, speed: 100, health: 50, damage: 6, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
             ice: { radius: 32, speed: 45, health: 200, damage: 25, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
+            poison: { radius: 14, speed: 75, health: 80, damage: 12, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true }, // Green poison explosion
             // V-shaped enemies
             spawn: { radius: 6, speed: 160, health: 15, damage: 8, xp: 3, color: '#ff00ff', icon: '', isVShaped: true }, // Fast V-shaped, spawned by Vectors
             vector: { radius: 50, speed: 35, health: 15000, damage: 20, xp: 200, color: '#cc00ff', icon: '', isVector: true, isVShaped: true } // Large V that circles and spawns enemies
@@ -1765,13 +1840,13 @@ class DotsSurvivor {
         let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
         let face = '😈';
         let color = '#ff0044';
-        let stats = { health: 12500, damage: 50, speed: 40, radius: 80, xp: 500 }; // 5x health
+        let stats = { health: 12500, damage: 50, speed: 75, radius: 80, xp: 500 }; // 5x health, faster speed
 
         if (type === 'general') {
             name = `DEMON GENERAL ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]}`;
             face = '👹';
             color = '#8800ff';
-            stats = { health: 30000, damage: 80, speed: 50, radius: 100, xp: 2000 }; // 5x health
+            stats = { health: 30000, damage: 80, speed: 90, radius: 100, xp: 2000 }; // 5x health, faster speed
         } else {
             const faces = ['😈', '👹', '💀', '👿', '🤡', '👺', '☠️', '🔥'];
             face = faces[Math.floor(Math.random() * faces.length)];
@@ -1965,6 +2040,22 @@ class DotsSurvivor {
             }
         }
 
+        // Necro Set Bonus: enemies explode on death
+        if (this.necroExplosion && !e.isBoss) {
+            this.spawnParticles(sx, sy, '#aa44ff', 15);
+            // Damage nearby enemies
+            for (const other of this.enemies) {
+                if (other === e) continue;
+                const osx = this.player.x + (other.wx - this.worldX);
+                const osy = this.player.y + (other.wy - this.worldY);
+                const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
+                if (od < 60) {
+                    other.health -= 30;
+                    other.hitFlash = 1;
+                }
+            }
+        }
+
         // Splitter spawns mini enemies
         if (e.splits) {
             for (let j = 0; j < 3; j++) {
@@ -1974,14 +2065,41 @@ class DotsSurvivor {
             }
         }
 
-        // Bomber explodes
+        // Bomber explodes (orange) or Poison explodes (green)
         if (e.explodes) {
-            this.spawnParticles(sx, sy, '#ff8800', 20);
+            const explosionColor = e.isPoisonous ? '#00ff44' : '#ff8800';
+            const explosionRadius = e.isPoisonous ? 100 : 80;
+            this.spawnParticles(sx, sy, explosionColor, e.isPoisonous ? 30 : 20);
+            
+            // Poison has larger green explosion visual
+            if (e.isPoisonous) {
+                // Create poison cloud effect
+                for (let p = 0; p < 12; p++) {
+                    const angle = (p / 12) * Math.PI * 2;
+                    const dist = 30 + Math.random() * 40;
+                    this.particles.push({
+                        x: sx + Math.cos(angle) * dist,
+                        y: sy + Math.sin(angle) * dist,
+                        vx: Math.cos(angle) * 20,
+                        vy: Math.sin(angle) * 20,
+                        radius: 8 + Math.random() * 6,
+                        color: '#00cc44',
+                        lifetime: 1.5
+                    });
+                }
+            }
+            
             const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-            if (pd < 80) {
-                const dmg = Math.floor(e.damage * 1.5);
+            if (pd < explosionRadius) {
+                const dmg = Math.floor(e.damage * (e.isPoisonous ? 2 : 1.5));
                 this.player.health -= dmg;
-                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -dmg, lifetime: 1, color: '#ff8800' });
+                this.damageNumbers.push({ 
+                    x: this.player.x, 
+                    y: this.player.y - 20, 
+                    value: e.isPoisonous ? `☣️ ${-dmg}` : -dmg, 
+                    lifetime: 1, 
+                    color: explosionColor 
+                });
             }
         }
 
@@ -2015,11 +2133,11 @@ class DotsSurvivor {
         }
 
         const xpGain = Math.floor(e.xp * this.xpMultiplier);
-        this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#4ade80', isItem: false });
+        this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#d4e600', isItem: false }); // Yellow-green XP
         this.spawnParticles(sx, sy, e.color, 10);
 
-        // Regular enemy item drops (base 3% chance, increased by luckyCharm)
-        const dropChance = this.itemDropChance || 0.03;
+        // Regular enemy item drops (base 1% chance, increased by luckyCharm)
+        const dropChance = this.itemDropChance || 0.01;
         if (!e.isBoss && Math.random() < dropChance) {
             this.dropItem(e.wx, e.wy);
         }
@@ -2320,8 +2438,8 @@ class DotsSurvivor {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.x += p.vx * dt; p.y += p.vy * dt;
-            // Remove if too far from player (reduced range for balanced gameplay)
-            if (Math.abs(p.x - this.player.x) > 350 || Math.abs(p.y - this.player.y) > 350) { this.projectiles.splice(i, 1); continue; }
+            // Remove if too far from player (short range for close combat gameplay)
+            if (Math.abs(p.x - this.player.x) > 175 || Math.abs(p.y - this.player.y) > 175) { this.projectiles.splice(i, 1); continue; }
             for (const e of this.enemies) {
                 if (p.hitEnemies.includes(e)) continue;
                 const sx = this.player.x + (e.wx - this.worldX);
@@ -2450,7 +2568,55 @@ class DotsSurvivor {
         if (this.items[key] < item.maxLevel) {
             this.items[key]++;
             item.effect(this, this.items[key]);
-            this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: `${item.icon} ${item.name} Lv${this.items[key]}`, lifetime: 2, color: '#fbbf24' });
+            
+            // Check if it's a set item
+            if (item.set) {
+                const setColor = BUILD_SETS[item.set]?.color || '#fbbf24';
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: `${item.icon} ${item.name}`, lifetime: 2, color: setColor });
+                this.checkSetBonus(item.set);
+            } else {
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: `${item.icon} ${item.name} Lv${this.items[key]}`, lifetime: 2, color: '#fbbf24' });
+            }
+        }
+    }
+
+    checkSetBonus(setName) {
+        const set = BUILD_SETS[setName];
+        if (!set || this.activeSets?.[setName]) return; // Already activated
+        
+        // Check if all pieces are collected
+        const hasAll = set.pieces.every(piece => this.items[piece] && this.items[piece] > 0);
+        if (hasAll) {
+            // Initialize activeSets if needed
+            if (!this.activeSets) this.activeSets = {};
+            this.activeSets[setName] = true;
+            
+            // Apply set bonus
+            set.effect(this);
+            
+            // Big announcement
+            this.gamePaused = true;
+            setTimeout(() => {
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 80,
+                    value: `🎉 ${set.name.toUpperCase()} COMPLETE! 🎉`,
+                    lifetime: 4,
+                    color: set.color,
+                    scale: 2
+                });
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 40,
+                    value: set.bonus,
+                    lifetime: 4,
+                    color: '#ffffff',
+                    scale: 1.2
+                });
+                setTimeout(() => { this.gamePaused = false; }, 2000);
+            }, 100);
+            
+            this.playSound('levelup');
         }
     }
 

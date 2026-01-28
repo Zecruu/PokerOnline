@@ -1,0 +1,18 @@
+[Cursor] Gameplay balance, build sets, poison enemy, and QoL improvements
+
+Gameplay Balance:
+- Increased Ring of Fire size (400-700 radius)
+- Decreased player attack range by half (175px)
+- Increased boss movement speed (75/90)
+- Reduced item drop rate (1% base)
+- Nerfed fire rate upgrades (10-15% instead of 20-40%)
+- Lucky Charm now +1.5% per level
+
+New Features:
+- Added Build Sets system with 4 sets (Warrior, Mage, Hunter, Necro)
+- Each set has 3 pieces and a powerful completion bonus
+- Added Poison enemy (wave 7+) with green explosion and ☣️ icon
+
+Fixes:
+- Control points now spawn every 5 waves automatically
+- Changed XP color to yellow-green to distinguish from poison
