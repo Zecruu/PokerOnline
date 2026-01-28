@@ -26,7 +26,8 @@ const SURVIVOR_CLASS = {
 const DIAMOND_AUGMENTS = [
     // Soldier Path
     { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke') },
-    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +100%, but accuracy decreases slightly', effect: (g) => { g.weapons.bullet.fireRate *= 0.5; g.spread = 0.2; } },
+    // Nerfed per user request: only ~10% faster fire rate instead of 100%
+    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%, but accuracy decreases slightly', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; g.spread = 0.2; } },
     { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm') },
     { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +200% damage to Bosses and Tank enemies', effect: (g) => g.augments.push('titan_killer') },
     // Mage Path
@@ -53,7 +54,114 @@ const ITEMS = {
     xpRing: { name: 'Ring of XP', icon: '💍', desc: '+5% XP per level', maxLevel: 10, effect: (g, lvl) => g.xpMultiplier = 1 + lvl * 0.05 },
     collector: { name: 'Collector', icon: '🧲', desc: '+30 pickup radius per level', maxLevel: 5, effect: (g, lvl) => g.magnetRadius = 100 + lvl * 30 },
     boots: { name: 'Swift Boots', icon: '👢', desc: '+20 speed per level', maxLevel: 5, effect: (g, lvl) => g.player.speed = 220 + lvl * 20 },
-    shield: { name: 'Barrier Shield', icon: '🛡️', desc: 'Block 1 hit. -5s cooldown per level', maxLevel: 10, baseCooldown: 60, effect: (g, lvl) => { g.shieldCooldown = Math.max(10, 60 - lvl * 5); } }
+    shield: { name: 'Barrier Shield', icon: '🛡️', desc: 'Block 1 hit. -5s cooldown per level', maxLevel: 10, baseCooldown: 60, effect: (g, lvl) => { g.shieldCooldown = Math.max(10, 60 - lvl * 5); } },
+
+    // Lucky & Heart charms
+    luckyCharm: {
+        name: 'Lucky Charm',
+        icon: '🍀',
+        desc: '+2% item drop chance per level',
+        maxLevel: 10,
+        effect: (g, lvl) => {
+            g.itemDropChance = 0.05 + lvl * 0.02; // Base 5% + 2% per level
+        }
+    },
+    heartCharm: {
+        name: 'Heart Charm',
+        icon: '❤️',
+        desc: '+20 max HP per level',
+        maxLevel: 10,
+        effect: (g, lvl) => {
+            const gain = 20;
+            g.player.maxHealth += gain;
+            g.player.health = Math.min(g.player.health + gain, g.player.maxHealth);
+        }
+    },
+
+    // NEW COOL ITEMS
+    vampFang: {
+        name: 'Vampire Fang',
+        icon: '🧛',
+        desc: 'Heal 1 HP per kill (+1 per level)',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.vampiricHeal = lvl; // Heals 1-5 HP per kill
+        }
+    },
+    critRing: {
+        name: 'Critical Ring',
+        icon: '💎',
+        desc: '+10% crit chance per level (2x damage)',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.critChance = lvl * 0.1; // 10-50% crit chance
+        }
+    },
+    piercingBullet: {
+        name: 'Piercing Shot',
+        icon: '🔱',
+        desc: '+1 enemy pierce per level',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.bulletPierce = lvl; // Pierce 1-5 enemies
+        }
+    },
+    damageAmp: {
+        name: 'Damage Amp',
+        icon: '⚡',
+        desc: '+15% bullet damage per level',
+        maxLevel: 10,
+        effect: (g, lvl) => {
+            g.damageMultiplier = 1 + lvl * 0.15; // 15-150% extra damage
+        }
+    },
+    explosiveBullet: {
+        name: 'Explosive Rounds',
+        icon: '💥',
+        desc: 'Bullets explode on hit (radius +10 per level)',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.bulletExplosion = true;
+            g.explosionRadius = 30 + lvl * 10; // 40-80 radius
+        }
+    },
+    freezeBullet: {
+        name: 'Frost Bullets',
+        icon: '❄️',
+        desc: '+10% chance to freeze enemies per level',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.freezeChance = lvl * 0.1; // 10-50% freeze chance
+        }
+    },
+    multiShot: {
+        name: 'Multi-Shot',
+        icon: '🎯',
+        desc: '+1 extra bullet per level',
+        maxLevel: 3,
+        effect: (g, lvl) => {
+            g.extraBullets = lvl; // 1-3 extra bullets
+        }
+    },
+    regeneration: {
+        name: 'Regeneration',
+        icon: '💚',
+        desc: 'Heal 1 HP every 5 seconds (-0.5s per level)',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.regenEnabled = true;
+            g.regenInterval = Math.max(1, 5 - lvl * 0.5); // 4.5s to 2.5s
+        }
+    },
+    thornArmor: {
+        name: 'Thorn Armor',
+        icon: '🌹',
+        desc: 'Reflect 10% damage to attackers (+10% per level)',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.thornDamage = lvl * 0.1; // 10-50% reflect
+        }
+    }
 };
 
 // Difficulty settings
@@ -233,8 +341,9 @@ class DotsSurvivor {
         }
 
         gain.gain.value = 0.1;
-        if (type === 'hit') { osc.frequency.value = 200; osc.type = 'sawtooth'; }
-        else if (type === 'kill') { osc.frequency.value = 600; osc.type = 'sine'; }
+	        if (type === 'hit') { osc.frequency.value = 200; osc.type = 'sawtooth'; }
+	        else if (type === 'kill') { osc.frequency.value = 600; osc.type = 'sine'; }
+	        else if (type === 'xp') { osc.frequency.value = 900; osc.type = 'square'; }
         else if (type === 'levelup') { osc.frequency.value = 800; osc.type = 'sine'; }
         else if (type === 'horde') { osc.frequency.value = 150; osc.type = 'sawtooth'; gain.gain.value = 0.2; }
         else if (type === 'capture') { osc.frequency.value = 1000; osc.type = 'sine'; }
@@ -313,12 +422,38 @@ class DotsSurvivor {
 
         if (canSave) {
             document.getElementById('save-quit-btn').addEventListener('click', async () => {
-                await this.saveGame();
-                this.gameRunning = false;
-                document.getElementById('pause-menu').classList.add('hidden');
-                document.getElementById('game-hud').classList.add('hidden');
-                document.getElementById('start-menu').classList.remove('hidden');
-                authManager.showStartMenu();
+                const btn = document.getElementById('save-quit-btn');
+                btn.textContent = '💾 Saving...';
+                btn.disabled = true;
+
+                try {
+                    const saved = await this.saveGame();
+                    if (saved) {
+                        // Successfully saved - now go to home
+                        this.gameRunning = false;
+                        this.gamePaused = false;
+                        document.getElementById('pause-menu').classList.add('hidden');
+                        document.getElementById('game-hud').classList.add('hidden');
+                        document.getElementById('start-menu').classList.remove('hidden');
+                        if (typeof authManager !== 'undefined') {
+                            authManager.showStartMenu();
+                        }
+                    } else {
+                        // Save failed - show error and stay in pause menu
+                        btn.textContent = '❌ Save Failed - Try Again';
+                        btn.disabled = false;
+                        setTimeout(() => {
+                            btn.textContent = '💾 Save & Quit';
+                        }, 2000);
+                    }
+                } catch (e) {
+                    console.error('Save error:', e);
+                    btn.textContent = '❌ Save Error';
+                    btn.disabled = false;
+                    setTimeout(() => {
+                        btn.textContent = '💾 Save & Quit';
+                    }, 2000);
+                }
             });
         }
 
@@ -557,6 +692,32 @@ class DotsSurvivor {
         this.magnetRadius = 100; this.xpMultiplier = diff.xpMult;
         this.shieldActive = false; this.shieldTimer = 0; this.shieldCooldown = 60;
 
+        // Item drop chance (base 5%)
+        this.itemDropChance = 0.05;
+
+        // Ice zones array for ice mob death effect
+        this.iceZones = [];
+
+        // Sticky immobilization timer
+
+        // New item effect properties
+        this.vampiricHeal = 0;         // HP healed per kill
+        this.critChance = 0;            // Crit chance (0-1)
+        this.bulletPierce = 0;          // How many enemies bullets pierce
+        this.damageMultiplier = 1;      // Bullet damage multiplier
+        this.bulletExplosion = false;   // Whether bullets explode
+        this.explosionRadius = 30;      // Explosion radius
+        this.freezeChance = 0;          // Chance to freeze enemies
+        this.extraBullets = 0;          // Extra bullets per shot
+        this.regenEnabled = false;      // Whether regen is active
+        this.regenInterval = 5;         // Seconds between regen
+        this.regenTimer = 0;            // Timer for regen
+        this.thornDamage = 0;           // Damage reflection percentage
+        this.stickyTimer = 0;
+
+        // Minimum enemies (scales up over time)
+        this.minEnemies = 20;
+
         // Horde system
         this.lastHordeCount = 0;
 
@@ -627,7 +788,7 @@ class DotsSurvivor {
         // Event System
         this.activeEvent = null;
         this.eventTimer = 0;
-        this.nextEventWave = 10; // First event at wave 10
+        this.nextEventWave = 5; // First event at wave 5 (changed from 10)
         this.eventCooldown = 0;
 
         // Ring of Fire event data
@@ -825,7 +986,7 @@ class DotsSurvivor {
     }
 
     spawnHorde() {
-        // Spawn a massive wave of enemies
+        // Spawn a massive wave of enemies surrounding the player
         const hordeSize = 30 + this.wave * 5;
 
         // Show horde warning
@@ -837,17 +998,22 @@ class DotsSurvivor {
             color: '#ff0044'
         });
 
-        // Spawn enemies in a circle around player
+        this.playSound('horde');
+
+        // Spawn enemies in a tight circle around player (closer spawn for surrounded feel)
         for (let i = 0; i < hordeSize; i++) {
             setTimeout(() => {
-                const angle = (i / hordeSize) * Math.PI * 2 + Math.random() * 0.5;
-                const dist = 500 + Math.random() * 300;
+                const angle = (i / hordeSize) * Math.PI * 2 + Math.random() * 0.3;
+                const dist = 250 + Math.random() * 200; // Closer spawns (was 500-800)
                 const wx = this.worldX + Math.cos(angle) * dist;
                 const wy = this.worldY + Math.sin(angle) * dist;
 
-                const types = ['basic', 'fast', 'swarm', 'swarm'];
+                // Fixed: 'fast' -> 'runner', added sticky and ice to horde pool
+                const types = ['basic', 'runner', 'swarm', 'swarm', 'sticky'];
+                if (this.wave >= 8) types.push('ice'); // Ice mobs appear in hordes after wave 8
                 const type = types[Math.floor(Math.random() * types.length)];
-                this.enemies.push(this.createEnemy(wx, wy, type));
+                // Pass isHorde=true for +50% health and 20% slower speed
+                this.enemies.push(this.createEnemy(wx, wy, type, false, true));
             }, i * 50); // Stagger spawns for dramatic effect
         }
     }
@@ -1074,11 +1240,24 @@ class DotsSurvivor {
     }
 
     updateRegen(dt) {
+        // Perk-based regen (1 HP per second)
         if (this.player.hpRegen > 0) {
             this.regenTimer += dt;
             if (this.regenTimer >= 1) {
                 this.regenTimer = 0;
                 this.player.health = Math.min(this.player.maxHealth, this.player.health + this.player.hpRegen);
+            }
+        }
+
+        // Regeneration item (1 HP every X seconds based on level)
+        if (this.regenEnabled) {
+            this.itemRegenTimer = (this.itemRegenTimer || 0) + dt;
+            if (this.itemRegenTimer >= this.regenInterval) {
+                this.itemRegenTimer = 0;
+                if (this.player.health < this.player.maxHealth) {
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + 1);
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: '💚 +1', lifetime: 0.6, color: '#44ff88' });
+                }
             }
         }
     }
@@ -1281,9 +1460,39 @@ class DotsSurvivor {
             this.lastMoveDir = { x: dx, y: dy };
         }
 
+        // Update sticky timer
+        if (this.stickyTimer > 0) {
+            this.stickyTimer -= dt;
+        }
+
+        // Update ice zones
+        for (let i = this.iceZones.length - 1; i >= 0; i--) {
+            this.iceZones[i].timer -= dt;
+            if (this.iceZones[i].timer <= 0) {
+                this.iceZones.splice(i, 1);
+            }
+        }
+
+        // Check if player is stuck (sticky enemy hit)
+        if (this.stickyTimer > 0) {
+            // Player cannot move while stuck
+            dx = 0;
+            dy = 0;
+        }
+
+        // Check if player is in an ice zone (movement slow)
+        let iceSlowMult = 1;
+        for (const zone of this.iceZones) {
+            const distToZone = Math.sqrt((this.worldX - zone.wx) ** 2 + (this.worldY - zone.wy) ** 2);
+            if (distToZone < zone.radius) {
+                iceSlowMult = 0.5; // 50% movement slow in ice zones
+                break;
+            }
+        }
+
         // Calculate intended new position
-        const moveX = dx * this.player.speed * dt;
-        const moveY = dy * this.player.speed * dt;
+        const moveX = dx * this.player.speed * iceSlowMult * dt;
+        const moveY = dy * this.player.speed * iceSlowMult * dt;
         let newWorldX = this.worldX + moveX;
         let newWorldY = this.worldY + moveY;
 
@@ -1356,7 +1565,14 @@ class DotsSurvivor {
 
     spawnEnemies() {
         const now = performance.now();
-        if (now - this.lastEnemySpawn < this.enemySpawnRate) return;
+
+        // MINIMUM 20 MOBS: If below 20, spawn immediately without cooldown
+        // This keeps minimum at 20, but mobs can build up to 50+ if player isn't killing fast enough
+        const MIN_ENEMIES = 20;
+        const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
+
+        // Only check spawn rate if we're not in emergency spawn mode
+        if (!needsEmergencySpawn && now - this.lastEnemySpawn < this.enemySpawnRate) return;
         this.lastEnemySpawn = now;
 
         // Spawn around player in world coordinates
@@ -1370,6 +1586,9 @@ class DotsSurvivor {
         if (this.wave >= 3) types.push('tank', 'splitter');
         if (this.wave >= 4) types.push('swarm', 'swarm', 'bomber');
         if (this.wave >= 5) types.push('splitter', 'bomber');
+        // Add sticky and ice enemies to spawn pool
+        if (this.wave >= 6) types.push('sticky', 'sticky');
+        if (this.wave >= 8) types.push('ice');
 
         // Boss spawning logic - controlled per wave
         const isBossWave = this.wave >= 5 && this.wave % 5 === 0;
@@ -1406,7 +1625,7 @@ class DotsSurvivor {
         }
     }
 
-    createEnemy(wx, wy, type, isSplit = false) {
+    createEnemy(wx, wy, type, isSplit = false, isHorde = false) {
         const diff = this.selectedDifficulty;
         const waveMult = 1 + (this.wave - 1) * diff.scalingPerWave;
         const data = {
@@ -1416,21 +1635,31 @@ class DotsSurvivor {
             swarm: { radius: 8, speed: 110, health: 35, damage: 8, xp: 4, color: '#ff66aa', icon: '' },
             splitter: { radius: 20, speed: 70, health: 150, damage: 15, xp: 15, color: '#44ddff', icon: '💧', splits: true },
             bomber: { radius: 16, speed: 90, health: 75, damage: 10, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
-            mini: { radius: 8, speed: 120, health: 30, damage: 6, xp: 3, color: '#44ddff', icon: '' }
+            mini: { radius: 8, speed: 120, health: 30, damage: 6, xp: 3, color: '#44ddff', icon: '' },
+            // New enemy types
+            sticky: { radius: 12, speed: 100, health: 50, damage: 5, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
+            ice: { radius: 32, speed: 45, health: 200, damage: 20, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
+        // Horde enemies get +50% health and 20% slower speed
+        const hordeHealthMult = isHorde ? 1.5 : 1;
+        const hordeSpeedMult = isHorde ? 0.8 : 1;
+
         return {
             wx, wy, type,
             radius: Math.floor(data.radius * sizeMult),
-            speed: Math.floor(data.speed * diff.enemySpeedMult),
-            health: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult),
-            maxHealth: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult),
+            speed: Math.floor(data.speed * diff.enemySpeedMult * hordeSpeedMult),
+            health: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult * hordeHealthMult),
+            maxHealth: Math.floor(data.health * waveMult * diff.enemyHealthMult * sizeMult * hordeHealthMult),
             damage: Math.floor(data.damage * waveMult * diff.enemyDamageMult),
             xp: Math.floor(data.xp * waveMult),
             color: data.color, icon: data.icon || '', hitFlash: 0, isBoss: false,
             splits: data.splits || false,
-            explodes: data.explodes || false
+            explodes: data.explodes || false,
+            stickies: data.stickies || false,
+            freezesOnDeath: data.freezesOnDeath || false,
+            isHorde: isHorde
         };
     }
 
@@ -1488,8 +1717,15 @@ class DotsSurvivor {
                 continue;
             }
 
-            // Skip movement/collision if frozen by Chrono Field
+            // Handle freeze timer (from Frost Bullets item or Chrono Field)
             if (e.frozen) {
+                if (e.frozenTimer !== undefined) {
+                    e.frozenTimer -= dt;
+                    if (e.frozenTimer <= 0) {
+                        e.frozen = false;
+                        e.frozenTimer = 0;
+                    }
+                }
                 if (e.hitFlash > 0) e.hitFlash -= dt * 5;
                 continue; // Skip movement and collision for frozen enemies
             }
@@ -1510,7 +1746,30 @@ class DotsSurvivor {
             const pd = Math.sqrt((sxMoved - this.player.x) ** 2 + (syMoved - this.player.y) ** 2);
             if (pd < e.radius + this.player.radius && this.player.invincibleTime <= 0) {
                 if (this.shieldActive) { this.shieldActive = false; this.shieldTimer = 0; this.spawnParticles(this.player.x, this.player.y, '#00aaff', 10); }
-                else { this.player.health -= e.damage; this.player.invincibleTime = 0.5; this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' }); this.playSound('hit'); }
+                else {
+                    this.player.health -= e.damage;
+                    this.player.invincibleTime = 0.5;
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' });
+                    this.playSound('hit');
+
+                    // Thorn Armor: reflect damage back to enemy
+                    if (this.thornDamage > 0) {
+                        const reflected = Math.floor(e.damage * this.thornDamage);
+                        e.health -= reflected;
+                        e.hitFlash = 1;
+                        this.damageNumbers.push({ x: sxMoved, y: syMoved - 20, value: `🌹 ${reflected}`, lifetime: 0.8, color: '#ff66aa' });
+                        this.spawnParticles(sxMoved, syMoved, '#ff66aa', 5);
+                    }
+
+                    // Sticky enemy effect: immobilize player for 3 seconds
+                    if (e.stickies && this.stickyTimer <= 0) {
+                        this.stickyTimer = 3; // 3 seconds immobilized
+                        this.damageNumbers.push({
+                            x: this.player.x, y: this.player.y - 50,
+                            value: '🍯 STUCK!', lifetime: 2, color: '#88ff00', scale: 1.5
+                        });
+                    }
+                }
             }
 
             // Inferno aura damage
@@ -1563,9 +1822,18 @@ class DotsSurvivor {
             }
         }
 
-        // Vampiric perk
+        // Vampiric perk (from augments)
         if (this.vampiric) {
             this.player.health = Math.min(this.player.maxHealth, this.player.health + 2);
+        }
+
+        // Vampire Fang item: heal on kill
+        if (this.vampiricHeal > 0) {
+            const healed = Math.min(this.vampiricHeal, this.player.maxHealth - this.player.health);
+            if (healed > 0) {
+                this.player.health += healed;
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 35, value: `+${healed}`, lifetime: 0.5, color: '#ff4488' });
+            }
         }
 
         // Splitter spawns mini enemies
@@ -1588,6 +1856,23 @@ class DotsSurvivor {
             }
         }
 
+        // Ice mob creates icy zone on death (slows player movement)
+        if (e.freezesOnDeath) {
+            const iceRadius = e.radius * 3; // Zone is 3x the mob's size
+            this.iceZones.push({
+                wx: e.wx,
+                wy: e.wy,
+                radius: iceRadius,
+                duration: 8, // Lasts 8 seconds
+                timer: 8
+            });
+            this.spawnParticles(sx, sy, '#00ddff', 25);
+            this.damageNumbers.push({
+                x: sx, y: sy - 20,
+                value: '❄️ ICY ZONE!', lifetime: 2, color: '#00ddff', scale: 1.3
+            });
+        }
+
         // Nuclear perk - enemies explode
         if (this.nuclear) {
             this.spawnParticles(sx, sy, '#ffff00', 15);
@@ -1603,6 +1888,12 @@ class DotsSurvivor {
         const xpGain = Math.floor(e.xp * this.xpMultiplier);
         this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#4ade80', isItem: false });
         this.spawnParticles(sx, sy, e.color, 10);
+
+        // Regular enemy item drops (base 3% chance, increased by luckyCharm)
+        const dropChance = this.itemDropChance || 0.03;
+        if (!e.isBoss && Math.random() < dropChance) {
+            this.dropItem(e.wx, e.wy);
+        }
 
         // Boss drops item
         if (e.isBoss) {
@@ -1870,10 +2161,29 @@ class DotsSurvivor {
 
         this.playSound('shoot');
 
-        for (let i = 0; i < w.count; i++) {
-            const offset = (i - (w.count - 1) / 2) * 0.15;
+        // Calculate total bullet count (base + multi-shot item)
+        const totalBullets = w.count + (this.extraBullets || 0);
+        // Apply damage multiplier from Damage Amp item
+        const finalDamage = Math.floor(w.damage * (this.damageMultiplier || 1));
+        // Calculate pierce (base + Piercing Shot item)
+        const totalPierce = w.pierce + (this.bulletPierce || 0);
+
+        for (let i = 0; i < totalBullets; i++) {
+            const offset = (i - (totalBullets - 1) / 2) * 0.15;
             const a = baseAngle + offset;
-            this.projectiles.push({ x: this.player.x, y: this.player.y, vx: Math.cos(a) * w.speed, vy: Math.sin(a) * w.speed, radius: w.size, damage: w.damage, pierce: w.pierce, color: w.color, hitEnemies: [] });
+            this.projectiles.push({
+                x: this.player.x,
+                y: this.player.y,
+                vx: Math.cos(a) * w.speed,
+                vy: Math.sin(a) * w.speed,
+                radius: w.size,
+                damage: finalDamage,
+                pierce: totalPierce,
+                color: w.color,
+                hitEnemies: [],
+                canExplode: this.bulletExplosion || false,
+                canFreeze: (this.freezeChance || 0) > 0
+            });
         }
     }
 
@@ -1889,9 +2199,10 @@ class DotsSurvivor {
                 const sy = this.player.y + (e.wy - this.worldY);
                 const d = Math.sqrt((p.x - sx) ** 2 + (p.y - sy) ** 2);
                 if (d < p.radius + e.radius) {
-                    // Crit Calculation
+                    // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
-                    const isCrit = Math.random() < (this.weapons.bullet.critChance || 0.05);
+                    const critChance = (this.weapons.bullet.critChance || 0.05) + (this.critChance || 0);
+                    const isCrit = Math.random() < critChance;
                     let color = '#fff';
                     let text = damage;
 
@@ -1916,6 +2227,33 @@ class DotsSurvivor {
 
                     if (isCrit) this.spawnParticles(p.x, p.y, '#ff0000', 5);
                     else this.spawnParticles(p.x, p.y, '#fff', 3);
+
+                    // Freeze effect from Frost Bullets item
+                    if (p.canFreeze && this.freezeChance && Math.random() < this.freezeChance) {
+                        e.frozen = true;
+                        e.frozenTimer = 2; // Frozen for 2 seconds
+                        this.spawnParticles(sx, sy, '#00ddff', 8);
+                        this.damageNumbers.push({ x: sx, y: sy - 30, value: '❄️', lifetime: 1, color: '#00ddff' });
+                    }
+
+                    // Explosion effect from Explosive Rounds item
+                    if (p.canExplode && this.bulletExplosion) {
+                        const expRadius = this.explosionRadius || 40;
+                        this.spawnParticles(sx, sy, '#ff8800', 15);
+                        // Damage all nearby enemies
+                        for (const other of this.enemies) {
+                            if (other === e) continue;
+                            const osx = this.player.x + (other.wx - this.worldX);
+                            const osy = this.player.y + (other.wy - this.worldY);
+                            const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
+                            if (od < expRadius) {
+                                const splashDmg = Math.floor(damage * 0.5);
+                                other.health -= splashDmg;
+                                other.hitFlash = 1;
+                                this.damageNumbers.push({ x: osx, y: osy - 10, value: splashDmg, lifetime: 0.5, color: '#ff8800' });
+                            }
+                        }
+                    }
 
                     if (p.hitEnemies.length >= p.pierce) { this.projectiles.splice(i, 1); break; }
                 }
@@ -1969,6 +2307,7 @@ class DotsSurvivor {
                     }
                 } else {
                     this.player.xp += pk.xp;
+                    this.playSound('xp'); // Play coin sound when collecting XP
                     this.checkLevelUp();
                 }
                 this.pickups.splice(i, 1);
@@ -2296,6 +2635,56 @@ class DotsSurvivor {
 
         // Draw events
         this.drawEvents(ctx);
+
+        // Draw ice zones (visual effect for ice mob death)
+        if (this.iceZones && this.iceZones.length > 0) {
+            this.iceZones.forEach(zone => {
+                const sx = this.player.x + (zone.wx - this.worldX);
+                const sy = this.player.y + (zone.wy - this.worldY);
+
+                ctx.save();
+                // Outer glow
+                ctx.beginPath();
+                ctx.arc(sx, sy, zone.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 200, 255, ${0.15 + Math.sin(this.gameTime / 200) * 0.05})`;
+                ctx.fill();
+
+                // Ice pattern ring
+                ctx.beginPath();
+                ctx.arc(sx, sy, zone.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(100, 220, 255, ${0.6 + Math.sin(this.gameTime / 100) * 0.2})`;
+                ctx.lineWidth = 3;
+                ctx.setLineDash([8, 4]);
+                ctx.stroke();
+
+                // Inner frost effect
+                ctx.beginPath();
+                ctx.arc(sx, sy, zone.radius * 0.6, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(200, 240, 255, ${0.1})`;
+                ctx.fill();
+
+                // Snowflake icon at center
+                ctx.font = `${Math.floor(zone.radius * 0.4)}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.7 + Math.sin(this.gameTime / 150) * 0.3})`;
+                ctx.fillText('❄️', sx, sy);
+
+                ctx.restore();
+            });
+        }
+
+        // Draw sticky effect indicator on player
+        if (this.stickyTimer > 0) {
+            ctx.save();
+            ctx.font = '24px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#88ff00';
+            ctx.fillText('🍯', this.player.x, this.player.y - this.player.radius - 20);
+            ctx.font = '12px Inter';
+            ctx.fillText(`${this.stickyTimer.toFixed(1)}s`, this.player.x, this.player.y - this.player.radius - 5);
+            ctx.restore();
+        }
 
         // Pickups
         this.pickups.forEach(pk => {
