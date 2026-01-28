@@ -24,6 +24,14 @@ const UserSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     lastLogin: { type: Date, default: Date.now },
 
+    // Remember Me tokens (device/browser persistence)
+    rememberTokens: [{
+        token: { type: String, required: true },
+        deviceInfo: { type: String },
+        createdAt: { type: Date, default: Date.now },
+        expiresAt: { type: Date, required: true }
+    }],
+
     // Dots Survivor saved game state
     savedGame: {
         exists: { type: Boolean, default: false },

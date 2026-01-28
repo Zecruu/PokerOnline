@@ -50,60 +50,40 @@ const DIAMOND_AUGMENTS = [
 ];
 
 // Items that can drop
+// Items that can drop - UNIQUE effects only (no duplicates with level-up upgrades)
 const ITEMS = {
+    // XP & Luck
     xpRing: { name: 'Ring of XP', icon: '💍', desc: '+5% XP per level', maxLevel: 10, effect: (g, lvl) => g.xpMultiplier = 1 + lvl * 0.05 },
-    collector: { name: 'Collector', icon: '🧲', desc: '+30 pickup radius per level', maxLevel: 5, effect: (g, lvl) => g.magnetRadius = 100 + lvl * 30 },
-    boots: { name: 'Swift Boots', icon: '👢', desc: '+20 speed per level', maxLevel: 5, effect: (g, lvl) => g.player.speed = 220 + lvl * 20 },
-    shield: { name: 'Barrier Shield', icon: '🛡️', desc: 'Block 1 hit. -5s cooldown per level', maxLevel: 10, baseCooldown: 60, effect: (g, lvl) => { g.shieldCooldown = Math.max(10, 60 - lvl * 5); } },
-
-    // Lucky & Heart charms
     luckyCharm: {
         name: 'Lucky Charm',
         icon: '🍀',
         desc: '+2% item drop chance per level',
         maxLevel: 10,
         effect: (g, lvl) => {
-            g.itemDropChance = 0.05 + lvl * 0.02; // Base 5% + 2% per level
-        }
-    },
-    heartCharm: {
-        name: 'Heart Charm',
-        icon: '❤️',
-        desc: '+20 max HP per level',
-        maxLevel: 10,
-        effect: (g, lvl) => {
-            const gain = 20;
-            g.player.maxHealth += gain;
-            g.player.health = Math.min(g.player.health + gain, g.player.maxHealth);
+            g.itemDropChance = 0.05 + lvl * 0.02;
         }
     },
 
-    // NEW COOL ITEMS
+    // Defense
+    shield: { name: 'Barrier Shield', icon: '🛡️', desc: 'Block 1 hit. -5s cooldown per level', maxLevel: 10, baseCooldown: 60, effect: (g, lvl) => { g.shieldCooldown = Math.max(10, 60 - lvl * 5); } },
+    thornArmor: {
+        name: 'Thorn Armor',
+        icon: '🌹',
+        desc: 'Reflect 10% damage to attackers (+10% per level)',
+        maxLevel: 5,
+        effect: (g, lvl) => {
+            g.thornDamage = lvl * 0.1;
+        }
+    },
+
+    // Unique Combat Effects
     vampFang: {
         name: 'Vampire Fang',
         icon: '🧛',
         desc: 'Heal 1 HP per kill (+1 per level)',
         maxLevel: 5,
         effect: (g, lvl) => {
-            g.vampiricHeal = lvl; // Heals 1-5 HP per kill
-        }
-    },
-    critRing: {
-        name: 'Critical Ring',
-        icon: '💎',
-        desc: '+10% crit chance per level (2x damage)',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.critChance = lvl * 0.1; // 10-50% crit chance
-        }
-    },
-    piercingBullet: {
-        name: 'Piercing Shot',
-        icon: '🔱',
-        desc: '+1 enemy pierce per level',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.bulletPierce = lvl; // Pierce 1-5 enemies
+            g.vampiricHeal = lvl;
         }
     },
     damageAmp: {
@@ -112,17 +92,17 @@ const ITEMS = {
         desc: '+15% bullet damage per level',
         maxLevel: 10,
         effect: (g, lvl) => {
-            g.damageMultiplier = 1 + lvl * 0.15; // 15-150% extra damage
+            g.damageMultiplier = 1 + lvl * 0.15;
         }
     },
     explosiveBullet: {
         name: 'Explosive Rounds',
-        icon: '💥',
+        icon: '💣',
         desc: 'Bullets explode on hit (radius +10 per level)',
         maxLevel: 5,
         effect: (g, lvl) => {
             g.bulletExplosion = true;
-            g.explosionRadius = 30 + lvl * 10; // 40-80 radius
+            g.explosionRadius = 30 + lvl * 10;
         }
     },
     freezeBullet: {
@@ -131,35 +111,7 @@ const ITEMS = {
         desc: '+10% chance to freeze enemies per level',
         maxLevel: 5,
         effect: (g, lvl) => {
-            g.freezeChance = lvl * 0.1; // 10-50% freeze chance
-        }
-    },
-    multiShot: {
-        name: 'Multi-Shot',
-        icon: '🎯',
-        desc: '+1 extra bullet per level',
-        maxLevel: 3,
-        effect: (g, lvl) => {
-            g.extraBullets = lvl; // 1-3 extra bullets
-        }
-    },
-    regeneration: {
-        name: 'Regeneration',
-        icon: '💚',
-        desc: 'Heal 1 HP every 5 seconds (-0.5s per level)',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.regenEnabled = true;
-            g.regenInterval = Math.max(1, 5 - lvl * 0.5); // 4.5s to 2.5s
-        }
-    },
-    thornArmor: {
-        name: 'Thorn Armor',
-        icon: '🌹',
-        desc: 'Reflect 10% damage to attackers (+10% per level)',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.thornDamage = lvl * 0.1; // 10-50% reflect
+            g.freezeChance = lvl * 0.1;
         }
     }
 };
@@ -811,6 +763,19 @@ class DotsSurvivor {
             spawnBoost: 3
         };
 
+        // Circle of Doom event data - purple closing circle
+        this.circleOfDoom = {
+            active: false,
+            centerX: 0,
+            centerY: 0,
+            startRadius: 500,
+            currentRadius: 500,
+            minRadius: 120, // Cannot close smaller than this - player can still move
+            duration: 25,
+            timer: 0,
+            damagePerSecond: 15
+        };
+
         // Start Game Loop
         this.gameRunning = true;
         this.gamePaused = false;
@@ -861,6 +826,27 @@ class DotsSurvivor {
             captureProgress: 0,
             captured: false,
             spawnWave: this.wave
+        });
+    }
+
+    spawnVector() {
+        // Spawn a Vector enemy at a distance that will circle around the player
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 350 + Math.random() * 100;
+        const wx = this.worldX + Math.cos(angle) * dist;
+        const wy = this.worldY + Math.sin(angle) * dist;
+        
+        const vector = this.createEnemy(wx, wy, 'vector');
+        this.enemies.push(vector);
+        
+        // Alert player
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 100,
+            value: '⚠️ VECTOR INCOMING ⚠️',
+            lifetime: 2.5,
+            color: '#ff00ff',
+            scale: 1.5
         });
     }
 
@@ -1004,7 +990,7 @@ class DotsSurvivor {
         for (let i = 0; i < hordeSize; i++) {
             setTimeout(() => {
                 const angle = (i / hordeSize) * Math.PI * 2 + Math.random() * 0.3;
-                const dist = 250 + Math.random() * 200; // Closer spawns (was 500-800)
+                const dist = 180 + Math.random() * 120; // Closer horde spawns for intense combat
                 const wx = this.worldX + Math.cos(angle) * dist;
                 const wy = this.worldY + Math.sin(angle) * dist;
 
@@ -1033,7 +1019,7 @@ class DotsSurvivor {
     }
 
     triggerRandomEvent() {
-        const eventTypes = ['ring_of_fire', 'trap_square'];
+        const eventTypes = ['ring_of_fire', 'trap_square', 'circle_of_doom'];
         const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
 
         this.activeEvent = eventType;
@@ -1099,6 +1085,30 @@ class DotsSurvivor {
                     this.enemies.push(this.createEnemy(wx, wy, 'swarm'));
                 }, i * 100);
             }
+        } else if (eventType === 'circle_of_doom') {
+            // Circle of Doom - purple closing circle, player CANNOT escape
+            this.circleOfDoom.active = true;
+            this.circleOfDoom.timer = 0;
+            this.circleOfDoom.centerX = this.worldX;
+            this.circleOfDoom.centerY = this.worldY;
+            this.circleOfDoom.startRadius = 450 + Math.min(this.wave * 5, 150);
+            this.circleOfDoom.currentRadius = this.circleOfDoom.startRadius;
+
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 80,
+                value: '💀 CIRCLE OF DOOM 💀',
+                lifetime: 3,
+                color: '#aa00ff',
+                scale: 1.8
+            });
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 50,
+                value: 'No escape! Survive!',
+                lifetime: 3,
+                color: '#cc66ff'
+            });
         }
     }
 
@@ -1178,6 +1188,52 @@ class DotsSurvivor {
                 });
             }
         }
+
+        // Circle of Doom - purple closing circle
+        if (this.circleOfDoom.active) {
+            this.circleOfDoom.timer += dt;
+
+            // Slowly close the circle
+            const shrinkRate = (this.circleOfDoom.startRadius - this.circleOfDoom.minRadius) / this.circleOfDoom.duration;
+            this.circleOfDoom.currentRadius = Math.max(
+                this.circleOfDoom.minRadius,
+                this.circleOfDoom.startRadius - (shrinkRate * this.circleOfDoom.timer)
+            );
+
+            // Damage player if outside the circle
+            const distFromCenter = Math.sqrt(
+                Math.pow(this.worldX - this.circleOfDoom.centerX, 2) +
+                Math.pow(this.worldY - this.circleOfDoom.centerY, 2)
+            );
+
+            if (distFromCenter > this.circleOfDoom.currentRadius) {
+                const damage = Math.floor(this.circleOfDoom.damagePerSecond * dt);
+                if (damage > 0 && this.player.invincibleTime <= 0) {
+                    this.player.health -= damage;
+                    this.damageNumbers.push({
+                        x: this.player.x,
+                        y: this.player.y - 30,
+                        value: -damage,
+                        lifetime: 0.5,
+                        color: '#aa00ff'
+                    });
+                }
+            }
+
+            // End event
+            if (this.circleOfDoom.timer >= this.circleOfDoom.duration) {
+                this.circleOfDoom.active = false;
+                this.activeEvent = null;
+                this.eventCooldown = 10;
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 50,
+                    value: '💀 Doom lifts... 💀',
+                    lifetime: 2,
+                    color: '#aa00ff'
+                });
+            }
+        }
     }
 
     // Check if player crosses ring of fire
@@ -1210,6 +1266,27 @@ class DotsSurvivor {
         return {
             x: Math.max(minX, Math.min(maxX, newWorldX)),
             y: Math.max(minY, Math.min(maxY, newWorldY))
+        };
+    }
+
+    // Check Circle of Doom bounds - player CANNOT escape
+    checkCircleOfDoomBounds(newWorldX, newWorldY) {
+        if (!this.circleOfDoom.active) return { x: newWorldX, y: newWorldY };
+
+        const dx = newWorldX - this.circleOfDoom.centerX;
+        const dy = newWorldY - this.circleOfDoom.centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // If within circle, allow movement
+        if (dist <= this.circleOfDoom.currentRadius) {
+            return { x: newWorldX, y: newWorldY };
+        }
+
+        // Clamp to circle edge
+        const angle = Math.atan2(dy, dx);
+        return {
+            x: this.circleOfDoom.centerX + Math.cos(angle) * this.circleOfDoom.currentRadius,
+            y: this.circleOfDoom.centerY + Math.sin(angle) * this.circleOfDoom.currentRadius
         };
     }
 
@@ -1546,6 +1623,13 @@ class DotsSurvivor {
             newWorldY = bounds.y;
         }
 
+        // Circle of Doom - restrict movement to shrinking circle
+        if (this.circleOfDoom.active) {
+            const bounds = this.checkCircleOfDoomBounds(newWorldX, newWorldY);
+            newWorldX = bounds.x;
+            newWorldY = bounds.y;
+        }
+
         this.worldX = newWorldX;
         this.worldY = newWorldY;
 
@@ -1566,9 +1650,9 @@ class DotsSurvivor {
     spawnEnemies() {
         const now = performance.now();
 
-        // MINIMUM 20 MOBS: If below 20, spawn immediately without cooldown
-        // This keeps minimum at 20, but mobs can build up to 50+ if player isn't killing fast enough
-        const MIN_ENEMIES = 20;
+        // MINIMUM 30 MOBS: If below 30, spawn immediately without cooldown
+        // Swarm enemies keep the pressure on - they rapidly surround and overwhelm
+        const MIN_ENEMIES = 30;
         const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
 
         // Only check spawn rate if we're not in emergency spawn mode
@@ -1577,18 +1661,25 @@ class DotsSurvivor {
 
         // Spawn around player in world coordinates
         const angle = Math.random() * Math.PI * 2;
-        const dist = 300 + Math.random() * 200; // Closer spawns (was 400-600)
+        const dist = 200 + Math.random() * 150; // Even closer spawns for more intense gameplay
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
-        const types = ['basic', 'basic'];
-        if (this.wave >= 2) types.push('runner', 'runner');
-        if (this.wave >= 3) types.push('tank', 'splitter');
-        if (this.wave >= 4) types.push('swarm', 'swarm', 'bomber');
-        if (this.wave >= 5) types.push('splitter', 'bomber');
+        // Swarm is default from wave 1 - they rapidly spawn and try to surround player
+        const types = ['swarm', 'swarm', 'swarm', 'swarm'];
+        if (this.wave >= 2) types.push('swarm', 'swarm', 'basic');
+        if (this.wave >= 3) types.push('runner', 'runner', 'swarm');
+        if (this.wave >= 4) types.push('tank', 'splitter', 'swarm');
+        if (this.wave >= 5) types.push('bomber', 'splitter', 'swarm');
         // Add sticky and ice enemies to spawn pool
-        if (this.wave >= 6) types.push('sticky', 'sticky');
-        if (this.wave >= 8) types.push('ice');
+        if (this.wave >= 6) types.push('sticky', 'sticky', 'swarm');
+        if (this.wave >= 8) types.push('ice', 'swarm');
+        // Vector spawns at wave 10+ (rare but dangerous)
+        if (this.wave >= 10 && Math.random() < 0.02) {
+            // Spawn a Vector that will circle around player
+            this.spawnVector();
+            return;
+        }
 
         // Boss spawning logic - controlled per wave
         const isBossWave = this.wave >= 5 && this.wave % 5 === 0;
@@ -1629,16 +1720,20 @@ class DotsSurvivor {
         const diff = this.selectedDifficulty;
         const waveMult = 1 + (this.wave - 1) * diff.scalingPerWave;
         const data = {
-            basic: { radius: 14, speed: 85, health: 30, damage: 12, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 10, speed: 180, health: 40, damage: 8, xp: 5, color: '#00ffff', icon: '💨' },
-            tank: { radius: 28, speed: 50, health: 350, damage: 25, xp: 25, color: '#8844ff', icon: '' },
-            swarm: { radius: 8, speed: 110, health: 35, damage: 8, xp: 4, color: '#ff66aa', icon: '' },
-            splitter: { radius: 20, speed: 70, health: 150, damage: 15, xp: 15, color: '#44ddff', icon: '💧', splits: true },
-            bomber: { radius: 16, speed: 90, health: 75, damage: 10, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
-            mini: { radius: 8, speed: 120, health: 30, damage: 6, xp: 3, color: '#44ddff', icon: '' },
+            // Swarm is now the default enemy from wave 1 - smaller, faster spawns, surrounds player
+            swarm: { radius: 5, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
+            basic: { radius: 12, speed: 85, health: 30, damage: 15, xp: 6, color: '#ff4466', icon: '' },
+            runner: { radius: 10, speed: 180, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' },
+            tank: { radius: 28, speed: 50, health: 350, damage: 31, xp: 25, color: '#8844ff', icon: '' },
+            splitter: { radius: 20, speed: 70, health: 150, damage: 19, xp: 15, color: '#44ddff', icon: '💧', splits: true },
+            bomber: { radius: 16, speed: 90, health: 75, damage: 13, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
+            mini: { radius: 6, speed: 120, health: 25, damage: 8, xp: 3, color: '#44ddff', icon: '' },
             // New enemy types
-            sticky: { radius: 12, speed: 100, health: 50, damage: 5, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
-            ice: { radius: 32, speed: 45, health: 200, damage: 20, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true }
+            sticky: { radius: 12, speed: 100, health: 50, damage: 6, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
+            ice: { radius: 32, speed: 45, health: 200, damage: 25, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
+            // V-shaped enemies
+            spawn: { radius: 6, speed: 160, health: 15, damage: 8, xp: 3, color: '#ff00ff', icon: '', isVShaped: true }, // Fast V-shaped, spawned by Vectors
+            vector: { radius: 50, speed: 35, health: 15000, damage: 20, xp: 200, color: '#cc00ff', icon: '', isVector: true, isVShaped: true } // Large V that circles and spawns enemies
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -1670,13 +1765,13 @@ class DotsSurvivor {
         let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
         let face = '😈';
         let color = '#ff0044';
-        let stats = { health: 2500, damage: 50, speed: 40, radius: 80, xp: 500 };
+        let stats = { health: 12500, damage: 50, speed: 40, radius: 80, xp: 500 }; // 5x health
 
         if (type === 'general') {
             name = `DEMON GENERAL ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]}`;
             face = '👹';
             color = '#8800ff';
-            stats = { health: 6000, damage: 80, speed: 50, radius: 100, xp: 2000 };
+            stats = { health: 30000, damage: 80, speed: 50, radius: 100, xp: 2000 }; // 5x health
         } else {
             const faces = ['😈', '👹', '💀', '👿', '🤡', '👺', '☠️', '🔥'];
             face = faces[Math.floor(Math.random() * faces.length)];
@@ -1730,10 +1825,44 @@ class DotsSurvivor {
                 continue; // Skip movement and collision for frozen enemies
             }
 
-            // Move towards player (world coords)
-            const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
+            // Vector enemy - circles around player and spawns enemies
+            if (e.isVector) {
+                // Initialize orbit angle if not set
+                if (e.orbitAngle === undefined) {
+                    e.orbitAngle = Math.atan2(e.wy - this.worldY, e.wx - this.worldX);
+                    e.orbitRadius = Math.sqrt((e.wx - this.worldX) ** 2 + (e.wy - this.worldY) ** 2);
+                    e.spawnTimer = 0;
+                }
+                
+                // Circle around player
+                e.orbitAngle += e.speed * 0.003 * dt;
+                const targetRadius = 250 + Math.sin(this.gameTime / 1000) * 50; // Oscillate distance
+                e.orbitRadius += (targetRadius - e.orbitRadius) * dt * 0.5; // Smoothly adjust
+                
+                e.wx = this.worldX + Math.cos(e.orbitAngle) * e.orbitRadius;
+                e.wy = this.worldY + Math.sin(e.orbitAngle) * e.orbitRadius;
+                
+                // Spawn enemies from body
+                e.spawnTimer += dt;
+                if (e.spawnTimer >= 1.5) { // Spawn every 1.5 seconds
+                    e.spawnTimer = 0;
+                    // Spawn 2-3 Spawn enemies
+                    const spawnCount = 2 + Math.floor(Math.random() * 2);
+                    for (let j = 0; j < spawnCount; j++) {
+                        const spawnAngle = e.orbitAngle + (Math.random() - 0.5) * 0.5;
+                        const spawnDist = 30 + Math.random() * 20;
+                        const spawnX = e.wx + Math.cos(spawnAngle) * spawnDist;
+                        const spawnY = e.wy + Math.sin(spawnAngle) * spawnDist;
+                        this.enemies.push(this.createEnemy(spawnX, spawnY, 'spawn'));
+                    }
+                    this.spawnParticles(sx, sy, '#ff00ff', 5);
+                }
+            } else {
+                // Normal enemy - Move towards player (world coords)
+                const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
+            }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
             // Update screen position after movement
             const sxMoved = this.player.x + (e.wx - this.worldX);
@@ -2191,8 +2320,8 @@ class DotsSurvivor {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.x += p.vx * dt; p.y += p.vy * dt;
-            // Remove if too far from player
-            if (Math.abs(p.x - this.player.x) > 800 || Math.abs(p.y - this.player.y) > 800) { this.projectiles.splice(i, 1); continue; }
+            // Remove if too far from player (reduced range for balanced gameplay)
+            if (Math.abs(p.x - this.player.x) > 350 || Math.abs(p.y - this.player.y) > 350) { this.projectiles.splice(i, 1); continue; }
             for (const e of this.enemies) {
                 if (p.hitEnemies.includes(e)) continue;
                 const sx = this.player.x + (e.wx - this.worldX);
@@ -2615,6 +2744,56 @@ class DotsSurvivor {
 
             ctx.restore();
         }
+
+        // Circle of Doom - purple closing circle
+        if (this.circleOfDoom.active) {
+            const centerX = this.circleOfDoom.centerX;
+            const centerY = this.circleOfDoom.centerY;
+
+            const sx = this.player.x + (centerX - this.worldX);
+            const sy = this.player.y + (centerY - this.worldY);
+            const radius = this.circleOfDoom.currentRadius;
+
+            ctx.save();
+
+            // Outer doom zone (outside the circle is dangerous)
+            ctx.beginPath();
+            ctx.arc(sx, sy, radius + 500, 0, Math.PI * 2);
+            ctx.arc(sx, sy, radius, 0, Math.PI * 2, true); // Cut out inner circle
+            ctx.fillStyle = 'rgba(120, 0, 180, 0.3)';
+            ctx.fill();
+
+            // Main circle border - pulsing purple
+            ctx.beginPath();
+            ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#aa00ff';
+            ctx.lineWidth = 6 + Math.sin(this.gameTime / 80) * 3;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#aa00ff';
+            ctx.stroke();
+
+            // Inner warning ring
+            ctx.beginPath();
+            ctx.arc(sx, sy, radius - 10, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(200, 100, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([15, 10]);
+            ctx.stroke();
+
+            // Skull indicators around the circle
+            ctx.font = '24px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#cc66ff';
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2 + this.gameTime / 2000;
+                const skullX = sx + Math.cos(angle) * (radius + 20);
+                const skullY = sy + Math.sin(angle) * (radius + 20);
+                ctx.fillText('💀', skullX, skullY);
+            }
+
+            ctx.restore();
+        }
     }
 
     render() {
@@ -2693,6 +2872,13 @@ class DotsSurvivor {
             ctx.beginPath(); ctx.arc(sx, sy, pk.radius, 0, Math.PI * 2);
             ctx.fillStyle = pk.color; ctx.shadowBlur = 15; ctx.shadowColor = pk.color; ctx.fill(); ctx.shadowBlur = 0;
             if (pk.isItem) { ctx.font = '14px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(ITEMS[pk.itemKey].icon, sx, sy + 5); }
+            // Health pack cross design
+            if (pk.isHealth) {
+                ctx.fillStyle = '#ffffff';
+                const crossW = pk.radius * 0.4, crossH = pk.radius * 1.2;
+                ctx.fillRect(sx - crossW/2, sy - crossH/2, crossW, crossH); // Vertical bar
+                ctx.fillRect(sx - crossH/2, sy - crossW/2, crossH, crossW); // Horizontal bar
+            }
         });
         // Projectiles
         this.projectiles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); });
@@ -2701,13 +2887,78 @@ class DotsSurvivor {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
-            ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-            ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
-            // Enemy icon
-            if (e.icon) {
-                ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(e.icon, sx, sy);
+            
+            // V-shaped enemies (Spawn and Vector)
+            if (e.isVShaped) {
+                ctx.save();
+                ctx.translate(sx, sy);
+                
+                // Rotate to face player
+                const angleToPlayer = Math.atan2(this.player.y - sy, this.player.x - sx);
+                ctx.rotate(angleToPlayer);
+                
+                const size = e.radius;
+                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                
+                if (e.isVector) {
+                    // Large V shape with long body for Vectors
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = e.color;
+                    
+                    // Draw elongated V body
+                    ctx.beginPath();
+                    ctx.moveTo(size * 1.5, 0); // Tip of V
+                    ctx.lineTo(-size, -size * 0.8); // Top arm
+                    ctx.lineTo(-size * 0.3, 0); // Inner notch
+                    ctx.lineTo(-size, size * 0.8); // Bottom arm
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Inner glow core
+                    ctx.fillStyle = '#ffffff';
+                    ctx.globalAlpha = 0.3 + Math.sin(this.gameTime / 100) * 0.2;
+                    ctx.beginPath();
+                    ctx.moveTo(size * 0.8, 0);
+                    ctx.lineTo(-size * 0.3, -size * 0.3);
+                    ctx.lineTo(0, 0);
+                    ctx.lineTo(-size * 0.3, size * 0.3);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                    ctx.shadowBlur = 0;
+                } else {
+                    // Small V shape for Spawns
+                    ctx.beginPath();
+                    ctx.moveTo(size, 0); // Tip
+                    ctx.lineTo(-size * 0.8, -size * 0.6);
+                    ctx.lineTo(-size * 0.2, 0);
+                    ctx.lineTo(-size * 0.8, size * 0.6);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+                
+                // HP bar for Vectors
+                if (e.isVector) {
+                    const bw = e.radius * 2.5;
+                    ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 15, bw, 8);
+                    ctx.fillStyle = '#cc00ff'; ctx.fillRect(sx - bw / 2, sy - e.radius - 15, bw * (e.health / e.maxHealth), 8);
+                    // Name
+                    ctx.font = 'bold 14px Inter'; ctx.fillStyle = '#ff00ff'; ctx.textAlign = 'center';
+                    ctx.fillText('VECTOR', sx, sy - e.radius - 25);
+                }
+            } else {
+                // Regular circular enemies
+                ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
+                // Enemy icon
+                if (e.icon) {
+                    ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(e.icon, sx, sy);
+                }
             }
+            
             if (e.isBoss) {
                 // Boss face
                 ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

@@ -1,0 +1,42 @@
+# Zecruu Games - Cursor Rules
+
+## Project Overview
+Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
+
+## Lessons
+- Branch name is `master`, not `main`
+- Use semicolons in PowerShell to chain commands (not `&&`)
+- Server runs on port 3001 (production) or 3002 (local dev)
+
+## Scratchpad
+
+### Current Task: New Enemy Types
+[X] Add Vector enemy - V-shaped, 15k HP, circles player, spawns enemies
+[X] Add Spawn enemy - V-shaped, low HP, fast, spawned by Vectors
+
+### Previous Task: Gameplay Updates
+[X] Decrease player projectile travel range (800 -> 350px)
+[X] Increase all bosses health by 5x (boss: 12500, general: 30000)
+[X] Add Circle of Doom event (purple closing circle, player trapped)
+[X] Add cross design to healthpacks (white cross rendered on pickup)
+[X] Increase enemies damage by 1.25x (all enemy types)
+[X] Make swarm default enemy from wave 1
+
+### New Enemies Added
+1. **Vector** (wave 10+)
+   - V-shaped body with long arms
+   - 15,000 HP, slow speed (35)
+   - Circles around player at ~250px distance
+   - Spawns 2-3 Spawn enemies every 1.5 seconds
+   - Purple glow effect
+   - HP bar and name displayed
+
+2. **Spawn** (spawned by Vectors)
+   - Small V-shaped enemy
+   - 15 HP, very fast (160 speed)
+   - 8 damage, 3 XP
+   - Magenta/pink color
+   - Rushes toward player
+
+### Enemy Types Summary
+- swarm, basic, runner, tank, splitter, bomber, mini, sticky, ice, spawn, vector

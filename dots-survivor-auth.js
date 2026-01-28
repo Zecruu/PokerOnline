@@ -7,26 +7,53 @@ class AuthManager {
     constructor() {
         this.user = null;
         this.token = localStorage.getItem('ds_token');
+        this.rememberToken = localStorage.getItem('ds_remember_token');
         this.init();
     }
 
     async init() {
-        // Try to restore session
+        // Try to restore session from existing token
         if (this.token) {
             try {
                 const res = await this.apiGet('/api/auth/me');
                 this.user = res;
                 this.showStartMenu();
+                this.setupEventListeners();
+                return;
             } catch (e) {
-                // Token expired
-                this.clearSession();
-                this.showAuthMenu();
+                // Token expired, try remember token
+                this.token = null;
+                localStorage.removeItem('ds_token');
             }
-        } else {
-            this.showAuthMenu();
         }
-
+        
+        // Try auto-login with remember token
+        if (this.rememberToken) {
+            try {
+                const res = await this.apiPost('/api/auth/remember', { 
+                    rememberToken: this.rememberToken 
+                });
+                this.token = res.token;
+                this.user = res.user;
+                localStorage.setItem('ds_token', res.token);
+                this.showStartMenu();
+                this.setupEventListeners();
+                return;
+            } catch (e) {
+                // Remember token expired/invalid
+                this.clearSession();
+            }
+        }
+        
+        this.showAuthMenu();
         this.setupEventListeners();
+    }
+
+    getDeviceInfo() {
+        const ua = navigator.userAgent;
+        const isMobile = /Mobile|Android|iPhone|iPad/.test(ua);
+        const browser = ua.match(/(Chrome|Firefox|Safari|Edge|Opera)/)?.[1] || 'Unknown';
+        return `${isMobile ? 'Mobile' : 'Desktop'} - ${browser}`;
     }
 
     setupEventListeners() {
@@ -45,6 +72,17 @@ class AuthManager {
         // Play as guest
         document.getElementById('play-guest-btn').addEventListener('click', () => {
             this.playAsGuest();
+        });
+
+        // Page navigation links
+        document.getElementById('show-register')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showRegisterPage();
+        });
+
+        document.getElementById('show-login')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showLoginPage();
         });
 
         // Leaderboard button
@@ -90,14 +128,27 @@ class AuthManager {
     async login() {
         const login = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
+        const rememberMe = document.getElementById('login-remember')?.checked || false;
         const errorEl = document.getElementById('login-error');
 
         try {
             errorEl.textContent = '';
-            const res = await this.apiPost('/api/auth/login', { login, password });
+            const res = await this.apiPost('/api/auth/login', { 
+                login, 
+                password, 
+                rememberMe,
+                deviceInfo: this.getDeviceInfo()
+            });
             this.token = res.token;
             this.user = res.user;
             localStorage.setItem('ds_token', res.token);
+            
+            // Store remember token if provided
+            if (res.rememberToken) {
+                this.rememberToken = res.rememberToken;
+                localStorage.setItem('ds_remember_token', res.rememberToken);
+            }
+            
             this.showStartMenu();
         } catch (e) {
             errorEl.textContent = e.message || 'Login failed';
@@ -116,6 +167,12 @@ class AuthManager {
             this.token = res.token;
             this.user = res.user;
             localStorage.setItem('ds_token', res.token);
+            
+            // Clear form
+            document.getElementById('register-username').value = '';
+            document.getElementById('register-email').value = '';
+            document.getElementById('register-password').value = '';
+            
             this.showStartMenu();
         } catch (e) {
             errorEl.textContent = e.message || 'Registration failed';
@@ -131,22 +188,26 @@ class AuthManager {
     clearSession() {
         this.user = null;
         this.token = null;
+        this.rememberToken = null;
         localStorage.removeItem('ds_token');
+        localStorage.removeItem('ds_remember_token');
     }
 
     logout() {
-        this.apiPost('/api/auth/logout', {}).catch(() => { });
+        this.apiPost('/api/auth/logout', { rememberToken: this.rememberToken }).catch(() => { });
         this.clearSession();
         this.showAuthMenu();
     }
 
     showAuthMenu() {
         document.getElementById('auth-menu').classList.remove('hidden');
+        document.getElementById('register-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.add('hidden');
     }
 
     showStartMenu() {
         document.getElementById('auth-menu').classList.add('hidden');
+        document.getElementById('register-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
 
         // Update user info
@@ -295,24 +356,15 @@ class AuthManager {
     }
 }
 
-// Tab switching
-function showAuthTab(tab) {
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const tabLogin = document.getElementById('tab-login');
-    const tabRegister = document.getElementById('tab-register');
+// Page switching between login and register
+function showLoginPage() {
+    document.getElementById('auth-menu').classList.remove('hidden');
+    document.getElementById('register-menu').classList.add('hidden');
+}
 
-    if (tab === 'login') {
-        loginForm.classList.remove('hidden');
-        registerForm.classList.add('hidden');
-        tabLogin.classList.add('active');
-        tabRegister.classList.remove('active');
-    } else {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-        tabLogin.classList.remove('active');
-        tabRegister.classList.add('active');
-    }
+function showRegisterPage() {
+    document.getElementById('auth-menu').classList.add('hidden');
+    document.getElementById('register-menu').classList.remove('hidden');
 }
 
 // Initialize auth manager

@@ -904,7 +904,7 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(503).json({ error: 'Database temporarily unavailable. Please try again.' });
         }
 
-        const { login, password } = req.body;
+        const { login, password, rememberMe, deviceInfo } = req.body;
 
         if (!login || !password) {
             return res.status(400).json({ error: 'Login and password required' });
@@ -920,8 +920,102 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         user.lastLogin = new Date();
+
+        const token = generateToken();
+        sessions.set(token, { userId: user._id, username: user.username });
+
+        let rememberToken = null;
+        if (rememberMe) {
+            // Generate a persistent remember token (30 days)
+            rememberToken = generateToken();
+            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            
+            // Remove old tokens for this device if exists, keep max 5 tokens
+            if (user.rememberTokens && user.rememberTokens.length >= 5) {
+                user.rememberTokens.shift();
+            }
+            if (!user.rememberTokens) user.rememberTokens = [];
+            
+            user.rememberTokens.push({
+                token: rememberToken,
+                deviceInfo: deviceInfo || 'Unknown device',
+                createdAt: new Date(),
+                expiresAt
+            });
+        }
+
         await user.save();
 
+        res.json({
+            success: true,
+            token,
+            rememberToken,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                savedGame: user.savedGame,
+                stats: user.dotsSurvivorStats
+            }
+        });
+
+        console.log(`✅ User logged in: ${user.username}${rememberMe ? ' (remembered)' : ''}`);
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// Logout
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    const { rememberToken } = req.body || {};
+    
+    sessions.delete(token);
+    
+    // Also remove remember token if provided
+    if (rememberToken) {
+        try {
+            const user = await User.findById(req.userId);
+            if (user && user.rememberTokens) {
+                user.rememberTokens = user.rememberTokens.filter(t => t.token !== rememberToken);
+                await user.save();
+            }
+        } catch (e) {
+            console.error('Error removing remember token:', e);
+        }
+    }
+    
+    res.json({ success: true });
+});
+
+// Auto-login with remember token
+app.post('/api/auth/remember', async (req, res) => {
+    try {
+        if (!mongoConnected || mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ error: 'Database temporarily unavailable' });
+        }
+
+        const { rememberToken } = req.body;
+        
+        if (!rememberToken) {
+            return res.status(400).json({ error: 'Remember token required' });
+        }
+
+        // Find user with this remember token
+        const user = await User.findOne({
+            'rememberTokens.token': rememberToken,
+            'rememberTokens.expiresAt': { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid or expired remember token' });
+        }
+
+        user.lastLogin = new Date();
+        await user.save();
+
+        // Generate new session token
         const token = generateToken();
         sessions.set(token, { userId: user._id, username: user.username });
 
@@ -937,18 +1031,11 @@ app.post('/api/auth/login', async (req, res) => {
             }
         });
 
-        console.log(`✅ User logged in: ${user.username}`);
+        console.log(`✅ User auto-logged in via remember token: ${user.username}`);
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Login failed' });
+        console.error('Remember login error:', error);
+        res.status(500).json({ error: 'Auto-login failed' });
     }
-});
-
-// Logout
-app.post('/api/auth/logout', authenticateToken, (req, res) => {
-    const token = req.headers['authorization']?.split(' ')[1];
-    sessions.delete(token);
-    res.json({ success: true });
 });
 
 // Get current user
