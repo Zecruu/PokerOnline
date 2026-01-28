@@ -42,7 +42,6 @@ const DIAMOND_AUGMENTS = [
     { id: 'lich_king', name: 'Lich King', icon: '👑', desc: 'You gain +10% damage for every active minion', effect: (g) => g.augments.push('lich_king') },
     // New Hybrid Paths
     { id: 'tech_wizard', name: 'Tech Wizard', icon: '🔮', desc: 'Projectiles spawn Orbitals on hit (10% chance)', effect: (g) => g.augments.push('tech_wizard') },
-    { id: 'commander', name: 'Field Commander', icon: '📣', desc: 'Your fire rate boosts minion attack speed', effect: (g) => g.augments.push('commander') },
     // Demon Set Augments
     { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5 },
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2 },
@@ -82,7 +81,7 @@ const ITEMS = {
     vampFang: {
         name: 'Vampire Fang',
         icon: '🧛',
-        desc: 'Heal 1 HP per kill (+1 per level)',
+        desc: 'Heal 1 HP per kill (+1/lvl, -75% in combat)',
         maxLevel: 5,
         effect: (g, lvl) => {
             g.vampiricHeal = lvl;
@@ -284,7 +283,7 @@ class DotsSurvivor {
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}` },
             { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
-            { id: 'healregen', name: 'Regeneration', icon: '💚', desc: 'Regenerate +1 HP per second', rarity: 'rare', effect: (g) => g.player.hpRegen = (g.player.hpRegen || 0) + 1, getDesc: (g) => `HP Regen: ${g.player.hpRegen || 0}/s → ${(g.player.hpRegen || 0) + 1}/s` },
+            { id: 'healregen', name: 'Regeneration', icon: '💚', desc: 'Regenerate +1 HP/s (out of combat only)', rarity: 'rare', effect: (g) => g.player.hpRegen = (g.player.hpRegen || 0) + 1, getDesc: (g) => `HP Regen: ${g.player.hpRegen || 0}/s → ${(g.player.hpRegen || 0) + 1}/s (out of combat)` },
             { id: 'stars', name: 'Orbiting Stars', icon: '⭐', desc: 'Adds a star that circles around you', rarity: 'rare', effect: (g) => g.stars.push(g.createStar()), getDesc: (g) => `Stars: ${g.stars.length} → ${g.stars.length + 1}` },
             { id: 'crit', name: 'Critical Hit', icon: '⚡', desc: '+15% Crit Chance (Max 100%)', rarity: 'epic', effect: (g) => g.weapons.bullet.critChance = Math.min(1.0, (g.weapons.bullet.critChance || 0.05) + 0.15), getDesc: (g) => `Crit Chance: ${Math.floor((g.weapons.bullet.critChance || 0.05) * 100)}% → ${Math.min(100, Math.floor(((g.weapons.bullet.critChance || 0.05) + 0.15) * 100))}%` },
             { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
@@ -623,7 +622,7 @@ class DotsSurvivor {
             this.pendingUpgrades = 3; // 3 Free attributes for Fresh start
         }
 
-        this.weapons.bullet = { damage: 10, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
+        this.weapons.bullet = { damage: 12, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
@@ -650,6 +649,11 @@ class DotsSurvivor {
         this.iceZones = [];
 
         // Sticky immobilization timer
+
+        // Combat healing penalty
+        this.combatTimer = 0; // Time since last damage (healing reduced while in combat)
+        this.combatHealingPenalty = 0.75; // 75% healing reduction in combat
+        this.combatDuration = 3; // 3 seconds before out of combat
 
         // New item effect properties
         this.vampiricHeal = 0;         // HP healed per kill
@@ -1037,6 +1041,7 @@ class DotsSurvivor {
         if (playerDist < explosionRadius) {
             const playerDmg = Math.floor(explosionDamage * 0.5);
             this.player.health -= playerDmg;
+            this.combatTimer = 0; // Reset combat timer
             this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: -playerDmg, lifetime: 1, color: '#ff0000' });
         }
 
@@ -1567,6 +1572,7 @@ class DotsSurvivor {
                 const burnDmg = Math.floor(this.ringOfFire.damagePerSecond * dt);
                 if (burnDmg > 0) {
                     this.player.health -= burnDmg;
+                    this.combatTimer = 0; // Reset combat timer
                     if (Math.random() < 0.3) {
                         this.damageNumbers.push({
                             x: this.player.x + (Math.random() - 0.5) * 30,
@@ -1633,6 +1639,7 @@ class DotsSurvivor {
                 const damage = Math.floor(this.circleOfDoom.damagePerSecond * dt);
                 if (damage > 0 && this.player.invincibleTime <= 0) {
                     this.player.health -= damage;
+                    this.combatTimer = 0; // Reset combat timer
                     this.damageNumbers.push({
                         x: this.player.x,
                         y: this.player.y - 30,
@@ -1822,8 +1829,12 @@ class DotsSurvivor {
     }
 
     updateRegen(dt) {
-        // Perk-based regen (1 HP per second)
-        if (this.player.hpRegen > 0) {
+        // Update combat timer
+        this.combatTimer += dt;
+        const inCombat = this.combatTimer < this.combatDuration;
+
+        // Perk-based regen (1 HP per second) - DISABLED while in combat
+        if (this.player.hpRegen > 0 && !inCombat) {
             this.regenTimer += dt;
             if (this.regenTimer >= 1) {
                 this.regenTimer = 0;
@@ -1831,8 +1842,8 @@ class DotsSurvivor {
             }
         }
 
-        // Regeneration item (1 HP every X seconds based on level)
-        if (this.regenEnabled) {
+        // Regeneration item (1 HP every X seconds based on level) - DISABLED while in combat
+        if (this.regenEnabled && !inCombat) {
             this.itemRegenTimer = (this.itemRegenTimer || 0) + dt;
             if (this.itemRegenTimer >= this.regenInterval) {
                 this.itemRegenTimer = 0;
@@ -1842,6 +1853,20 @@ class DotsSurvivor {
                 }
             }
         }
+    }
+
+    // Check if player is in combat (for healing penalty)
+    isInCombat() {
+        return this.combatTimer < this.combatDuration;
+    }
+
+    // Apply healing with combat penalty
+    applyHealing(amount) {
+        if (this.isInCombat()) {
+            amount = Math.floor(amount * (1 - this.combatHealingPenalty)); // 75% reduction
+        }
+        this.player.health = Math.min(this.player.maxHealth, this.player.health + amount);
+        return amount;
     }
 
     updateChronoField(dt) {
@@ -2410,6 +2435,7 @@ class DotsSurvivor {
                 else {
                     this.player.health -= e.damage;
                     this.player.invincibleTime = 0.5;
+                    this.combatTimer = 0; // Reset combat timer - healing reduced for 3s
                     this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' });
                     this.playSound('hit');
 
@@ -2523,17 +2549,21 @@ class DotsSurvivor {
             }
         }
 
-        // Vampiric perk (from augments)
+        // Vampiric perk (from augments) - reduced by 75% while in combat
         if (this.vampiric) {
-            this.player.health = Math.min(this.player.maxHealth, this.player.health + 2);
+            let healAmt = 2;
+            if (this.isInCombat()) healAmt = Math.floor(healAmt * (1 - this.combatHealingPenalty));
+            if (healAmt > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmt);
         }
 
-        // Vampire Fang item: heal on kill
+        // Vampire Fang item: heal on kill - reduced by 75% while in combat
         if (this.vampiricHeal > 0) {
-            const healed = Math.min(this.vampiricHeal, this.player.maxHealth - this.player.health);
+            let healAmt = this.vampiricHeal;
+            if (this.isInCombat()) healAmt = Math.floor(healAmt * (1 - this.combatHealingPenalty));
+            const healed = Math.min(healAmt, this.player.maxHealth - this.player.health);
             if (healed > 0) {
                 this.player.health += healed;
-                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 35, value: `+${healed}`, lifetime: 0.5, color: '#ff4488' });
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 35, value: `+${healed}`, lifetime: 0.5, color: this.isInCombat() ? '#ff8888' : '#ff4488' });
             }
         }
 
@@ -2590,6 +2620,7 @@ class DotsSurvivor {
             if (pd < explosionRadius) {
                 const dmg = Math.floor(e.damage * (e.isPoisonous ? 2 : 1.5));
                 this.player.health -= dmg;
+                this.combatTimer = 0; // Reset combat timer
                 this.damageNumbers.push({ 
                     x: this.player.x, 
                     y: this.player.y - 20, 
@@ -3020,10 +3051,15 @@ class DotsSurvivor {
                 if (pk.isItem) {
                     this.collectItem(pk.itemKey);
                 } else if (pk.isHealth) {
-                    // Health pack
-                    const healed = Math.min(pk.healAmount, this.player.maxHealth - this.player.health);
+                    // Health pack - reduced by 75% while in combat
+                    let healAmount = pk.healAmount;
+                    if (this.isInCombat()) {
+                        healAmount = Math.floor(healAmount * (1 - this.combatHealingPenalty));
+                    }
+                    const healed = Math.min(healAmount, this.player.maxHealth - this.player.health);
                     this.player.health += healed;
-                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `+${healed} HP`, lifetime: 1.5, color: '#ff4488' });
+                    const combatText = this.isInCombat() ? ' (combat)' : '';
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `+${healed} HP${combatText}`, lifetime: 1.5, color: this.isInCombat() ? '#ff8888' : '#ff4488' });
                 } else if (pk.isDemonPiece) {
                     // Demon Piece Collection
                     if (!this.demonSet[pk.pieceId]) {
@@ -3792,34 +3828,44 @@ class DotsSurvivor {
             });
         }
 
-        // Aura Fire Circle (augment)
+        // Aura Fire Circle (augment) - Solid with glow effects
         if (this.auraFire) {
             ctx.save();
-            const pulse = 1 + Math.sin(this.gameTime * 5) * 0.1;
-            const auraRadius = this.auraFire.radius * pulse;
+            const auraRadius = this.auraFire.radius;
             
-            // Outer glow
+            // Outer glow effect
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#ff4400';
+            
+            // Solid fire fill
             const gradient = ctx.createRadialGradient(
-                this.player.x, this.player.y, auraRadius * 0.6,
+                this.player.x, this.player.y, 0,
                 this.player.x, this.player.y, auraRadius
             );
             gradient.addColorStop(0, 'rgba(255, 100, 0, 0)');
-            gradient.addColorStop(0.5, 'rgba(255, 80, 0, 0.2)');
-            gradient.addColorStop(1, 'rgba(255, 50, 0, 0.4)');
+            gradient.addColorStop(0.4, 'rgba(255, 80, 0, 0.1)');
+            gradient.addColorStop(0.7, 'rgba(255, 60, 0, 0.2)');
+            gradient.addColorStop(1, 'rgba(255, 50, 0, 0.35)');
             
             ctx.beginPath();
             ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
             ctx.fillStyle = gradient;
             ctx.fill();
             
-            // Fire ring
+            // Solid outer ring with glow
             ctx.beginPath();
             ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(255, ${100 + Math.sin(this.gameTime * 10) * 50}, 0, 0.8)`;
-            ctx.lineWidth = 3 + Math.sin(this.gameTime * 8) * 1;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#ff4400';
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 4;
             ctx.stroke();
+            
+            // Inner ring accent
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, auraRadius * 0.7, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 150, 50, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
             ctx.shadowBlur = 0;
             ctx.restore();
         }
