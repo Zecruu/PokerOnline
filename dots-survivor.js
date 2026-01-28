@@ -687,6 +687,7 @@ class DotsSurvivor {
         this.lastBossWave = 0;
         this.bossStatMultiplier = 1.0;
         this.consumerSpawned = false;
+        this.vectorSnake = null; // Snake boss that wraps around player
         this.spawnControlPoint();
         this.lastControlPointWave = 1;
 
@@ -1072,24 +1073,248 @@ class DotsSurvivor {
     }
 
     spawnVector() {
-        // Spawn a Vector enemy at a distance that will circle around the player
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 350 + Math.random() * 100;
-        const wx = this.worldX + Math.cos(angle) * dist;
-        const wy = this.worldY + Math.sin(angle) * dist;
-        
-        const vector = this.createEnemy(wx, wy, 'vector');
-        this.enemies.push(vector);
-        
+        // Vector is a SNAKE that wraps around the player in a circle
+        // It's untargetable until it fully surrounds the player
+        const snakeRadius = 400; // Size similar to circle of doom
+        const segmentCount = 40; // Number of body segments
+        const headAngle = Math.random() * Math.PI * 2;
+
+        // Create the Vector snake entity
+        this.vectorSnake = {
+            active: true,
+            segments: [],
+            headAngle: headAngle,
+            currentAngle: headAngle,
+            radius: snakeRadius,
+            segmentCount: segmentCount,
+            speed: 1.2, // Radians per second for wrapping
+            health: 15000,
+            maxHealth: 15000,
+            damage: 25,
+            surrounded: false, // Untargetable until true
+            spawnTimer: 0,
+            color: '#cc00ff',
+            bodyWidth: 30
+        };
+
+        // Initialize first segment (head)
+        this.vectorSnake.segments.push({
+            angle: headAngle,
+            isHead: true
+        });
+
         // Alert player
         this.damageNumbers.push({
             x: this.canvas.width / 2,
             y: this.canvas.height / 2 - 100,
-            value: '⚠️ VECTOR INCOMING ⚠️',
-            lifetime: 2.5,
-            color: '#ff00ff',
-            scale: 1.5
+            value: '🐍 THE VECTOR EMERGES! 🐍',
+            lifetime: 3,
+            color: '#cc00ff',
+            scale: 2
         });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 60,
+            value: 'Cannot be harmed until it surrounds you!',
+            lifetime: 3,
+            color: '#ff88ff',
+            scale: 1
+        });
+    }
+
+    updateVectorSnake(dt) {
+        if (!this.vectorSnake || !this.vectorSnake.active) return;
+
+        const snake = this.vectorSnake;
+
+        // Extend the snake until it surrounds the player
+        if (!snake.surrounded) {
+            snake.currentAngle += snake.speed * dt;
+            
+            // Add new segments as snake extends
+            const anglePerSegment = (Math.PI * 2) / snake.segmentCount;
+            const neededSegments = Math.floor((snake.currentAngle - snake.headAngle) / anglePerSegment) + 1;
+            
+            while (snake.segments.length < neededSegments && snake.segments.length < snake.segmentCount) {
+                const newAngle = snake.headAngle + (snake.segments.length * anglePerSegment);
+                snake.segments.push({ angle: newAngle, isHead: false });
+            }
+
+            // Check if fully surrounded
+            if (snake.currentAngle >= snake.headAngle + Math.PI * 2) {
+                snake.surrounded = true;
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 80,
+                    value: '💀 SURROUNDED! VECTOR VULNERABLE! 💀',
+                    lifetime: 3,
+                    color: '#ff0000',
+                    scale: 1.5
+                });
+            }
+        }
+
+        // Slowly rotate the entire snake
+        const rotationSpeed = 0.3 * dt;
+        snake.headAngle += rotationSpeed;
+        for (const seg of snake.segments) {
+            seg.angle += rotationSpeed;
+        }
+
+        // Spawn enemies from body when surrounded
+        if (snake.surrounded) {
+            snake.spawnTimer += dt;
+            if (snake.spawnTimer >= 2) {
+                snake.spawnTimer = 0;
+                // Spawn from random segment
+                const seg = snake.segments[Math.floor(Math.random() * snake.segments.length)];
+                const spawnX = this.worldX + Math.cos(seg.angle) * snake.radius;
+                const spawnY = this.worldY + Math.sin(seg.angle) * snake.radius;
+                this.enemies.push(this.createEnemy(spawnX, spawnY, 'spawn'));
+                this.enemies.push(this.createEnemy(spawnX, spawnY, 'spawn'));
+            }
+        }
+
+        // Snake dies
+        if (snake.health <= 0) {
+            snake.active = false;
+            this.vectorSnake = null;
+            
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 50,
+                value: '🐍 VECTOR DEFEATED! 🐍',
+                lifetime: 3,
+                color: '#00ff88',
+                scale: 2
+            });
+
+            // Drop lots of XP
+            for (let i = 0; i < 15; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * 200;
+                this.pickups.push({
+                    wx: this.worldX + Math.cos(angle) * dist,
+                    wy: this.worldY + Math.sin(angle) * dist,
+                    xp: 30,
+                    radius: 10,
+                    color: '#d4e600',
+                    isItem: false
+                });
+            }
+
+            this.triggerScreenShake(15, 0.4);
+            this.triggerSlowmo(0.2, 1);
+        }
+    }
+
+    drawVectorSnake() {
+        if (!this.vectorSnake || !this.vectorSnake.active) return;
+
+        const ctx = this.ctx;
+        const snake = this.vectorSnake;
+
+        ctx.save();
+
+        // Draw connected snake body as smooth curve
+        if (snake.segments.length > 1) {
+            ctx.beginPath();
+            ctx.strokeStyle = snake.surrounded ? snake.color : 'rgba(204, 0, 255, 0.5)';
+            ctx.lineWidth = snake.bodyWidth * 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            const firstSeg = snake.segments[snake.segments.length - 1]; // Tail
+            ctx.moveTo(
+                this.player.x + Math.cos(firstSeg.angle) * snake.radius,
+                this.player.y + Math.sin(firstSeg.angle) * snake.radius
+            );
+            
+            for (let i = snake.segments.length - 2; i >= 0; i--) {
+                const seg = snake.segments[i];
+                ctx.lineTo(
+                    this.player.x + Math.cos(seg.angle) * snake.radius,
+                    this.player.y + Math.sin(seg.angle) * snake.radius
+                );
+            }
+            ctx.stroke();
+        }
+
+        // Draw head
+        const head = snake.segments[0];
+        const headX = this.player.x + Math.cos(head.angle) * snake.radius;
+        const headY = this.player.y + Math.sin(head.angle) * snake.radius;
+
+        // Head shape (larger)
+        ctx.beginPath();
+        ctx.arc(headX, headY, snake.bodyWidth * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = snake.surrounded ? '#dd44ff' : 'rgba(221, 68, 255, 0.6)';
+        ctx.fill();
+
+        // Eyes
+        const eyeOffset = snake.bodyWidth * 0.6;
+        const eyeX1 = headX + Math.cos(head.angle - 0.4) * eyeOffset;
+        const eyeY1 = headY + Math.sin(head.angle - 0.4) * eyeOffset;
+        const eyeX2 = headX + Math.cos(head.angle + 0.4) * eyeOffset;
+        const eyeY2 = headY + Math.sin(head.angle + 0.4) * eyeOffset;
+        
+        ctx.fillStyle = '#880000';
+        ctx.beginPath();
+        ctx.arc(eyeX1, eyeY1, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(eyeX2, eyeY2, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Forked tongue
+        const tongueBase = { 
+            x: headX + Math.cos(head.angle) * (snake.bodyWidth * 1.3), 
+            y: headY + Math.sin(head.angle) * (snake.bodyWidth * 1.3) 
+        };
+        ctx.strokeStyle = '#cc0000';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(tongueBase.x, tongueBase.y);
+        const tongueLen = 25;
+        const tongueEnd = { 
+            x: tongueBase.x + Math.cos(head.angle) * tongueLen, 
+            y: tongueBase.y + Math.sin(head.angle) * tongueLen 
+        };
+        ctx.lineTo(tongueEnd.x, tongueEnd.y);
+        // Fork
+        ctx.lineTo(tongueEnd.x + Math.cos(head.angle - 0.6) * 12, tongueEnd.y + Math.sin(head.angle - 0.6) * 12);
+        ctx.moveTo(tongueEnd.x, tongueEnd.y);
+        ctx.lineTo(tongueEnd.x + Math.cos(head.angle + 0.6) * 12, tongueEnd.y + Math.sin(head.angle + 0.6) * 12);
+        ctx.stroke();
+
+        // HP bar (only when targetable/surrounded)
+        if (snake.surrounded) {
+            const barWidth = 200;
+            const barX = this.canvas.width / 2 - barWidth / 2;
+            const barY = 50;
+            
+            ctx.fillStyle = '#333';
+            ctx.fillRect(barX, barY, barWidth, 15);
+            ctx.fillStyle = '#cc00ff';
+            ctx.fillRect(barX, barY, barWidth * (snake.health / snake.maxHealth), 15);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(barX, barY, barWidth, 15);
+            
+            ctx.font = 'bold 12px Inter';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.fillText('THE VECTOR', this.canvas.width / 2, barY - 5);
+        } else {
+            // Show "UNTARGETABLE" indicator
+            ctx.font = 'bold 16px Inter';
+            ctx.fillStyle = '#ff88ff';
+            ctx.textAlign = 'center';
+            ctx.fillText('🐍 VECTOR - UNTARGETABLE 🐍', this.canvas.width / 2, 60);
+        }
+
+        ctx.restore();
     }
 
     spawnHealthPack() {
@@ -1588,6 +1813,7 @@ class DotsSurvivor {
         this.updateAuraFire(effectiveDt);
         this.checkHordeCompletion();
         this.updateConsumer(effectiveDt);
+        this.updateVectorSnake(effectiveDt);
         this.fireWeapons();
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
@@ -2060,8 +2286,8 @@ class DotsSurvivor {
             return;
         }
 
-        // Consumer boss spawns at wave 7 (one time)
-        if (this.wave === 7 && !this.consumerSpawned) {
+        // Consumer boss spawns at wave 7+ (one time)
+        if (this.wave >= 7 && !this.consumerSpawned) {
             this.spawnConsumer();
             this.consumerSpawned = true;
         }
@@ -2125,9 +2351,8 @@ class DotsSurvivor {
             sticky: { radius: 12, speed: 100, health: 50, damage: 6, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
             ice: { radius: 32, speed: 45, health: 200, damage: 25, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
             poison: { radius: 14, speed: 75, health: 80, damage: 12, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true }, // Green poison explosion
-            // V-shaped enemies
-            spawn: { radius: 6, speed: 160, health: 15, damage: 8, xp: 3, color: '#ff00ff', icon: '', isVShaped: true }, // Fast V-shaped, spawned by Vectors
-            vector: { radius: 50, speed: 35, health: 15000, damage: 20, xp: 200, color: '#cc00ff', icon: '', isVector: true, isVShaped: true } // Large V that circles and spawns enemies
+            // V-shaped enemies (spawned by Vector snake)
+            spawn: { radius: 6, speed: 160, health: 15, damage: 8, xp: 3, color: '#ff00ff', icon: '', isVShaped: true } // Fast V-shaped, spawned by Vector
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -2226,44 +2451,10 @@ class DotsSurvivor {
                 continue; // Skip movement and collision for frozen enemies
             }
 
-            // Vector enemy - circles around player and spawns enemies
-            if (e.isVector) {
-                // Initialize orbit angle if not set
-                if (e.orbitAngle === undefined) {
-                    e.orbitAngle = Math.atan2(e.wy - this.worldY, e.wx - this.worldX);
-                    e.orbitRadius = Math.sqrt((e.wx - this.worldX) ** 2 + (e.wy - this.worldY) ** 2);
-                    e.spawnTimer = 0;
-                }
-                
-                // Circle around player
-                e.orbitAngle += e.speed * 0.003 * dt;
-                const targetRadius = 250 + Math.sin(this.gameTime / 1000) * 50; // Oscillate distance
-                e.orbitRadius += (targetRadius - e.orbitRadius) * dt * 0.5; // Smoothly adjust
-                
-                e.wx = this.worldX + Math.cos(e.orbitAngle) * e.orbitRadius;
-                e.wy = this.worldY + Math.sin(e.orbitAngle) * e.orbitRadius;
-                
-                // Spawn enemies from body
-                e.spawnTimer += dt;
-                if (e.spawnTimer >= 1.5) { // Spawn every 1.5 seconds
-                    e.spawnTimer = 0;
-                    // Spawn 2-3 Spawn enemies
-                    const spawnCount = 2 + Math.floor(Math.random() * 2);
-                    for (let j = 0; j < spawnCount; j++) {
-                        const spawnAngle = e.orbitAngle + (Math.random() - 0.5) * 0.5;
-                        const spawnDist = 30 + Math.random() * 20;
-                        const spawnX = e.wx + Math.cos(spawnAngle) * spawnDist;
-                        const spawnY = e.wy + Math.sin(spawnAngle) * spawnDist;
-                        this.enemies.push(this.createEnemy(spawnX, spawnY, 'spawn'));
-                    }
-                    this.spawnParticles(sx, sy, '#ff00ff', 5);
-                }
-            } else {
-                // Normal enemy - Move towards player (world coords)
-                const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
-                const d = Math.sqrt(dx * dx + dy * dy);
-                if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
-            }
+            // Normal enemy - Move towards player (world coords)
+            const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
             // Update screen position after movement
             const sxMoved = this.player.x + (e.wx - this.worldX);
@@ -2877,6 +3068,34 @@ class DotsSurvivor {
                     if (p.hitEnemies.length >= p.pierce) { this.projectiles.splice(i, 1); break; }
                 }
             }
+
+            // Check collision with Vector Snake (only when surrounded/vulnerable)
+            if (this.vectorSnake && this.vectorSnake.active && this.vectorSnake.surrounded) {
+                for (const seg of this.vectorSnake.segments) {
+                    const segX = this.player.x + Math.cos(seg.angle) * this.vectorSnake.radius;
+                    const segY = this.player.y + Math.sin(seg.angle) * this.vectorSnake.radius;
+                    const d = Math.sqrt((p.x - segX) ** 2 + (p.y - segY) ** 2);
+                    
+                    if (d < p.radius + this.vectorSnake.bodyWidth) {
+                        // Hit the vector snake
+                        let damage = p.damage;
+                        const isCrit = Math.random() < (this.weapons.bullet.critChance || 0.05);
+                        if (isCrit) damage = Math.floor(damage * (this.weapons.bullet.critMultiplier || 2));
+                        
+                        this.vectorSnake.health -= damage;
+                        this.damageNumbers.push({
+                            x: segX, y: segY - 10,
+                            value: isCrit ? `💥 ${damage}` : damage,
+                            lifetime: 0.5,
+                            color: isCrit ? '#ff0000' : '#ffff00'
+                        });
+                        this.spawnParticles(segX, segY, '#cc00ff', 3);
+                        
+                        this.projectiles.splice(i, 1);
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -3367,6 +3586,9 @@ class DotsSurvivor {
         // Draw events
         this.drawEvents(ctx);
 
+        // Draw Vector snake
+        this.drawVectorSnake();
+
         // Draw ice zones (visual effect for ice mob death)
         if (this.iceZones && this.iceZones.length > 0) {
             this.iceZones.forEach(zone => {
@@ -3440,7 +3662,7 @@ class DotsSurvivor {
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
             
-            // V-shaped enemies (Spawn and Vector)
+            // V-shaped enemies (Spawn - small fast enemies from Vector snake)
             if (e.isVShaped) {
                 ctx.save();
                 ctx.translate(sx, sy);
@@ -3452,54 +3674,16 @@ class DotsSurvivor {
                 const size = e.radius;
                 ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
                 
-                if (e.isVector) {
-                    // Large V shape with long body for Vectors
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = e.color;
-                    
-                    // Draw elongated V body
-                    ctx.beginPath();
-                    ctx.moveTo(size * 1.5, 0); // Tip of V
-                    ctx.lineTo(-size, -size * 0.8); // Top arm
-                    ctx.lineTo(-size * 0.3, 0); // Inner notch
-                    ctx.lineTo(-size, size * 0.8); // Bottom arm
-                    ctx.closePath();
-                    ctx.fill();
-                    
-                    // Inner glow core
-                    ctx.fillStyle = '#ffffff';
-                    ctx.globalAlpha = 0.3 + Math.sin(this.gameTime / 100) * 0.2;
-                    ctx.beginPath();
-                    ctx.moveTo(size * 0.8, 0);
-                    ctx.lineTo(-size * 0.3, -size * 0.3);
-                    ctx.lineTo(0, 0);
-                    ctx.lineTo(-size * 0.3, size * 0.3);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.globalAlpha = 1;
-                    ctx.shadowBlur = 0;
-                } else {
-                    // Small V shape for Spawns
-                    ctx.beginPath();
-                    ctx.moveTo(size, 0); // Tip
-                    ctx.lineTo(-size * 0.8, -size * 0.6);
-                    ctx.lineTo(-size * 0.2, 0);
-                    ctx.lineTo(-size * 0.8, size * 0.6);
-                    ctx.closePath();
-                    ctx.fill();
-                }
+                // Small V shape for Spawns
+                ctx.beginPath();
+                ctx.moveTo(size, 0); // Tip
+                ctx.lineTo(-size * 0.8, -size * 0.6);
+                ctx.lineTo(-size * 0.2, 0);
+                ctx.lineTo(-size * 0.8, size * 0.6);
+                ctx.closePath();
+                ctx.fill();
                 
                 ctx.restore();
-                
-                // HP bar for Vectors
-                if (e.isVector) {
-                    const bw = e.radius * 2.5;
-                    ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 15, bw, 8);
-                    ctx.fillStyle = '#cc00ff'; ctx.fillRect(sx - bw / 2, sy - e.radius - 15, bw * (e.health / e.maxHealth), 8);
-                    // Name
-                    ctx.font = 'bold 14px Inter'; ctx.fillStyle = '#ff00ff'; ctx.textAlign = 'center';
-                    ctx.fillText('VECTOR', sx, sy - e.radius - 25);
-                }
             } else {
                 // Regular circular enemies
                 ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
