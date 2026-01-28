@@ -704,12 +704,9 @@ class DotsSurvivor {
         this.killStreakTimer = 0;
         this.auraFire = null; // Fire aura augment
 
-        // Horde tracking and reward system
+        // Horde tracking
         this.hordeActive = false;
         this.hordeEnemyCount = 0;
-        this.hordeCooldown = 0; // 60 second cooldown after horde reward
-        this.rewardTiles = []; // Tiles that spawn after horde completion
-        this.rewardTilesTimer = 0;
 
         // Regen timer
         this.regenTimer = 0;
@@ -1223,8 +1220,6 @@ class DotsSurvivor {
     }
 
     spawnHorde() {
-        // Don't spawn if in cooldown (reward tiles active or cooldown period)
-        if (this.hordeCooldown > 0 || this.rewardTiles.length > 0) return;
 
         // Spawn a massive wave of enemies surrounding the player
         const hordeSize = 30 + this.wave * 5;
@@ -1270,165 +1265,15 @@ class DotsSurvivor {
 
         if (hordeEnemiesLeft === 0) {
             this.hordeActive = false;
-            this.spawnRewardTiles();
-        }
-    }
-
-    spawnRewardTiles() {
-        // Define possible rewards
-        const rewards = [
-            { name: 'Fire Rate', icon: '🔥', desc: '+10% Fire Rate', effect: () => { this.weapons.bullet.fireRate *= 0.9; } },
-            { name: 'Damage', icon: '⚔️', desc: '+15% Damage', effect: () => { this.weapons.bullet.damage = Math.floor(this.weapons.bullet.damage * 1.15); } },
-            { name: 'Speed', icon: '👟', desc: '+10% Move Speed', effect: () => { this.player.speed *= 1.1; } },
-            { name: 'Max Health', icon: '❤️', desc: '+20 Max HP', effect: () => { this.player.maxHealth += 20; this.player.health = Math.min(this.player.health + 20, this.player.maxHealth); } },
-            { name: 'Crit Chance', icon: '🎯', desc: '+5% Crit', effect: () => { this.weapons.bullet.critChance = Math.min(0.5, this.weapons.bullet.critChance + 0.05); } },
-            { name: 'Projectiles', icon: '🔫', desc: '+1 Projectile', effect: () => { this.weapons.bullet.count++; } },
-            { name: 'XP Boost', icon: '✨', desc: '+20% XP', effect: () => { this.xpMultiplier *= 1.2; } },
-            { name: 'Magnet', icon: '🧲', desc: '+30 Pickup Range', effect: () => { this.magnetRadius += 30; } }
-        ];
-
-        // Shuffle and pick 4 random rewards
-        const shuffled = rewards.sort(() => Math.random() - 0.5);
-        const selectedRewards = shuffled.slice(0, 4);
-
-        // Spawn 4 tiles around player
-        const tilePositions = [
-            { dx: -80, dy: -80 },
-            { dx: 80, dy: -80 },
-            { dx: -80, dy: 80 },
-            { dx: 80, dy: 80 }
-        ];
-
-        this.rewardTiles = tilePositions.map((pos, i) => ({
-            x: this.player.x + pos.dx,
-            y: this.player.y + pos.dy,
-            wx: this.worldX + pos.dx,
-            wy: this.worldY + pos.dy,
-            reward: selectedRewards[i],
-            radius: 35,
-            pulse: 0
-        }));
-
-        this.rewardTilesTimer = 10; // 10 seconds to claim
-
-        // Announce
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 80,
-            value: '🎁 HORDE DEFEATED! CLAIM YOUR REWARD! 🎁',
-            lifetime: 3,
-            color: '#00ff88',
-            scale: 1.5
-        });
-    }
-
-    updateRewardTiles(dt) {
-        if (this.rewardTiles.length === 0) {
-            // Decrement cooldown
-            if (this.hordeCooldown > 0) {
-                this.hordeCooldown -= dt;
-            }
-            return;
-        }
-
-        this.rewardTilesTimer -= dt;
-
-        // Check if player touches a tile
-        for (let i = this.rewardTiles.length - 1; i >= 0; i--) {
-            const tile = this.rewardTiles[i];
-            tile.pulse += dt * 3;
-
-            // Update tile position relative to world
-            const sx = this.player.x + (tile.wx - this.worldX);
-            const sy = this.player.y + (tile.wy - this.worldY);
-
-            const dist = Math.sqrt((this.player.x - sx) ** 2 + (this.player.y - sy) ** 2);
-
-            if (dist < tile.radius + this.player.radius) {
-                // Claim reward!
-                tile.reward.effect();
-                
-                this.damageNumbers.push({
-                    x: this.player.x,
-                    y: this.player.y - 50,
-                    value: `${tile.reward.icon} ${tile.reward.desc}`,
-                    lifetime: 2,
-                    color: '#00ffff',
-                    scale: 1.5
-                });
-
-                this.spawnParticles(sx, sy, '#00ffff', 20);
-                this.playSound('powerup');
-
-                // Clear all tiles and start cooldown
-                this.rewardTiles = [];
-                this.hordeCooldown = 60; // 60 second cooldown before next horde can spawn
-                return;
-            }
-        }
-
-        // Timer expired - remove tiles
-        if (this.rewardTilesTimer <= 0) {
+            // Horde defeated announcement
             this.damageNumbers.push({
                 x: this.canvas.width / 2,
-                y: this.canvas.height / 2,
-                value: '⏰ Time\'s up! Rewards vanished!',
+                y: this.canvas.height / 2 - 50,
+                value: '✅ HORDE DEFEATED!',
                 lifetime: 2,
-                color: '#ff4444'
+                color: '#00ff88',
+                scale: 1.5
             });
-            this.rewardTiles = [];
-            this.hordeCooldown = 60;
-        }
-    }
-
-    drawRewardTiles() {
-        if (this.rewardTiles.length === 0) return;
-
-        const ctx = this.ctx;
-
-        // Draw timer
-        ctx.save();
-        ctx.font = 'bold 24px Inter';
-        ctx.fillStyle = this.rewardTilesTimer < 3 ? '#ff4444' : '#00ff88';
-        ctx.textAlign = 'center';
-        ctx.fillText(`⏱️ ${Math.ceil(this.rewardTilesTimer)}s - CLAIM A REWARD!`, this.canvas.width / 2, 80);
-        ctx.restore();
-
-        for (const tile of this.rewardTiles) {
-            const sx = this.player.x + (tile.wx - this.worldX);
-            const sy = this.player.y + (tile.wy - this.worldY);
-            const pulse = Math.sin(tile.pulse) * 5;
-
-            ctx.save();
-
-            // Glow effect
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#00ffff';
-
-            // Tile background
-            ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
-            ctx.strokeStyle = '#00ffff';
-            ctx.lineWidth = 3;
-
-            ctx.beginPath();
-            ctx.roundRect(sx - tile.radius - pulse, sy - tile.radius - pulse, 
-                         (tile.radius + pulse) * 2, (tile.radius + pulse) * 2, 10);
-            ctx.fill();
-            ctx.stroke();
-
-            // Icon
-            ctx.font = '28px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#fff';
-            ctx.fillText(tile.reward.icon, sx, sy - 8);
-
-            // Name
-            ctx.font = 'bold 10px Inter';
-            ctx.fillStyle = '#00ffff';
-            ctx.fillText(tile.reward.name, sx, sy + 20);
-
-            ctx.restore();
         }
     }
 
@@ -1741,7 +1586,6 @@ class DotsSurvivor {
         this.updateActiveMinions(effectiveDt);
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
-        this.updateRewardTiles(effectiveDt);
         this.checkHordeCompletion();
         this.updateConsumer(effectiveDt);
         this.fireWeapons();
@@ -3894,8 +3738,6 @@ class DotsSurvivor {
         this.drawHealthBar();
         // Items display
         this.drawItems();
-        // Reward tiles
-        this.drawRewardTiles();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
 
