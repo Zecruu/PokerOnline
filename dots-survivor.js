@@ -638,6 +638,10 @@ class DotsSurvivor {
     }
 
     showBoostSelect() {
+        // Hide game over menu and show start menu
+        document.getElementById('gameover-menu').classList.add('hidden');
+        document.getElementById('start-menu').classList.remove('hidden');
+        
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
         content.innerHTML = `
