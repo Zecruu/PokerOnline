@@ -10,13 +10,9 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Game Juice & Augments
-[X] Add Aura Fire Circle diamond augment with burn effect
-[X] Add screen shake on damage/kills
-[X] Add death pop animation effect
-[X] Add kill streak tracking with multi-kill slowmo
-[X] Add low health danger pulse on player
-[X] Increase enemy health scaling per wave
+### Current Task: Enemy Health Balancing
+[X] Lower enemy health for waves 1-9 (easier early game)
+[X] Increase enemy scaling after wave 10 (harder late game)
 
 ### Previous Task: Map Boundaries
 [X] Add bounded map (2000x2000 units)

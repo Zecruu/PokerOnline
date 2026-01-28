@@ -185,12 +185,12 @@ const BUILD_SETS = {
 
 // Game balance settings (balanced around medium difficulty)
 const GAME_SETTINGS = {
-    enemyHealthMult: 0.8,        // Lower base health for easier early game
+    enemyHealthMult: 0.5,        // Much lower base health for easy waves 1-9
     enemyDamageMult: 1.0,
     enemySpeedMult: 1.0,
     spawnRateMult: 1.0,
-    scalingPerWave: 0.15,        // Lower early scaling (waves 1-9)
-    scalingPerWaveLate: 0.40,    // Higher scaling after wave 10
+    scalingPerWave: 0.08,        // Very low scaling for waves 1-9 (easy early game)
+    scalingPerWaveLate: 0.55,    // Heavy scaling after wave 10 (difficulty ramps up)
     lateGameWave: 10,            // When late game scaling kicks in
     playerHealthMult: 1.0,
     xpMult: 1.0
