@@ -186,11 +186,13 @@ const BUILD_SETS = {
 
 // Game balance settings (balanced around medium difficulty)
 const GAME_SETTINGS = {
-    enemyHealthMult: 1.2,
+    enemyHealthMult: 0.8,        // Lower base health for easier early game
     enemyDamageMult: 1.0,
     enemySpeedMult: 1.0,
     spawnRateMult: 1.0,
-    scalingPerWave: 0.30,
+    scalingPerWave: 0.15,        // Lower early scaling (waves 1-9)
+    scalingPerWaveLate: 0.40,    // Higher scaling after wave 10
+    lateGameWave: 10,            // When late game scaling kicks in
     playerHealthMult: 1.0,
     xpMult: 1.0
 };
@@ -745,7 +747,7 @@ class DotsSurvivor {
         // Event System
         this.activeEvent = null;
         this.eventTimer = 0;
-        this.nextEventWave = 5; // First event at wave 5 (changed from 10)
+        this.nextEventWave = 15; // First event at wave 15
         this.eventCooldown = 0;
 
         // Ring of Fire event data
@@ -1812,7 +1814,16 @@ class DotsSurvivor {
     }
 
     createEnemy(wx, wy, type, isSplit = false, isHorde = false) {
-        const waveMult = 1 + (this.wave - 1) * GAME_SETTINGS.scalingPerWave;
+        // Scaling: early game is easier, late game (wave 10+) scales harder
+        let waveMult;
+        if (this.wave < GAME_SETTINGS.lateGameWave) {
+            waveMult = 1 + (this.wave - 1) * GAME_SETTINGS.scalingPerWave;
+        } else {
+            // Early waves scaling + late game scaling for waves beyond 10
+            const earlyScaling = (GAME_SETTINGS.lateGameWave - 1) * GAME_SETTINGS.scalingPerWave;
+            const lateWaves = this.wave - GAME_SETTINGS.lateGameWave;
+            waveMult = 1 + earlyScaling + lateWaves * GAME_SETTINGS.scalingPerWaveLate;
+        }
         const data = {
             // Swarm is now the default enemy from wave 1 - smaller, faster spawns, surrounds player
             swarm: { radius: 5, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
@@ -1854,7 +1865,15 @@ class DotsSurvivor {
     }
 
     createBoss(wx, wy, type = 'boss') {
-        const waveMult = 1 + this.wave * GAME_SETTINGS.scalingPerWave;
+        // Scaling: early game is easier, late game (wave 10+) scales harder
+        let waveMult;
+        if (this.wave < GAME_SETTINGS.lateGameWave) {
+            waveMult = 1 + this.wave * GAME_SETTINGS.scalingPerWave;
+        } else {
+            const earlyScaling = GAME_SETTINGS.lateGameWave * GAME_SETTINGS.scalingPerWave;
+            const lateWaves = this.wave - GAME_SETTINGS.lateGameWave;
+            waveMult = 1 + earlyScaling + lateWaves * GAME_SETTINGS.scalingPerWaveLate;
+        }
 
         let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
         let face = '😈';
@@ -2025,24 +2044,29 @@ class DotsSurvivor {
         this.killStreak++;
         this.killStreakTimer = 2; // Reset streak timer
 
-        // Screen shake only on boss kills (small shake)
+        // Screen shake and slowmo ONLY on boss kills
         if (e.isBoss) {
-            this.triggerScreenShake(8, 0.2);
-            this.triggerSlowmo(0.2, 0.8); // Epic slowmo for boss kills
-        } else if (e.isVector) {
-            this.triggerSlowmo(0.3, 0.4);
-        }
-
-        // Multi-kill slowmo
-        if (this.killStreak === 5) {
-            this.triggerSlowmo(0.4, 0.3);
-            this.damageNumbers.push({ x: sx, y: sy - 40, value: '🔥 MULTI-KILL!', lifetime: 1.2, color: '#ffaa00', scale: 1.5 });
-        } else if (this.killStreak === 10) {
-            this.triggerSlowmo(0.3, 0.5);
-            this.damageNumbers.push({ x: sx, y: sy - 40, value: '💀 MASSACRE!', lifetime: 1.5, color: '#ff4400', scale: 2 });
-        } else if (this.killStreak >= 20 && this.killStreak % 10 === 0) {
-            this.triggerSlowmo(0.2, 0.6);
-            this.damageNumbers.push({ x: sx, y: sy - 40, value: '☠️ UNSTOPPABLE!', lifetime: 2, color: '#ff0000', scale: 2.5 });
+            this.triggerScreenShake(15, 0.4);
+            this.triggerSlowmo(0.15, 1.2); // Epic slowmo for boss kills
+            
+            // Boss death message and revenge horde
+            this.damageNumbers.push({ 
+                x: sx, y: sy - 60, 
+                value: '💀 I WILL RETURN!', 
+                lifetime: 2, 
+                color: '#ff0000', 
+                scale: 2.5 
+            });
+            this.damageNumbers.push({ 
+                x: sx, y: sy - 30, 
+                value: '⚔️ AVENGE ME WARRIORS!', 
+                lifetime: 2, 
+                color: '#ff4400', 
+                scale: 2 
+            });
+            
+            // Spawn revenge horde
+            setTimeout(() => this.spawnHorde(), 500);
         }
 
         // Death pop effect - scale up then burst
