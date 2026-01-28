@@ -10,11 +10,17 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: New Enemy Types
+### Current Task: Map Boundaries
+[X] Add bounded map (2000x2000 units)
+[X] Add white border edges with glow effect
+[X] Add red warning gradient near edges
+[X] Clamp player movement to stay within bounds
+
+### Previous Task: New Enemy Types
 [X] Add Vector enemy - V-shaped, 15k HP, circles player, spawns enemies
 [X] Add Spawn enemy - V-shaped, low HP, fast, spawned by Vectors
 
-### Previous Task: Gameplay Updates
+### Gameplay Updates
 [X] Decrease player projectile travel range (800 -> 350px)
 [X] Increase all bosses health by 5x (boss: 12500, general: 30000)
 [X] Add Circle of Doom event (purple closing circle, player trapped)

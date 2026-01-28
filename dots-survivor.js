@@ -270,9 +270,16 @@ class DotsSurvivor {
         this.waveTimer = 0;
         this.waveDuration = 30000;
 
-        // World offset for infinite scrolling
+        // World offset - bounded map (no more infinite kiting!)
         this.worldX = 0;
         this.worldY = 0;
+        this.mapSize = 2000; // Medium map: 2000x2000 units (-1000 to +1000 in each direction)
+        this.mapBounds = {
+            minX: -this.mapSize / 2,
+            maxX: this.mapSize / 2,
+            minY: -this.mapSize / 2,
+            maxY: this.mapSize / 2
+        };
 
         // Class
         this.selectedClass = null;
@@ -1707,6 +1714,10 @@ class DotsSurvivor {
             newWorldY = bounds.y;
         }
 
+        // Clamp to map boundaries (no more infinite kiting!)
+        newWorldX = Math.max(this.mapBounds.minX, Math.min(this.mapBounds.maxX, newWorldX));
+        newWorldY = Math.max(this.mapBounds.minY, Math.min(this.mapBounds.maxY, newWorldY));
+
         this.worldX = newWorldX;
         this.worldY = newWorldY;
 
@@ -2981,6 +2992,7 @@ class DotsSurvivor {
         ctx.translate(-centerX, -centerY);
 
         this.drawGrid();
+        this.drawMapBorders();
 
         // Draw events
         this.drawEvents(ctx);
@@ -3274,6 +3286,95 @@ class DotsSurvivor {
         const ox = -this.worldX % gs, oy = -this.worldY % gs;
         for (let x = ox; x < this.canvas.width; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, this.canvas.height); ctx.stroke(); }
         for (let y = oy; y < this.canvas.height; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(this.canvas.width, y); ctx.stroke(); }
+    }
+
+    drawMapBorders() {
+        const ctx = this.ctx;
+        const { minX, maxX, minY, maxY } = this.mapBounds;
+        
+        // Convert world bounds to screen coordinates
+        const leftEdge = this.player.x + (minX - this.worldX);
+        const rightEdge = this.player.x + (maxX - this.worldX);
+        const topEdge = this.player.y + (minY - this.worldY);
+        const bottomEdge = this.player.y + (maxY - this.worldY);
+        
+        ctx.save();
+        
+        // Draw border glow effect
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        
+        // Draw visible border lines
+        ctx.beginPath();
+        ctx.moveTo(leftEdge, topEdge);
+        ctx.lineTo(rightEdge, topEdge);
+        ctx.lineTo(rightEdge, bottomEdge);
+        ctx.lineTo(leftEdge, bottomEdge);
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Draw danger zone (edge warning area)
+        const warningDist = 100;
+        ctx.shadowBlur = 0;
+        
+        // Left warning
+        if (leftEdge > -50) {
+            const gradient = ctx.createLinearGradient(leftEdge, 0, leftEdge + warningDist, 0);
+            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(leftEdge, Math.max(0, topEdge), warningDist, Math.min(this.canvas.height, bottomEdge - topEdge));
+        }
+        
+        // Right warning
+        if (rightEdge < this.canvas.width + 50) {
+            const gradient = ctx.createLinearGradient(rightEdge, 0, rightEdge - warningDist, 0);
+            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(rightEdge - warningDist, Math.max(0, topEdge), warningDist, Math.min(this.canvas.height, bottomEdge - topEdge));
+        }
+        
+        // Top warning
+        if (topEdge > -50) {
+            const gradient = ctx.createLinearGradient(0, topEdge, 0, topEdge + warningDist);
+            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(Math.max(0, leftEdge), topEdge, Math.min(this.canvas.width, rightEdge - leftEdge), warningDist);
+        }
+        
+        // Bottom warning
+        if (bottomEdge < this.canvas.height + 50) {
+            const gradient = ctx.createLinearGradient(0, bottomEdge, 0, bottomEdge - warningDist);
+            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(Math.max(0, leftEdge), bottomEdge - warningDist, Math.min(this.canvas.width, rightEdge - leftEdge), warningDist);
+        }
+        
+        // Draw corner markers
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px Inter';
+        ctx.textAlign = 'center';
+        
+        // Only draw markers if visible on screen
+        if (leftEdge > 0 && topEdge > 0) {
+            ctx.fillText('⚠', leftEdge + 20, topEdge + 25);
+        }
+        if (rightEdge < this.canvas.width && topEdge > 0) {
+            ctx.fillText('⚠', rightEdge - 20, topEdge + 25);
+        }
+        if (leftEdge > 0 && bottomEdge < this.canvas.height) {
+            ctx.fillText('⚠', leftEdge + 20, bottomEdge - 10);
+        }
+        if (rightEdge < this.canvas.width && bottomEdge < this.canvas.height) {
+            ctx.fillText('⚠', rightEdge - 20, bottomEdge - 10);
+        }
+        
+        ctx.restore();
     }
 
     drawPlayer() {
