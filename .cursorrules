@@ -10,9 +10,10 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Enemy Health Balancing
-[X] Lower enemy health for waves 1-9 (easier early game)
-[X] Increase enemy scaling after wave 10 (harder late game)
+### Current Task: Titan Killer Nerf
+[X] Change Titan Killer from 20% to 15% base (+5% per stack)
+[X] Add getDesc to all Diamond Augments for upgrade descriptions
+[X] Implement actual damage bonus in combat
 
 ### Previous Task: Map Boundaries
 [X] Add bounded map (2000x2000 units)

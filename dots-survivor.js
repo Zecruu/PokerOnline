@@ -25,29 +25,28 @@ const SURVIVOR_CLASS = {
 // Diamond Augments (All combined)
 const DIAMOND_AUGMENTS = [
     // Soldier Path
-    { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke') },
+    { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke'), getDesc: (g) => g.augments.includes('tactical_nuke') ? 'Active ✓' : 'Not Active' },
     // Nerfed per user request: only ~10% faster fire rate instead of 100%
-    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%, but accuracy decreases slightly', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; g.spread = 0.2; } },
-    { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm') },
-    { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +200% damage to Bosses and Tank enemies', effect: (g) => g.augments.push('titan_killer') },
+    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%, but accuracy decreases slightly', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; g.spread = (g.spread || 0) + 0.2; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
+    { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm'), getDesc: (g) => g.augments.includes('bullet_storm') ? 'Active ✓' : 'Not Active' },
+    { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +15% damage to Bosses and Tanks (+5% per stack)', effect: (g) => { if (!g.augments.includes('titan_killer')) g.augments.push('titan_killer'); g.titanKillerBonus = (g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15); }, getDesc: (g) => `Boss/Tank Dmg: +${Math.round((g.titanKillerBonus || 0) * 100)}% → +${Math.round(((g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15)) * 100)}%` },
     // Mage Path
-    { id: 'black_hole', name: 'Black Hole', icon: '⚫', desc: 'Orbitals have a chance to pull enemies in and crush them', effect: (g) => g.augments.push('black_hole') },
-    { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop') },
-    { id: 'elemental_mastery', name: 'Elemental Mastery', icon: '🌈', desc: 'Orbitals cycle between Fire, Ice, and Lightning effects', effect: (g) => g.augments.push('elemental_mastery') },
-    { id: 'unlimited_power', name: 'Unlimited Power', icon: '⚡', desc: 'Cooldowns reduced by 50%, Orbitals spin 2x faster', effect: (g) => g.orbitals.forEach(o => o.speed *= 2) },
+    { id: 'black_hole', name: 'Black Hole', icon: '⚫', desc: 'Orbitals have a chance to pull enemies in and crush them', effect: (g) => g.augments.push('black_hole'), getDesc: (g) => g.augments.includes('black_hole') ? 'Active ✓' : 'Not Active' },
+    { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop'), getDesc: (g) => g.augments.includes('time_stop') ? 'Active ✓' : 'Not Active' },
+    { id: 'elemental_mastery', name: 'Elemental Mastery', icon: '🌈', desc: 'Orbitals cycle between Fire, Ice, and Lightning effects', effect: (g) => g.augments.push('elemental_mastery'), getDesc: (g) => g.augments.includes('elemental_mastery') ? 'Active ✓' : 'Not Active' },
+    { id: 'unlimited_power', name: 'Unlimited Power', icon: '⚡', desc: 'Cooldowns reduced by 50%, Orbitals spin 2x faster', effect: (g) => g.orbitals.forEach(o => o.speed *= 2), getDesc: (g) => `Orbitals: ${g.orbitals.length} (2x speed)` },
     // Dotomancer Path
-    { id: 'army_of_dead', name: 'Army of the Dead', icon: '🧟', desc: 'Max minions +5, conversion chance +10%', effect: (g) => { g.maxMinions = (g.maxMinions || 0) + 5; g.conversionChance += 0.1; } },
-
-    { id: 'soul_explosion', name: 'Soul Explosion', icon: '💥', desc: 'Minions explode on death dealing 500 damage', effect: (g) => g.augments.push('soul_explosion') },
-    { id: 'lich_king', name: 'Lich King', icon: '👑', desc: 'You gain +10% damage for every active minion', effect: (g) => g.augments.push('lich_king') },
+    { id: 'army_of_dead', name: 'Army of the Dead', icon: '🧟', desc: 'Max minions +5, conversion chance +10%', effect: (g) => { g.maxMinions = (g.maxMinions || 0) + 5; g.conversionChance += 0.1; }, getDesc: (g) => `Max Minions: ${g.maxMinions || 0} → ${(g.maxMinions || 0) + 5}, Convert: ${Math.round((g.conversionChance || 0) * 100)}% → ${Math.round(((g.conversionChance || 0) + 0.1) * 100)}%` },
+    { id: 'soul_explosion', name: 'Soul Explosion', icon: '💥', desc: 'Minions explode on death dealing 500 damage', effect: (g) => g.augments.push('soul_explosion'), getDesc: (g) => g.augments.includes('soul_explosion') ? 'Active ✓' : 'Not Active' },
+    { id: 'lich_king', name: 'Lich King', icon: '👑', desc: 'You gain +10% damage for every active minion', effect: (g) => g.augments.push('lich_king'), getDesc: (g) => `Minions: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 10}% dmg)` },
     // New Hybrid Paths
-    { id: 'tech_wizard', name: 'Tech Wizard', icon: '🔮', desc: 'Projectiles spawn Orbitals on hit (10% chance)', effect: (g) => g.augments.push('tech_wizard') },
+    { id: 'tech_wizard', name: 'Tech Wizard', icon: '🔮', desc: 'Projectiles spawn Orbitals on hit (10% chance)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
     // Demon Set Augments
-    { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5 },
-    { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2 },
-    { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5 },
+    { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
+    { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
+    { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
     // Aura augment
-    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Burning aura surrounds you - enemies take burn damage on contact', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 15, burnDuration: 3 }; } }
+    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Burning aura surrounds you - enemies take burn damage on contact', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 15, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius}, Burn: ${g.auraFire.damage}/s` : 'Not Active' }
 ];
 
 // Items that can drop
@@ -714,6 +713,7 @@ class DotsSurvivor {
 
         // Diamond Augments & Dotomancer Stats
         this.augments = [];
+        this.titanKillerBonus = 0; // Titan Killer augment bonus damage to bosses/tanks
         this.maxMinions = 0;
         this.minionRespawnTime = 0;
         this.conversionChance = 0;
@@ -2063,50 +2063,6 @@ class DotsSurvivor {
         }
     }
 
-    showAugmentMenu(choices) {
-        this.gamePaused = true;
-        const container = document.getElementById('augment-choices');
-        container.innerHTML = '';
-
-        choices.forEach(u => {
-            const card = document.createElement('div');
-            card.className = 'upgrade-card rare'; // Use rare styling for diamonds or custom? CSS had .diamond-badge logic maybe?
-            // Reusing basic card structure but maybe adding glow
-            card.style.borderColor = '#00ffff';
-            card.style.boxShadow = '0 0 15px rgba(0, 255, 255, 0.2)';
-
-            card.innerHTML = `
-                <div class="upgrade-icon">${u.icon}</div>
-                <div class="upgrade-details-container">
-                    <div class="upgrade-name" style="color:#00ffff">${u.name}</div>
-                    <div class="upgrade-desc">${u.desc}</div>
-                </div>
-            `;
-
-            card.addEventListener('click', () => {
-                u.effect(this);
-                // Remove from pools
-                const dIdx = this.diamondAugments.findIndex(a => a.id === u.id);
-                if (dIdx >= 0) this.diamondAugments.splice(dIdx, 1);
-
-                const pIdx = this.availablePerks.findIndex(a => a.id === u.id);
-                if (pIdx >= 0) this.availablePerks.splice(pIdx, 1);
-
-                document.getElementById('augment-menu').classList.add('hidden');
-                this.gamePaused = false;
-                this.spawnHorde();
-                this.spawnControlPoint();
-
-                this.damageNumbers.push({
-                    x: this.player.x, y: this.player.y - 60,
-                    value: `💎 ${u.name}! 💎`, lifetime: 3, color: '#00ffff'
-                });
-            });
-            container.appendChild(card);
-        });
-
-        document.getElementById('augment-menu').classList.remove('hidden');
-    }
 
     applyPerk(perk) {
         switch (perk.id) {
@@ -3011,6 +2967,12 @@ class DotsSurvivor {
                 if (d < p.radius + e.radius) {
                     // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
+                    
+                    // Titan Killer bonus damage to bosses and tanks
+                    if (this.titanKillerBonus && (e.isBoss || e.type === 'tank')) {
+                        damage = Math.floor(damage * (1 + this.titanKillerBonus));
+                    }
+                    
                     const critChance = (this.weapons.bullet.critChance || 0.05) + (this.critChance || 0);
                     const isCrit = Math.random() < critChance;
                     let color = '#fff';
@@ -3329,7 +3291,8 @@ class DotsSurvivor {
         const container = document.getElementById('augment-choices');
         container.innerHTML = '';
         choices.forEach(u => {
-            // For Diamond Augments, we don't usually need comparison stats as they are unique toggles, but could add if needed
+            // Use getDesc if available for upgrade descriptions
+            const desc = u.getDesc ? u.getDesc(this) : u.desc;
             const card = document.createElement('div');
             card.className = `upgrade-card legendary`;
             card.style.borderColor = '#00ffff';
@@ -3340,6 +3303,7 @@ class DotsSurvivor {
                 <div class="upgrade-details-container">
                     <div class="upgrade-name" style="color:#00ffff;">${u.name}</div>
                     <div class="upgrade-desc" style="color:#aee;">${u.desc}</div>
+                    <div class="upgrade-stats" style="color:#88ffff;font-size:0.8em;margin-top:4px;">${desc}</div>
                 </div>
             `;
             card.addEventListener('click', () => {
