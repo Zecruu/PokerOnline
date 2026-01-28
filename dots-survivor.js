@@ -682,6 +682,7 @@ class DotsSurvivor {
         this.generalSpawnedThisWave = false;
         this.lastBossWave = 0;
         this.bossStatMultiplier = 1.0;
+        this.consumerSpawned = false;
         this.spawnControlPoint();
         this.lastControlPointWave = 1;
 
@@ -698,6 +699,13 @@ class DotsSurvivor {
         this.killStreak = 0;
         this.killStreakTimer = 0;
         this.auraFire = null; // Fire aura augment
+
+        // Horde tracking and reward system
+        this.hordeActive = false;
+        this.hordeEnemyCount = 0;
+        this.hordeCooldown = 0; // 60 second cooldown after horde reward
+        this.rewardTiles = []; // Tiles that spawn after horde completion
+        this.rewardTilesTimer = 0;
 
         // Regen timer
         this.regenTimer = 0;
@@ -834,6 +842,126 @@ class DotsSurvivor {
             captured: false,
             spawnWave: this.wave
         });
+    }
+
+    spawnConsumer() {
+        // Consumer boss - black hole that consumes other enemies to grow stronger
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 400 + Math.random() * 100;
+        const wx = this.worldX + Math.cos(angle) * dist;
+        const wy = this.worldY + Math.sin(angle) * dist;
+
+        const consumer = {
+            wx, wy,
+            type: 'consumer',
+            name: 'THE CONSUMER',
+            isConsumer: true,
+            isBoss: true,
+            radius: 60,
+            baseRadius: 60,
+            speed: 45,
+            health: 5000,
+            maxHealth: 5000,
+            baseHealth: 5000,
+            damage: 30,
+            xp: 800,
+            color: '#8800ff',
+            hitFlash: 0,
+            consumedCount: 0,
+            rotationAngle: 0,
+            consumeRadius: 120, // Range to consume other enemies
+            critResistance: 0.3
+        };
+
+        this.enemies.push(consumer);
+
+        // Warning announcement
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 100,
+            value: '🌀 THE CONSUMER AWAKENS! 🌀',
+            lifetime: 3,
+            color: '#8800ff',
+            scale: 2
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 60,
+            value: 'It devours all in its path...',
+            lifetime: 3,
+            color: '#cc88ff',
+            scale: 1.2
+        });
+    }
+
+    updateConsumer(dt) {
+        // Find consumer enemy
+        const consumer = this.enemies.find(e => e.isConsumer);
+        if (!consumer) return;
+
+        // Update rotation for visual effect
+        consumer.rotationAngle += dt * 2;
+
+        // Move toward player (slowly)
+        const dx = this.worldX - consumer.wx;
+        const dy = this.worldY - consumer.wy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+            consumer.wx += (dx / dist) * consumer.speed * dt;
+            consumer.wy += (dy / dist) * consumer.speed * dt;
+        }
+
+        // Consume nearby non-boss enemies
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const e = this.enemies[i];
+            if (e === consumer || e.isBoss) continue;
+
+            const edx = consumer.wx - e.wx;
+            const edy = consumer.wy - e.wy;
+            const edist = Math.sqrt(edx * edx + edy * edy);
+
+            if (edist < consumer.consumeRadius) {
+                // Pull enemy toward consumer
+                const pullStrength = 200 * dt;
+                e.wx += (edx / edist) * pullStrength;
+                e.wy += (edy / edist) * pullStrength;
+
+                // Consume if very close
+                if (edist < consumer.radius + e.radius) {
+                    // Absorb health (15% of enemy max health)
+                    const healthGain = Math.floor(e.maxHealth * 0.15);
+                    consumer.maxHealth += healthGain;
+                    consumer.health += healthGain;
+                    consumer.consumedCount++;
+
+                    // Grow slightly
+                    consumer.radius = consumer.baseRadius + Math.min(consumer.consumedCount * 2, 60);
+                    consumer.consumeRadius = 120 + Math.min(consumer.consumedCount * 3, 80);
+
+                    // Increase damage slightly
+                    consumer.damage = 30 + Math.floor(consumer.consumedCount * 2);
+
+                    // Visual feedback
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.spawnParticles(sx, sy, '#8800ff', 8);
+                    
+                    // Remove consumed enemy
+                    this.enemies.splice(i, 1);
+
+                    // Announce growth
+                    if (consumer.consumedCount % 5 === 0) {
+                        this.damageNumbers.push({
+                            x: this.canvas.width / 2,
+                            y: 100,
+                            value: `🌀 Consumer grows! HP: ${consumer.health}`,
+                            lifetime: 1.5,
+                            color: '#cc88ff'
+                        });
+                    }
+                }
+            }
+        }
     }
 
     spawnVector() {
@@ -985,6 +1113,9 @@ class DotsSurvivor {
     }
 
     spawnHorde() {
+        // Don't spawn if in cooldown (reward tiles active or cooldown period)
+        if (this.hordeCooldown > 0 || this.rewardTiles.length > 0) return;
+
         // Spawn a massive wave of enemies surrounding the player
         const hordeSize = 30 + this.wave * 5;
 
@@ -998,6 +1129,8 @@ class DotsSurvivor {
         });
 
         this.playSound('horde');
+        this.hordeActive = true;
+        this.hordeEnemyCount = hordeSize;
 
         // Spawn enemies in a tight circle around player (closer spawn for surrounded feel)
         for (let i = 0; i < hordeSize; i++) {
@@ -1012,8 +1145,180 @@ class DotsSurvivor {
                 if (this.wave >= 8) types.push('ice'); // Ice mobs appear in hordes after wave 8
                 const type = types[Math.floor(Math.random() * types.length)];
                 // Pass isHorde=true for +50% health and 20% slower speed
-                this.enemies.push(this.createEnemy(wx, wy, type, false, true));
+                const enemy = this.createEnemy(wx, wy, type, false, true);
+                enemy.isHordeEnemy = true; // Mark as horde enemy for tracking
+                this.enemies.push(enemy);
             }, i * 50); // Stagger spawns for dramatic effect
+        }
+    }
+
+    checkHordeCompletion() {
+        if (!this.hordeActive) return;
+
+        // Count remaining horde enemies
+        const hordeEnemiesLeft = this.enemies.filter(e => e.isHordeEnemy).length;
+
+        if (hordeEnemiesLeft === 0) {
+            this.hordeActive = false;
+            this.spawnRewardTiles();
+        }
+    }
+
+    spawnRewardTiles() {
+        // Define possible rewards
+        const rewards = [
+            { name: 'Fire Rate', icon: '🔥', desc: '+10% Fire Rate', effect: () => { this.weapons.bullet.fireRate *= 0.9; } },
+            { name: 'Damage', icon: '⚔️', desc: '+15% Damage', effect: () => { this.weapons.bullet.damage = Math.floor(this.weapons.bullet.damage * 1.15); } },
+            { name: 'Speed', icon: '👟', desc: '+10% Move Speed', effect: () => { this.player.speed *= 1.1; } },
+            { name: 'Max Health', icon: '❤️', desc: '+20 Max HP', effect: () => { this.player.maxHealth += 20; this.player.health = Math.min(this.player.health + 20, this.player.maxHealth); } },
+            { name: 'Crit Chance', icon: '🎯', desc: '+5% Crit', effect: () => { this.weapons.bullet.critChance = Math.min(0.5, this.weapons.bullet.critChance + 0.05); } },
+            { name: 'Projectiles', icon: '🔫', desc: '+1 Projectile', effect: () => { this.weapons.bullet.count++; } },
+            { name: 'XP Boost', icon: '✨', desc: '+20% XP', effect: () => { this.xpMultiplier *= 1.2; } },
+            { name: 'Magnet', icon: '🧲', desc: '+30 Pickup Range', effect: () => { this.magnetRadius += 30; } }
+        ];
+
+        // Shuffle and pick 4 random rewards
+        const shuffled = rewards.sort(() => Math.random() - 0.5);
+        const selectedRewards = shuffled.slice(0, 4);
+
+        // Spawn 4 tiles around player
+        const tilePositions = [
+            { dx: -80, dy: -80 },
+            { dx: 80, dy: -80 },
+            { dx: -80, dy: 80 },
+            { dx: 80, dy: 80 }
+        ];
+
+        this.rewardTiles = tilePositions.map((pos, i) => ({
+            x: this.player.x + pos.dx,
+            y: this.player.y + pos.dy,
+            wx: this.worldX + pos.dx,
+            wy: this.worldY + pos.dy,
+            reward: selectedRewards[i],
+            radius: 35,
+            pulse: 0
+        }));
+
+        this.rewardTilesTimer = 10; // 10 seconds to claim
+
+        // Announce
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 80,
+            value: '🎁 HORDE DEFEATED! CLAIM YOUR REWARD! 🎁',
+            lifetime: 3,
+            color: '#00ff88',
+            scale: 1.5
+        });
+    }
+
+    updateRewardTiles(dt) {
+        if (this.rewardTiles.length === 0) {
+            // Decrement cooldown
+            if (this.hordeCooldown > 0) {
+                this.hordeCooldown -= dt;
+            }
+            return;
+        }
+
+        this.rewardTilesTimer -= dt;
+
+        // Check if player touches a tile
+        for (let i = this.rewardTiles.length - 1; i >= 0; i--) {
+            const tile = this.rewardTiles[i];
+            tile.pulse += dt * 3;
+
+            // Update tile position relative to world
+            const sx = this.player.x + (tile.wx - this.worldX);
+            const sy = this.player.y + (tile.wy - this.worldY);
+
+            const dist = Math.sqrt((this.player.x - sx) ** 2 + (this.player.y - sy) ** 2);
+
+            if (dist < tile.radius + this.player.radius) {
+                // Claim reward!
+                tile.reward.effect();
+                
+                this.damageNumbers.push({
+                    x: this.player.x,
+                    y: this.player.y - 50,
+                    value: `${tile.reward.icon} ${tile.reward.desc}`,
+                    lifetime: 2,
+                    color: '#00ffff',
+                    scale: 1.5
+                });
+
+                this.spawnParticles(sx, sy, '#00ffff', 20);
+                this.playSound('powerup');
+
+                // Clear all tiles and start cooldown
+                this.rewardTiles = [];
+                this.hordeCooldown = 60; // 60 second cooldown before next horde can spawn
+                return;
+            }
+        }
+
+        // Timer expired - remove tiles
+        if (this.rewardTilesTimer <= 0) {
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2,
+                value: '⏰ Time\'s up! Rewards vanished!',
+                lifetime: 2,
+                color: '#ff4444'
+            });
+            this.rewardTiles = [];
+            this.hordeCooldown = 60;
+        }
+    }
+
+    drawRewardTiles() {
+        if (this.rewardTiles.length === 0) return;
+
+        const ctx = this.ctx;
+
+        // Draw timer
+        ctx.save();
+        ctx.font = 'bold 24px Inter';
+        ctx.fillStyle = this.rewardTilesTimer < 3 ? '#ff4444' : '#00ff88';
+        ctx.textAlign = 'center';
+        ctx.fillText(`⏱️ ${Math.ceil(this.rewardTilesTimer)}s - CLAIM A REWARD!`, this.canvas.width / 2, 80);
+        ctx.restore();
+
+        for (const tile of this.rewardTiles) {
+            const sx = this.player.x + (tile.wx - this.worldX);
+            const sy = this.player.y + (tile.wy - this.worldY);
+            const pulse = Math.sin(tile.pulse) * 5;
+
+            ctx.save();
+
+            // Glow effect
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#00ffff';
+
+            // Tile background
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            ctx.roundRect(sx - tile.radius - pulse, sy - tile.radius - pulse, 
+                         (tile.radius + pulse) * 2, (tile.radius + pulse) * 2, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            // Icon
+            ctx.font = '28px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(tile.reward.icon, sx, sy - 8);
+
+            // Name
+            ctx.font = 'bold 10px Inter';
+            ctx.fillStyle = '#00ffff';
+            ctx.fillText(tile.reward.name, sx, sy + 20);
+
+            ctx.restore();
         }
     }
 
@@ -1324,6 +1629,9 @@ class DotsSurvivor {
         this.updateActiveMinions(effectiveDt);
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
+        this.updateRewardTiles(effectiveDt);
+        this.checkHordeCompletion();
+        this.updateConsumer(effectiveDt);
         this.fireWeapons();
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
@@ -1776,6 +2084,12 @@ class DotsSurvivor {
             // Spawn a Vector that will circle around player
             this.spawnVector();
             return;
+        }
+
+        // Consumer boss spawns at wave 7 (one time)
+        if (this.wave === 7 && !this.consumerSpawned) {
+            this.spawnConsumer();
+            this.consumerSpawned = true;
         }
 
         // Boss spawning logic - controlled per wave
@@ -3212,7 +3526,76 @@ class DotsSurvivor {
                 }
             }
             
-            if (e.isBoss) {
+            if (e.isConsumer) {
+                // Consumer - Black hole tornado design
+                ctx.save();
+                ctx.translate(sx, sy);
+                
+                // Outer rotating spiral arms (purple)
+                for (let arm = 0; arm < 4; arm++) {
+                    ctx.save();
+                    ctx.rotate(e.rotationAngle + (arm * Math.PI / 2));
+                    
+                    const gradient = ctx.createLinearGradient(0, 0, e.radius * 1.5, 0);
+                    gradient.addColorStop(0, 'rgba(136, 0, 255, 0.8)');
+                    gradient.addColorStop(1, 'rgba(136, 0, 255, 0)');
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    for (let i = 0; i < 20; i++) {
+                        const angle = (i / 20) * Math.PI;
+                        const r = e.radius * 0.3 + (i / 20) * e.radius * 0.7;
+                        ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r * 0.3);
+                    }
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 8;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                
+                // Inner black hole (dark center)
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * 0.6, 0, Math.PI * 2);
+                const innerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 0.6);
+                innerGrad.addColorStop(0, '#000');
+                innerGrad.addColorStop(0.5, '#220044');
+                innerGrad.addColorStop(1, '#8800ff');
+                ctx.fillStyle = innerGrad;
+                ctx.fill();
+                
+                // White accretion disk ring
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * 0.5, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // White inner glow
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+                
+                // Consume radius indicator (faint)
+                ctx.beginPath();
+                ctx.arc(0, 0, e.consumeRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(136, 0, 255, 0.2)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 10]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.restore();
+                
+                // Name and HP bar
+                ctx.font = 'bold 14px Inter'; ctx.fillStyle = '#cc88ff'; ctx.textAlign = 'center';
+                ctx.fillText(e.name, sx, sy - e.radius - 30);
+                ctx.font = '10px Inter'; ctx.fillStyle = '#888';
+                ctx.fillText(`Consumed: ${e.consumedCount}`, sx, sy - e.radius - 18);
+                const bw = e.radius * 2.5;
+                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 8);
+                ctx.fillStyle = '#8800ff'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 8);
+            } else if (e.isBoss) {
                 // Boss face
                 ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(e.face, sx, sy);
@@ -3360,6 +3743,8 @@ class DotsSurvivor {
         this.drawHealthBar();
         // Items display
         this.drawItems();
+        // Reward tiles
+        this.drawRewardTiles();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
 
