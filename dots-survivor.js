@@ -117,7 +117,7 @@ const DIAMOND_AUGMENTS = [
     { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm'), getDesc: (g) => g.augments.includes('bullet_storm') ? 'Active ✓' : 'Not Active' },
     { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +15% damage to Bosses and Tanks (+5% per stack)', effect: (g) => { if (!g.augments.includes('titan_killer')) g.augments.push('titan_killer'); g.titanKillerBonus = (g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15); }, getDesc: (g) => `Boss/Tank Dmg: +${Math.round((g.titanKillerBonus || 0) * 100)}% → +${Math.round(((g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15)) * 100)}%` },
     // Mage Path
-    { id: 'black_hole', name: 'Black Hole', icon: '⚫', desc: 'Orbitals have a chance to pull enemies in and crush them', effect: (g) => g.augments.push('black_hole'), getDesc: (g) => g.augments.includes('black_hole') ? 'Active ✓' : 'Not Active' },
+    { id: 'wind_push', name: 'Gale Force', icon: '💨', desc: 'Every 7 seconds, unleash a wind slash that pushes all enemies back (bigger enemies resist more)', effect: (g) => { g.augments.push('wind_push'); g.windPushTimer = 0; g.windPushCooldown = 7; }, getDesc: (g) => g.augments.includes('wind_push') ? 'Active ✓' : 'Not Active' },
     { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop'), getDesc: (g) => g.augments.includes('time_stop') ? 'Active ✓' : 'Not Active' },
     { id: 'elemental_mastery', name: 'Elemental Mastery', icon: '🌈', desc: 'Orbitals cycle between Fire, Ice, and Lightning effects', effect: (g) => g.augments.push('elemental_mastery'), getDesc: (g) => g.augments.includes('elemental_mastery') ? 'Active ✓' : 'Not Active' },
     { id: 'unlimited_power', name: 'Unlimited Power', icon: '⚡', desc: 'Cooldowns reduced by 50%, Orbitals spin 2x faster', effect: (g) => g.orbitals.forEach(o => o.speed *= 2), getDesc: (g) => `Orbitals: ${g.orbitals.length} (2x speed)` },
@@ -1818,6 +1818,7 @@ class DotsSurvivor {
         this.updateActiveMinions(effectiveDt);
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
+        this.updateWindPush(effectiveDt);
         this.checkHordeCompletion();
         this.updateConsumer(effectiveDt);
         this.fireWeapons();
@@ -1901,6 +1902,62 @@ class DotsSurvivor {
                     this.spawnParticles(sx, sy, '#ff6600', 1);
                 }
             }
+        }
+    }
+
+    updateWindPush(dt) {
+        if (!this.augments.includes('wind_push')) return;
+
+        this.windPushTimer += dt;
+        if (this.windPushTimer >= this.windPushCooldown) {
+            this.windPushTimer = 0;
+
+            // Visual effect - wind slash from player
+            this.spawnParticles(this.player.x, this.player.y, '#88ccff', 30);
+            this.spawnParticles(this.player.x, this.player.y, '#ffffff', 20);
+
+            // Screen shake for impact
+            this.triggerScreenShake(8, 0.2);
+
+            // Push all enemies away from player
+            const pushRange = 350; // Range of wind push
+            const basePushForce = 400; // Base knockback force
+
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const dx = sx - this.player.x;
+                const dy = sy - this.player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < pushRange && dist > 0) {
+                    // Calculate knockback resistance based on enemy size
+                    // Bigger enemies (larger radius) resist more
+                    const sizeResistance = Math.min(0.9, e.radius / 100); // Max 90% resistance for huge enemies
+                    const effectivePush = basePushForce * (1 - sizeResistance);
+
+                    // Push direction (away from player)
+                    const pushX = (dx / dist) * effectivePush;
+                    const pushY = (dy / dist) * effectivePush;
+
+                    // Apply push to enemy world position
+                    e.wx += pushX * 0.5; // Instant push
+                    e.wy += pushY * 0.5;
+
+                    // Visual feedback
+                    this.spawnParticles(sx, sy, '#88ccff', 3);
+                }
+            }
+
+            // Announcement
+            this.damageNumbers.push({
+                x: this.player.x,
+                y: this.player.y - 50,
+                value: '💨 GALE FORCE!',
+                lifetime: 1,
+                color: '#88ccff',
+                scale: 1.5
+            });
         }
     }
 
@@ -2234,12 +2291,6 @@ class DotsSurvivor {
         if (!needsEmergencySpawn && now - this.lastEnemySpawn < this.enemySpawnRate) return;
         this.lastEnemySpawn = now;
 
-        // Spawn around player in world coordinates
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 200 + Math.random() * 150; // Even closer spawns for more intense gameplay
-        const wx = this.worldX + Math.cos(angle) * dist;
-        const wy = this.worldY + Math.sin(angle) * dist;
-
         // Swarm is default from wave 1 - they rapidly spawn and try to surround player
         const types = ['swarm', 'swarm', 'swarm', 'swarm'];
         if (this.wave >= 2) types.push('swarm', 'swarm', 'basic');
@@ -2250,6 +2301,16 @@ class DotsSurvivor {
         if (this.wave >= 6) types.push('sticky', 'sticky', 'swarm');
         if (this.wave >= 7) types.push('poison', 'poison'); // Poison enemies at wave 7+
         if (this.wave >= 8) types.push('ice', 'swarm');
+
+        // Pick enemy type first to determine spawn distance
+        const type = types[Math.floor(Math.random() * types.length)];
+
+        // Spawn around player in world coordinates
+        // Swarm spawns close (aggressive), other enemies spawn farther away
+        const angle = Math.random() * Math.PI * 2;
+        const dist = type === 'swarm' ? (200 + Math.random() * 150) : (400 + Math.random() * 200);
+        const wx = this.worldX + Math.cos(angle) * dist;
+        const wy = this.worldY + Math.sin(angle) * dist;
 
         // Consumer boss spawns at wave 7+ (one time)
         if (this.wave >= 7 && !this.consumerSpawned) {
@@ -2287,7 +2348,7 @@ class DotsSurvivor {
                 this.lastBossWave = this.wave;
             }
         } else {
-            const type = types[Math.floor(Math.random() * types.length)];
+            // Type already picked above for spawn distance calculation
             this.enemies.push(this.createEnemy(wx, wy, type));
         }
     }
@@ -2761,20 +2822,7 @@ class DotsSurvivor {
             const ox = this.player.x + Math.cos(o.angle) * o.radius;
             const oy = this.player.y + Math.sin(o.angle) * o.radius;
 
-            // Black Hole Effect: Pull enemies
-            if (this.augments.includes('black_hole')) {
-                for (const e of this.enemies) {
-                    const sx = this.player.x + (e.wx - this.worldX);
-                    const sy = this.player.y + (e.wy - this.worldY);
-                    const d = Math.sqrt((ox - sx) ** 2 + (oy - sy) ** 2);
-                    if (d < 200) { // Pull range
-                        const pullForce = 150 * (1 - d / 200); // Stronger closer
-                        const ang = Math.atan2(oy - sy, ox - sx);
-                        e.wx += Math.cos(ang) * pullForce * dt;
-                        e.wy += Math.sin(ang) * pullForce * dt;
-                    }
-                }
-            }
+
 
             // Check collision with enemies
             for (const e of this.enemies) {
@@ -3897,8 +3945,8 @@ class DotsSurvivor {
                 const spriteType = e.isBoss ? (e.type === 'general' ? 'general' : 'boss') : e.type;
                 const sprite = SPRITE_CACHE[spriteType];
 
-                if (sprite && sprite.complete) {
-                    // Draw sprite image
+                if (sprite) {
+                    // Draw sprite image (sprite is a canvas, not an Image)
                     ctx.save();
                     ctx.translate(sx, sy);
 
@@ -3926,77 +3974,20 @@ class DotsSurvivor {
             }
 
             if (e.isConsumer) {
-                // THE CONSUMER - Terrifying Void Entity Design
+                // THE CONSUMER - Clean dark void design (no flickering)
                 ctx.save();
                 ctx.translate(sx, sy);
 
-                // Calculate urgency for pulsing effects
-                const urgency = e.lifeTimer ? Math.max(1, (e.lifeTimer / e.maxLifeTime) * 3) : 1;
-                const pulse = Math.sin(this.gameTime * 0.005 * urgency) * 0.1 + 1;
+                // Simple dark core with subtle glow
+                const coreRadius = e.radius;
 
-                // VACUUM PARTICLES - Draw first (behind everything)
-                if (e.vacuumParticles) {
-                    e.vacuumParticles.forEach(p => {
-                        ctx.beginPath();
-                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                        ctx.fillStyle = p.color;
-                        ctx.globalAlpha = p.alpha;
-                        ctx.fill();
-                        ctx.globalAlpha = 1;
-                    });
-                }
-
-                // OUTER DANGER ZONE - Static subtle ring (no pulsing)
-                const pullRadius = e.pullRadius || 250;
+                // Outer dark ring (static, no animation)
                 ctx.beginPath();
-                ctx.arc(0, 0, pullRadius, 0, Math.PI * 2);
-                const dangerGrad = ctx.createRadialGradient(0, 0, pullRadius * 0.7, 0, 0, pullRadius);
-                dangerGrad.addColorStop(0, 'rgba(136, 0, 255, 0)');
-                dangerGrad.addColorStop(0.8, 'rgba(136, 0, 255, 0.05)');
-                dangerGrad.addColorStop(1, 'rgba(255, 0, 100, 0.15)');
-                ctx.fillStyle = dangerGrad;
-                ctx.fill();
-
-                // SPIRAL ARMS - 6 menacing tentacle-like spirals
-                for (let arm = 0; arm < 6; arm++) {
-                    ctx.save();
-                    ctx.rotate(e.rotationAngle * 1.5 + (arm * Math.PI / 3));
-
-                    const spiralGrad = ctx.createLinearGradient(0, 0, e.radius * 2, 0);
-                    spiralGrad.addColorStop(0, 'rgba(136, 0, 255, 0.9)');
-                    spiralGrad.addColorStop(0.5, 'rgba(200, 0, 150, 0.6)');
-                    spiralGrad.addColorStop(1, 'rgba(255, 0, 100, 0)');
-
-                    ctx.beginPath();
-                    ctx.moveTo(e.radius * 0.3, 0);
-                    for (let i = 0; i <= 30; i++) {
-                        const t = i / 30;
-                        const spiralAngle = t * Math.PI * 1.5;
-                        const r = e.radius * 0.3 + t * e.radius * 1.2;
-                        const wobble = Math.sin(this.gameTime * 0.01 + arm + t * 5) * 10;
-                        ctx.lineTo(
-                            Math.cos(spiralAngle) * r + wobble,
-                            Math.sin(spiralAngle) * r * 0.4
-                        );
-                    }
-                    ctx.strokeStyle = spiralGrad;
-                    ctx.lineWidth = 6;
-                    ctx.lineCap = 'round';
-                    ctx.stroke();
-                    ctx.restore();
-                }
-
-                // CORE BODY - Dark void with evil eye
-                const coreRadius = e.radius * 0.5;
-
-                // Outer glow
-                ctx.beginPath();
-                ctx.arc(0, 0, coreRadius * 1.3, 0, Math.PI * 2);
-                const glowGrad = ctx.createRadialGradient(0, 0, coreRadius * 0.5, 0, 0, coreRadius * 1.3);
-                glowGrad.addColorStop(0, 'rgba(136, 0, 255, 0.8)');
-                glowGrad.addColorStop(0.5, 'rgba(80, 0, 120, 0.5)');
-                glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = glowGrad;
+                ctx.arc(0, 0, coreRadius * 1.2, 0, Math.PI * 2);
+                const outerGrad = ctx.createRadialGradient(0, 0, coreRadius * 0.8, 0, 0, coreRadius * 1.2);
+                outerGrad.addColorStop(0, 'rgba(20, 0, 40, 0.9)');
+                outerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = outerGrad;
                 ctx.fill();
 
                 // Main dark core
@@ -4004,21 +3995,17 @@ class DotsSurvivor {
                 ctx.arc(0, 0, coreRadius, 0, Math.PI * 2);
                 const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
                 coreGrad.addColorStop(0, '#000000');
-                coreGrad.addColorStop(0.4, '#110022');
-                coreGrad.addColorStop(0.8, '#330066');
-                coreGrad.addColorStop(1, e.hitFlash > 0 ? '#ffffff' : '#8800ff');
+                coreGrad.addColorStop(0.5, '#0a0015');
+                coreGrad.addColorStop(0.9, '#1a0030');
+                coreGrad.addColorStop(1, e.hitFlash > 0 ? '#ffffff' : '#2a0050');
                 ctx.fillStyle = coreGrad;
                 ctx.fill();
 
                 // Evil eye in center
-                const eyeSize = coreRadius * 0.6;
+                const eyeSize = coreRadius * 0.4;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, eyeSize, eyeSize * 0.4, 0, 0, Math.PI * 2);
-                const eyeGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize);
-                eyeGrad.addColorStop(0, '#ff0066');
-                eyeGrad.addColorStop(0.3, '#cc0044');
-                eyeGrad.addColorStop(1, 'rgba(100, 0, 50, 0)');
-                ctx.fillStyle = eyeGrad;
+                ctx.fillStyle = '#cc0044';
                 ctx.fill();
 
                 // Pupil - follows player direction
@@ -4030,22 +4017,22 @@ class DotsSurvivor {
                 const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset * 0.4 : 0;
 
                 ctx.beginPath();
-                ctx.ellipse(pupilX, pupilY, eyeSize * 0.25 * pulse, eyeSize * 0.15 * pulse, 0, 0, Math.PI * 2);
+                ctx.ellipse(pupilX, pupilY, eyeSize * 0.25, eyeSize * 0.15, 0, 0, Math.PI * 2);
                 ctx.fillStyle = '#000';
                 ctx.fill();
 
                 // Inner highlight
                 ctx.beginPath();
                 ctx.arc(pupilX - eyeSize * 0.1, pupilY - eyeSize * 0.05, eyeSize * 0.08, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
                 ctx.fill();
 
-                // Consume radius indicator
+                // Simple consume radius indicator (dashed line, no animation)
                 ctx.beginPath();
                 ctx.arc(0, 0, e.consumeRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(255, 0, 100, ${0.2 + Math.sin(this.gameTime * 0.003) * 0.1})`;
+                ctx.strokeStyle = 'rgba(100, 0, 50, 0.3)';
                 ctx.lineWidth = 2;
-                ctx.setLineDash([15, 10]);
+                ctx.setLineDash([10, 8]);
                 ctx.stroke();
                 ctx.setLineDash([]);
 
