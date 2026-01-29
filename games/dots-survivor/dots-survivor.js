@@ -806,6 +806,7 @@ class DotsSurvivor {
         this.lastBossWave = 0;
         this.bossStatMultiplier = 1.0;
         this.consumerSpawned = false;
+        this.bossGracePeriod = 0; // Seconds of reduced spawns after boss appears
         this.spawnControlPoint();
         this.lastControlPointWave = 1;
 
@@ -1802,6 +1803,11 @@ class DotsSurvivor {
             this.spawnPauseTimer -= effectiveDt;
         }
 
+        // Update boss grace period timer
+        if (this.bossGracePeriod > 0) {
+            this.bossGracePeriod -= effectiveDt;
+        }
+
         this.updatePlayer(effectiveDt);
         this.updateShield(effectiveDt);
         this.updateRegen(effectiveDt);
@@ -2284,7 +2290,11 @@ class DotsSurvivor {
 
         // DYNAMIC MINIMUM: Start at 10, +1 per wave, max 30
         // Early game is manageable, late game gets overwhelming
-        const MIN_ENEMIES = Math.min(30, 10 + this.wave - 1);
+        // BOSS GRACE PERIOD: Reduce minimum enemies when boss just spawned
+        let MIN_ENEMIES = Math.min(30, 10 + this.wave - 1);
+        if (this.bossGracePeriod > 0) {
+            MIN_ENEMIES = Math.floor(MIN_ENEMIES * 0.3); // Only 30% of normal during grace period
+        }
         const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
 
         // Only check spawn rate if we're not in emergency spawn mode
@@ -2330,6 +2340,22 @@ class DotsSurvivor {
             // If we're past the cap, increase boss stats
             if (bossWaveNumber > 5) {
                 this.bossStatMultiplier = 1 + (bossWaveNumber - 5) * 0.2; // +20% per wave past cap
+            }
+
+            // BOSS SPAWN: Clear nearby enemies and start grace period
+            // This gives player breathing room when boss appears
+            if (this.bossesSpawnedThisWave === 0) {
+                // First boss of the wave - clear 60% of non-boss enemies
+                const nonBossEnemies = this.enemies.filter(e => !e.isBoss);
+                const enemiesToRemove = Math.floor(nonBossEnemies.length * 0.6);
+                for (let i = 0; i < enemiesToRemove; i++) {
+                    const idx = this.enemies.findIndex(e => !e.isBoss);
+                    if (idx !== -1) {
+                        this.enemies.splice(idx, 1);
+                    }
+                }
+                // Start grace period - reduced spawns for 5 seconds
+                this.bossGracePeriod = 5;
             }
 
             // Spawn Demonic General (1 per 20 waves)
