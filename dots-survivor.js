@@ -861,9 +861,9 @@ class DotsSurvivor {
             radius: 80,
             baseRadius: 80,
             speed: 20, // Much slower - menacing crawl
-            health: 100000, // Super tanky - meant to be survived, not killed
-            maxHealth: 100000,
-            baseHealth: 100000,
+            health: 30000, // Very tanky - survive or kill
+            maxHealth: 30000,
+            baseHealth: 30000,
             damage: 50, // High contact damage
             xp: 2000,
             color: '#8800ff',
