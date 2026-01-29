@@ -3,20 +3,18 @@
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
     // Define sprite paths for each enemy type (set to null for default circle rendering)
-    // To add a custom sprite: set the path to your image file
-    // Example: swarm: 'sprites/swarm.png'
-    swarm: 'swarm.png',      // Pink swarm enemies
-    basic: null,      // Red basic enemies
-    runner: null,     // Cyan fast enemies
-    tank: null,       // Purple tank enemies
-    splitter: null,   // Light blue splitter enemies
-    bomber: null,     // Orange bomber enemies
-    mini: null,       // Small split enemies
-    sticky: null,     // Green sticky enemies
-    ice: null,        // Ice blue frozen enemies
-    poison: null,     // Green poison enemies
-    boss: null,       // Boss enemies
-    general: null,    // Demon General boss
+    swarm: 'swarm.png',
+    basic: 'basicenemy.png',
+    runner: 'RunnerEnemy.png',
+    tank: 'TankEnemy.png',
+    splitter: 'Splitter.png',
+    bomber: 'BomberEnemy.png',
+    mini: 'TinyEnemy.png',
+    sticky: 'StickyEnemy.png',
+    ice: 'IceEnemy.png',
+    poison: 'Poison.png',
+    boss: 'BossEnemy.png',
+    general: 'DemonKing.png',
     consumer: null    // The Consumer boss (has custom rendering)
 };
 
@@ -728,7 +726,7 @@ class DotsSurvivor {
             this.pendingUpgrades = 3; // 3 Free attributes for Fresh start
         }
 
-        this.weapons.bullet = { damage: 12, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
+        this.weapons.bullet = { damage: 13, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
