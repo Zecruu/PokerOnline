@@ -7,7 +7,9 @@
     "start": "node server/index.js",
     "server": "node server/index.js",
     "dev": "npx nodemon server/index.js",
-    "client": "npx http-server -p 8000 -c-1"
+    "client": "npx http-server -p 8000 -c-1",
+    "build": "cd hub && npm install && npm run build && cd .. && npm run postbuild",
+    "postbuild": "node scripts/copy-assets.js"
   },
   "repository": {
     "type": "git",

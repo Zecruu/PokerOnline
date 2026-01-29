@@ -24,7 +24,8 @@ const io = new Server(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../')));
+// Serve the Next.js static export from hub/out
+app.use(express.static(path.join(__dirname, '../hub/out')));
 
 // Connect to MongoDB
 const mongoUri = process.env.MONGODB_URI?.trim();

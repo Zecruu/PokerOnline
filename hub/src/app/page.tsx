@@ -2,7 +2,16 @@ import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { GameCard } from "@/components/game-card";
 
-const GAMES = [
+const GAMES: Array<{
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  href: string;
+  badge: string;
+  badgeColor: "gold" | "green";
+  isFree: boolean;
+}> = [
   {
     id: "dots-survivor",
     title: "Dots Survivor",

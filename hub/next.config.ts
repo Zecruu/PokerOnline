@@ -1,15 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Allow serving static files from parent games folder
-  async rewrites() {
-    return [
-      {
-        source: '/games/:path*',
-        destination: '/games/:path*',
-      },
-    ];
+  // Static export for serving from Express
+  output: 'export',
+
+  // Disable image optimization for static export
+  images: {
+    unoptimized: true,
   },
+
+  // Trailing slashes for cleaner static file serving
+  trailingSlash: true,
 };
 
 export default nextConfig;
