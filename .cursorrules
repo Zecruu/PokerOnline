@@ -33,22 +33,6 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 [X] Increase enemies damage by 1.25x (all enemy types)
 [X] Make swarm default enemy from wave 1
 
-### New Enemies Added
-1. **Vector** (wave 10+)
-   - V-shaped body with long arms
-   - 15,000 HP, slow speed (35)
-   - Circles around player at ~250px distance
-   - Spawns 2-3 Spawn enemies every 1.5 seconds
-   - Purple glow effect
-   - HP bar and name displayed
-
-2. **Spawn** (spawned by Vectors)
-   - Small V-shaped enemy
-   - 15 HP, very fast (160 speed)
-   - 8 damage, 3 XP
-   - Magenta/pink color
-   - Rushes toward player
-
 ### Enemy Types Summary
-- swarm, basic, runner, tank, splitter, bomber, mini, sticky, ice, spawn, vector
+- swarm, basic, runner, tank, splitter, bomber, mini, sticky, ice, poison
 
