@@ -756,6 +756,7 @@ class DotsSurvivor {
         // Necromancer gets even more enemies
         if (this.selectedClass.bonuses.spawnsMoreEnemies) this.baseSpawnRate = Math.floor(this.baseSpawnRate * 0.6);
         this.enemySpawnRate = this.baseSpawnRate;
+        this.spawnPauseTimer = 0; // Pauses spawns after Consumer dies
 
         this.magnetRadius = 100; this.xpMultiplier = GAME_SETTINGS.xpMult;
         this.shieldActive = false; this.shieldTimer = 0; this.shieldCooldown = 60;
@@ -1198,7 +1199,7 @@ class DotsSurvivor {
         const sx = this.player.x + (consumer.wx - this.worldX);
         const sy = this.player.y + (consumer.wy - this.worldY);
 
-        // Massive explosion effect
+        // Massive visual effect
         this.spawnParticles(sx, sy, '#8800ff', 50);
         this.spawnParticles(sx, sy, '#ffffff', 30);
         this.spawnParticles(sx, sy, '#ff00ff', 40);
@@ -1207,42 +1208,33 @@ class DotsSurvivor {
         this.triggerScreenShake(20, 0.5);
         this.triggerSlowmo(0.2, 1.0);
 
-        // Explosion damage to ALL enemies in huge radius
-        const explosionRadius = 300 + consumer.consumedCount * 5;
-        const explosionDamage = 500 + consumer.consumedCount * 50;
-
+        // Wipe ALL enemies (no damage to player)
+        const enemiesWiped = this.enemies.filter(e => e !== consumer).length;
         for (const e of this.enemies) {
             if (e === consumer) continue;
-            const edx = consumer.wx - e.wx;
-            const edy = consumer.wy - e.wy;
-            const edist = Math.sqrt(edx * edx + edy * edy);
-
-            if (edist < explosionRadius) {
-                e.health -= explosionDamage;
-                e.hitFlash = 1;
-                const esx = this.player.x + (e.wx - this.worldX);
-                const esy = this.player.y + (e.wy - this.worldY);
-                this.damageNumbers.push({ x: esx, y: esy - 10, value: explosionDamage, lifetime: 1, color: '#ff00ff' });
-            }
+            const esx = this.player.x + (e.wx - this.worldX);
+            const esy = this.player.y + (e.wy - this.worldY);
+            this.spawnParticles(esx, esy, '#8800ff', 5);
         }
-
-        // Damage player if close
-        const playerDist = Math.sqrt((this.worldX - consumer.wx) ** 2 + (this.worldY - consumer.wy) ** 2);
-        if (playerDist < explosionRadius) {
-            const playerDmg = Math.floor(explosionDamage * 0.5);
-            this.player.health -= playerDmg;
-            this.combatTimer = 0; // Reset combat timer
-            this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: -playerDmg, lifetime: 1, color: '#ff0000' });
-        }
+        // Remove all enemies except consumer
+        this.enemies = this.enemies.filter(e => e === consumer);
 
         // Announcement
         this.damageNumbers.push({
             x: this.canvas.width / 2,
             y: this.canvas.height / 2 - 80,
-            value: '💥 THE CONSUMER EXPLODES! 💥',
+            value: '⚫ THE CONSUMER DEPARTS ⚫',
             lifetime: 3,
-            color: '#ff00ff',
+            color: '#8800ff',
             scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 50,
+            value: `${enemiesWiped} souls consumed`,
+            lifetime: 2.5,
+            color: '#cc88ff',
+            scale: 1.5
         });
 
         // Drop massive XP
@@ -1259,11 +1251,73 @@ class DotsSurvivor {
             });
         }
 
+        // Pause enemy spawns for 5 seconds
+        this.spawnPauseTimer = 5;
+
         // Remove consumer
         const idx = this.enemies.indexOf(consumer);
         if (idx >= 0) this.enemies.splice(idx, 1);
     }
 
+    handleConsumerKilled(consumer, sx, sy) {
+        // Visual effects
+        this.spawnParticles(sx, sy, '#8800ff', 50);
+        this.spawnParticles(sx, sy, '#ffffff', 30);
+        this.spawnParticles(sx, sy, '#ff00ff', 40);
+
+        // Screen shake
+        this.triggerScreenShake(20, 0.5);
+        this.triggerSlowmo(0.2, 1.0);
+
+        // Wipe ALL enemies (no damage to player)
+        const enemiesWiped = this.enemies.filter(e => e !== consumer).length;
+        for (const e of this.enemies) {
+            if (e === consumer) continue;
+            const esx = this.player.x + (e.wx - this.worldX);
+            const esy = this.player.y + (e.wy - this.worldY);
+            this.spawnParticles(esx, esy, '#8800ff', 5);
+        }
+        // Remove all enemies
+        this.enemies = [];
+
+        // Announcement
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 80,
+            value: '💀 THE CONSUMER SLAIN! 💀',
+            lifetime: 3,
+            color: '#ffcc00',
+            scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 50,
+            value: `${enemiesWiped} souls freed`,
+            lifetime: 2.5,
+            color: '#88ffcc',
+            scale: 1.5
+        });
+
+        // Drop massive XP
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * 100;
+            this.pickups.push({
+                wx: consumer.wx + Math.cos(angle) * dist,
+                wy: consumer.wy + Math.sin(angle) * dist,
+                xp: 100 + consumer.consumedCount * 10,
+                radius: 10,
+                color: '#d4e600',
+                isItem: false
+            });
+        }
+
+        // Pause enemy spawns for 5 seconds
+        this.spawnPauseTimer = 5;
+
+        // Count the kill
+        this.player.kills++;
+    }
 
     spawnHealthPack() {
         const angle = Math.random() * Math.PI * 2;
@@ -1742,7 +1796,12 @@ class DotsSurvivor {
     update(dt) {
         // Apply slowmo effect
         const effectiveDt = this.slowmo.active ? dt * this.slowmo.factor : dt;
-        
+
+        // Update spawn pause timer (after Consumer dies)
+        if (this.spawnPauseTimer > 0) {
+            this.spawnPauseTimer -= effectiveDt;
+        }
+
         this.updatePlayer(effectiveDt);
         this.updateShield(effectiveDt);
         this.updateRegen(effectiveDt);
@@ -2161,6 +2220,9 @@ class DotsSurvivor {
     }
 
     spawnEnemies() {
+        // Check for spawn pause (after Consumer dies)
+        if (this.spawnPauseTimer > 0) return;
+
         const now = performance.now();
 
         // MINIMUM 30 MOBS: If below 30, spawn immediately without cooldown
@@ -2443,6 +2505,14 @@ class DotsSurvivor {
     }
 
     handleEnemyDeath(e, sx, sy, index) {
+        // Special handling for Consumer death (killed by player)
+        if (e.isConsumer) {
+            this.handleConsumerKilled(e, sx, sy);
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+            return;
+        }
+
         this.player.kills++;
         this.playSound('kill');
 
