@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dots Survivor - Free Wave Survival Game | Zecruu Games</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Play Dots Survivor - a free wave-based survival game. Fight endless enemies, level up with upgrades, collect powerful items, and compete on global leaderboards. Save your progress online!">
+    <meta name="keywords" content="survival game, wave survival, Dots Survivor, free browser game, action game, roguelike, upgrade game, leaderboards, Zecruu Games">
+    <meta name="author" content="Zecruu Games">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://zecruu-games.up.railway.app/games/dots-survivor/dots-survivor.html">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://zecruu-games.up.railway.app/games/dots-survivor/dots-survivor.html">
+    <meta property="og:title" content="Dots Survivor - Free Wave Survival Game">
+    <meta property="og:description" content="Survive endless waves, level up, collect items, and compete on leaderboards. Free browser game!">
+    <meta property="og:image" content="https://zecruu-games.up.railway.app/games/dots-survivor/dots_survivor_thumbnail.png">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Dots Survivor - Free Wave Survival Game">
+    <meta name="twitter:description" content="Survive endless waves, level up, collect items, and compete on leaderboards!">
+    <meta name="twitter:image" content="https://zecruu-games.up.railway.app/games/dots-survivor/dots_survivor_thumbnail.png">
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q5YPP9WDMS"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q5YPP9WDMS');
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="dots-survivor.css">
+</head>
+
+<body>
+    <!-- Auth Container - Login Page -->
+    <div id="auth-menu" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="auth-logo">DOTS<span>SURVIVOR</span></h1>
+                <p class="auth-tagline">Welcome back, survivor</p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form">
+                <div class="input-group">
+                    <label for="login-username">Username or Email</label>
+                    <input type="text" id="login-username" placeholder="Enter your username or email" required>
+                </div>
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter your password" required>
+                </div>
+                <div class="remember-row">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="login-remember">
+                        <span class="checkmark"></span>
+                        Remember this device
+                    </label>
+                </div>
+                <div id="login-error" class="auth-error"></div>
+                <button type="submit" class="auth-btn primary">Sign In</button>
+            </form>
+
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+
+            <button id="play-guest-btn" class="auth-btn ghost">Play as Guest</button>
+
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="#" id="show-register">Create one</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Container - Register Page -->
+    <div id="register-menu" class="auth-container hidden">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="auth-logo">DOTS<span>SURVIVOR</span></h1>
+                <p class="auth-tagline">Join the battle</p>
+            </div>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form">
+                <div class="input-group">
+                    <label for="register-username">Username</label>
+                    <input type="text" id="register-username" placeholder="Choose a username (3-20 chars)" required minlength="3" maxlength="20">
+                </div>
+                <div class="input-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" placeholder="Enter your email" required>
+                </div>
+                <div class="input-group">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" placeholder="Create a password (6+ chars)" required minlength="6">
+                </div>
+                <div id="register-error" class="auth-error"></div>
+                <button type="submit" class="auth-btn primary">Create Account</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="#" id="show-login">Sign in</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div id="start-menu" class="menu-overlay hidden">
+        <div class="menu-content">
+            <div id="user-info" style="position:absolute;top:1rem;right:1rem;text-align:right;"></div>
+            <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
+            <p class="game-subtitle">How long can you survive?</p>
+
+            <!-- Saved Game Notice -->
+            <div id="saved-game-notice" class="hidden"
+                style="background:#00ffaa22;border:2px solid #00ffaa;border-radius:12px;padding:1rem;margin:1rem 0;">
+                <p style="color:#00ffaa;margin:0;">💾 You have a saved game!</p>
+                <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                    <button id="continue-btn" class="menu-btn primary" style="flex:1;">CONTINUE</button>
+                    <button id="new-game-btn" class="menu-btn secondary" style="flex:1;">NEW GAME</button>
+                </div>
+            </div>
+
+            <button id="start-btn" class="menu-btn primary">START GAME</button>
+            <button id="leaderboard-btn" class="menu-btn secondary" style="margin-top:0.5rem;">🏆 LEADERBOARDS</button>
+
+            <div class="controls-info">
+                <p>🎮 WASD or Arrow Keys to move</p>
+                <p>🔫 Auto-fire enabled</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Menu -->
+    <div id="leaderboard-menu" class="menu-overlay hidden">
+        <div class="menu-content" style="max-width:500px;">
+            <h1 style="color:#fbbf24;margin-bottom:1rem;">🏆 LEADERBOARDS</h1>
+
+            <div id="leaderboard-tabs" style="display:flex;gap:0;margin-bottom:1rem;">
+                <button class="lb-tab active" data-category="wave">🌊 Waves</button>
+                <button class="lb-tab" data-category="kills">💀 Kills</button>
+                <button class="lb-tab" data-category="score">⭐ Score</button>
+            </div>
+
+            <div id="leaderboard-content" style="min-height:300px;">
+                <div class="lb-loading">Loading...</div>
+            </div>
+
+            <button id="lb-back-btn" class="menu-btn secondary" style="margin-top:1rem;">← BACK</button>
+        </div>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Game HUD -->
+    <div id="game-hud" class="hidden">
+        <div class="hud-top">
+            <button id="hud-pause-btn"
+                style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#fff;margin-right:1rem;">⏸️</button>
+            <div class="timer-display">
+                <span id="timer">00:00</span>
+                <div id="horde-indicator" style="font-size:0.8rem;color:#ff4466;margin-top:0.2rem;display:none;">⚠️
+                    Horde in <span id="horde-waves">0</span> waves</div>
+            </div>
+            <div class="wave-display">
+                Wave <span id="wave-num">1</span>
+            </div>
+        </div>
+        <div class="hud-bottom">
+            <div class="xp-bar-container">
+                <div id="xp-bar" class="xp-bar"></div>
+                <span id="level-display">Lv. 1</span>
+            </div>
+            <div class="stats-display">
+                <span id="kill-count">💀 0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Up Menu -->
+    <div id="levelup-menu" class="menu-overlay hidden">
+        <div class="levelup-content">
+            <h2>⬆️ LEVEL UP!</h2>
+            <p class="choose-text">Choose an upgrade:</p>
+            <div id="upgrade-choices" class="upgrade-choices">
+                <!-- Choices injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Diamond Augment Menu -->
+    <div id="augment-menu" class="menu-overlay hidden" style="background: rgba(0, 20, 40, 0.95);">
+        <div class="levelup-content" style="border-color: #00ffff; box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);">
+            <h2 style="color: #00ffff; text-shadow: 0 0 20px cyan;">💎 DIAMOND AUGMENT 💎</h2>
+            <p class="choose-text" style="color: #aee;">Choose a powerful class enhancement:</p>
+            <div id="augment-choices" class="upgrade-choices">
+                <!-- Choices injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Menu -->
+    <div id="gameover-menu" class="menu-overlay hidden">
+        <div class="menu-content gameover">
+            <h1>💀 GAME OVER</h1>
+            <div class="final-stats">
+                <p>⏱️ Survived: <span id="final-time">00:00</span></p>
+                <p>💀 Kills: <span id="final-kills">0</span></p>
+                <p>📈 Level: <span id="final-level">1</span></p>
+            </div>
+            <div id="new-record" class="hidden" style="color:#fbbf24;font-size:1.2rem;margin:1rem 0;">🏆 NEW PERSONAL
+                BEST!</div>
+            <button id="restart-btn" class="menu-btn primary">PLAY AGAIN</button>
+            <a href="index.html" class="menu-btn secondary">BACK TO HUB</a>
+        </div>
+    </div>
+
+    <script src="dots-survivor-auth.js"></script>
+    <script src="dots-survivor.js"></script>
+</body>
+
+</html>
