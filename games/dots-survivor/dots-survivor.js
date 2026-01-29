@@ -2282,9 +2282,9 @@ class DotsSurvivor {
 
         const now = performance.now();
 
-        // MINIMUM 30 MOBS: If below 30, spawn immediately without cooldown
-        // Swarm enemies keep the pressure on - they rapidly surround and overwhelm
-        const MIN_ENEMIES = 30;
+        // DYNAMIC MINIMUM: Start at 10, +1 per wave, max 30
+        // Early game is manageable, late game gets overwhelming
+        const MIN_ENEMIES = Math.min(30, 10 + this.wave - 1);
         const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
 
         // Only check spawn rate if we're not in emergency spawn mode
@@ -2306,9 +2306,9 @@ class DotsSurvivor {
         const type = types[Math.floor(Math.random() * types.length)];
 
         // Spawn around player in world coordinates
-        // Swarm spawns close (aggressive), other enemies spawn farther away
+        // Enemies spawn further away to give player time to react
         const angle = Math.random() * Math.PI * 2;
-        const dist = type === 'swarm' ? (200 + Math.random() * 150) : (400 + Math.random() * 200);
+        const dist = type === 'swarm' ? (400 + Math.random() * 200) : (550 + Math.random() * 250);
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
@@ -2366,17 +2366,18 @@ class DotsSurvivor {
         }
         const data = {
             // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
-            swarm: { radius: 14, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
-            basic: { radius: 12, speed: 85, health: 30, damage: 15, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 10, speed: 180, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' },
-            tank: { radius: 28, speed: 50, health: 350, damage: 31, xp: 25, color: '#8844ff', icon: '' },
-            splitter: { radius: 20, speed: 70, health: 150, damage: 19, xp: 15, color: '#44ddff', icon: '💧', splits: true },
-            bomber: { radius: 16, speed: 90, health: 75, damage: 13, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
-            mini: { radius: 6, speed: 120, health: 25, damage: 8, xp: 3, color: '#44ddff', icon: '' },
+            // Speeds increased to compensate for further spawn distance
+            swarm: { radius: 14, speed: 115, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
+            basic: { radius: 12, speed: 100, health: 30, damage: 15, xp: 6, color: '#ff4466', icon: '' },
+            runner: { radius: 16, speed: 200, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' }, // Bigger radius (16 vs 10)
+            tank: { radius: 28, speed: 60, health: 350, damage: 31, xp: 25, color: '#8844ff', icon: '' },
+            splitter: { radius: 20, speed: 85, health: 150, damage: 19, xp: 15, color: '#44ddff', icon: '💧', splits: true },
+            bomber: { radius: 16, speed: 105, health: 75, damage: 13, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
+            mini: { radius: 6, speed: 140, health: 25, damage: 8, xp: 3, color: '#44ddff', icon: '' },
             // New enemy types
-            sticky: { radius: 12, speed: 100, health: 50, damage: 6, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
-            ice: { radius: 32, speed: 45, health: 200, damage: 25, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
-            poison: { radius: 14, speed: 75, health: 80, damage: 12, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true } // Green poison explosion
+            sticky: { radius: 12, speed: 120, health: 50, damage: 6, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
+            ice: { radius: 32, speed: 55, health: 200, damage: 25, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
+            poison: { radius: 14, speed: 90, health: 80, damage: 12, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true } // Green poison explosion
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -2532,9 +2533,9 @@ class DotsSurvivor {
                         this.spawnParticles(sxMoved, syMoved, '#ff66aa', 5);
                     }
 
-                    // Sticky enemy effect: immobilize player for 3 seconds
+                    // Sticky enemy effect: immobilize player for 1.5 seconds
                     if (e.stickies && this.stickyTimer <= 0) {
-                        this.stickyTimer = 3; // 3 seconds immobilized
+                        this.stickyTimer = 1.5; // 1.5 seconds immobilized
                         this.damageNumbers.push({
                             x: this.player.x, y: this.player.y - 50,
                             value: '🍯 STUCK!', lifetime: 2, color: '#88ff00', scale: 1.5, isText: true
@@ -4060,11 +4061,8 @@ class DotsSurvivor {
                 ctx.fillStyle = hpGrad;
                 ctx.fillRect(sx - bw / 2 + 1, sy - e.radius - 7, (bw - 2) * (e.health / e.maxHealth), 8);
             } else if (e.isBoss) {
-                // Boss face
-                ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(e.face, sx, sy);
-                // Name
-                ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#fff';
+                // Boss name (no emoji on the boss itself - sprites handle visuals)
+                ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
                 ctx.fillText(e.name, sx, sy - e.radius - 15);
                 // HP bar
                 const bw = e.radius * 2;
