@@ -994,9 +994,9 @@ class DotsSurvivor {
             radius: 80,
             baseRadius: 80,
             speed: 20, // Much slower - menacing crawl
-            health: 30000, // Very tanky - survive or kill
-            maxHealth: 30000,
-            baseHealth: 30000,
+            health: 15000, // Tanky but killable
+            maxHealth: 15000,
+            baseHealth: 15000,
             damage: 50, // High contact damage
             xp: 2000,
             color: '#8800ff',
@@ -2298,13 +2298,13 @@ class DotsSurvivor {
         let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
         let face = '😈';
         let color = '#ff0044';
-        let stats = { health: 12500, damage: 50, speed: 75, radius: 80, xp: 500 }; // 5x health, faster speed
+        let stats = { health: 3000, damage: 50, speed: 75, radius: 80, xp: 500 }; // Reduced for early game
 
         if (type === 'general') {
             name = `DEMON GENERAL ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]}`;
             face = '👹';
             color = '#8800ff';
-            stats = { health: 30000, damage: 80, speed: 90, radius: 100, xp: 2000 }; // 5x health, faster speed
+            stats = { health: 8000, damage: 80, speed: 90, radius: 100, xp: 2000 }; // Reduced for early game
         } else {
             const faces = ['😈', '👹', '💀', '👿', '🤡', '👺', '☠️', '🔥'];
             face = faces[Math.floor(Math.random() * faces.length)];
@@ -3876,42 +3876,16 @@ class DotsSurvivor {
                     });
                 }
 
-                // OUTER DANGER ZONE - Pulsing warning ring
+                // OUTER DANGER ZONE - Static subtle ring (no pulsing)
                 const pullRadius = e.pullRadius || 250;
                 ctx.beginPath();
-                ctx.arc(0, 0, pullRadius * pulse, 0, Math.PI * 2);
+                ctx.arc(0, 0, pullRadius, 0, Math.PI * 2);
                 const dangerGrad = ctx.createRadialGradient(0, 0, pullRadius * 0.7, 0, 0, pullRadius);
                 dangerGrad.addColorStop(0, 'rgba(136, 0, 255, 0)');
-                dangerGrad.addColorStop(0.8, 'rgba(136, 0, 255, 0.1)');
-                dangerGrad.addColorStop(1, 'rgba(255, 0, 100, 0.3)');
+                dangerGrad.addColorStop(0.8, 'rgba(136, 0, 255, 0.05)');
+                dangerGrad.addColorStop(1, 'rgba(255, 0, 100, 0.15)');
                 ctx.fillStyle = dangerGrad;
                 ctx.fill();
-
-                // CONCENTRIC TERROR RINGS - Multiple spinning layers
-                for (let ring = 0; ring < 5; ring++) {
-                    const ringRadius = e.radius * (0.4 + ring * 0.3);
-                    const ringSpeed = (5 - ring) * 0.5; // Inner rings spin faster
-                    const segments = 8 + ring * 4;
-
-                    ctx.save();
-                    ctx.rotate(e.rotationAngle * ringSpeed * (ring % 2 === 0 ? 1 : -1));
-
-                    for (let i = 0; i < segments; i++) {
-                        const segAngle = (i / segments) * Math.PI * 2;
-                        const segLength = Math.PI / segments * 0.7;
-
-                        ctx.beginPath();
-                        ctx.arc(0, 0, ringRadius, segAngle, segAngle + segLength);
-
-                        // Color gradient from purple to magenta based on ring
-                        const alpha = 0.3 + (ring * 0.1);
-                        const hue = 280 - ring * 15; // Purple to magenta
-                        ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
-                        ctx.lineWidth = 4 - ring * 0.5;
-                        ctx.stroke();
-                    }
-                    ctx.restore();
-                }
 
                 // SPIRAL ARMS - 6 menacing tentacle-like spirals
                 for (let arm = 0; arm < 6; arm++) {
