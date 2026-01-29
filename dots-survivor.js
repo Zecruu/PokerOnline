@@ -51,108 +51,101 @@ const DIAMOND_AUGMENTS = [
 // STACKING ITEMS SYSTEM - Items drop once and stack with kills/damage
 const STACKING_ITEMS = {
     // Each item has: base effect, stack scaling, max stacks, evolution
+    // stackType: 'kill' = stacks on kills (2k to evolve), 'damage' = stacks on damage dealt (50k to evolve)
     bloodBlade: {
         name: 'Blood Blade',
         icon: '🗡️',
-        desc: 'Deal +5% damage. Stacks on kills.',
+        desc: 'Deal +0.025% damage per stack. Stacks on damage dealt.',
         evolvedName: 'Crimson Reaper',
         evolvedIcon: '⚔️',
         evolvedDesc: 'Deal +50% damage, crits heal you',
-        maxStacks: 50,
-        stacksPerKill: 1,
-        stacksPerBossKill: 5,
-        effect: (g, stacks) => { g.stackingDamageBonus = stacks * 0.01; },
+        maxStacks: 50000,
+        stackType: 'damage',
+        effect: (g, stacks) => { g.stackingDamageBonus = stacks * 0.00001; },
         evolvedEffect: (g) => { g.stackingDamageBonus = 0.5; g.critHeals = true; }
     },
     soulGem: {
         name: 'Soul Gem',
         icon: '💎',
-        desc: '+2% XP gain. Stacks on kills.',
+        desc: '+0.05% XP gain per stack. Stacks on kills.',
         evolvedName: 'Soul Devourer',
         evolvedIcon: '🔮',
         evolvedDesc: '+100% XP, enemies drop double XP orbs',
-        maxStacks: 50,
-        stacksPerKill: 1,
-        stacksPerBossKill: 5,
-        effect: (g, stacks) => { g.stackingXpBonus = stacks * 0.02; },
+        maxStacks: 2000,
+        stackType: 'kill',
+        effect: (g, stacks) => { g.stackingXpBonus = stacks * 0.0005; },
         evolvedEffect: (g) => { g.stackingXpBonus = 1.0; g.doubleXpOrbs = true; }
     },
     ironHeart: {
         name: 'Iron Heart',
         icon: '🫀',
-        desc: '+2 max HP. Stacks on kills.',
+        desc: '+0.05 max HP per stack. Stacks on kills.',
         evolvedName: 'Titan Heart',
         evolvedIcon: '💖',
         evolvedDesc: '+100 max HP, regen 2 HP/s',
-        maxStacks: 50,
-        stacksPerKill: 1,
-        stacksPerBossKill: 5,
-        effect: (g, stacks) => { g.stackingHpBonus = stacks * 2; },
+        maxStacks: 2000,
+        stackType: 'kill',
+        effect: (g, stacks) => { g.stackingHpBonus = stacks * 0.05; },
         evolvedEffect: (g) => { g.stackingHpBonus = 100; g.stackingRegen = 2; }
     },
     swiftBoots: {
         name: 'Swift Boots',
         icon: '👟',
-        desc: '+1 speed. Stacks on kills.',
+        desc: '+0.025 speed per stack. Stacks on kills.',
         evolvedName: 'Phantom Stride',
         evolvedIcon: '💨',
         evolvedDesc: '+50 speed, dash through enemies',
-        maxStacks: 50,
-        stacksPerKill: 1,
-        stacksPerBossKill: 5,
-        effect: (g, stacks) => { g.stackingSpeedBonus = stacks; },
+        maxStacks: 2000,
+        stackType: 'kill',
+        effect: (g, stacks) => { g.stackingSpeedBonus = stacks * 0.025; },
         evolvedEffect: (g) => { g.stackingSpeedBonus = 50; g.dashThroughEnemies = true; }
     },
     huntersMark: {
         name: "Hunter's Mark",
         icon: '🎯',
-        desc: '+1% crit chance. Stacks on kills.',
+        desc: '+0.0125% crit chance per stack. Stacks on damage dealt.',
         evolvedName: 'Death Mark',
         evolvedIcon: '💀',
         evolvedDesc: '+25% crit, crits deal 3x damage',
-        maxStacks: 25,
-        stacksPerKill: 1,
-        stacksPerBossKill: 3,
-        effect: (g, stacks) => { g.stackingCritBonus = stacks * 0.01; },
+        maxStacks: 50000,
+        stackType: 'damage',
+        effect: (g, stacks) => { g.stackingCritBonus = stacks * 0.000005; },
         evolvedEffect: (g) => { g.stackingCritBonus = 0.25; g.weapons.bullet.critMultiplier = 3; }
     },
     frostShard: {
         name: 'Frost Shard',
         icon: '❄️',
-        desc: '+2% freeze chance. Stacks on kills.',
+        desc: '+0.025% freeze chance per stack. Stacks on kills.',
         evolvedName: 'Eternal Winter',
         evolvedIcon: '🥶',
         evolvedDesc: '50% freeze, frozen enemies shatter',
-        maxStacks: 25,
-        stacksPerKill: 1,
-        stacksPerBossKill: 3,
-        effect: (g, stacks) => { g.stackingFreezeChance = stacks * 0.02; },
+        maxStacks: 2000,
+        stackType: 'kill',
+        effect: (g, stacks) => { g.stackingFreezeChance = stacks * 0.00025; },
         evolvedEffect: (g) => { g.stackingFreezeChance = 0.5; g.shatterFrozen = true; }
     },
     venomFang: {
         name: 'Venom Fang',
         icon: '🐍',
-        desc: 'Poison on hit (+1 dps/stack).',
+        desc: 'Poison on hit. +0.015 dps per stack. Stacks on damage dealt.',
         evolvedName: 'Plague Bearer',
         evolvedIcon: '☠️',
         evolvedDesc: 'Poison spreads to nearby enemies',
-        maxStacks: 30,
-        stacksPerKill: 1,
-        stacksPerBossKill: 3,
-        effect: (g, stacks) => { g.stackingPoisonDps = stacks; },
+        maxStacks: 50000,
+        stackType: 'damage',
+        effect: (g, stacks) => { g.stackingPoisonDps = stacks * 0.0006; },
         evolvedEffect: (g) => { g.stackingPoisonDps = 30; g.poisonSpreads = true; }
     },
     magnetCore: {
         name: 'Magnet Core',
         icon: '🧲',
-        desc: '+5 pickup range. Stacks on kills.',
+        desc: '+0.1 pickup range per stack. Stacks on kills.',
         evolvedName: 'Gravity Well',
         evolvedIcon: '🌀',
         evolvedDesc: 'Massive pickup range, pulls enemies slightly',
-        maxStacks: 30,
-        stacksPerKill: 1,
-        stacksPerBossKill: 3,
-        effect: (g, stacks) => { g.stackingMagnetBonus = stacks * 5; },
+        maxStacks: 2000,
+        stackType: 'kill',
+        effect: (g, stacks) => { g.stackingMagnetBonus = stacks * 0.1; },
         evolvedEffect: (g) => { g.stackingMagnetBonus = 200; g.pullsEnemies = true; }
     }
 };
@@ -603,13 +596,15 @@ class DotsSurvivor {
                     <div style="font-size:2.5rem;">🌱</div>
                     <div style="font-weight:700;color:#44ff88;font-size:1.2rem;margin:0.5rem 0;">Fresh Start</div>
                     <div style="font-size:0.85rem;color:#ccc;">Start at Level 1</div>
-                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+3 Free Upgrades</div>
+                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+3 Random Upgrades</div>
+                    <div style="font-size:0.7rem;color:#888;margin-top:0.3rem;">🎲 Augments are random</div>
                 </div>
                 <div class="diff-card" id="btn-boosted" style="background:#00ccff22;border:2px solid #00ccff;border-radius:12px;padding:1.5rem;width:180px;cursor:pointer;text-align:center;">
                     <div style="font-size:2.5rem;">🚀</div>
                     <div style="font-weight:700;color:#00ccff;font-size:1.2rem;margin:0.5rem 0;">Head Start</div>
                     <div style="font-size:0.85rem;color:#ccc;">Start at Level 5</div>
-                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+5 Free Upgrades</div>
+                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+5 Random Upgrades</div>
+                    <div style="font-size:0.7rem;color:#888;margin-top:0.3rem;">🎲 Augments are random</div>
                 </div>
             </div>
             <div class="controls-info" style="margin-top:1rem;color:#888;font-size:0.8rem;"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Auto-shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
@@ -2804,6 +2799,9 @@ class DotsSurvivor {
                     e.health -= damage; e.hitFlash = 1;
                     p.hitEnemies.push(e);
 
+                    // Track damage for stacking items
+                    this.updateStackingItems('damage', damage);
+
                     this.damageNumbers.push({
                         x: sx,
                         y: sy - 10,
@@ -2935,6 +2933,9 @@ class DotsSurvivor {
             background: rgba(0, 0, 0, 0.9); display: flex; justify-content: center;
             align-items: center; z-index: 200; animation: fadeIn 0.3s ease;
         `;
+        const stackTypeText = item.stackType === 'damage' ? 'STACKS WITH DAMAGE DEALT' : 'STACKS WITH KILLS';
+        const stackTypeIcon = item.stackType === 'damage' ? '⚔️' : '💀';
+        const maxStacksFormatted = item.maxStacks >= 1000 ? `${(item.maxStacks / 1000).toFixed(0)}k` : item.maxStacks;
         popup.innerHTML = `
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 3px solid #fbbf24;
                 border-radius: 20px; padding: 2rem; max-width: 400px; text-align: center;
@@ -2942,18 +2943,18 @@ class DotsSurvivor {
                 <div style="font-size: 4rem; margin-bottom: 1rem;">${item.icon}</div>
                 <h2 style="color: #fbbf24; font-size: 1.5rem; margin-bottom: 0.5rem;">${item.name}</h2>
                 <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 1.5rem;">${item.desc}</p>
-                
+
                 <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
-                    <p style="color: #888; font-size: 0.8rem; margin-bottom: 0.5rem;">STACKS WITH KILLS</p>
-                    <p style="color: #fff; font-size: 0.9rem;">0 / ${item.maxStacks} stacks</p>
+                    <p style="color: #888; font-size: 0.8rem; margin-bottom: 0.5rem;">${stackTypeIcon} ${stackTypeText}</p>
+                    <p style="color: #fff; font-size: 0.9rem;">0 / ${maxStacksFormatted} stacks</p>
                 </div>
-                
+
                 <div style="background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
                     <p style="color: #fbbf24; font-size: 0.75rem; margin-bottom: 0.3rem;">⬆️ EVOLVES INTO</p>
                     <p style="color: #fff; font-size: 1rem;">${item.evolvedIcon} ${item.evolvedName}</p>
                     <p style="color: #aaa; font-size: 0.8rem;">${item.evolvedDesc}</p>
                 </div>
-                
+
                 <button id="item-popup-close" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);
                     color: #000; border: none; padding: 1rem 3rem; font-size: 1rem; font-weight: 700;
                     border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
@@ -2971,17 +2972,19 @@ class DotsSurvivor {
     }
     
     updateStackingItems(type, amount) {
-        // Called on kills to add stacks to all collected stacking items
+        // Called on kills or damage to add stacks to all collected stacking items
         for (const key in this.stackingItems) {
             const itemData = this.stackingItems[key];
             const item = STACKING_ITEMS[key];
             if (!item || itemData.evolved) continue;
-            
-            // Add stacks based on type
-            if (type === 'kill') {
+
+            // Add stacks based on type matching item's stackType
+            if (type === 'kill' && item.stackType === 'kill') {
+                itemData.stacks += amount;
+            } else if (type === 'damage' && item.stackType === 'damage') {
                 itemData.stacks += amount;
             }
-            
+
             // Check for evolution
             if (itemData.stacks >= item.maxStacks && !itemData.evolved) {
                 this.evolveItem(key);
@@ -3982,36 +3985,45 @@ class DotsSurvivor {
         let y = 50;
         const compact = this.canvas.width < 768;
 
+        // Helper to format large numbers
+        const formatNum = (n) => {
+            if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+            if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+            return Math.floor(n).toString();
+        };
+
         // Stacking Items with progress
         Object.entries(this.stackingItems).forEach(([key, data]) => {
             const item = STACKING_ITEMS[key];
             if (!item) return;
-            
+
             const isEvolved = data.evolved;
             const icon = isEvolved ? item.evolvedIcon : item.icon;
             const name = isEvolved ? item.evolvedName : item.name;
             const color = isEvolved ? '#ff6b00' : '#fbbf24';
             const progress = Math.min(data.stacks / item.maxStacks, 1);
-            
+            const stacksFormatted = formatNum(data.stacks);
+            const maxFormatted = formatNum(item.maxStacks);
+
                 if (compact) {
                 // Compact mobile view
-                ctx.fillStyle = 'rgba(0,0,0,0.6)'; 
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.fillRect(10, y, 55, 30);
-                
+
                 // Progress bar background
                 ctx.fillStyle = 'rgba(255,255,255,0.1)';
                 ctx.fillRect(10, y + 26, 55, 4);
-                
+
                 // Progress bar fill
                 ctx.fillStyle = isEvolved ? '#ff6b00' : '#fbbf24';
                 ctx.fillRect(10, y + 26, 55 * progress, 4);
-                
+
                 // Icon and stack count
                 ctx.font = '16px Inter'; ctx.fillStyle = color; ctx.textAlign = 'center';
                 ctx.fillText(icon, 25, y + 18);
-                ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff';
-                ctx.fillText(isEvolved ? '★' : data.stacks, 50, y + 18);
-                
+                ctx.font = 'bold 8px Inter'; ctx.fillStyle = '#fff';
+                ctx.fillText(isEvolved ? '★' : stacksFormatted, 50, y + 18);
+
                 if (isEvolved) {
                     ctx.strokeStyle = '#ff6b00'; ctx.lineWidth = 2;
                     ctx.strokeRect(10, y, 55, 30);
@@ -4020,23 +4032,23 @@ class DotsSurvivor {
                 } else {
                 // Desktop view
                 const boxWidth = 140;
-                ctx.fillStyle = 'rgba(0,0,0,0.6)'; 
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.fillRect(10, y, boxWidth, 28);
-                
+
                 // Progress bar
                 ctx.fillStyle = 'rgba(255,255,255,0.1)';
                 ctx.fillRect(10, y + 24, boxWidth, 4);
                 ctx.fillStyle = isEvolved ? '#ff6b00' : '#fbbf24';
                 ctx.fillRect(10, y + 24, boxWidth * progress, 4);
-                
+
                 // Icon and name
                 ctx.font = '12px Inter'; ctx.fillStyle = color; ctx.textAlign = 'left';
                 ctx.fillText(`${icon} ${name}`, 15, y + 16);
-                
+
                 // Stack count
                 ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'right';
-                ctx.fillText(isEvolved ? '★ MAX' : `${data.stacks}/${item.maxStacks}`, boxWidth + 5, y + 16);
-                
+                ctx.fillText(isEvolved ? '★ MAX' : `${stacksFormatted}/${maxFormatted}`, boxWidth + 5, y + 16);
+
                 if (isEvolved) {
                     ctx.strokeStyle = '#ff6b00'; ctx.lineWidth = 2;
                     ctx.strokeRect(10, y, boxWidth, 28);
