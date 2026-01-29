@@ -3106,47 +3106,31 @@ class DotsSurvivor {
     }
 
     showLevelUpMenu() {
-        this.gamePaused = true;
+        // Auto-select a random upgrade - no menu shown
         this.playSound('levelup');
         const choices = this.getRandomUpgrades(3);
-        const container = document.getElementById('upgrade-choices');
-        container.innerHTML = '';
-        choices.forEach(u => {
-            const desc = u.getDesc ? u.getDesc(this) : u.desc;
-            const card = document.createElement('div');
-            card.className = `upgrade-card ${u.rarity}`;
-            card.innerHTML = `
-                <div class="upgrade-rarity">${u.rarity}</div>
-                <div class="upgrade-icon">${u.icon}</div>
-                <div class="upgrade-details-container">
-                    <div class="upgrade-name">${u.name}</div>
-                    <div class="upgrade-desc">${desc}</div>
-                </div>
-            `;
-            card.addEventListener('click', () => {
-                u.effect(this);
-                document.getElementById('levelup-menu').classList.add('hidden');
-
-                // Handle multiple pending upgrades
-                if (this.pendingUpgrades > 0) {
-                    this.pendingUpgrades--;
-                    if (this.pendingUpgrades > 0) {
-                        // Show next upgrade immediately
-                        setTimeout(() => this.showLevelUpMenu(), 100);
-                        return;
-                    }
-                }
-
-                this.gamePaused = false;
-            });
-            container.appendChild(card);
+        
+        // Pick a random upgrade from the choices
+        const randomUpgrade = choices[Math.floor(Math.random() * choices.length)];
+        randomUpgrade.effect(this);
+        
+        // Show what they got
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 50,
+            value: `⬆️ ${randomUpgrade.icon} ${randomUpgrade.name}`,
+            lifetime: 2,
+            color: randomUpgrade.rarity === 'legendary' ? '#fbbf24' : randomUpgrade.rarity === 'epic' ? '#a855f7' : randomUpgrade.rarity === 'rare' ? '#4da6ff' : '#b8b8b8',
+            scale: 1.5
         });
-        document.getElementById('levelup-menu').classList.remove('hidden');
 
-        // Update title to show pending count if applicable
-        const title = document.querySelector('#levelup-menu h2');
-        if (title) {
-            title.textContent = this.pendingUpgrades > 0 ? `LEVEL UP! (${this.pendingUpgrades} Remaining)` : 'LEVEL UP!';
+        // Handle multiple pending upgrades
+        if (this.pendingUpgrades > 0) {
+            this.pendingUpgrades--;
+            if (this.pendingUpgrades > 0) {
+                setTimeout(() => this.showLevelUpMenu(), 300);
+                return;
+            }
         }
     }
 
