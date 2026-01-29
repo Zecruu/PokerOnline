@@ -34,9 +34,7 @@ const GAMES: Array<{
   },
 ];
 
-const COMING_SOON = [
-  { title: "Blackjack Royale", description: "Beat the dealer in this high-stakes classic." },
-];
+
 
 export default function Home() {
   return (
@@ -53,7 +51,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900/70" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/30" />
 
-        <div className="relative max-w-6xl mx-auto px-8 py-16 min-h-[500px] flex items-center justify-between gap-12">
+        <div className="relative max-w-5xl mx-auto px-12 lg:px-16 py-20 min-h-[500px] flex items-center justify-between gap-16">
           <div className="max-w-xl flex-shrink-0">
             <span className="inline-block px-4 py-2 bg-[rgb(0,212,170)] text-slate-900 text-sm font-bold rounded-full mb-6">
               🎮 FEATURED GAME
@@ -98,30 +96,14 @@ export default function Home() {
       </section>
 
       {/* Games Grid */}
-      <main className="max-w-6xl mx-auto px-8 py-12">
-        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-white">
+      <main className="max-w-5xl mx-auto px-12 lg:px-16 py-16">
+        <h2 className="text-2xl font-bold mb-8 flex items-center gap-3 text-white">
           🔥 All Games
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {GAMES.map((game) => (
             <GameCard key={game.id} game={game} />
-          ))}
-
-          {/* Coming Soon Placeholders */}
-          {COMING_SOON.map((game) => (
-            <div key={game.title} className="bg-slate-800/50 rounded-2xl overflow-hidden opacity-60 border border-slate-700">
-              <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-700 flex items-center justify-center text-slate-500">
-                Coming Soon
-              </div>
-              <div className="p-5">
-                <h3 className="text-lg font-bold mb-2 text-white">{game.title}</h3>
-                <p className="text-slate-400 text-sm mb-4">{game.description}</p>
-                <span className="block w-full py-3 bg-slate-700 text-slate-400 text-center rounded-lg font-bold">
-                  Coming Soon
-                </span>
-              </div>
-            </div>
           ))}
         </div>
       </main>
