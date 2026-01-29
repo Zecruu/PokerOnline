@@ -42,9 +42,12 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
         throw new Error(data.error || "Something went wrong");
       }
 
-      // Store token in localStorage
+      // Store token and user data in localStorage
       if (data.token) {
         localStorage.setItem("auth_token", data.token);
+        if (data.user) {
+          localStorage.setItem("user_data", JSON.stringify(data.user));
+        }
         if (rememberMe && data.rememberToken) {
           localStorage.setItem("remember_token", data.rememberToken);
         }

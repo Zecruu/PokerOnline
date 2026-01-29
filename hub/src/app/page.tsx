@@ -4,6 +4,16 @@ import { GameCard } from "@/components/game-card";
 
 const GAMES = [
   {
+    id: "dots-survivor",
+    title: "Dots Survivor",
+    description: "Survive endless waves of enemies! Collect XP, level up, and choose powerful upgrades. How long can you last?",
+    thumbnail: "/games/dots-survivor/dots_survivor_thumbnail.png",
+    href: "/games/dots-survivor/dots-survivor.html",
+    badge: "FEATURED",
+    badgeColor: "green",
+    isFree: true,
+  },
+  {
     id: "poker",
     title: "Poker Online",
     description: "Experience the thrill of Texas Hold'em! Play with friends in real-time or challenge our trash-talking AI.",
@@ -13,50 +23,82 @@ const GAMES = [
     badgeColor: "gold",
     isFree: true,
   },
-  {
-    id: "dots-survivor",
-    title: "Dots Survivor",
-    description: "Survive endless waves of enemies! Collect XP, level up, and choose powerful upgrades. How long can you last?",
-    thumbnail: "/games/dots-survivor/dots_survivor_thumbnail.png",
-    href: "/games/dots-survivor/dots-survivor.html",
-    badge: "NEW",
-    badgeColor: "green",
-    isFree: true,
-  },
 ];
 
 const COMING_SOON = [
-  { title: "Blackjack Royale", description: "Beat the dealer in this high-stakes classic. Features multiple deck shoes and side bets." },
-  { title: "Slots Bonanza", description: "Spin to win with colorful themes and massive progressive jackpots." },
+  { title: "Blackjack Royale", description: "Beat the dealer in this high-stakes classic." },
 ];
 
 export default function Home() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      
-      {/* Hero Section */}
-      <header className="py-16 px-8 text-center relative">
-        <div className="absolute inset-0 bg-gradient-radial from-[rgba(0,212,170,0.1)] to-transparent pointer-events-none" />
-        <h1 className="text-5xl font-bold mb-4 bg-gradient-to-br from-white to-gray-400 bg-clip-text text-transparent">
-          Welcome to Zecruu Games
-        </h1>
-        <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-          The ultimate destination for premium browser games. No downloads, just play.
-        </p>
-      </header>
+
+      {/* Hero Banner - Dots Survivor Showcase */}
+      <section className="relative overflow-hidden">
+        {/* Background Image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-40"
+          style={{ backgroundImage: "url('/games/dots-survivor/dots_survivor_thumbnail.png')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/50" />
+
+        <div className="relative max-w-6xl mx-auto px-8 py-20 flex items-center">
+          <div className="max-w-xl">
+            <span className="inline-block px-3 py-1 bg-[rgb(0,212,170)] text-slate-900 text-sm font-bold rounded-full mb-4">
+              🎮 FEATURED GAME
+            </span>
+            <h1 className="text-5xl font-extrabold mb-4 text-white leading-tight">
+              Dots Survivor
+            </h1>
+            <p className="text-xl text-slate-300 mb-6 leading-relaxed">
+              Survive endless waves of enemies in this action-packed roguelike!
+              Collect XP, level up, unlock powerful upgrades, and see how long you can last.
+            </p>
+            <div className="flex gap-4">
+              <Link
+                href="/games/dots-survivor/dots-survivor.html"
+                className="px-8 py-4 bg-[rgb(0,212,170)] hover:bg-[rgb(0,180,145)] text-slate-900 rounded-xl font-bold text-lg transition-all hover:scale-105 shadow-lg shadow-[rgba(0,212,170,0.3)]"
+              >
+                ▶ Play Now - Free
+              </Link>
+              <Link
+                href="/store"
+                className="px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-lg transition-colors"
+              >
+                Browse Store
+              </Link>
+            </div>
+          </div>
+
+          {/* Game Preview */}
+          <div className="hidden lg:block ml-auto">
+            <div className="relative">
+              <img
+                src="/games/dots-survivor/dots_survivor_thumbnail.png"
+                alt="Dots Survivor"
+                className="w-96 rounded-2xl shadow-2xl border-2 border-slate-700"
+              />
+              <div className="absolute -bottom-4 -right-4 px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow-lg">
+                FREE TO PLAY
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Games Grid */}
-      <main className="max-w-6xl mx-auto px-8 pb-16">
-        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-          🔥 Featured Games
+      <main className="max-w-6xl mx-auto px-8 py-12">
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-white">
+          🔥 All Games
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {GAMES.map((game) => (
             <GameCard key={game.id} game={game} />
           ))}
-          
+
           {/* Coming Soon Placeholders */}
           {COMING_SOON.map((game) => (
             <div key={game.title} className="bg-slate-800/50 rounded-2xl overflow-hidden opacity-60 border border-slate-700">
@@ -64,7 +106,7 @@ export default function Home() {
                 Coming Soon
               </div>
               <div className="p-5">
-                <h3 className="text-lg font-bold mb-2">{game.title}</h3>
+                <h3 className="text-lg font-bold mb-2 text-white">{game.title}</h3>
                 <p className="text-slate-400 text-sm mb-4">{game.description}</p>
                 <span className="block w-full py-3 bg-slate-700 text-slate-400 text-center rounded-lg font-bold">
                   Coming Soon
