@@ -44,28 +44,28 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Banner - Dots Survivor Showcase */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden min-h-[500px]">
         {/* Background Image */}
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-40"
+          className="absolute inset-0 bg-cover bg-center opacity-30"
           style={{ backgroundImage: "url('/games/dots-survivor/dots_survivor_thumbnail.png')" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900/70" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/30" />
 
-        <div className="relative max-w-6xl mx-auto px-8 py-20 flex items-center">
-          <div className="max-w-xl">
-            <span className="inline-block px-3 py-1 bg-[rgb(0,212,170)] text-slate-900 text-sm font-bold rounded-full mb-4">
+        <div className="relative max-w-6xl mx-auto px-8 py-16 min-h-[500px] flex items-center justify-between gap-12">
+          <div className="max-w-xl flex-shrink-0">
+            <span className="inline-block px-4 py-2 bg-[rgb(0,212,170)] text-slate-900 text-sm font-bold rounded-full mb-6">
               🎮 FEATURED GAME
             </span>
-            <h1 className="text-5xl font-extrabold mb-4 text-white leading-tight">
+            <h1 className="text-5xl font-extrabold mb-6 text-white leading-tight">
               Dots Survivor
             </h1>
-            <p className="text-xl text-slate-300 mb-6 leading-relaxed">
+            <p className="text-xl text-slate-300 mb-8 leading-relaxed">
               Survive endless waves of enemies in this action-packed roguelike!
               Collect XP, level up, unlock powerful upgrades, and see how long you can last.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-4 flex-wrap">
               <Link
                 href="/games/dots-survivor/dots-survivor.html"
                 className="px-8 py-4 bg-[rgb(0,212,170)] hover:bg-[rgb(0,180,145)] text-slate-900 rounded-xl font-bold text-lg transition-all hover:scale-105 shadow-lg shadow-[rgba(0,212,170,0.3)]"
@@ -73,7 +73,7 @@ export default function Home() {
                 ▶ Play Now - Free
               </Link>
               <Link
-                href="/store"
+                href="/store/"
                 className="px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-lg transition-colors"
               >
                 Browse Store
@@ -82,7 +82,7 @@ export default function Home() {
           </div>
 
           {/* Game Preview */}
-          <div className="hidden lg:block ml-auto">
+          <div className="hidden lg:flex items-center justify-center flex-shrink-0">
             <div className="relative">
               <img
                 src="/games/dots-survivor/dots_survivor_thumbnail.png"
