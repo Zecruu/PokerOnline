@@ -5,7 +5,7 @@ const ENEMY_SPRITES = {
     // Define sprite paths for each enemy type (set to null for default circle rendering)
     // To add a custom sprite: set the path to your image file
     // Example: swarm: 'sprites/swarm.png'
-    swarm: null,      // Pink swarm enemies
+    swarm: 'swarm.png',      // Pink swarm enemies
     basic: null,      // Red basic enemies
     runner: null,     // Cyan fast enemies
     tank: null,       // Purple tank enemies
@@ -2211,7 +2211,7 @@ class DotsSurvivor {
         }
         const data = {
             // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
-            swarm: { radius: 10, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
+            swarm: { radius: 14, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
             basic: { radius: 12, speed: 85, health: 30, damage: 15, xp: 6, color: '#ff4466', icon: '' },
             runner: { radius: 10, speed: 180, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' },
             tank: { radius: 28, speed: 50, health: 350, damage: 31, xp: 25, color: '#8844ff', icon: '' },
