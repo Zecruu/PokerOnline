@@ -1,5 +1,60 @@
 // Dots Survivor - Complete Game with Classes, Items, Bosses & Infinite Map
 
+// Enemy Sprite System - Load custom images for enemies
+const ENEMY_SPRITES = {
+    // Define sprite paths for each enemy type (set to null for default circle rendering)
+    // To add a custom sprite: set the path to your image file
+    // Example: swarm: 'sprites/swarm.png'
+    swarm: null,      // Pink swarm enemies
+    basic: null,      // Red basic enemies
+    runner: null,     // Cyan fast enemies
+    tank: null,       // Purple tank enemies
+    splitter: null,   // Light blue splitter enemies
+    bomber: null,     // Orange bomber enemies
+    mini: null,       // Small split enemies
+    sticky: null,     // Green sticky enemies
+    ice: null,        // Ice blue frozen enemies
+    poison: null,     // Green poison enemies
+    boss: null,       // Boss enemies
+    general: null,    // Demon General boss
+    consumer: null    // The Consumer boss (has custom rendering)
+};
+
+// Sprite cache - stores loaded Image objects
+const SPRITE_CACHE = {};
+
+// Load a sprite image
+function loadSprite(type, path) {
+    if (!path) return null;
+    if (SPRITE_CACHE[type]) return SPRITE_CACHE[type];
+
+    const img = new Image();
+    img.src = path;
+    img.onload = () => {
+        SPRITE_CACHE[type] = img;
+        console.log(`Loaded sprite for ${type}`);
+    };
+    img.onerror = () => {
+        console.warn(`Failed to load sprite for ${type}: ${path}`);
+        ENEMY_SPRITES[type] = null; // Fallback to default rendering
+    };
+    return img;
+}
+
+// Initialize sprites on load
+function initSprites() {
+    for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
+        if (path) loadSprite(type, path);
+    }
+}
+
+// Call init when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSprites);
+} else {
+    initSprites();
+}
+
 // Boss name generators
 const BOSS_PREFIXES = ['Dark', 'Doom', 'Blood', 'Shadow', 'Chaos', 'Death', 'Void', 'Dread', 'Grim', 'Infernal'];
 const BOSS_NAMES = ['Destroyer', 'Eater', 'Bringer', 'Lord', 'King', 'Master', 'Titan', 'Overlord', 'Reaper', 'Slayer'];
@@ -866,10 +921,19 @@ class DotsSurvivor {
 
     spawnControlPoint() {
         const angle = Math.random() * Math.PI * 2;
-        const dist = 800 + Math.random() * 500;
+        const dist = 300 + Math.random() * 400; // Reduced distance to stay in map
+
+        // Calculate position and clamp to map boundaries with padding
+        const padding = 100; // Keep away from edges
+        let wx = this.worldX + Math.cos(angle) * dist;
+        let wy = this.worldY + Math.sin(angle) * dist;
+
+        // Clamp to map bounds
+        wx = Math.max(this.mapBounds.minX + padding, Math.min(this.mapBounds.maxX - padding, wx));
+        wy = Math.max(this.mapBounds.minY + padding, Math.min(this.mapBounds.maxY - padding, wy));
+
         this.controlPoints.push({
-            wx: this.worldX + Math.cos(angle) * dist,
-            wy: this.worldY + Math.sin(angle) * dist,
+            wx, wy,
             radius: 50,
             captureProgress: 0,
             captured: false,
@@ -2146,8 +2210,8 @@ class DotsSurvivor {
             waveMult = 1 + earlyScaling + lateWaves * GAME_SETTINGS.scalingPerWaveLate;
         }
         const data = {
-            // Swarm is now the default enemy from wave 1 - smaller, faster spawns, surrounds player
-            swarm: { radius: 5, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
+            // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
+            swarm: { radius: 10, speed: 95, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
             basic: { radius: 12, speed: 85, health: 30, damage: 15, xp: 6, color: '#ff4466', icon: '' },
             runner: { radius: 10, speed: 180, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' },
             tank: { radius: 28, speed: 50, health: 350, damage: 31, xp: 25, color: '#8844ff', icon: '' },
@@ -3727,13 +3791,35 @@ class DotsSurvivor {
 
             // Skip default circle for Consumer - it has custom rendering
             if (!e.isConsumer) {
-                // Regular circular enemies
-                ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
-                // Enemy icon
-                if (e.icon) {
-                    ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillText(e.icon, sx, sy);
+                // Check for custom sprite
+                const spriteType = e.isBoss ? (e.type === 'general' ? 'general' : 'boss') : e.type;
+                const sprite = SPRITE_CACHE[spriteType];
+
+                if (sprite && sprite.complete) {
+                    // Draw sprite image
+                    ctx.save();
+                    ctx.translate(sx, sy);
+
+                    // Hit flash effect - draw white overlay
+                    if (e.hitFlash > 0) {
+                        ctx.globalAlpha = 0.7;
+                        ctx.filter = 'brightness(3)';
+                    }
+
+                    // Draw the sprite centered and scaled to enemy radius
+                    const size = e.radius * 2;
+                    ctx.drawImage(sprite, -size/2, -size/2, size, size);
+
+                    ctx.restore();
+                } else {
+                    // Default circular enemy rendering
+                    ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
+                    // Enemy icon
+                    if (e.icon) {
+                        ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText(e.icon, sx, sy);
+                    }
                 }
             }
 
