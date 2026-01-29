@@ -2505,7 +2505,10 @@ class DotsSurvivor {
     }
 
     updateOrbitals(dt) {
-        this.orbitals.forEach(o => {
+        // Initialize orbital hit tracking if not exists
+        if (!this.orbitalHits) this.orbitalHits = new Map();
+
+        this.orbitals.forEach((o, oIndex) => {
             o.angle += o.speed * dt;
             const ox = this.player.x + Math.cos(o.angle) * o.radius;
             const oy = this.player.y + Math.sin(o.angle) * o.radius;
@@ -2531,19 +2534,38 @@ class DotsSurvivor {
                 const sy = this.player.y + (e.wy - this.worldY);
                 const d = Math.sqrt((ox - sx) ** 2 + (oy - sy) ** 2);
                 if (d < o.size + e.radius) {
-                    e.health -= o.damage; e.hitFlash = 1;
+                    // Diminishing returns system: track hits per enemy per orbital
+                    if (!e.orbitalHitId) e.orbitalHitId = Math.random(); // Unique ID for this enemy
+                    const hitKey = `o${oIndex}_${e.orbitalHitId}`;
+
+                    if (!this.orbitalHits.has(hitKey)) {
+                        this.orbitalHits.set(hitKey, { lastHit: 0, hitCount: 0 });
+                    }
+                    const hitData = this.orbitalHits.get(hitKey);
+
+                    // Hit cooldown: 0.25 seconds between hits on same target
+                    if (this.gameTime - hitData.lastHit < 250) continue;
+
+                    hitData.lastHit = this.gameTime;
+                    hitData.hitCount++;
+
+                    // Diminishing returns: damage reduces by 15% per consecutive hit, min 30% of base
+                    const diminishFactor = Math.max(0.3, 1 - (hitData.hitCount - 1) * 0.15);
+                    const actualDamage = Math.floor(o.damage * diminishFactor);
+
+                    e.health -= actualDamage; e.hitFlash = 1;
 
                     // Elemental effects
                     if (o.element === 'fire') {
                         // Fire: Burn damage
-                        e.health -= o.damage * 0.5;
+                        e.health -= Math.floor(actualDamage * 0.5);
                         this.spawnParticles(sx, sy, '#ff4400', 5);
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: Math.floor(o.damage * 1.5), lifetime: 0.6, color: '#ff4400' });
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: Math.floor(actualDamage * 1.5), lifetime: 0.6, color: '#ff4400' });
                     } else if (o.element === 'ice') {
                         // Ice: Slow enemy
                         e.speed = Math.max(20, e.speed * 0.7);
                         this.spawnParticles(sx, sy, '#00ccff', 5);
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#00ccff' });
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: actualDamage, lifetime: 0.6, color: '#00ccff' });
                     } else if (o.element === 'lightning') {
                         // Lightning: Chain to nearby enemy
                         let chainTarget = null;
@@ -2559,21 +2581,41 @@ class DotsSurvivor {
                             }
                         }
                         if (chainTarget) {
-                            chainTarget.health -= Math.floor(o.damage * 0.5);
+                            chainTarget.health -= Math.floor(actualDamage * 0.5);
                             chainTarget.hitFlash = 1;
                         }
                         this.spawnParticles(sx, sy, '#ffff00', 5);
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#ffff00' });
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: actualDamage, lifetime: 0.6, color: '#ffff00' });
                     } else {
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: o.damage, lifetime: 0.6, color: '#aa44ff' });
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: actualDamage, lifetime: 0.6, color: '#aa44ff' });
+                    }
+                } else {
+                    // Enemy out of range - reset hit count for this orbital/enemy combo
+                    if (e.orbitalHitId) {
+                        const hitKey = `o${oIndex}_${e.orbitalHitId}`;
+                        if (this.orbitalHits.has(hitKey)) {
+                            this.orbitalHits.get(hitKey).hitCount = 0;
+                        }
                     }
                 }
             }
         });
+
+        // Clean up old hit tracking entries periodically
+        if (this.gameTime % 5000 < 20) {
+            for (const [key, data] of this.orbitalHits) {
+                if (this.gameTime - data.lastHit > 3000) {
+                    this.orbitalHits.delete(key);
+                }
+            }
+        }
     }
 
     updateStars(dt) {
-        this.stars.forEach(s => {
+        // Initialize star hit tracking if not exists
+        if (!this.starHits) this.starHits = new Map();
+
+        this.stars.forEach((s, sIndex) => {
             s.angle += s.speed * dt;
             const sx = this.player.x + Math.cos(s.angle) * s.radius;
             const sy = this.player.y + Math.sin(s.angle) * s.radius;
@@ -2583,11 +2625,47 @@ class DotsSurvivor {
                 const ey = this.player.y + (e.wy - this.worldY);
                 const d = Math.sqrt((sx - ex) ** 2 + (sy - ey) ** 2);
                 if (d < s.size + e.radius) {
-                    e.health -= s.damage; e.hitFlash = 1;
-                    this.damageNumbers.push({ x: ex, y: ey - 10, value: s.damage, lifetime: 0.6, color: '#ffdd00' });
+                    // Diminishing returns system: track hits per enemy per star
+                    if (!e.starHitId) e.starHitId = Math.random(); // Unique ID for this enemy
+                    const hitKey = `s${sIndex}_${e.starHitId}`;
+
+                    if (!this.starHits.has(hitKey)) {
+                        this.starHits.set(hitKey, { lastHit: 0, hitCount: 0 });
+                    }
+                    const hitData = this.starHits.get(hitKey);
+
+                    // Hit cooldown: 0.25 seconds between hits on same target
+                    if (this.gameTime - hitData.lastHit < 250) continue;
+
+                    hitData.lastHit = this.gameTime;
+                    hitData.hitCount++;
+
+                    // Diminishing returns: damage reduces by 15% per consecutive hit, min 30% of base
+                    const diminishFactor = Math.max(0.3, 1 - (hitData.hitCount - 1) * 0.15);
+                    const actualDamage = Math.floor(s.damage * diminishFactor);
+
+                    e.health -= actualDamage; e.hitFlash = 1;
+                    this.damageNumbers.push({ x: ex, y: ey - 10, value: actualDamage, lifetime: 0.6, color: '#ffdd00' });
+                } else {
+                    // Enemy out of range - reset hit count for this star/enemy combo
+                    if (e.starHitId) {
+                        const hitKey = `s${sIndex}_${e.starHitId}`;
+                        if (this.starHits.has(hitKey)) {
+                            this.starHits.get(hitKey).hitCount = 0;
+                        }
+                    }
                 }
             }
         });
+
+        // Clean up old hit tracking entries periodically
+        if (this.gameTime % 5000 < 20) {
+            for (const [key, data] of this.starHits) {
+                if (this.gameTime - data.lastHit > 3000) {
+                    this.starHits.delete(key);
+                }
+            }
+        }
     }
 
     updateMinions(dt) {
