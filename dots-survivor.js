@@ -858,40 +858,48 @@ class DotsSurvivor {
             name: 'THE CONSUMER',
             isConsumer: true,
             isBoss: true,
-            radius: 60,
-            baseRadius: 60,
-            speed: 45,
-            health: 5000,
-            maxHealth: 5000,
-            baseHealth: 5000,
-            damage: 30,
-            xp: 800,
+            radius: 80,
+            baseRadius: 80,
+            speed: 20, // Much slower - menacing crawl
+            health: 100000, // Super tanky - meant to be survived, not killed
+            maxHealth: 100000,
+            baseHealth: 100000,
+            damage: 50, // High contact damage
+            xp: 2000,
             color: '#8800ff',
             hitFlash: 0,
             consumedCount: 0,
             rotationAngle: 0,
-            consumeRadius: 120, // Range to consume other enemies
-            critResistance: 0.3,
-            lifeTimer: 0, // Explodes after 90 seconds
-            maxLifeTime: 90 // 1 minute 30 seconds
+            consumeRadius: 180, // Larger consume range
+            critResistance: 0.8, // 80% crit resistance
+            lifeTimer: 0,
+            maxLifeTime: 90 // 1:30 survival time
         };
 
         this.enemies.push(consumer);
 
-        // Warning announcement
+        // Scary warning announcement
         this.damageNumbers.push({
             x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 100,
-            value: '🌀 THE CONSUMER AWAKENS! 🌀',
-            lifetime: 3,
+            y: this.canvas.height / 2 - 120,
+            value: '⚫ THE CONSUMER AWAKENS ⚫',
+            lifetime: 4,
             color: '#8800ff',
+            scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 70,
+            value: '🔥 SURVIVE FOR 1:30! 🔥',
+            lifetime: 4,
+            color: '#ff4400',
             scale: 2
         });
         this.damageNumbers.push({
             x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 60,
-            value: 'It devours all in its path...',
-            lifetime: 3,
+            y: this.canvas.height / 2 - 30,
+            value: 'It cannot be stopped...',
+            lifetime: 4,
             color: '#cc88ff',
             scale: 1.2
         });
@@ -3574,6 +3582,10 @@ class DotsSurvivor {
             ctx.fillText(d.value, d.x, d.y);
             ctx.globalAlpha = 1;
         });
+        
+        // Consumer Survival Timer UI
+        this.drawConsumerTimer(ctx);
+        
         // Health bar
         this.drawHealthBar();
         // Items display
@@ -3583,6 +3595,76 @@ class DotsSurvivor {
 
         // Armor HUD
         this.drawArmorHUD();
+    }
+
+    drawConsumerTimer(ctx) {
+        // Find consumer enemy
+        const consumer = this.enemies.find(e => e.isConsumer);
+        if (!consumer) return;
+
+        const timeLeft = Math.max(0, consumer.maxLifeTime - consumer.lifeTimer);
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = Math.floor(timeLeft % 60);
+        const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Timer panel at top center
+        const panelWidth = 280;
+        const panelHeight = 70;
+        const panelX = (this.canvas.width - panelWidth) / 2;
+        const panelY = 80;
+        
+        // Urgency color based on time left
+        let urgencyColor = '#8800ff'; // Purple - calm
+        let bgAlpha = 0.7;
+        if (timeLeft < 30) {
+            urgencyColor = '#ff0000'; // Red - danger
+            bgAlpha = 0.85 + Math.sin(this.gameTime / 50) * 0.1;
+        } else if (timeLeft < 60) {
+            urgencyColor = '#ff6600'; // Orange - warning
+            bgAlpha = 0.8;
+        }
+        
+        // Background panel with glow
+        ctx.save();
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = urgencyColor;
+        ctx.fillStyle = `rgba(0, 0, 0, ${bgAlpha})`;
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 12);
+        ctx.fill();
+        
+        // Border
+        ctx.strokeStyle = urgencyColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 12);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        // Title
+        ctx.font = 'bold 14px Inter';
+        ctx.fillStyle = urgencyColor;
+        ctx.textAlign = 'center';
+        ctx.fillText('⚫ SURVIVE THE CONSUMER ⚫', panelX + panelWidth / 2, panelY + 22);
+        
+        // Timer
+        ctx.font = 'bold 32px Inter';
+        ctx.fillStyle = timeLeft < 30 ? '#ff0000' : '#ffffff';
+        ctx.fillText(timeStr, panelX + panelWidth / 2, panelY + 55);
+        
+        // Pulsing effect when critical
+        if (timeLeft < 30) {
+            const pulse = Math.sin(this.gameTime / 100) * 0.3 + 0.7;
+            ctx.globalAlpha = pulse;
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(panelX - 5, panelY - 5, panelWidth + 10, panelHeight + 10, 15);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+        
+        ctx.restore();
     }
 
     drawArmorHUD() {

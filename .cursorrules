@@ -10,10 +10,10 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Titan Killer Nerf
-[X] Change Titan Killer from 20% to 15% base (+5% per stack)
-[X] Add getDesc to all Diamond Augments for upgrade descriptions
-[X] Implement actual damage bonus in combat
+### Current Task: Consumer Boss & Mobile UI
+[X] Buff Consumer boss (100k HP, slower speed, larger radius)
+[X] Add "Survive the Consumer" timer UI (1:30 countdown)
+[X] Improve mobile UI with modern clean design
 
 ### Previous Task: Map Boundaries
 [X] Add bounded map (2000x2000 units)
