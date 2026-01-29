@@ -10,10 +10,14 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Consumer Boss & Mobile UI
-[X] Buff Consumer boss (100k HP, slower speed, larger radius)
-[X] Add "Survive the Consumer" timer UI (1:30 countdown)
-[X] Improve mobile UI with modern clean design
+### Current Task: Stacking Items System Rework
+[X] Fix Aura Fire Circle - thin ring, upgrades with kills
+[X] Create new STACKING_ITEMS system with 8 items
+[X] Items drop once, stack with kills
+[X] Item pickup popup explains mechanics
+[X] Evolution at max stacks with visual feedback
+[X] Stack progress display in HUD
+[X] Apply stacking bonuses to damage and crit
 
 ### Previous Task: Map Boundaries
 [X] Add bounded map (2000x2000 units)

@@ -45,96 +45,120 @@ const DIAMOND_AUGMENTS = [
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
     { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
     // Aura augment
-    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Burning aura surrounds you - enemies take burn damage on contact', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 15, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius}, Burn: ${g.auraFire.damage}/s` : 'Not Active' }
+    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take burn damage. Upgrades with kills.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 80, damage: 25, burnDuration: 3, kills: 0, level: 1 }; }, getDesc: (g) => g.auraFire ? `Lvl ${g.auraFire.level}: ${g.auraFire.damage} dmg/s (${g.auraFire.kills}/50 kills)` : 'Not Active' }
 ];
 
-// Items that can drop
-// Items that can drop - UNIQUE effects only (no duplicates with level-up upgrades)
-const ITEMS = {
-    // XP & Luck
-    xpRing: { name: 'Ring of XP', icon: '💍', desc: '+5% XP per level', maxLevel: 10, effect: (g, lvl) => g.xpMultiplier = 1 + lvl * 0.05 },
-    luckyCharm: {
-        name: 'Lucky Charm',
-        icon: '🍀',
-        desc: '+1.5% item drop chance per level',
-        maxLevel: 10,
-        effect: (g, lvl) => {
-            g.itemDropChance = 0.01 + lvl * 0.015;
-        }
+// STACKING ITEMS SYSTEM - Items drop once and stack with kills/damage
+const STACKING_ITEMS = {
+    // Each item has: base effect, stack scaling, max stacks, evolution
+    bloodBlade: {
+        name: 'Blood Blade',
+        icon: '🗡️',
+        desc: 'Deal +5% damage. Stacks on kills.',
+        evolvedName: 'Crimson Reaper',
+        evolvedIcon: '⚔️',
+        evolvedDesc: 'Deal +50% damage, crits heal you',
+        maxStacks: 50,
+        stacksPerKill: 1,
+        stacksPerBossKill: 5,
+        effect: (g, stacks) => { g.stackingDamageBonus = stacks * 0.01; },
+        evolvedEffect: (g) => { g.stackingDamageBonus = 0.5; g.critHeals = true; }
     },
-
-    // Defense
-    shield: { name: 'Barrier Shield', icon: '🛡️', desc: 'Block 1 hit. -5s cooldown per level', maxLevel: 10, baseCooldown: 60, effect: (g, lvl) => { g.shieldCooldown = Math.max(10, 60 - lvl * 5); } },
-    thornArmor: {
-        name: 'Thorn Armor',
-        icon: '🌹',
-        desc: 'Reflect 10% damage to attackers (+10% per level)',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.thornDamage = lvl * 0.1;
-        }
+    soulGem: {
+        name: 'Soul Gem',
+        icon: '💎',
+        desc: '+2% XP gain. Stacks on kills.',
+        evolvedName: 'Soul Devourer',
+        evolvedIcon: '🔮',
+        evolvedDesc: '+100% XP, enemies drop double XP orbs',
+        maxStacks: 50,
+        stacksPerKill: 1,
+        stacksPerBossKill: 5,
+        effect: (g, stacks) => { g.stackingXpBonus = stacks * 0.02; },
+        evolvedEffect: (g) => { g.stackingXpBonus = 1.0; g.doubleXpOrbs = true; }
     },
-
-    // Unique Combat Effects
-    vampFang: {
-        name: 'Vampire Fang',
-        icon: '🧛',
-        desc: 'Heal 1 HP per kill (+1/lvl, -75% in combat)',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.vampiricHeal = lvl;
-        }
+    ironHeart: {
+        name: 'Iron Heart',
+        icon: '🫀',
+        desc: '+2 max HP. Stacks on kills.',
+        evolvedName: 'Titan Heart',
+        evolvedIcon: '💖',
+        evolvedDesc: '+100 max HP, regen 2 HP/s',
+        maxStacks: 50,
+        stacksPerKill: 1,
+        stacksPerBossKill: 5,
+        effect: (g, stacks) => { g.stackingHpBonus = stacks * 2; },
+        evolvedEffect: (g) => { g.stackingHpBonus = 100; g.stackingRegen = 2; }
     },
-    damageAmp: {
-        name: 'Damage Amp',
-        icon: '⚡',
-        desc: '+15% bullet damage per level',
-        maxLevel: 10,
-        effect: (g, lvl) => {
-            g.damageMultiplier = 1 + lvl * 0.15;
-        }
+    swiftBoots: {
+        name: 'Swift Boots',
+        icon: '👟',
+        desc: '+1 speed. Stacks on kills.',
+        evolvedName: 'Phantom Stride',
+        evolvedIcon: '💨',
+        evolvedDesc: '+50 speed, dash through enemies',
+        maxStacks: 50,
+        stacksPerKill: 1,
+        stacksPerBossKill: 5,
+        effect: (g, stacks) => { g.stackingSpeedBonus = stacks; },
+        evolvedEffect: (g) => { g.stackingSpeedBonus = 50; g.dashThroughEnemies = true; }
     },
-    explosiveBullet: {
-        name: 'Explosive Rounds',
-        icon: '💣',
-        desc: 'Bullets explode on hit (radius +10 per level)',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.bulletExplosion = true;
-            g.explosionRadius = 30 + lvl * 10;
-        }
+    huntersMark: {
+        name: "Hunter's Mark",
+        icon: '🎯',
+        desc: '+1% crit chance. Stacks on kills.',
+        evolvedName: 'Death Mark',
+        evolvedIcon: '💀',
+        evolvedDesc: '+25% crit, crits deal 3x damage',
+        maxStacks: 25,
+        stacksPerKill: 1,
+        stacksPerBossKill: 3,
+        effect: (g, stacks) => { g.stackingCritBonus = stacks * 0.01; },
+        evolvedEffect: (g) => { g.stackingCritBonus = 0.25; g.weapons.bullet.critMultiplier = 3; }
     },
-    freezeBullet: {
-        name: 'Frost Bullets',
+    frostShard: {
+        name: 'Frost Shard',
         icon: '❄️',
-        desc: '+10% chance to freeze enemies per level',
-        maxLevel: 5,
-        effect: (g, lvl) => {
-            g.freezeChance = lvl * 0.1;
-        }
+        desc: '+2% freeze chance. Stacks on kills.',
+        evolvedName: 'Eternal Winter',
+        evolvedIcon: '🥶',
+        evolvedDesc: '50% freeze, frozen enemies shatter',
+        maxStacks: 25,
+        stacksPerKill: 1,
+        stacksPerBossKill: 3,
+        effect: (g, stacks) => { g.stackingFreezeChance = stacks * 0.02; },
+        evolvedEffect: (g) => { g.stackingFreezeChance = 0.5; g.shatterFrozen = true; }
     },
-
-    // === BUILD SET ITEMS ===
-    // Warrior Set (Red) - Damage focused
-    warriorHelm: { name: 'Warrior Helm', icon: '⚔️', desc: 'Warrior Set (1/3): +10% damage', maxLevel: 1, set: 'warrior', effect: (g, lvl) => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.1; } },
-    warriorChest: { name: 'Warrior Plate', icon: '🛡️', desc: 'Warrior Set (2/3): +50 max HP', maxLevel: 1, set: 'warrior', effect: (g, lvl) => { g.player.maxHealth += 50; g.player.health += 50; } },
-    warriorBoots: { name: 'Warrior Greaves', icon: '🥾', desc: 'Warrior Set (3/3): +20 speed', maxLevel: 1, set: 'warrior', effect: (g, lvl) => { g.player.speed += 20; } },
-
-    // Mage Set (Blue) - Orbital/Magic focused
-    mageHat: { name: 'Arcane Hat', icon: '🎩', desc: 'Mage Set (1/3): +1 Orbital', maxLevel: 1, set: 'mage', effect: (g, lvl) => { g.orbitals.push(g.createOrbital()); } },
-    mageRobe: { name: 'Arcane Robe', icon: '🧥', desc: 'Mage Set (2/3): Orbitals +50% damage', maxLevel: 1, set: 'mage', effect: (g, lvl) => { g.orbitals.forEach(o => o.damage *= 1.5); } },
-    mageStaff: { name: 'Arcane Staff', icon: '🪄', desc: 'Mage Set (3/3): Orbitals spin faster', maxLevel: 1, set: 'mage', effect: (g, lvl) => { g.orbitals.forEach(o => o.speed *= 1.5); } },
-
-    // Hunter Set (Green) - Speed/Crit focused
-    hunterHood: { name: 'Hunter Hood', icon: '🏹', desc: 'Hunter Set (1/3): +15% crit chance', maxLevel: 1, set: 'hunter', effect: (g, lvl) => { g.weapons.bullet.critChance = (g.weapons.bullet.critChance || 0.05) + 0.15; } },
-    hunterCloak: { name: 'Hunter Cloak', icon: '🧣', desc: 'Hunter Set (2/3): +30 speed', maxLevel: 1, set: 'hunter', effect: (g, lvl) => { g.player.speed += 30; } },
-    hunterBow: { name: 'Hunter Quiver', icon: '🎯', desc: 'Hunter Set (3/3): +1 projectile', maxLevel: 1, set: 'hunter', effect: (g, lvl) => { g.weapons.bullet.count++; } },
-
-    // Necro Set (Purple) - Minion/Lifesteal focused
-    necroSkull: { name: 'Necro Skull', icon: '💀', desc: 'Necro Set (1/3): +2 HP per kill', maxLevel: 1, set: 'necro', effect: (g, lvl) => { g.vampiricHeal = (g.vampiricHeal || 0) + 2; } },
-    necroRobe: { name: 'Necro Shroud', icon: '👻', desc: 'Necro Set (2/3): +1 guard minion', maxLevel: 1, set: 'necro', effect: (g, lvl) => { g.addMinion('guard'); } },
-    necroScythe: { name: 'Necro Scythe', icon: '⚰️', desc: 'Necro Set (3/3): 5% convert killed enemies', maxLevel: 1, set: 'necro', effect: (g, lvl) => { g.conversionChance = (g.conversionChance || 0) + 0.05; } }
+    venomFang: {
+        name: 'Venom Fang',
+        icon: '🐍',
+        desc: 'Poison on hit (+1 dps/stack).',
+        evolvedName: 'Plague Bearer',
+        evolvedIcon: '☠️',
+        evolvedDesc: 'Poison spreads to nearby enemies',
+        maxStacks: 30,
+        stacksPerKill: 1,
+        stacksPerBossKill: 3,
+        effect: (g, stacks) => { g.stackingPoisonDps = stacks; },
+        evolvedEffect: (g) => { g.stackingPoisonDps = 30; g.poisonSpreads = true; }
+    },
+    magnetCore: {
+        name: 'Magnet Core',
+        icon: '🧲',
+        desc: '+5 pickup range. Stacks on kills.',
+        evolvedName: 'Gravity Well',
+        evolvedIcon: '🌀',
+        evolvedDesc: 'Massive pickup range, pulls enemies slightly',
+        maxStacks: 30,
+        stacksPerKill: 1,
+        stacksPerBossKill: 3,
+        effect: (g, stacks) => { g.stackingMagnetBonus = stacks * 5; },
+        evolvedEffect: (g) => { g.stackingMagnetBonus = 200; g.pullsEnemies = true; }
+    }
 };
+
+// Legacy ITEMS for backward compatibility (redirects to stacking system)
+const ITEMS = STACKING_ITEMS;
 
 // Build Set Bonuses - activated when all 3 pieces are collected
 const BUILD_SETS = {
@@ -184,14 +208,14 @@ const BUILD_SETS = {
 // Game balance settings (balanced around medium difficulty)
 const GAME_SETTINGS = {
     enemyHealthMult: 0.5,        // Much lower base health for easy waves 1-9
-    enemyDamageMult: 1.0,
-    enemySpeedMult: 1.0,
-    spawnRateMult: 1.0,
+        enemyDamageMult: 1.0,
+        enemySpeedMult: 1.0,
+        spawnRateMult: 1.0,
     scalingPerWave: 0.08,        // Very low scaling for waves 1-9 (easy early game)
     scalingPerWaveLate: 0.55,    // Heavy scaling after wave 10 (difficulty ramps up)
     lateGameWave: 10,            // When late game scaling kicks in
-    playerHealthMult: 1.0,
-    xpMult: 1.0
+        playerHealthMult: 1.0,
+        xpMult: 1.0
 };
 
 // Legendary Perks (from control points)
@@ -568,7 +592,7 @@ class DotsSurvivor {
         // Hide game over menu and show start menu
         document.getElementById('gameover-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
-        
+
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
         content.innerHTML = `
@@ -629,6 +653,19 @@ class DotsSurvivor {
 
         this.enemies = []; this.projectiles = []; this.pickups = []; this.particles = []; this.damageNumbers = [];
         this.orbitals = []; this.minions = []; this.items = {}; this.stars = [];
+        
+        // Stacking Items System
+        this.stackingItems = {}; // { itemKey: { stacks: 0, evolved: false } }
+        this.droppedItems = []; // Track which items have already dropped (drop once only)
+        this.stackingDamageBonus = 0;
+        this.stackingXpBonus = 0;
+        this.stackingHpBonus = 0;
+        this.stackingSpeedBonus = 0;
+        this.stackingCritBonus = 0;
+        this.stackingFreezeChance = 0;
+        this.stackingPoisonDps = 0;
+        this.stackingMagnetBonus = 0;
+        this.stackingRegen = 0;
         this.wave = 1; this.waveTimer = 0; this.gameTime = 0;
 
         // INTENSE spawn rate (faster spawns)
@@ -2229,6 +2266,21 @@ class DotsSurvivor {
         this.player.kills++;
         this.playSound('kill');
 
+        // Aura Fire kill tracking and upgrades
+        if (this.auraFire) {
+            this.auraFire.kills++;
+            if (this.auraFire.kills >= 50 && this.auraFire.level < 10) {
+                this.auraFire.level++;
+                this.auraFire.damage += 10;
+                this.auraFire.radius += 5;
+                this.auraFire.kills = 0;
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 60, value: `🔥 AURA LVL ${this.auraFire.level}!`, lifetime: 2, color: '#ff6600', scale: 1.5 });
+            }
+        }
+
+        // Stacking items - add kills
+        this.updateStackingItems('kill', e.isBoss ? 5 : 1);
+
         // GAME JUICE: Kill streak and effects
         this.killStreak++;
         this.killStreakTimer = 2; // Reset streak timer
@@ -2436,8 +2488,13 @@ class DotsSurvivor {
     }
 
     dropItem(wx, wy) {
-        const itemKeys = Object.keys(ITEMS);
-        const itemKey = itemKeys[Math.floor(Math.random() * itemKeys.length)];
+        // Only drop items that haven't been collected yet
+        const allKeys = Object.keys(STACKING_ITEMS);
+        const availableKeys = allKeys.filter(key => !this.droppedItems.includes(key));
+        
+        if (availableKeys.length === 0) return; // All items already dropped
+        
+        const itemKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
         this.pickups.push({ wx, wy, xp: 0, radius: 15, color: '#fbbf24', isItem: true, itemKey });
     }
 
@@ -2721,12 +2778,18 @@ class DotsSurvivor {
                     // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
                     
+                    // Stacking item damage bonus
+                    if (this.stackingDamageBonus) {
+                        damage = Math.floor(damage * (1 + this.stackingDamageBonus));
+                    }
+                    
                     // Titan Killer bonus damage to bosses and tanks
                     if (this.titanKillerBonus && (e.isBoss || e.type === 'tank')) {
                         damage = Math.floor(damage * (1 + this.titanKillerBonus));
                     }
                     
-                    const critChance = (this.weapons.bullet.critChance || 0.05) + (this.critChance || 0);
+                    // Stacking crit bonus
+                    const critChance = (this.weapons.bullet.critChance || 0.05) + (this.critChance || 0) + (this.stackingCritBonus || 0);
                     const isCrit = Math.random() < critChance;
                     let color = '#fff';
                     let text = damage;
@@ -2847,21 +2910,128 @@ class DotsSurvivor {
     }
 
     collectItem(key) {
-        if (!this.items[key]) this.items[key] = 0;
-        const item = ITEMS[key];
-        if (this.items[key] < item.maxLevel) {
-            this.items[key]++;
-            item.effect(this, this.items[key]);
+        const item = STACKING_ITEMS[key];
+        if (!item) return;
+        
+        // First time picking up this item - show info popup
+        if (!this.stackingItems[key]) {
+            this.stackingItems[key] = { stacks: 0, evolved: false };
+            this.droppedItems.push(key);
+            this.showItemPickupPopup(key);
+            return;
+        }
+    }
+    
+    showItemPickupPopup(key) {
+        const item = STACKING_ITEMS[key];
+        this.gamePaused = true;
+        this.pendingItemKey = key;
+        
+        // Create popup HTML
+        const popup = document.createElement('div');
+        popup.id = 'item-popup';
+        popup.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); display: flex; justify-content: center;
+            align-items: center; z-index: 200; animation: fadeIn 0.3s ease;
+        `;
+        popup.innerHTML = `
+            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 3px solid #fbbf24;
+                border-radius: 20px; padding: 2rem; max-width: 400px; text-align: center;
+                box-shadow: 0 0 50px rgba(251, 191, 36, 0.3);">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">${item.icon}</div>
+                <h2 style="color: #fbbf24; font-size: 1.5rem; margin-bottom: 0.5rem;">${item.name}</h2>
+                <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 1.5rem;">${item.desc}</p>
+                
+                <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+                    <p style="color: #888; font-size: 0.8rem; margin-bottom: 0.5rem;">STACKS WITH KILLS</p>
+                    <p style="color: #fff; font-size: 0.9rem;">0 / ${item.maxStacks} stacks</p>
+                </div>
+                
+                <div style="background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <p style="color: #fbbf24; font-size: 0.75rem; margin-bottom: 0.3rem;">⬆️ EVOLVES INTO</p>
+                    <p style="color: #fff; font-size: 1rem;">${item.evolvedIcon} ${item.evolvedName}</p>
+                    <p style="color: #aaa; font-size: 0.8rem;">${item.evolvedDesc}</p>
+                </div>
+                
+                <button id="item-popup-close" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                    color: #000; border: none; padding: 1rem 3rem; font-size: 1rem; font-weight: 700;
+                    border-radius: 12px; cursor: pointer; transition: transform 0.2s;">
+                    GOT IT!
+                </button>
+            </div>
+        `;
+        document.body.appendChild(popup);
+        
+        document.getElementById('item-popup-close').onclick = () => {
+            popup.remove();
+            this.gamePaused = false;
+            this.playSound('levelup');
+        };
+    }
+    
+    updateStackingItems(type, amount) {
+        // Called on kills to add stacks to all collected stacking items
+        for (const key in this.stackingItems) {
+            const itemData = this.stackingItems[key];
+            const item = STACKING_ITEMS[key];
+            if (!item || itemData.evolved) continue;
             
-            // Check if it's a set item
-            if (item.set) {
-                const setColor = BUILD_SETS[item.set]?.color || '#fbbf24';
-                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: `${item.icon} ${item.name}`, lifetime: 2, color: setColor });
-                this.checkSetBonus(item.set);
+            // Add stacks based on type
+            if (type === 'kill') {
+                itemData.stacks += amount;
+            }
+            
+            // Check for evolution
+            if (itemData.stacks >= item.maxStacks && !itemData.evolved) {
+                this.evolveItem(key);
             } else {
-                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: `${item.icon} ${item.name} Lv${this.items[key]}`, lifetime: 2, color: '#fbbf24' });
+                // Apply current effect
+                item.effect(this, itemData.stacks);
             }
         }
+    }
+    
+    evolveItem(key) {
+        const item = STACKING_ITEMS[key];
+        const itemData = this.stackingItems[key];
+        if (!item || !itemData) return;
+        
+        itemData.evolved = true;
+        
+        // Apply evolved effect
+        item.evolvedEffect(this);
+        
+        // Big announcement
+        this.triggerScreenShake(10, 0.3);
+        this.triggerSlowmo(0.3, 0.8);
+        
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 80,
+            value: `⭐ ITEM EVOLVED! ⭐`,
+            lifetime: 3,
+            color: '#fbbf24',
+            scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 40,
+            value: `${item.evolvedIcon} ${item.evolvedName}`,
+            lifetime: 3,
+            color: '#fff',
+            scale: 2
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2,
+            value: item.evolvedDesc,
+            lifetime: 3,
+            color: '#aaa',
+            scale: 1.2
+        });
+        
+        this.playSound('levelup');
     }
 
     checkSetBonus(setName) {
@@ -3332,7 +3502,7 @@ class DotsSurvivor {
             const sy = this.player.y + (pk.wy - this.worldY);
             ctx.beginPath(); ctx.arc(sx, sy, pk.radius, 0, Math.PI * 2);
             ctx.fillStyle = pk.color; ctx.shadowBlur = 15; ctx.shadowColor = pk.color; ctx.fill(); ctx.shadowBlur = 0;
-            if (pk.isItem) { ctx.font = '14px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(ITEMS[pk.itemKey].icon, sx, sy + 5); }
+            if (pk.isItem && STACKING_ITEMS[pk.itemKey]) { ctx.font = '14px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(STACKING_ITEMS[pk.itemKey].icon, sx, sy + 5); }
             // Health pack cross design
             if (pk.isHealth) {
                 ctx.fillStyle = '#ffffff';
@@ -3519,43 +3689,31 @@ class DotsSurvivor {
             });
         }
 
-        // Aura Fire Circle (augment) - Solid with glow effects
+        // Aura Fire Circle (augment) - Thin ring with glow
         if (this.auraFire) {
             ctx.save();
             const auraRadius = this.auraFire.radius;
+            const intensity = 0.6 + Math.sin(this.gameTime / 100) * 0.2;
             
             // Outer glow effect
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = '#ff4400';
+            ctx.shadowBlur = 15 + this.auraFire.level * 3;
+            ctx.shadowColor = `rgba(255, ${100 - this.auraFire.level * 10}, 0, ${intensity})`;
             
-            // Solid fire fill
-            const gradient = ctx.createRadialGradient(
-                this.player.x, this.player.y, 0,
-                this.player.x, this.player.y, auraRadius
-            );
-            gradient.addColorStop(0, 'rgba(255, 100, 0, 0)');
-            gradient.addColorStop(0.4, 'rgba(255, 80, 0, 0.1)');
-            gradient.addColorStop(0.7, 'rgba(255, 60, 0, 0.2)');
-            gradient.addColorStop(1, 'rgba(255, 50, 0, 0.35)');
-            
+            // Thin fire ring
             ctx.beginPath();
             ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
-            ctx.fillStyle = gradient;
-            ctx.fill();
-            
-            // Solid outer ring with glow
-            ctx.beginPath();
-            ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = '#ff6600';
-            ctx.lineWidth = 4;
+            ctx.strokeStyle = `rgba(255, ${150 - this.auraFire.level * 15}, 0, ${intensity})`;
+            ctx.lineWidth = 3 + this.auraFire.level;
             ctx.stroke();
             
-            // Inner ring accent
-            ctx.beginPath();
-            ctx.arc(this.player.x, this.player.y, auraRadius * 0.7, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 150, 50, 0.4)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Level indicator
+            if (this.auraFire.level > 1) {
+                ctx.font = 'bold 10px Inter';
+                ctx.fillStyle = '#ff6600';
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 0;
+                ctx.fillText(`🔥${this.auraFire.level}`, this.player.x, this.player.y - auraRadius - 8);
+            }
             
             ctx.shadowBlur = 0;
             ctx.restore();
@@ -3840,21 +3998,66 @@ class DotsSurvivor {
         let y = 50;
         const compact = this.canvas.width < 768;
 
-        // Items
-        Object.entries(this.items).forEach(([key, lvl]) => {
-            if (lvl > 0) {
-                const item = ITEMS[key];
+        // Stacking Items with progress
+        Object.entries(this.stackingItems).forEach(([key, data]) => {
+            const item = STACKING_ITEMS[key];
+            if (!item) return;
+            
+            const isEvolved = data.evolved;
+            const icon = isEvolved ? item.evolvedIcon : item.icon;
+            const name = isEvolved ? item.evolvedName : item.name;
+            const color = isEvolved ? '#ff6b00' : '#fbbf24';
+            const progress = Math.min(data.stacks / item.maxStacks, 1);
+            
                 if (compact) {
-                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(10, y, 50, 24);
-                    ctx.font = '14px Inter'; ctx.fillStyle = '#fbbf24'; ctx.textAlign = 'left';
-                    ctx.fillText(`${item.icon}${lvl}`, 15, y + 17);
-                    y += 28;
-                } else {
-                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(20, y, 100, 20);
-                    ctx.font = '12px Inter'; ctx.fillStyle = '#fbbf24'; ctx.textAlign = 'left';
-                    ctx.fillText(`${item.icon} Lv${lvl}`, 25, y + 14);
-                    y += 24;
+                // Compact mobile view
+                ctx.fillStyle = 'rgba(0,0,0,0.6)'; 
+                ctx.fillRect(10, y, 55, 30);
+                
+                // Progress bar background
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.fillRect(10, y + 26, 55, 4);
+                
+                // Progress bar fill
+                ctx.fillStyle = isEvolved ? '#ff6b00' : '#fbbf24';
+                ctx.fillRect(10, y + 26, 55 * progress, 4);
+                
+                // Icon and stack count
+                ctx.font = '16px Inter'; ctx.fillStyle = color; ctx.textAlign = 'center';
+                ctx.fillText(icon, 25, y + 18);
+                ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff';
+                ctx.fillText(isEvolved ? '★' : data.stacks, 50, y + 18);
+                
+                if (isEvolved) {
+                    ctx.strokeStyle = '#ff6b00'; ctx.lineWidth = 2;
+                    ctx.strokeRect(10, y, 55, 30);
                 }
+                y += 38;
+                } else {
+                // Desktop view
+                const boxWidth = 140;
+                ctx.fillStyle = 'rgba(0,0,0,0.6)'; 
+                ctx.fillRect(10, y, boxWidth, 28);
+                
+                // Progress bar
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.fillRect(10, y + 24, boxWidth, 4);
+                ctx.fillStyle = isEvolved ? '#ff6b00' : '#fbbf24';
+                ctx.fillRect(10, y + 24, boxWidth * progress, 4);
+                
+                // Icon and name
+                ctx.font = '12px Inter'; ctx.fillStyle = color; ctx.textAlign = 'left';
+                ctx.fillText(`${icon} ${name}`, 15, y + 16);
+                
+                // Stack count
+                ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'right';
+                ctx.fillText(isEvolved ? '★ MAX' : `${data.stacks}/${item.maxStacks}`, boxWidth + 5, y + 16);
+                
+                if (isEvolved) {
+                    ctx.strokeStyle = '#ff6b00'; ctx.lineWidth = 2;
+                    ctx.strokeRect(10, y, boxWidth, 28);
+                }
+                y += 36;
             }
         });
 
@@ -3867,14 +4070,13 @@ class DotsSurvivor {
                     ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(10, y, 30, 30);
                     ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(10, y, 30, 30);
                     ctx.font = '18px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'center';
-                    // Center icon in the box
                     ctx.fillText(`${aug.icon}`, 25, y + 20);
                     y += 35;
                 } else {
-                    ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(20, y, 120, 20);
-                    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(20, y, 120, 20);
+                    ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(10, y, 120, 20);
+                    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(10, y, 120, 20);
                     ctx.font = '12px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'left';
-                    ctx.fillText(`${aug.icon} ${aug.name}`, 25, y + 14);
+                    ctx.fillText(`${aug.icon} ${aug.name}`, 15, y + 14);
                     y += 24;
                 }
             }
