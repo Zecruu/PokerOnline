@@ -23,6 +23,38 @@ const ENEMY_SPRITES = {
 // Sprite cache - stores loaded Image objects
 const SPRITE_CACHE = {};
 
+// Remove white/light background from image and return a canvas with transparency
+function removeWhiteBackground(img) {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    // Make white/near-white pixels transparent
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // If pixel is white or very light (threshold 240), make it transparent
+        if (r > 240 && g > 240 && b > 240) {
+            data[i + 3] = 0; // Set alpha to 0
+        }
+        // Fade out near-white pixels for smoother edges
+        else if (r > 200 && g > 200 && b > 200) {
+            const brightness = (r + g + b) / 3;
+            data[i + 3] = Math.floor(255 * (1 - (brightness - 200) / 55));
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+}
+
 // Load a sprite image
 function loadSprite(type, path) {
     if (!path) return null;
@@ -31,8 +63,10 @@ function loadSprite(type, path) {
     const img = new Image();
     img.src = path;
     img.onload = () => {
-        SPRITE_CACHE[type] = img;
-        console.log(`Loaded sprite for ${type}`);
+        // Process image to remove white background
+        const processedCanvas = removeWhiteBackground(img);
+        SPRITE_CACHE[type] = processedCanvas;
+        console.log(`Loaded and processed sprite for ${type}`);
     };
     img.onerror = () => {
         console.warn(`Failed to load sprite for ${type}: ${path}`);
