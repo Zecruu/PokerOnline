@@ -884,8 +884,13 @@ class DotsSurvivor {
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
+        // Unique enemy ID
+        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
+        this.enemyIdCounter++;
+
         const consumer = {
             wx, wy,
+            id: this.enemyIdCounter, // Unique ID for damage stacking
             type: 'consumer',
             name: 'THE CONSUMER',
             isConsumer: true,
@@ -903,9 +908,12 @@ class DotsSurvivor {
             consumedCount: 0,
             rotationAngle: 0,
             consumeRadius: 180, // Larger consume range
+            pullRadius: 250, // Visual pull effect radius
             critResistance: 0.8, // 80% crit resistance
             lifeTimer: 0,
-            maxLifeTime: 90 // 1:30 survival time
+            maxLifeTime: 90, // 1:30 survival time
+            vacuumParticles: [], // For vacuum effect
+            attackCooldown: 0 // For attack speed system
         };
 
         this.enemies.push(consumer);
@@ -978,6 +986,55 @@ class DotsSurvivor {
         // Update rotation for visual effect (faster as time runs out)
         const urgency = Math.max(1, (consumer.lifeTimer / consumer.maxLifeTime) * 5);
         consumer.rotationAngle += dt * 2 * urgency;
+
+        // Initialize vacuum particles array if needed
+        if (!consumer.vacuumParticles) consumer.vacuumParticles = [];
+
+        // Spawn vacuum particles around the pull radius
+        if (Math.random() < 0.4) { // 40% chance per frame to spawn particle
+            const angle = Math.random() * Math.PI * 2;
+            const dist = consumer.pullRadius + Math.random() * 50;
+            consumer.vacuumParticles.push({
+                x: Math.cos(angle) * dist,
+                y: Math.sin(angle) * dist,
+                angle: angle,
+                speed: 80 + Math.random() * 60,
+                size: 2 + Math.random() * 4,
+                alpha: 0.8,
+                color: Math.random() > 0.3 ? '#8800ff' : '#ff00ff'
+            });
+        }
+
+        // Update vacuum particles - spiral inward
+        for (let i = consumer.vacuumParticles.length - 1; i >= 0; i--) {
+            const p = consumer.vacuumParticles[i];
+            const pDist = Math.sqrt(p.x * p.x + p.y * p.y);
+
+            // Move toward center with spiral motion
+            p.angle += dt * (3 + urgency); // Spiral faster as urgency increases
+            const pullSpeed = p.speed * (1 + urgency * 0.3);
+            p.x -= (p.x / pDist) * pullSpeed * dt;
+            p.y -= (p.y / pDist) * pullSpeed * dt;
+
+            // Add spiral offset
+            p.x += Math.cos(p.angle + Math.PI/2) * 20 * dt;
+            p.y += Math.sin(p.angle + Math.PI/2) * 20 * dt;
+
+            // Fade in as it gets closer
+            const newDist = Math.sqrt(p.x * p.x + p.y * p.y);
+            p.alpha = Math.min(1, 0.3 + (1 - newDist / consumer.pullRadius) * 0.7);
+            p.size = Math.max(1, p.size * (newDist / consumer.pullRadius));
+
+            // Remove when reached center
+            if (newDist < consumer.radius * 0.3) {
+                consumer.vacuumParticles.splice(i, 1);
+            }
+        }
+
+        // Limit particle count
+        if (consumer.vacuumParticles.length > 60) {
+            consumer.vacuumParticles.splice(0, consumer.vacuumParticles.length - 60);
+        }
 
         // Move toward player (slowly)
         const dx = this.worldX - consumer.wx;
@@ -2108,8 +2165,13 @@ class DotsSurvivor {
         const hordeHealthMult = isHorde ? 1.5 : 1;
         const hordeSpeedMult = isHorde ? 0.8 : 1;
 
+        // Unique enemy ID for damage number stacking
+        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
+        this.enemyIdCounter++;
+
         return {
             wx, wy, type,
+            id: this.enemyIdCounter, // Unique ID for damage stacking
             radius: Math.floor(data.radius * sizeMult),
             speed: Math.floor(data.speed * GAME_SETTINGS.enemySpeedMult * hordeSpeedMult),
             health: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult),
@@ -2121,7 +2183,8 @@ class DotsSurvivor {
             explodes: data.explodes || false,
             stickies: data.stickies || false,
             freezesOnDeath: data.freezesOnDeath || false,
-            isHorde: isHorde
+            isHorde: isHorde,
+            attackCooldown: 0 // For attack speed system
         };
     }
 
@@ -2158,8 +2221,13 @@ class DotsSurvivor {
         // Apply stat multiplier for waves past boss cap
         const statMult = this.bossStatMultiplier || 1.0;
 
+        // Unique enemy ID for damage number stacking
+        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
+        this.enemyIdCounter++;
+
         return {
             wx, wy, type, name,
+            id: this.enemyIdCounter, // Unique ID for damage stacking
             face,
             radius: stats.radius,
             speed: Math.floor(stats.speed * GAME_SETTINGS.enemySpeedMult), // Speed does NOT scale
@@ -2168,7 +2236,8 @@ class DotsSurvivor {
             damage: Math.floor(stats.damage * waveMult * GAME_SETTINGS.enemyDamageMult * statMult),
             xp: Math.floor(stats.xp * waveMult),
             color, hitFlash: 0, isBoss: true,
-            critResistance: critResist
+            critResistance: critResist,
+            attackCooldown: 0 // For attack speed system
         };
     }
 
@@ -2211,15 +2280,28 @@ class DotsSurvivor {
             // Apply time warp perk
             const speedMult = this.timewarp ? 0.7 : 1;
 
+            // Update attack cooldown
+            if (e.attackCooldown > 0) {
+                e.attackCooldown -= dt;
+            }
+
             // Collision with player (use updated position)
             const pd = Math.sqrt((sxMoved - this.player.x) ** 2 + (syMoved - this.player.y) ** 2);
-            if (pd < e.radius + this.player.radius && this.player.invincibleTime <= 0) {
-                if (this.shieldActive) { this.shieldActive = false; this.shieldTimer = 0; this.spawnParticles(this.player.x, this.player.y, '#00aaff', 10); }
-                else {
+            if (pd < e.radius + this.player.radius && this.player.invincibleTime <= 0 && e.attackCooldown <= 0) {
+                // Set attack cooldown - enemies can attack again after this time
+                // Swarm attacks faster, bosses attack slower
+                const baseAttackSpeed = e.isBoss ? 1.5 : (e.type === 'swarm' ? 0.4 : 0.8);
+                e.attackCooldown = baseAttackSpeed;
+
+                if (this.shieldActive) {
+                    this.shieldActive = false;
+                    this.shieldTimer = 0;
+                    this.spawnParticles(this.player.x, this.player.y, '#00aaff', 10);
+                } else {
                     this.player.health -= e.damage;
                     this.player.invincibleTime = 0.5;
                     this.combatTimer = 0; // Reset combat timer - healing reduced for 3s
-                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444' });
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444', isText: true });
                     this.playSound('hit');
 
                     // Thorn Armor: reflect damage back to enemy
@@ -2227,7 +2309,7 @@ class DotsSurvivor {
                         const reflected = Math.floor(e.damage * this.thornDamage);
                         e.health -= reflected;
                         e.hitFlash = 1;
-                        this.damageNumbers.push({ x: sxMoved, y: syMoved - 20, value: `🌹 ${reflected}`, lifetime: 0.8, color: '#ff66aa' });
+                        this.addDamageNumber(sxMoved, syMoved, reflected, '#ff66aa', { enemyId: e.id, scale: 1 });
                         this.spawnParticles(sxMoved, syMoved, '#ff66aa', 5);
                     }
 
@@ -2236,7 +2318,7 @@ class DotsSurvivor {
                         this.stickyTimer = 3; // 3 seconds immobilized
                         this.damageNumbers.push({
                             x: this.player.x, y: this.player.y - 50,
-                            value: '🍯 STUCK!', lifetime: 2, color: '#88ff00', scale: 1.5
+                            value: '🍯 STUCK!', lifetime: 2, color: '#88ff00', scale: 1.5, isText: true
                         });
                     }
                 }
@@ -2560,12 +2642,12 @@ class DotsSurvivor {
                         // Fire: Burn damage
                         e.health -= Math.floor(actualDamage * 0.5);
                         this.spawnParticles(sx, sy, '#ff4400', 5);
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: Math.floor(actualDamage * 1.5), lifetime: 0.6, color: '#ff4400' });
+                        this.addDamageNumber(sx, sy, Math.floor(actualDamage * 1.5), '#ff4400', { enemyId: e.id });
                     } else if (o.element === 'ice') {
                         // Ice: Slow enemy
                         e.speed = Math.max(20, e.speed * 0.7);
                         this.spawnParticles(sx, sy, '#00ccff', 5);
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: actualDamage, lifetime: 0.6, color: '#00ccff' });
+                        this.addDamageNumber(sx, sy, actualDamage, '#00ccff', { enemyId: e.id });
                     } else if (o.element === 'lightning') {
                         // Lightning: Chain to nearby enemy
                         let chainTarget = null;
@@ -2585,9 +2667,9 @@ class DotsSurvivor {
                             chainTarget.hitFlash = 1;
                         }
                         this.spawnParticles(sx, sy, '#ffff00', 5);
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: actualDamage, lifetime: 0.6, color: '#ffff00' });
+                        this.addDamageNumber(sx, sy, actualDamage, '#ffff00', { enemyId: e.id });
                     } else {
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: actualDamage, lifetime: 0.6, color: '#aa44ff' });
+                        this.addDamageNumber(sx, sy, actualDamage, '#aa44ff', { enemyId: e.id });
                     }
                 } else {
                     // Enemy out of range - reset hit count for this orbital/enemy combo
@@ -2645,7 +2727,7 @@ class DotsSurvivor {
                     const actualDamage = Math.floor(s.damage * diminishFactor);
 
                     e.health -= actualDamage; e.hitFlash = 1;
-                    this.damageNumbers.push({ x: ex, y: ey - 10, value: actualDamage, lifetime: 0.6, color: '#ffdd00' });
+                    this.addDamageNumber(ex, ey, actualDamage, '#ffdd00', { enemyId: e.id });
                 } else {
                     // Enemy out of range - reset hit count for this star/enemy combo
                     if (e.starHitId) {
@@ -2891,14 +2973,12 @@ class DotsSurvivor {
                     // Track damage for stacking items
                     this.updateStackingItems('damage', damage);
 
-                    this.damageNumbers.push({
-                        x: sx,
-                        y: sy - 10,
-                        value: text,
-                        lifetime: isCrit ? 1.0 : 0.6,
-                        color: color,
-                        scale: isCrit ? 1.5 : 1
-                    });
+                    // Use stacking damage numbers (crit text still shows separately)
+                    if (isCrit) {
+                        this.addDamageNumber(sx, sy, damage, color, { enemyId: e.id, scale: 1.3 });
+                    } else {
+                        this.addDamageNumber(sx, sy, damage, color, { enemyId: e.id });
+                    }
 
                     if (isCrit) this.spawnParticles(p.x, p.y, '#ff0000', 5);
                     else this.spawnParticles(p.x, p.y, '#fff', 3);
@@ -2908,7 +2988,7 @@ class DotsSurvivor {
                         e.frozen = true;
                         e.frozenTimer = 2; // Frozen for 2 seconds
                         this.spawnParticles(sx, sy, '#00ddff', 8);
-                        this.damageNumbers.push({ x: sx, y: sy - 30, value: '❄️', lifetime: 1, color: '#00ddff' });
+                        this.damageNumbers.push({ x: sx, y: sy - 30, value: '❄️', lifetime: 1, color: '#00ddff', isText: true });
                     }
 
                     // Explosion effect from Explosive Rounds item
@@ -2925,7 +3005,7 @@ class DotsSurvivor {
                                 const splashDmg = Math.floor(damage * 0.5);
                                 other.health -= splashDmg;
                                 other.hitFlash = 1;
-                                this.damageNumbers.push({ x: osx, y: osy - 10, value: splashDmg, lifetime: 0.5, color: '#ff8800' });
+                                this.addDamageNumber(osx, osy, splashDmg, '#ff8800', { enemyId: other.id });
                             }
                         }
                     }
@@ -3314,16 +3394,66 @@ class DotsSurvivor {
         }
     }
 
+    // Stacked damage number system - combines damage on same target
+    addDamageNumber(x, y, value, color, options = {}) {
+        const { scale = 1, lifetime = 0.8, enemyId = null, isText = false } = options;
+
+        // If it's text (like "STUCK!" or "Rise!") or no enemy ID, just add normally
+        if (isText || !enemyId || typeof value !== 'number') {
+            this.damageNumbers.push({ x, y, value, lifetime, color, scale, isText: true });
+            return;
+        }
+
+        // Look for existing damage number for this enemy within stacking window
+        const stackWindow = 0.6; // Stack damage within 0.6 seconds
+        const existing = this.damageNumbers.find(d =>
+            d.enemyId === enemyId &&
+            d.lifetime > (d.maxLifetime - stackWindow) &&
+            !d.isText
+        );
+
+        if (existing) {
+            // Stack onto existing number
+            existing.value += value;
+            existing.lifetime = existing.maxLifetime; // Reset lifetime
+            existing.scale = Math.min(2.5, 1 + (existing.stackCount * 0.15)); // Grow with stacks
+            existing.stackCount++;
+            existing.pulseTimer = 0.15; // Trigger pulse animation
+            existing.x = x; // Update position to latest hit
+            existing.y = y - 10;
+        } else {
+            // Create new stacked damage number
+            this.damageNumbers.push({
+                x, y: y - 10,
+                value,
+                lifetime: 1.2,
+                maxLifetime: 1.2,
+                color,
+                scale,
+                enemyId,
+                stackCount: 1,
+                pulseTimer: 0,
+                isText: false
+            });
+        }
+    }
+
     updateDamageNumbers(dt) {
         // Limit max active numbers
-        if (this.damageNumbers.length > 40) {
-            this.damageNumbers.splice(0, this.damageNumbers.length - 40);
+        if (this.damageNumbers.length > 50) {
+            this.damageNumbers.splice(0, this.damageNumbers.length - 50);
         }
 
         for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
             const d = this.damageNumbers[i];
-            d.y -= 30 * dt;
+            d.y -= 25 * dt; // Float upward
             d.lifetime -= dt;
+
+            // Update pulse animation
+            if (d.pulseTimer > 0) {
+                d.pulseTimer -= dt;
+            }
+
             if (d.lifetime <= 0) this.damageNumbers.splice(i, 1);
         }
     }
@@ -3331,7 +3461,6 @@ class DotsSurvivor {
 
 
     updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) this.particles.splice(i, 1); } }
-    updateDamageNumbers(dt) { for (let i = this.damageNumbers.length - 1; i >= 0; i--) { const d = this.damageNumbers[i]; d.y -= 35 * dt; d.lifetime -= dt; if (d.lifetime <= 0) this.damageNumbers.splice(i, 1); } }
 
     updateHUD() {
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
@@ -3595,85 +3724,192 @@ class DotsSurvivor {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
-            
-            // Regular circular enemies
-            ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-            ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
-            // Enemy icon
-            if (e.icon) {
-                ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(e.icon, sx, sy);
+
+            // Skip default circle for Consumer - it has custom rendering
+            if (!e.isConsumer) {
+                // Regular circular enemies
+                ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
+                // Enemy icon
+                if (e.icon) {
+                    ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(e.icon, sx, sy);
+                }
             }
-            
+
             if (e.isConsumer) {
-                // Consumer - Black hole tornado design
+                // THE CONSUMER - Terrifying Void Entity Design
                 ctx.save();
                 ctx.translate(sx, sy);
-                
-                // Outer rotating spiral arms (purple)
-                for (let arm = 0; arm < 4; arm++) {
+
+                // Calculate urgency for pulsing effects
+                const urgency = e.lifeTimer ? Math.max(1, (e.lifeTimer / e.maxLifeTime) * 3) : 1;
+                const pulse = Math.sin(this.gameTime * 0.005 * urgency) * 0.1 + 1;
+
+                // VACUUM PARTICLES - Draw first (behind everything)
+                if (e.vacuumParticles) {
+                    e.vacuumParticles.forEach(p => {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = p.alpha;
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                    });
+                }
+
+                // OUTER DANGER ZONE - Pulsing warning ring
+                const pullRadius = e.pullRadius || 250;
+                ctx.beginPath();
+                ctx.arc(0, 0, pullRadius * pulse, 0, Math.PI * 2);
+                const dangerGrad = ctx.createRadialGradient(0, 0, pullRadius * 0.7, 0, 0, pullRadius);
+                dangerGrad.addColorStop(0, 'rgba(136, 0, 255, 0)');
+                dangerGrad.addColorStop(0.8, 'rgba(136, 0, 255, 0.1)');
+                dangerGrad.addColorStop(1, 'rgba(255, 0, 100, 0.3)');
+                ctx.fillStyle = dangerGrad;
+                ctx.fill();
+
+                // CONCENTRIC TERROR RINGS - Multiple spinning layers
+                for (let ring = 0; ring < 5; ring++) {
+                    const ringRadius = e.radius * (0.4 + ring * 0.3);
+                    const ringSpeed = (5 - ring) * 0.5; // Inner rings spin faster
+                    const segments = 8 + ring * 4;
+
                     ctx.save();
-                    ctx.rotate(e.rotationAngle + (arm * Math.PI / 2));
-                    
-                    const gradient = ctx.createLinearGradient(0, 0, e.radius * 1.5, 0);
-                    gradient.addColorStop(0, 'rgba(136, 0, 255, 0.8)');
-                    gradient.addColorStop(1, 'rgba(136, 0, 255, 0)');
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    for (let i = 0; i < 20; i++) {
-                        const angle = (i / 20) * Math.PI;
-                        const r = e.radius * 0.3 + (i / 20) * e.radius * 0.7;
-                        ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r * 0.3);
+                    ctx.rotate(e.rotationAngle * ringSpeed * (ring % 2 === 0 ? 1 : -1));
+
+                    for (let i = 0; i < segments; i++) {
+                        const segAngle = (i / segments) * Math.PI * 2;
+                        const segLength = Math.PI / segments * 0.7;
+
+                        ctx.beginPath();
+                        ctx.arc(0, 0, ringRadius, segAngle, segAngle + segLength);
+
+                        // Color gradient from purple to magenta based on ring
+                        const alpha = 0.3 + (ring * 0.1);
+                        const hue = 280 - ring * 15; // Purple to magenta
+                        ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
+                        ctx.lineWidth = 4 - ring * 0.5;
+                        ctx.stroke();
                     }
-                    ctx.strokeStyle = gradient;
-                    ctx.lineWidth = 8;
+                    ctx.restore();
+                }
+
+                // SPIRAL ARMS - 6 menacing tentacle-like spirals
+                for (let arm = 0; arm < 6; arm++) {
+                    ctx.save();
+                    ctx.rotate(e.rotationAngle * 1.5 + (arm * Math.PI / 3));
+
+                    const spiralGrad = ctx.createLinearGradient(0, 0, e.radius * 2, 0);
+                    spiralGrad.addColorStop(0, 'rgba(136, 0, 255, 0.9)');
+                    spiralGrad.addColorStop(0.5, 'rgba(200, 0, 150, 0.6)');
+                    spiralGrad.addColorStop(1, 'rgba(255, 0, 100, 0)');
+
+                    ctx.beginPath();
+                    ctx.moveTo(e.radius * 0.3, 0);
+                    for (let i = 0; i <= 30; i++) {
+                        const t = i / 30;
+                        const spiralAngle = t * Math.PI * 1.5;
+                        const r = e.radius * 0.3 + t * e.radius * 1.2;
+                        const wobble = Math.sin(this.gameTime * 0.01 + arm + t * 5) * 10;
+                        ctx.lineTo(
+                            Math.cos(spiralAngle) * r + wobble,
+                            Math.sin(spiralAngle) * r * 0.4
+                        );
+                    }
+                    ctx.strokeStyle = spiralGrad;
+                    ctx.lineWidth = 6;
+                    ctx.lineCap = 'round';
                     ctx.stroke();
                     ctx.restore();
                 }
-                
-                // Inner black hole (dark center)
+
+                // CORE BODY - Dark void with evil eye
+                const coreRadius = e.radius * 0.5;
+
+                // Outer glow
                 ctx.beginPath();
-                ctx.arc(0, 0, e.radius * 0.6, 0, Math.PI * 2);
-                const innerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 0.6);
-                innerGrad.addColorStop(0, '#000');
-                innerGrad.addColorStop(0.5, '#220044');
-                innerGrad.addColorStop(1, '#8800ff');
-                ctx.fillStyle = innerGrad;
+                ctx.arc(0, 0, coreRadius * 1.3, 0, Math.PI * 2);
+                const glowGrad = ctx.createRadialGradient(0, 0, coreRadius * 0.5, 0, 0, coreRadius * 1.3);
+                glowGrad.addColorStop(0, 'rgba(136, 0, 255, 0.8)');
+                glowGrad.addColorStop(0.5, 'rgba(80, 0, 120, 0.5)');
+                glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = glowGrad;
                 ctx.fill();
-                
-                // White accretion disk ring
+
+                // Main dark core
                 ctx.beginPath();
-                ctx.arc(0, 0, e.radius * 0.5, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-                
-                // White inner glow
-                ctx.beginPath();
-                ctx.arc(0, 0, e.radius * 0.2, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.arc(0, 0, coreRadius, 0, Math.PI * 2);
+                const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
+                coreGrad.addColorStop(0, '#000000');
+                coreGrad.addColorStop(0.4, '#110022');
+                coreGrad.addColorStop(0.8, '#330066');
+                coreGrad.addColorStop(1, e.hitFlash > 0 ? '#ffffff' : '#8800ff');
+                ctx.fillStyle = coreGrad;
                 ctx.fill();
-                
-                // Consume radius indicator (faint)
+
+                // Evil eye in center
+                const eyeSize = coreRadius * 0.6;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, eyeSize, eyeSize * 0.4, 0, 0, Math.PI * 2);
+                const eyeGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize);
+                eyeGrad.addColorStop(0, '#ff0066');
+                eyeGrad.addColorStop(0.3, '#cc0044');
+                eyeGrad.addColorStop(1, 'rgba(100, 0, 50, 0)');
+                ctx.fillStyle = eyeGrad;
+                ctx.fill();
+
+                // Pupil - follows player direction
+                const playerDx = this.worldX - e.wx;
+                const playerDy = this.worldY - e.wy;
+                const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
+                const pupilOffset = Math.min(eyeSize * 0.3, playerDist * 0.05);
+                const pupilX = playerDist > 0 ? (playerDx / playerDist) * pupilOffset : 0;
+                const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset * 0.4 : 0;
+
+                ctx.beginPath();
+                ctx.ellipse(pupilX, pupilY, eyeSize * 0.25 * pulse, eyeSize * 0.15 * pulse, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+
+                // Inner highlight
+                ctx.beginPath();
+                ctx.arc(pupilX - eyeSize * 0.1, pupilY - eyeSize * 0.05, eyeSize * 0.08, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.fill();
+
+                // Consume radius indicator
                 ctx.beginPath();
                 ctx.arc(0, 0, e.consumeRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(136, 0, 255, 0.2)';
+                ctx.strokeStyle = `rgba(255, 0, 100, ${0.2 + Math.sin(this.gameTime * 0.003) * 0.1})`;
                 ctx.lineWidth = 2;
-                ctx.setLineDash([10, 10]);
+                ctx.setLineDash([15, 10]);
                 ctx.stroke();
                 ctx.setLineDash([]);
-                
+
                 ctx.restore();
-                
-                // Name and HP bar
-                ctx.font = 'bold 14px Inter'; ctx.fillStyle = '#cc88ff'; ctx.textAlign = 'center';
-                ctx.fillText(e.name, sx, sy - e.radius - 30);
-                ctx.font = '10px Inter'; ctx.fillStyle = '#888';
-                ctx.fillText(`Consumed: ${e.consumedCount}`, sx, sy - e.radius - 18);
+
+                // Name and HP bar (outside save/restore)
+                ctx.font = 'bold 16px Inter'; ctx.fillStyle = '#ff0066'; ctx.textAlign = 'center';
+                ctx.fillText('⚫ ' + e.name + ' ⚫', sx, sy - e.radius - 45);
+                ctx.font = '11px Inter'; ctx.fillStyle = '#cc88ff';
+                ctx.fillText(`Souls Consumed: ${e.consumedCount}`, sx, sy - e.radius - 30);
+                // Time remaining
+                if (e.lifeTimer !== undefined) {
+                    const timeLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
+                    const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#888');
+                    ctx.font = '10px Inter'; ctx.fillStyle = timeColor;
+                    ctx.fillText(`Detonates in: ${timeLeft}s`, sx, sy - e.radius - 18);
+                }
                 const bw = e.radius * 2.5;
-                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 8);
-                ctx.fillStyle = '#8800ff'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 8);
+                ctx.fillStyle = '#222'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 10);
+                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2 + 1, sy - e.radius - 7, bw - 2, 8);
+                const hpGrad = ctx.createLinearGradient(sx - bw / 2, 0, sx + bw / 2, 0);
+                hpGrad.addColorStop(0, '#8800ff');
+                hpGrad.addColorStop(0.5, '#cc00aa');
+                hpGrad.addColorStop(1, '#ff0066');
+                ctx.fillStyle = hpGrad;
+                ctx.fillRect(sx - bw / 2 + 1, sy - e.radius - 7, (bw - 2) * (e.health / e.maxHealth), 8);
             } else if (e.isBoss) {
                 // Boss face
                 ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -3806,14 +4042,47 @@ class DotsSurvivor {
         // Restore transform before drawing UI
         ctx.restore();
 
-        // Damage numbers (UI - not scaled)
+        // Damage numbers (UI - not scaled) - with stacking visual effects
         this.damageNumbers.forEach(d => {
-            const fontSize = Math.floor(16 * (d.scale || 1));
+            let fontSize = Math.floor(16 * (d.scale || 1));
+
+            // Pulse effect when damage is added
+            if (d.pulseTimer > 0) {
+                const pulse = 1 + (d.pulseTimer / 0.15) * 0.3;
+                fontSize = Math.floor(fontSize * pulse);
+            }
+
+            // Scale based on stack count for big numbers
+            if (d.stackCount > 1) {
+                fontSize = Math.floor(fontSize * (1 + Math.min(d.stackCount * 0.05, 0.5)));
+            }
+
             ctx.font = `bold ${fontSize}px Inter`;
-            ctx.fillStyle = d.color;
-            ctx.globalAlpha = d.lifetime;
             ctx.textAlign = 'center';
-            ctx.fillText(d.value, d.x, d.y);
+
+            // For stacked numbers, add glow effect
+            if (d.stackCount > 3) {
+                ctx.shadowBlur = 10 + d.stackCount;
+                ctx.shadowColor = d.color;
+            }
+
+            // Outline for readability
+            ctx.globalAlpha = Math.min(1, d.lifetime * 1.5);
+            ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+            ctx.lineWidth = 3;
+
+            // Format large numbers (1000+ = 1.0k)
+            let displayValue = d.value;
+            if (typeof d.value === 'number' && d.value >= 1000) {
+                displayValue = (d.value / 1000).toFixed(1) + 'k';
+            }
+
+            ctx.strokeText(displayValue, d.x, d.y);
+            ctx.fillStyle = d.color;
+            ctx.fillText(displayValue, d.x, d.y);
+
+            // Reset effects
+            ctx.shadowBlur = 0;
             ctx.globalAlpha = 1;
         });
         
