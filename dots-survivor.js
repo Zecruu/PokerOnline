@@ -1823,8 +1823,14 @@ class DotsSurvivor {
         this.playSound('capture');
 
         // Show Augment Menu instead of random
-        // Filter available diamond augments based on prereqs?
-        let available = this.diamondAugments.filter(a => !a.req || this[a.req] || (a.req === 'demonSet' && this.demonSetBonusActive));
+        // Filter available diamond augments based on prereqs and already selected
+        let available = this.diamondAugments.filter(a => {
+            // Skip if already selected
+            if (this.augments.includes(a.id)) return false;
+            // Skip demon set augments unless demon set bonus is active
+            if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
+            return true;
+        });
 
         // If no diamond augments left or available, fallback to legendary perks
         if (available.length === 0) {
