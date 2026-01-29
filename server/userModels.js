@@ -23,6 +23,10 @@ const UserSchema = new mongoose.Schema({
     salt: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
     lastLogin: { type: Date, default: Date.now },
+    isAdmin: { type: Boolean, default: false },
+    isBanned: { type: Boolean, default: false },
+    banReason: { type: String, default: '' },
+    bannedAt: { type: Date },
 
     // Remember Me tokens (device/browser persistence)
     rememberTokens: [{

@@ -815,6 +815,27 @@ function authenticateToken(req, res, next) {
     next();
 }
 
+// Middleware to check admin
+async function authenticateAdmin(req, res, next) {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+
+    const session = sessions.get(token);
+    if (!session) return res.status(401).json({ error: 'Invalid or expired token' });
+
+    try {
+        const user = await User.findById(session.userId);
+        if (!user || !user.isAdmin) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        req.userId = session.userId;
+        req.username = session.username;
+        next();
+    } catch (error) {
+        return res.status(500).json({ error: 'Authentication failed' });
+    }
+}
+
 // Profanity filter
 const BANNED_WORDS = [
     'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'pussy', 'cock', 'nigger', 'nigga',
@@ -917,6 +938,15 @@ app.post('/api/auth/login', async (req, res) => {
 
         if (!user || !user.validatePassword(password)) {
             return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Check if user is banned
+        if (user.isBanned) {
+            return res.status(403).json({
+                error: 'Account banned',
+                reason: user.banReason || 'No reason provided',
+                bannedAt: user.bannedAt
+            });
         }
 
         user.lastLogin = new Date();
@@ -1048,6 +1078,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
             id: user._id,
             username: user.username,
             email: user.email,
+            isAdmin: user.isAdmin || false,
             savedGame: user.savedGame,
             stats: user.dotsSurvivorStats
         });
@@ -1236,6 +1267,130 @@ app.get('/api/leaderboard/:category/rank', authenticateToken, async (req, res) =
         res.json({ rank, value: userEntry.value });
     } catch (error) {
         res.status(500).json({ error: 'Failed to get rank' });
+    }
+});
+
+// ================== ADMIN API ==================
+
+// Get all users (admin only)
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const search = req.query.search || '';
+        const skip = (page - 1) * limit;
+
+        const query = search ? {
+            $or: [
+                { username: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        const [users, total] = await Promise.all([
+            User.find(query)
+                .select('-passwordHash -salt -rememberTokens -savedGame.gameState')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            User.countDocuments(query)
+        ]);
+
+        res.json({
+            users: users.map(u => ({
+                id: u._id,
+                username: u.username,
+                email: u.email,
+                createdAt: u.createdAt,
+                lastLogin: u.lastLogin,
+                isAdmin: u.isAdmin,
+                isBanned: u.isBanned,
+                banReason: u.banReason,
+                bannedAt: u.bannedAt,
+                stats: u.dotsSurvivorStats,
+                hasSavedGame: u.savedGame?.exists || false
+            })),
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        console.error('Admin get users error:', error);
+        res.status(500).json({ error: 'Failed to get users' });
+    }
+});
+
+// Ban user (admin only)
+app.post('/api/admin/ban/:userId', authenticateAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { reason } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (user.isAdmin) {
+            return res.status(400).json({ error: 'Cannot ban admin users' });
+        }
+
+        user.isBanned = true;
+        user.banReason = reason || 'No reason provided';
+        user.bannedAt = new Date();
+        await user.save();
+
+        // Remove all active sessions for this user
+        for (const [token, session] of sessions.entries()) {
+            if (session.userId.toString() === userId) {
+                sessions.delete(token);
+            }
+        }
+
+        res.json({ success: true, message: `User ${user.username} has been banned` });
+        console.log(`🚫 User banned: ${user.username} by ${req.username}. Reason: ${reason || 'None'}`);
+    } catch (error) {
+        console.error('Admin ban error:', error);
+        res.status(500).json({ error: 'Failed to ban user' });
+    }
+});
+
+// Unban user (admin only)
+app.post('/api/admin/unban/:userId', authenticateAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.isBanned = false;
+        user.banReason = '';
+        user.bannedAt = null;
+        await user.save();
+
+        res.json({ success: true, message: `User ${user.username} has been unbanned` });
+        console.log(`✅ User unbanned: ${user.username} by ${req.username}`);
+    } catch (error) {
+        console.error('Admin unban error:', error);
+        res.status(500).json({ error: 'Failed to unban user' });
+    }
+});
+
+// Get admin stats
+app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
+    try {
+        const [totalUsers, bannedUsers, activeToday] = await Promise.all([
+            User.countDocuments(),
+            User.countDocuments({ isBanned: true }),
+            User.countDocuments({ lastLogin: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } })
+        ]);
+
+        res.json({
+            totalUsers,
+            bannedUsers,
+            activeToday
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get stats' });
     }
 });
 

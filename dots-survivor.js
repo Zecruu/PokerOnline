@@ -652,6 +652,7 @@ class DotsSurvivor {
         // Stacking Items System
         this.stackingItems = {}; // { itemKey: { stacks: 0, evolved: false } }
         this.droppedItems = []; // Track which items have already dropped (drop once only)
+        this.lastItemPickupTime = -300000; // Allow first item to drop immediately (5 min = 300000ms)
         this.stackingDamageBonus = 0;
         this.stackingXpBonus = 0;
         this.stackingHpBonus = 0;
@@ -2489,12 +2490,16 @@ class DotsSurvivor {
     }
 
     dropItem(wx, wy) {
+        // Check 5-minute cooldown since last item pickup (300000ms = 5 minutes)
+        const itemCooldown = 300000;
+        if (this.gameTime - this.lastItemPickupTime < itemCooldown) return;
+
         // Only drop items that haven't been collected yet
         const allKeys = Object.keys(STACKING_ITEMS);
         const availableKeys = allKeys.filter(key => !this.droppedItems.includes(key));
-        
+
         if (availableKeys.length === 0) return; // All items already dropped
-        
+
         const itemKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
         this.pickups.push({ wx, wy, xp: 0, radius: 15, color: '#fbbf24', isItem: true, itemKey });
     }
@@ -2916,11 +2921,12 @@ class DotsSurvivor {
     collectItem(key) {
         const item = STACKING_ITEMS[key];
         if (!item) return;
-        
+
         // First time picking up this item - show info popup
         if (!this.stackingItems[key]) {
             this.stackingItems[key] = { stacks: 0, evolved: false };
             this.droppedItems.push(key);
+            this.lastItemPickupTime = this.gameTime; // Track pickup time for cooldown
             this.showItemPickupPopup(key);
             return;
         }
@@ -4036,8 +4042,8 @@ class DotsSurvivor {
                 }
                 y += 38;
                 } else {
-                // Desktop view
-                const boxWidth = 140;
+                // Desktop view - compact without name
+                const boxWidth = 90;
                 ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.fillRect(10, y, boxWidth, 28);
 
@@ -4047,9 +4053,9 @@ class DotsSurvivor {
                 ctx.fillStyle = isEvolved ? '#ff6b00' : '#fbbf24';
                 ctx.fillRect(10, y + 24, boxWidth * progress, 4);
 
-                // Icon and name
-                ctx.font = '12px Inter'; ctx.fillStyle = color; ctx.textAlign = 'left';
-                ctx.fillText(`${icon} ${name}`, 15, y + 16);
+                // Icon only
+                ctx.font = '14px Inter'; ctx.fillStyle = color; ctx.textAlign = 'left';
+                ctx.fillText(icon, 15, y + 17);
 
                 // Stack count
                 ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'right';

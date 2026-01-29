@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Zecruu Games</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding: 20px; background: #1a1a2e; border-radius: 12px; }
+        .header h1 { color: #a78bfa; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: #1a1a2e; padding: 20px; border-radius: 12px; text-align: center; }
+        .stat-card h3 { color: #888; font-size: 14px; margin-bottom: 10px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; color: #a78bfa; }
+        .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-bar input { flex: 1; padding: 12px 16px; border: none; border-radius: 8px; background: #1a1a2e; color: #fff; font-size: 14px; }
+        .search-bar input::placeholder { color: #666; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .btn-primary { background: #a78bfa; color: #000; }
+        .btn-primary:hover { background: #8b5cf6; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-success { background: #22c55e; color: #fff; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-small { padding: 6px 12px; font-size: 12px; }
+        .table-container { background: #1a1a2e; border-radius: 12px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #2a2a3e; }
+        th { background: #0f0f1a; color: #888; font-weight: 600; text-transform: uppercase; font-size: 12px; }
+        tr:hover { background: #2a2a3e; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge-admin { background: #a78bfa; color: #000; }
+        .badge-banned { background: #ef4444; color: #fff; }
+        .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+        .login-container { max-width: 400px; margin: 100px auto; padding: 40px; background: #1a1a2e; border-radius: 16px; }
+        .login-container h2 { text-align: center; margin-bottom: 30px; color: #a78bfa; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #888; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0f0f1a; color: #fff; }
+        .error-msg { color: #ef4444; text-align: center; margin-bottom: 15px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #1a1a2e; padding: 30px; border-radius: 16px; max-width: 400px; width: 90%; }
+        .modal-content h3 { margin-bottom: 20px; }
+        .modal-content textarea { width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px; background: #0f0f1a; color: #fff; resize: vertical; min-height: 80px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+        #app { display: none; }
+    </style>
+</head>
+<body>
+    <div id="login" class="login-container">
+        <h2>🔐 Admin Login</h2>
+        <div id="loginError" class="error-msg"></div>
+        <div class="form-group">
+            <label>Username or Email</label>
+            <input type="text" id="loginInput" placeholder="Enter username or email">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="passwordInput" placeholder="Enter password">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
+    </div>
+
+    <div id="app" class="container">
+        <div class="header">
+            <h1>🛡️ Admin Panel</h1>
+            <div>
+                <span id="adminName" style="margin-right:15px;color:#888;"></span>
+                <button class="btn btn-danger btn-small" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        <div class="stats">
+            <div class="stat-card"><h3>Total Users</h3><div id="statTotal" class="value">-</div></div>
+            <div class="stat-card"><h3>Active Today</h3><div id="statActive" class="value">-</div></div>
+            <div class="stat-card"><h3>Banned Users</h3><div id="statBanned" class="value">-</div></div>
+        </div>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search by username or email..." onkeyup="if(event.key==='Enter')searchUsers()">
+            <button class="btn btn-primary" onclick="searchUsers()">Search</button>
+            <button class="btn" style="background:#333" onclick="clearSearch()">Clear</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Username</th><th>Email</th><th>Registered</th><th>Last Login</th><th>Stats</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="usersTable"></tbody>
+            </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+    </div>
+
+    <div id="banModal" class="modal">
+        <div class="modal-content">
+            <h3>🚫 Ban User: <span id="banUsername"></span></h3>
+            <div class="form-group"><label>Reason for ban</label><textarea id="banReason" placeholder="Enter reason..."></textarea></div>
+            <div class="modal-actions">
+                <button class="btn" style="background:#333" onclick="closeBanModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmBan()">Ban User</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('adminToken');
+        let currentPage = 1;
+        let searchQuery = '';
+        let banUserId = null;
+
+        if (token) { checkAuth(); } else { document.getElementById('login').style.display = 'block'; }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!res.ok) throw new Error();
+                const user = await res.json();
+                if (!user.isAdmin) { alert('Not an admin'); logout(); return; }
+                document.getElementById('adminName').textContent = user.username;
+                showApp();
+            } catch { logout(); }
+        }
+
+        async function login() {
+            const login = document.getElementById('loginInput').value;
+            const password = document.getElementById('passwordInput').value;
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login, password })
+                });
+                const data = await res.json();
+                if (!res.ok) { document.getElementById('loginError').textContent = data.error; return; }
+                token = data.token; localStorage.setItem('adminToken', token);
+                await checkAuth();
+            } catch { document.getElementById('loginError').textContent = 'Login failed'; }
+        }
+
+        function logout() { localStorage.removeItem('adminToken'); token = null; location.reload(); }
+        function showApp() { document.getElementById('login').style.display = 'none'; document.getElementById('app').style.display = 'block'; loadStats(); loadUsers(); }
+        async function loadStats() {
+            const res = await fetch('/api/admin/stats', { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            document.getElementById('statTotal').textContent = data.totalUsers;
+            document.getElementById('statActive').textContent = data.activeToday;
+            document.getElementById('statBanned').textContent = data.bannedUsers;
+        }
+
+        async function loadUsers(page = 1) {
+            currentPage = page;
+            const url = `/api/admin/users?page=${page}&limit=15${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`;
+            const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            renderUsers(data.users);
+            renderPagination(data.page, data.totalPages);
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td><strong>${u.username}</strong> ${u.isAdmin ? '<span class="badge badge-admin">ADMIN</span>' : ''}</td>
+                    <td>${u.email}</td>
+                    <td>${new Date(u.createdAt).toLocaleDateString()}</td>
+                    <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
+                    <td>Wave ${u.stats?.highestWave || 0} | ${u.stats?.highestKills || 0} kills</td>
+                    <td>${u.isBanned ? `<span class="badge badge-banned">BANNED</span><br><small>${u.banReason || ''}</small>` : '✅ Active'}</td>
+                    <td>
+                        ${!u.isAdmin ? (u.isBanned
+                            ? `<button class="btn btn-success btn-small" onclick="unbanUser('${u.id}')">Unban</button>`
+                            : `<button class="btn btn-danger btn-small" onclick="openBanModal('${u.id}', '${u.username}')">Ban</button>`)
+                        : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderPagination(current, total) {
+            const div = document.getElementById('pagination');
+            let html = '';
+            if (current > 1) html += `<button class="btn btn-small" onclick="loadUsers(${current - 1})">← Prev</button>`;
+            html += `<span style="padding:10px;color:#888;">Page ${current} of ${total}</span>`;
+            if (current < total) html += `<button class="btn btn-small" onclick="loadUsers(${current + 1})">Next →</button>`;
+            div.innerHTML = html;
+        }
+
+        function searchUsers() { searchQuery = document.getElementById('searchInput').value; loadUsers(1); }
+        function clearSearch() { searchQuery = ''; document.getElementById('searchInput').value = ''; loadUsers(1); }
+
+        function openBanModal(userId, username) {
+            banUserId = userId;
+            document.getElementById('banUsername').textContent = username;
+            document.getElementById('banReason').value = '';
+            document.getElementById('banModal').style.display = 'flex';
+        }
+        function closeBanModal() { document.getElementById('banModal').style.display = 'none'; banUserId = null; }
+
+        async function confirmBan() {
+            const reason = document.getElementById('banReason').value;
+            await fetch(`/api/admin/ban/${banUserId}`, {
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+            });
+            closeBanModal(); loadUsers(currentPage); loadStats();
+        }
+
+        async function unbanUser(userId) {
+            if (!confirm('Unban this user?')) return;
+            await fetch(`/api/admin/unban/${userId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            loadUsers(currentPage); loadStats();
+        }
+    </script>
+</body>
+</html>
+
