@@ -42,6 +42,12 @@ const BEAM_DESPAIR_SPRITES = {
     evolved: '916b5e75-0b5b-4e95-a550-c84fbfe0a268.jpg'
 };
 
+// Crit Blade Sprites (stacking item icons)
+const CRIT_BLADE_SPRITES = {
+    base: 'e6ae531e-f976-4598-9cb1-3645d62a2d0a.jpg',
+    evolved: '151435d5-709b-4fb5-ab63-216453fa472d.jpg'
+};
+
 // Beam of Despair color progression (changes every 1000 kills)
 const BEAM_DESPAIR_COLORS = [
     '#ffffff',  // Level 1: White
@@ -175,6 +181,10 @@ function initSprites() {
     for (const [type, path] of Object.entries(BEAM_DESPAIR_SPRITES)) {
         loadSprite('beam_despair_' + type, path, true);
     }
+    // Load Crit Blade sprites
+    for (const [type, path] of Object.entries(CRIT_BLADE_SPRITES)) {
+        loadSprite('crit_blade_' + type, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -235,102 +245,21 @@ const DIAMOND_AUGMENTS = [
 // STACKING ITEMS SYSTEM - Items drop once and stack with kills/damage
 const STACKING_ITEMS = {
     // Each item has: base effect, stack scaling, max stacks, evolution
-    // stackType: 'kill' = stacks on kills (2k to evolve), 'damage' = stacks on damage dealt (50k to evolve)
-    bloodBlade: {
-        name: 'Blood Blade',
+    // stackType: 'kill' = stacks on kills, 'damage' = stacks on damage dealt
+    critBlade: {
+        name: 'Crit Blade',
         icon: '🗡️',
-        desc: 'Deal +0.025% damage per stack. Stacks on damage dealt.',
-        evolvedName: 'Crimson Reaper',
-        evolvedIcon: '⚔️',
-        evolvedDesc: 'Deal +50% damage, crits heal you',
-        maxStacks: 50000,
-        stackType: 'damage',
-        effect: (g, stacks) => { g.stackingDamageBonus = stacks * 0.00001; },
-        evolvedEffect: (g) => { g.stackingDamageBonus = 0.5; g.critHeals = true; }
-    },
-    soulGem: {
-        name: 'Soul Gem',
-        icon: '💎',
-        desc: '+0.05% XP gain per stack. Stacks on kills.',
-        evolvedName: 'Soul Devourer',
-        evolvedIcon: '🔮',
-        evolvedDesc: '+100% XP, enemies drop double XP orbs',
-        maxStacks: 2000,
-        stackType: 'kill',
-        effect: (g, stacks) => { g.stackingXpBonus = stacks * 0.0005; },
-        evolvedEffect: (g) => { g.stackingXpBonus = 1.0; g.doubleXpOrbs = true; }
-    },
-    ironHeart: {
-        name: 'Iron Heart',
-        icon: '🫀',
-        desc: '+0.05 max HP per stack. Stacks on kills.',
-        evolvedName: 'Titan Heart',
-        evolvedIcon: '💖',
-        evolvedDesc: '+100 max HP, regen 2 HP/s',
-        maxStacks: 2000,
-        stackType: 'kill',
-        effect: (g, stacks) => { g.stackingHpBonus = stacks * 0.05; },
-        evolvedEffect: (g) => { g.stackingHpBonus = 100; g.stackingRegen = 2; }
-    },
-    swiftBoots: {
-        name: 'Swift Boots',
-        icon: '👟',
-        desc: '+0.025 speed per stack. Stacks on kills.',
-        evolvedName: 'Phantom Stride',
-        evolvedIcon: '💨',
-        evolvedDesc: '+50 speed, dash through enemies',
-        maxStacks: 2000,
-        stackType: 'kill',
-        effect: (g, stacks) => { g.stackingSpeedBonus = stacks * 0.025; },
-        evolvedEffect: (g) => { g.stackingSpeedBonus = 50; g.dashThroughEnemies = true; }
-    },
-    huntersMark: {
-        name: "Hunter's Mark",
-        icon: '🎯',
         desc: '+0.0125% crit chance per stack. Stacks on damage dealt.',
-        evolvedName: 'Death Mark',
-        evolvedIcon: '💀',
+        evolvedName: 'Death Blade',
+        evolvedIcon: '⚔️',
         evolvedDesc: '+25% crit, crits deal 3x damage',
         maxStacks: 50000,
         stackType: 'damage',
+        hasSprite: true,
+        spriteBase: 'crit_blade_base',
+        spriteEvolved: 'crit_blade_evolved',
         effect: (g, stacks) => { g.stackingCritBonus = stacks * 0.000005; },
         evolvedEffect: (g) => { g.stackingCritBonus = 0.25; g.weapons.bullet.critMultiplier = 3; }
-    },
-    frostShard: {
-        name: 'Frost Shard',
-        icon: '❄️',
-        desc: '+0.025% freeze chance per stack. Stacks on kills.',
-        evolvedName: 'Eternal Winter',
-        evolvedIcon: '🥶',
-        evolvedDesc: '50% freeze, frozen enemies shatter',
-        maxStacks: 2000,
-        stackType: 'kill',
-        effect: (g, stacks) => { g.stackingFreezeChance = stacks * 0.00025; },
-        evolvedEffect: (g) => { g.stackingFreezeChance = 0.5; g.shatterFrozen = true; }
-    },
-    venomFang: {
-        name: 'Venom Fang',
-        icon: '🐍',
-        desc: 'Poison on hit. +0.015 dps per stack. Stacks on damage dealt.',
-        evolvedName: 'Plague Bearer',
-        evolvedIcon: '☠️',
-        evolvedDesc: 'Poison spreads to nearby enemies',
-        maxStacks: 50000,
-        stackType: 'damage',
-        effect: (g, stacks) => { g.stackingPoisonDps = stacks * 0.0006; },
-        evolvedEffect: (g) => { g.stackingPoisonDps = 30; g.poisonSpreads = true; }
-    },
-    magnetCore: {
-        name: 'Magnet Core',
-        icon: '🧲',
-        desc: '+0.1 pickup range per stack. Stacks on kills.',
-        evolvedName: 'Gravity Well',
-        evolvedIcon: '🌀',
-        evolvedDesc: 'Massive pickup range, pulls enemies slightly',
-        maxStacks: 2000,
-        stackType: 'kill',
-        effect: (g, stacks) => { g.stackingMagnetBonus = stacks * 0.1; },
-        evolvedEffect: (g) => { g.stackingMagnetBonus = 200; g.pullsEnemies = true; }
     },
     beamDespair: {
         name: 'Beam of Despair',
@@ -4106,9 +4035,16 @@ class DotsSurvivor {
         // Check if item has sprite icons
         let iconHtml = `<div style="font-size: 4rem; margin-bottom: 1rem;">${item.icon}</div>`;
         let evolvedIconHtml = `${item.evolvedIcon} ${item.evolvedName}`;
-        if (item.hasSprite && BEAM_DESPAIR_SPRITES) {
-            iconHtml = `<img src="${BEAM_DESPAIR_SPRITES.base}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;">`;
-            evolvedIconHtml = `<img src="${BEAM_DESPAIR_SPRITES.evolved}" style="width: 40px; height: 40px; vertical-align: middle; border-radius: 8px; margin-right: 8px;"> ${item.evolvedName}`;
+        if (item.hasSprite) {
+            // Get the correct sprite based on item key
+            let spriteSet = null;
+            if (key === 'beamDespair') spriteSet = BEAM_DESPAIR_SPRITES;
+            else if (key === 'critBlade') spriteSet = CRIT_BLADE_SPRITES;
+
+            if (spriteSet) {
+                iconHtml = `<img src="${spriteSet.base}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;">`;
+                evolvedIconHtml = `<img src="${spriteSet.evolved}" style="width: 40px; height: 40px; vertical-align: middle; border-radius: 8px; margin-right: 8px;"> ${item.evolvedName}`;
+            }
         }
 
         popup.innerHTML = `
