@@ -4668,6 +4668,12 @@ class DotsSurvivor {
             this.stackingItems[key] = { stacks: 0, evolved: false };
             this.droppedItems.push(key);
             this.lastItemPickupTime = this.gameTime; // Track pickup time for cooldown
+
+            // Apply initial effect immediately so lifesteal etc works right away
+            if (item.effect) {
+                item.effect(this, 0);
+            }
+
             this.showItemPickupPopup(key);
             return;
         }

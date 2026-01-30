@@ -349,6 +349,28 @@ class AuthManager {
             this.user.savedGame = { exists: true, savedAt: new Date() };
             return true;
         } catch (e) {
+            // If token expired, try to refresh and retry
+            if (e.message && e.message.toLowerCase().includes('token') && this.rememberToken) {
+                console.log('Token expired, attempting refresh...');
+                try {
+                    const res = await this.apiPost('/api/auth/remember', {
+                        rememberToken: this.rememberToken
+                    });
+                    this.token = res.token;
+                    this.user = res.user;
+                    localStorage.setItem('ds_token', res.token);
+                    localStorage.setItem('auth_token', res.token);
+                    localStorage.setItem('user_data', JSON.stringify(res.user));
+                    console.log('Token refreshed, retrying save...');
+
+                    // Retry the save with new token
+                    await this.apiPost('/api/dots-survivor/save', { gameState });
+                    this.user.savedGame = { exists: true, savedAt: new Date() };
+                    return true;
+                } catch (refreshError) {
+                    console.error('Token refresh failed:', refreshError);
+                }
+            }
             console.error('Failed to save game:', e);
             return false;
         }

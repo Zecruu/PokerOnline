@@ -254,9 +254,17 @@ body {
 }
 
 /* Level Up Menu */
+#levelup-menu {
+    background: rgba(10, 10, 20, 0.98) !important;
+}
+
 .levelup-content {
     text-align: center;
     padding: 2rem;
+    background: rgba(20, 20, 35, 0.95);
+    border-radius: 20px;
+    border: 2px solid rgba(74, 222, 128, 0.3);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
 }
 
 .levelup-content h2 {
@@ -264,6 +272,7 @@ body {
     color: var(--xp-color);
     margin-bottom: 0.5rem;
     animation: pulse 1s infinite;
+    text-shadow: 0 0 20px rgba(74, 222, 128, 0.5), 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 @keyframes pulse {
@@ -279,8 +288,10 @@ body {
 }
 
 .choose-text {
-    color: var(--text-secondary);
+    color: #cccccc;
     margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .upgrade-choices {
@@ -291,7 +302,7 @@ body {
 }
 
 .upgrade-card {
-    background: var(--bg-card);
+    background: rgba(30, 30, 50, 0.95);
     border-radius: 16px;
     padding: 1.5rem;
     width: 220px;
@@ -299,6 +310,7 @@ body {
     transition: all 0.2s;
     border: 3px solid transparent;
     pointer-events: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .upgrade-card:hover {
@@ -363,19 +375,22 @@ body {
 .upgrade-icon {
     font-size: 2.5rem;
     margin-bottom: 0.5rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .upgrade-name {
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #ffffff;
     margin-bottom: 0.5rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .upgrade-desc {
     font-size: 0.85rem;
-    color: var(--text-secondary);
+    color: #bbbbcc;
     line-height: 1.4;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 /* Game Over */
