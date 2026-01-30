@@ -6,12 +6,31 @@ const API_BASE = window.location.hostname === 'localhost'
 class AuthManager {
     constructor() {
         this.user = null;
-        this.token = localStorage.getItem('ds_token');
-        this.rememberToken = localStorage.getItem('ds_remember_token');
+        // Check both game token and hub token
+        this.token = localStorage.getItem('ds_token') || localStorage.getItem('auth_token');
+        this.rememberToken = localStorage.getItem('ds_remember_token') || localStorage.getItem('remember_token');
         this.init();
     }
 
     async init() {
+        // First, check if we have hub user data (already logged in via game hub)
+        const hubUserData = localStorage.getItem('user_data');
+        const hubToken = localStorage.getItem('auth_token');
+
+        if (hubToken && hubUserData) {
+            try {
+                this.user = JSON.parse(hubUserData);
+                this.token = hubToken;
+                // Sync to game's token storage
+                localStorage.setItem('ds_token', hubToken);
+                this.showStartMenu();
+                this.setupEventListeners();
+                return;
+            } catch (e) {
+                // Invalid hub data, continue with normal flow
+            }
+        }
+
         // Try to restore session from existing token
         if (this.token) {
             try {
@@ -26,16 +45,19 @@ class AuthManager {
                 localStorage.removeItem('ds_token');
             }
         }
-        
+
         // Try auto-login with remember token
         if (this.rememberToken) {
             try {
-                const res = await this.apiPost('/api/auth/remember', { 
-                    rememberToken: this.rememberToken 
+                const res = await this.apiPost('/api/auth/remember', {
+                    rememberToken: this.rememberToken
                 });
                 this.token = res.token;
                 this.user = res.user;
                 localStorage.setItem('ds_token', res.token);
+                // Also sync to hub storage
+                localStorage.setItem('auth_token', res.token);
+                localStorage.setItem('user_data', JSON.stringify(res.user));
                 this.showStartMenu();
                 this.setupEventListeners();
                 return;
@@ -44,7 +66,7 @@ class AuthManager {
                 this.clearSession();
             }
         }
-        
+
         this.showAuthMenu();
         this.setupEventListeners();
     }

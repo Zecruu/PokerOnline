@@ -5676,32 +5676,36 @@ class DotsSurvivor {
 
         // Damage numbers (UI - not scaled) - with stacking visual effects
         this.damageNumbers.forEach(d => {
-            let fontSize = Math.floor(16 * (d.scale || 1));
+            // Base font size - smaller for regular damage
+            let fontSize = Math.floor(14 * (d.scale || 1));
 
-            // Pulse effect when damage is added
+            // Pulse effect when damage is added (reduced intensity)
             if (d.pulseTimer > 0) {
-                const pulse = 1 + (d.pulseTimer / 0.15) * 0.3;
+                const pulse = 1 + (d.pulseTimer / 0.15) * 0.15; // Reduced from 0.3 to 0.15
                 fontSize = Math.floor(fontSize * pulse);
             }
 
-            // Scale based on stack count for big numbers
+            // Scale based on stack count - much more limited scaling
             if (d.stackCount > 1) {
-                fontSize = Math.floor(fontSize * (1 + Math.min(d.stackCount * 0.05, 0.5)));
+                fontSize = Math.floor(fontSize * (1 + Math.min(d.stackCount * 0.02, 0.2))); // Reduced from 0.05/0.5 to 0.02/0.2
             }
+
+            // Cap maximum font size to prevent screen-covering numbers
+            fontSize = Math.min(fontSize, 28);
 
             ctx.font = `bold ${fontSize}px Inter`;
             ctx.textAlign = 'center';
 
-            // For stacked numbers, add glow effect
+            // For stacked numbers, add subtle glow effect
             if (d.stackCount > 3) {
-                ctx.shadowBlur = 10 + d.stackCount;
+                ctx.shadowBlur = Math.min(8, 4 + d.stackCount * 0.5); // Capped glow
                 ctx.shadowColor = d.color;
             }
 
             // Outline for readability
             ctx.globalAlpha = Math.min(1, d.lifetime * 1.5);
             ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2; // Reduced from 3
 
             // Format large numbers (1000+ = 1.0k)
             let displayValue = d.value;
