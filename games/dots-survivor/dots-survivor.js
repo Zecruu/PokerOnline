@@ -1,4 +1,4 @@
-// Dots Survivor - Complete Game with Classes, Items, Bosses & Infinite Map
+// Velthara's Dominion - Complete Game with Classes, Items, Bosses & Infinite Map
 
 // Get base path for sprites (works on both desktop and mobile)
 const SPRITE_BASE_PATH = (() => {
@@ -1336,7 +1336,7 @@ class DotsSurvivor {
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
         content.innerHTML = `
-            <h1 class="game-title">DOTS<span>SURVIVOR</span></h1>
+            <h1 class="game-title">VELTHARA'S<span>DOMINION</span></h1>
             <p class="game-subtitle">Survive the endless horde!</p>
             <div style="display:flex;gap:1.5rem;justify-content:center;margin:2rem 0;">
                 <div class="diff-card" id="btn-fresh" style="background:#44ff8822;border:2px solid #44ff88;border-radius:12px;padding:1.5rem;width:180px;cursor:pointer;text-align:center;">

@@ -14,9 +14,9 @@ const GAMES: Array<{
 }> = [
   {
     id: "dots-survivor",
-    title: "Dots Survivor",
+    title: "Velthara's Dominion",
     description: "Survive endless waves of enemies! Collect XP, level up, and choose powerful upgrades. How long can you last?",
-    thumbnail: "/games/dots-survivor/dots_survivor_thumbnail.png",
+    thumbnail: "/games/dots-survivor/velthara-bg.jpg",
     href: "/games/dots-survivor/dots-survivor.html",
     badge: "FEATURED",
     badgeColor: "green",
@@ -46,7 +46,7 @@ export default function Home() {
           <div
             className="absolute inset-0 bg-cover bg-center scale-110"
             style={{
-              backgroundImage: "url('/games/dots-survivor/dots_survivor_thumbnail.png')",
+              backgroundImage: "url('/games/dots-survivor/velthara-bg.jpg')",
               filter: "blur(40px) brightness(0.3)"
             }}
           />
@@ -73,8 +73,8 @@ export default function Home() {
               </span>
 
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black mb-6 text-white leading-[1.1] tracking-tight">
-                Dots<br />
-                <span className="text-gradient">Survivor</span>
+                Velthara's<br />
+                <span className="text-gradient">Dominion</span>
               </h1>
 
               <p className="text-lg sm:text-xl text-white/60 mb-10 leading-relaxed max-w-lg">
@@ -106,8 +106,8 @@ export default function Home() {
 
                 <div className="relative card-glass p-3 animate-float">
                   <img
-                    src="/games/dots-survivor/dots_survivor_thumbnail.png"
-                    alt="Dots Survivor"
+                    src="/games/dots-survivor/velthara-bg.jpg"
+                    alt="Velthara's Dominion"
                     className="w-full aspect-video object-cover rounded-xl"
                   />
 

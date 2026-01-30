@@ -1,4 +1,4 @@
-/* Dots Survivor Styles */
+/* Velthara's Dominion Styles */
 :root {
     --bg-dark: #0a0a0f;
     --bg-card: #151520;
@@ -43,12 +43,22 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(10, 10, 15, 0.95);
+    background: url('velthara-bg.jpg') center center / cover no-repeat;
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 100;
-    backdrop-filter: blur(10px);
+}
+
+.menu-overlay::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    pointer-events: none;
 }
 
 .menu-overlay.hidden {
@@ -723,7 +733,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 50%, #0d0d1a 100%);
+    background: url('velthara-bg.jpg') center center / cover no-repeat;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -738,9 +748,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: 
-        radial-gradient(circle at 20% 80%, rgba(0, 255, 170, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 80% 20%, rgba(255, 0, 170, 0.06) 0%, transparent 40%);
+    background: rgba(0, 0, 0, 0.5);
     pointer-events: none;
 }
 
