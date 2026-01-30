@@ -73,6 +73,18 @@ const DEMON_SET_SPRITES = {
     boots: 'd8a16809-cbe3-4b78-a63c-e974e12aba1d.jpg'
 };
 
+// Heart of Vitality Sprites (stacking item icons)
+const HEART_VITALITY_SPRITES = {
+    base: '53ded777-5832-47cf-8640-4c0c5e933582.jpg',
+    evolved: 'c81ba2ce-1664-4f4c-83c7-c7cf898e1116.jpg'
+};
+
+// Blood Soaker Sprites (stacking item icons)
+const BLOOD_SOAKER_SPRITES = {
+    base: 'd7f4391a-1877-4d7a-89c2-fa09b95fa006.jpg',
+    evolved: '977daf8c-4a8b-43bb-ac0f-3abd5824a2ad.jpg'
+};
+
 // Beam of Despair color progression (changes every 1000 kills)
 const BEAM_DESPAIR_COLORS = [
     '#ffffff',  // Level 1: White
@@ -226,6 +238,14 @@ function initSprites() {
     for (const [type, path] of Object.entries(DEMON_SET_SPRITES)) {
         loadSprite('demon_' + type, path, true);
     }
+    // Load Heart of Vitality sprites
+    for (const [type, path] of Object.entries(HEART_VITALITY_SPRITES)) {
+        loadSprite('heart_vitality_' + type, path, true);
+    }
+    // Load Blood Soaker sprites
+    for (const [type, path] of Object.entries(BLOOD_SOAKER_SPRITES)) {
+        loadSprite('blood_soaker_' + type, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -378,6 +398,50 @@ const STACKING_ITEMS = {
         evolvedEffect: (g) => {
             g.stackingSpeedBonus = 0.5;  // +50% move speed
             g.hasDash = true;  // Unlock dash ability
+        }
+    },
+    heartVitality: {
+        name: 'Heart of Vitality',
+        icon: '❤️',
+        desc: '+0.02 HP5 per stack (out of combat). Stacks on kills.',
+        evolvedName: 'Immortal Heart',
+        evolvedIcon: '💖',
+        evolvedDesc: '+100 HP5 out of combat, +50 HP5 in combat',
+        maxStacks: 5000,  // 5k kills to evolve
+        stackType: 'kill',
+        hasSprite: true,
+        spriteBase: 'heart_vitality_base',
+        spriteEvolved: 'heart_vitality_evolved',
+        effect: (g, stacks) => {
+            // +0.02 HP5 per stack = 0.02 HP per 5 seconds per stack
+            // At 5000 stacks = 100 HP5
+            g.stackingHp5Bonus = stacks * 0.02;
+        },
+        evolvedEffect: (g) => {
+            g.stackingHp5Bonus = 100;  // +100 HP5 out of combat
+            g.inCombatHp5 = 50;  // +50 HP5 even in combat
+        }
+    },
+    bloodSoaker: {
+        name: 'Blood Soaker',
+        icon: '🩸',
+        desc: '0.5% + 0.00048% lifesteal per stack. Stacks on damage dealt.',
+        evolvedName: 'Vampiric Essence',
+        evolvedIcon: '🧛',
+        evolvedDesc: '15% lifesteal, heal burst on kill',
+        maxStacks: 30000,  // 30k damage to evolve
+        stackType: 'damage',
+        hasSprite: true,
+        spriteBase: 'blood_soaker_base',
+        spriteEvolved: 'blood_soaker_evolved',
+        effect: (g, stacks) => {
+            // Base 0.5% + scaling to reach 15% at 30k
+            // (15% - 0.5%) / 30000 = 0.000483% per stack
+            g.stackingLifesteal = 0.005 + (stacks * 0.00000483);
+        },
+        evolvedEffect: (g) => {
+            g.stackingLifesteal = 0.15;  // 15% lifesteal
+            g.healBurstOnKill = true;  // Heal burst on kill
         }
     }
 };
@@ -2730,6 +2794,27 @@ class DotsSurvivor {
             }
         }
 
+        // Heart of Vitality HP5 bonus (HP per 5 seconds)
+        const hp5Bonus = this.stackingHp5Bonus || 0;
+        const inCombatHp5 = this.inCombatHp5 || 0;
+        if (hp5Bonus > 0 || inCombatHp5 > 0) {
+            this.hp5Timer = (this.hp5Timer || 0) + dt;
+            if (this.hp5Timer >= 5) {
+                this.hp5Timer = 0;
+                // Out of combat: full HP5 bonus, In combat: only inCombatHp5 (from evolved)
+                const healAmount = inCombat ? inCombatHp5 : hp5Bonus;
+                if (healAmount > 0 && this.player.health < this.player.maxHealth) {
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                    this.damageNumbers.push({
+                        x: this.player.x, y: this.player.y - 40,
+                        value: `❤️ +${Math.floor(healAmount)}`,
+                        lifetime: 0.8,
+                        color: inCombat ? '#ff6688' : '#ff4466'
+                    });
+                }
+            }
+        }
+
         // Regeneration item (1 HP every X seconds based on level) - DISABLED while in combat
         if (this.regenEnabled && !inCombat) {
             this.itemRegenTimer = (this.itemRegenTimer || 0) + dt;
@@ -3443,6 +3528,20 @@ class DotsSurvivor {
         // Stacking items - add kills
         this.updateStackingItems('kill', e.isBoss ? 5 : 1);
 
+        // Blood Soaker evolved - heal burst on kill
+        if (this.healBurstOnKill && this.player.health < this.player.maxHealth) {
+            const healAmount = e.isBoss ? 50 : 10; // Bigger heal on boss kills
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 35,
+                value: `🧛 +${healAmount}`,
+                lifetime: 0.6,
+                color: '#cc00ff'
+            });
+            // Blood particles on player
+            this.spawnParticles(this.player.x, this.player.y, '#cc00ff', 3);
+        }
+
         // GAME JUICE: Kill streak and effects
         this.killStreak++;
         this.killStreakTimer = 2; // Reset streak timer
@@ -4010,6 +4109,23 @@ class DotsSurvivor {
                     // Track damage for stacking items
                     this.updateStackingItems('damage', damage);
 
+                    // Blood Soaker lifesteal
+                    if (this.stackingLifesteal && this.stackingLifesteal > 0) {
+                        const healAmount = Math.floor(damage * this.stackingLifesteal);
+                        if (healAmount > 0 && this.player.health < this.player.maxHealth) {
+                            this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                            // Show lifesteal heal (less frequently to avoid spam)
+                            if (Math.random() < 0.1) {
+                                this.damageNumbers.push({
+                                    x: this.player.x, y: this.player.y - 30,
+                                    value: `🩸 +${healAmount}`,
+                                    lifetime: 0.5,
+                                    color: '#ff4466'
+                                });
+                            }
+                        }
+                    }
+
                     // Use stacking damage numbers (crit text still shows separately)
                     if (isCrit) {
                         this.addDamageNumber(sx, sy, damage, color, { enemyId: e.id, scale: 1.3 });
@@ -4193,6 +4309,8 @@ class DotsSurvivor {
             else if (key === 'critBlade') spriteSet = CRIT_BLADE_SPRITES;
             else if (key === 'ringXp') spriteSet = RING_XP_SPRITES;
             else if (key === 'bootsSwiftness') spriteSet = BOOTS_SWIFTNESS_SPRITES;
+            else if (key === 'heartVitality') spriteSet = HEART_VITALITY_SPRITES;
+            else if (key === 'bloodSoaker') spriteSet = BLOOD_SOAKER_SPRITES;
 
             if (spriteSet) {
                 iconHtml = `<img src="${spriteSet.base}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;">`;
