@@ -3976,32 +3976,75 @@ class DotsSurvivor {
     }
 
     showLevelUpMenu() {
-        // Auto-select a random upgrade - no menu shown
+        // Show upgrade selection menu - player chooses from available upgrades
         this.playSound('levelup');
-        const choices = this.getRandomUpgrades(3);
-        
-        // Pick a random upgrade from the choices
-        const randomUpgrade = choices[Math.floor(Math.random() * choices.length)];
-        randomUpgrade.effect(this);
-        
-        // Show what they got
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 50,
-            value: `⬆️ ${randomUpgrade.icon} ${randomUpgrade.name}`,
-            lifetime: 2,
-            color: randomUpgrade.rarity === 'legendary' ? '#fbbf24' : randomUpgrade.rarity === 'epic' ? '#a855f7' : randomUpgrade.rarity === 'rare' ? '#4da6ff' : '#b8b8b8',
-            scale: 1.5
+        this.gamePaused = true;
+
+        // Get all available upgrades
+        const all = [...this.baseUpgrades, ...this.selectedClass.upgrades];
+
+        // Early waves (1-10): Only damage and HP related upgrades
+        const earlyWaveIds = ['damage', 'health', 'healregen', 'firerate', 'crit', 'critdmg', 'devastation', 'armor'];
+        let available;
+        if (this.wave <= 10) {
+            available = all.filter(u => earlyWaveIds.includes(u.id));
+        } else {
+            available = all;
+        }
+
+        // Build the upgrade menu
+        const container = document.getElementById('upgrade-choices');
+        if (!container) {
+            // Fallback if no container - use old random system
+            const choices = this.getRandomUpgrades(3);
+            const randomUpgrade = choices[Math.floor(Math.random() * choices.length)];
+            randomUpgrade.effect(this);
+            this.gamePaused = false;
+            return;
+        }
+
+        container.innerHTML = '';
+
+        // Sort by rarity for better organization
+        const rarityOrder = { legendary: 0, epic: 1, rare: 2, common: 3 };
+        available.sort((a, b) => (rarityOrder[a.rarity] || 3) - (rarityOrder[b.rarity] || 3));
+
+        available.forEach(upgrade => {
+            const card = document.createElement('div');
+            card.className = `upgrade-card ${upgrade.rarity || 'common'}`;
+            card.innerHTML = `
+                <div class="upgrade-icon">${upgrade.icon}</div>
+                <div class="upgrade-name">${upgrade.name}</div>
+                <div class="upgrade-desc">${upgrade.desc}</div>
+                <div class="upgrade-stats">${upgrade.getDesc ? upgrade.getDesc(this) : ''}</div>
+            `;
+            card.onclick = () => {
+                upgrade.effect(this);
+                document.getElementById('levelup-menu').classList.add('hidden');
+                this.gamePaused = false;
+
+                // Show what they picked
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 50,
+                    value: `⬆️ ${upgrade.icon} ${upgrade.name}`,
+                    lifetime: 2,
+                    color: upgrade.rarity === 'legendary' ? '#fbbf24' : upgrade.rarity === 'epic' ? '#a855f7' : upgrade.rarity === 'rare' ? '#4da6ff' : '#b8b8b8',
+                    scale: 1.5
+                });
+
+                // Handle multiple pending upgrades
+                if (this.pendingUpgrades > 0) {
+                    this.pendingUpgrades--;
+                    if (this.pendingUpgrades > 0) {
+                        setTimeout(() => this.showLevelUpMenu(), 300);
+                    }
+                }
+            };
+            container.appendChild(card);
         });
 
-        // Handle multiple pending upgrades
-        if (this.pendingUpgrades > 0) {
-            this.pendingUpgrades--;
-            if (this.pendingUpgrades > 0) {
-                setTimeout(() => this.showLevelUpMenu(), 300);
-                return;
-            }
-        }
+        document.getElementById('levelup-menu').classList.remove('hidden');
     }
 
     showAugmentMenu(choices = null, onComplete = null) {
