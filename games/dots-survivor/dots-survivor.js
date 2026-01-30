@@ -1725,6 +1725,10 @@ class DotsSurvivor {
     }
 
     spawnSoulCollector() {
+        // Only allow one active (incomplete) soul collector at a time
+        const hasActiveSoulCollector = this.soulCollectors.some(sc => !sc.complete);
+        if (hasActiveSoulCollector) return;
+
         const angle = Math.random() * Math.PI * 2;
         const dist = 300 + Math.random() * 400; // Reduced distance to stay in map
 
@@ -1742,7 +1746,7 @@ class DotsSurvivor {
 
         this.soulCollectors.push({
             wx, wy,
-            radius: 120,  // Collection radius - kills within this range count
+            radius: 180,  // Increased collection radius - kills within this range count
             soulsCollected: 0,
             soulsRequired: soulsRequired,
             complete: false,
