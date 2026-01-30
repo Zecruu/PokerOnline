@@ -59,17 +59,23 @@ function removeWhiteBackground(img) {
 }
 
 // Load a sprite image
-function loadSprite(type, path) {
+function loadSprite(type, path, skipProcessing = false) {
     if (!path) return null;
     if (SPRITE_CACHE[type]) return SPRITE_CACHE[type];
 
     const img = new Image();
     img.src = path;
     img.onload = () => {
-        // Process image to remove white background
-        const processedCanvas = removeWhiteBackground(img);
-        SPRITE_CACHE[type] = processedCanvas;
-        console.log(`Loaded and processed sprite for ${type}`);
+        // Skip processing for sprites that already have transparency (player, wolf, fireball)
+        if (skipProcessing || type === 'player' || type === 'wolf' || type === 'fireball') {
+            SPRITE_CACHE[type] = img; // Use image directly
+            console.log(`Loaded sprite for ${type} (no processing)`);
+        } else {
+            // Process image to remove white background for enemy sprites
+            const processedCanvas = removeWhiteBackground(img);
+            SPRITE_CACHE[type] = processedCanvas;
+            console.log(`Loaded and processed sprite for ${type}`);
+        }
     };
     img.onerror = () => {
         console.warn(`Failed to load sprite for ${type}: ${path}`);
