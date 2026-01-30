@@ -136,11 +136,112 @@
 
             <button id="start-btn" class="menu-btn primary">START GAME</button>
             <button id="leaderboard-btn" class="menu-btn secondary" style="margin-top:0.5rem;">🏆 LEADERBOARDS</button>
+            <button id="settings-btn" class="menu-btn secondary" style="margin-top:0.5rem;">⚙️ SETTINGS</button>
+            <button id="help-btn" class="menu-btn secondary" style="margin-top:0.5rem;">❓ GAME INFO</button>
 
             <div class="controls-info">
                 <p>🎮 WASD or Arrow Keys to move</p>
                 <p>🔫 Auto-fire enabled</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Settings Menu -->
+    <div id="settings-menu" class="menu-overlay hidden">
+        <div class="menu-content" style="max-width:400px;">
+            <h1 style="color:#00ffaa;margin-bottom:1.5rem;">⚙️ SETTINGS</h1>
+
+            <div class="settings-section">
+                <h3 style="color:#fff;margin-bottom:1rem;">🔊 Audio</h3>
+
+                <div class="settings-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <label style="color:#ccc;font-size:1rem;">Sound Effects</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="sound-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" style="margin-bottom:1.5rem;">
+                    <label style="color:#ccc;font-size:1rem;display:block;margin-bottom:0.5rem;">Volume</label>
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span style="color:#888;">🔈</span>
+                        <input type="range" id="volume-slider" min="0" max="100" value="50" style="flex:1;">
+                        <span style="color:#888;">🔊</span>
+                        <span id="volume-value" style="color:#fff;width:40px;text-align:right;">50%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section" style="border-top:1px solid #333;padding-top:1rem;">
+                <h3 style="color:#fff;margin-bottom:1rem;">📱 Display</h3>
+
+                <div class="settings-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <label style="color:#ccc;font-size:1rem;">Screen Shake</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="shake-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <label style="color:#ccc;font-size:1rem;">Slow Motion Effects</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="slowmo-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <button id="settings-back-btn" class="menu-btn primary" style="margin-top:1.5rem;">✓ SAVE & CLOSE</button>
+        </div>
+    </div>
+
+    <!-- Game Info/Help Menu -->
+    <div id="help-menu" class="menu-overlay hidden">
+        <div class="menu-content" style="max-width:600px;max-height:80vh;overflow-y:auto;">
+            <h1 style="color:#00ffaa;margin-bottom:1rem;">❓ GAME INFO</h1>
+
+            <div class="help-section" style="text-align:left;margin-bottom:1.5rem;">
+                <h3 style="color:#fbbf24;margin-bottom:0.5rem;">🎮 How to Play</h3>
+                <p style="color:#ccc;font-size:0.9rem;line-height:1.5;">
+                    • Use <span style="color:#00ffaa;">WASD</span> or <span style="color:#00ffaa;">Arrow Keys</span> to move<br>
+                    • On mobile, use the <span style="color:#00ffaa;">virtual joystick</span><br>
+                    • Your character <span style="color:#ff6600;">auto-fires</span> at the nearest enemy<br>
+                    • Collect <span style="color:#4ade80;">green orbs</span> for XP to level up<br>
+                    • Capture <span style="color:#00ffff;">💎 Control Points</span> for Diamond Augments<br>
+                    • Press <span style="color:#00ffaa;">ESC</span> or <span style="color:#00ffaa;">P</span> to pause
+                </p>
+            </div>
+
+            <div class="help-section" style="text-align:left;margin-bottom:1.5rem;">
+                <h3 style="color:#fbbf24;margin-bottom:0.5rem;">🌊 Waves & Hordes</h3>
+                <p style="color:#ccc;font-size:0.9rem;line-height:1.5;">
+                    • Every 20 seconds, a new <span style="color:#ff6600;">wave</span> begins<br>
+                    • Enemies get stronger each wave<br>
+                    • Every 5 waves, a <span style="color:#ff4466;">Boss</span> spawns<br>
+                    • Defeating bosses triggers a <span style="color:#ff4466;">Horde</span> of enemies
+                </p>
+            </div>
+
+            <div class="help-section" style="text-align:left;margin-bottom:1.5rem;">
+                <h3 style="color:#fbbf24;margin-bottom:0.75rem;">👾 Enemy Types</h3>
+                <div id="enemy-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;">
+                    <!-- Enemies will be populated by JS -->
+                </div>
+            </div>
+
+            <div class="help-section" style="text-align:left;margin-bottom:1rem;">
+                <h3 style="color:#fbbf24;margin-bottom:0.5rem;">⚔️ Tips</h3>
+                <p style="color:#ccc;font-size:0.9rem;line-height:1.5;">
+                    • Keep moving - standing still gets you killed!<br>
+                    • Focus damage upgrades early for faster kills<br>
+                    • Control points give powerful Diamond Augments<br>
+                    • Watch for the map borders - don't get cornered!
+                </p>
+            </div>
+
+            <button id="help-back-btn" class="menu-btn primary" style="margin-top:1rem;">← BACK TO MENU</button>
         </div>
     </div>
 

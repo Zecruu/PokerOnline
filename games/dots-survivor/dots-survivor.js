@@ -14,7 +14,16 @@ const WOLF_SPRITES = {
     biting: 'WolfBitting-removebg-preview.png'
 };
 
-const FIREBALL_SPRITE = 'bd0965f5-db33-4b59-9bc9-67b054787de1-removebg-preview.png';
+const FIREBALL_SPRITE = 'Fireball.png';
+const RINGOFFIRE_SPRITE = 'RingOfFire.png';
+
+// Elemental Skull Sprites (for orbiting skull augment)
+const SKULL_SPRITES = {
+    fire: '1ec244e0-23e0-4582-866c-10c9705ee8b1-removebg-preview.png',
+    slow: '23758cbd-26db-454a-b5f7-cfb21a00d678-removebg-preview.png',
+    dark: '5e6439b6-6125-4cc8-bcf4-acf56e524b72-removebg-preview.png',
+    lightning: '0a93e9de-a767-4d80-9df3-e21ca59d8319-removebg-preview.png'
+};
 
 // Animation state for wolf running (alternates between running1 and running2)
 const ANIM_STATE = {
@@ -121,6 +130,12 @@ function initSprites() {
     }
     // Load fireball sprite
     if (FIREBALL_SPRITE) loadSprite('fireball', FIREBALL_SPRITE, true);
+    // Load ring of fire sprite (for aura fire augment)
+    if (RINGOFFIRE_SPRITE) loadSprite('ringoffire', RINGOFFIRE_SPRITE, true);
+    // Load elemental skull sprites
+    for (const [element, path] of Object.entries(SKULL_SPRITES)) {
+        loadSprite('skull_' + element, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -146,7 +161,7 @@ const SURVIVOR_CLASS = {
     upgrades: [
         // Consolidated upgrades from all classes (removed barrage - duplicate of multishot)
         { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+15% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.85), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.85)).toFixed(1)}/s` },
-        { id: 'orbital', name: 'Arcane Orbital', icon: '🌀', desc: '+1 orbiting spell', rarity: 'rare', effect: (g) => g.orbitals.push(g.createOrbital()), getDesc: (g) => `Orbitals: ${g.orbitals.length} → ${g.orbitals.length + 1}` },
+        { id: 'skull', name: 'Elemental Skull', icon: '💀', desc: '+1 orbiting skull (cycles Fire/Dark/Lightning/Slow)', rarity: 'rare', effect: (g) => g.skulls.push(g.createSkull()), getDesc: (g) => `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` },
     ]
 };
 
@@ -161,15 +176,15 @@ const DIAMOND_AUGMENTS = [
     // Mage Path
     { id: 'wind_push', name: 'Gale Force', icon: '💨', desc: 'Every 7 seconds, unleash a wind slash that pushes all enemies back (bigger enemies resist more)', effect: (g) => { g.augments.push('wind_push'); g.windPushTimer = 0; g.windPushCooldown = 7; }, getDesc: (g) => g.augments.includes('wind_push') ? 'Active ✓' : 'Not Active' },
     { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop'), getDesc: (g) => g.augments.includes('time_stop') ? 'Active ✓' : 'Not Active' },
-    { id: 'elemental_mastery', name: 'Elemental Mastery', icon: '🌈', desc: 'Orbitals cycle between Fire, Ice, and Lightning effects', effect: (g) => g.augments.push('elemental_mastery'), getDesc: (g) => g.augments.includes('elemental_mastery') ? 'Active ✓' : 'Not Active' },
-    { id: 'unlimited_power', name: 'Unlimited Power', icon: '⚡', desc: 'Cooldowns reduced by 50%, Orbitals spin 2x faster', effect: (g) => g.orbitals.forEach(o => o.speed *= 2), getDesc: (g) => `Orbitals: ${g.orbitals.length} (2x speed)` },
+    { id: 'skull_frenzy', name: 'Skull Frenzy', icon: '💀', desc: 'Skulls spin 2x faster and deal +50% damage', effect: (g) => { g.augments.push('skull_frenzy'); g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => g.augments.includes('skull_frenzy') ? 'Active ✓' : 'Not Active' },
+    { id: 'skull_army', name: 'Skull Army', icon: '☠️', desc: '+3 elemental skulls instantly', effect: (g) => { for(let i = 0; i < 3; i++) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Skulls: ${g.skulls.length} → ${g.skulls.length + 3}` },
     // Wolf Pack Path
     { id: 'dire_wolves', name: 'Dire Wolves', icon: '🐺', desc: 'Max wolves +3, wolves are 50% larger and tankier', effect: (g) => { g.maxWolves = (g.maxWolves || 0) + 3; g.wolfSizeBonus = (g.wolfSizeBonus || 1) * 1.5; for(let i = 0; i < 3; i++) g.addMinion('wolf'); }, getDesc: (g) => `Max Wolves: ${g.maxWolves || 0} → ${(g.maxWolves || 0) + 3}` },
     { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🔥', desc: 'Wolves attack 50% faster and deal +25% damage', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
     { id: 'pack_tactics', name: 'Pack Tactics', icon: '🌙', desc: 'You gain +5% damage for every active wolf', effect: (g) => g.augments.push('pack_tactics'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
     { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
     // New Hybrid Paths
-    { id: 'tech_wizard', name: 'Tech Wizard', icon: '🔮', desc: 'Projectiles spawn Orbitals on hit (10% chance)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
+    { id: 'tech_wizard', name: 'Soul Harvest', icon: '🔮', desc: 'Projectiles spawn Skulls on kill (10% chance, max 12)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
     // Demon Set Augments
     { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
@@ -300,10 +315,10 @@ const BUILD_SETS = {
         name: 'Mage Set',
         pieces: ['mageHat', 'mageRobe', 'mageStaff'],
         color: '#4488ff',
-        bonus: '+3 Orbitals, orbitals deal 2x damage',
+        bonus: '+3 Skulls, skulls deal 2x damage',
         effect: (g) => {
-            for (let i = 0; i < 3; i++) g.orbitals.push(g.createOrbital());
-            g.orbitals.forEach(o => o.damage *= 2);
+            for (let i = 0; i < 3; i++) g.skulls.push(g.createSkull());
+            g.skulls.forEach(s => s.damage *= 2);
         }
     },
     hunter: {
@@ -332,14 +347,15 @@ const BUILD_SETS = {
 // Game balance settings (balanced around medium difficulty)
 const GAME_SETTINGS = {
     enemyHealthMult: 0.5,        // Much lower base health for easy waves 1-9
-        enemyDamageMult: 1.0,
-        enemySpeedMult: 1.0,
-        spawnRateMult: 1.0,
-    scalingPerWave: 0.08,        // Very low scaling for waves 1-9 (easy early game)
+    enemyDamageMult: 1.0,
+    enemySpeedMult: 1.3,         // FASTER enemies for more exciting gameplay
+    spawnRateMult: 0.7,          // FASTER spawns (lower = more frequent)
+    scalingPerWave: 0.10,        // Slightly higher scaling for progression feel
     scalingPerWaveLate: 0.55,    // Heavy scaling after wave 10 (difficulty ramps up)
     lateGameWave: 10,            // When late game scaling kicks in
-        playerHealthMult: 1.0,
-        xpMult: 1.0
+    playerHealthMult: 1.0,
+    xpMult: 1.2,                 // More XP for faster leveling
+    playerSpeedMult: 1.15        // Faster player movement
 };
 
 // Legendary Perks (from control points)
@@ -379,7 +395,7 @@ class DotsSurvivor {
         this.lastTime = 0;
         this.wave = 1;
         this.waveTimer = 0;
-        this.waveDuration = 30000;
+        this.waveDuration = 20000; // Shorter waves for faster pacing
 
         // World offset - bounded map (no more infinite kiting!)
         this.worldX = 0;
@@ -401,7 +417,10 @@ class DotsSurvivor {
         // Combat
         this.projectiles = [];
         this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
-        this.orbitals = [];
+        this.skulls = []; // Elemental skulls (replaced orbitals and stars)
+        this.skullElements = ['fire', 'dark', 'lightning', 'slow'];
+        this.skullElementIndex = 0;
+        this.skullCycleTimer = 0;
         this.minions = [];
 
         // Enemies
@@ -437,17 +456,37 @@ class DotsSurvivor {
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}` },
             { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
             { id: 'healregen', name: 'Regeneration', icon: '💚', desc: 'Regenerate +1 HP/s (out of combat only)', rarity: 'rare', effect: (g) => g.player.hpRegen = (g.player.hpRegen || 0) + 1, getDesc: (g) => `HP Regen: ${g.player.hpRegen || 0}/s → ${(g.player.hpRegen || 0) + 1}/s (out of combat)` },
-            { id: 'stars', name: 'Orbiting Stars', icon: '⭐', desc: 'Adds a star (max 8), then +10 damage', rarity: 'rare', effect: (g) => { if (g.stars.length < 8) g.stars.push(g.createStar()); else g.stars.forEach(s => s.damage += 10); }, getDesc: (g) => g.stars.length < 8 ? `Stars: ${g.stars.length} → ${g.stars.length + 1}` : `Star Damage: ${g.stars[0]?.damage || 15} → ${(g.stars[0]?.damage || 15) + 10}` },
+            { id: 'skull_upgrade', name: 'Soul Collector', icon: '💀', desc: 'Adds a skull (max 12), then +15 damage', rarity: 'rare', effect: (g) => { if (g.skulls.length < 12) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); }, getDesc: (g) => g.skulls.length < 12 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` : `Skull Damage: ${g.skulls[0]?.damage || 20} → ${(g.skulls[0]?.damage || 20) + 15}` },
             { id: 'crit', name: 'Critical Hit', icon: '⚡', desc: '+15% Crit Chance (Max 100%)', rarity: 'epic', effect: (g) => g.weapons.bullet.critChance = Math.min(1.0, (g.weapons.bullet.critChance || 0.05) + 0.15), getDesc: (g) => `Crit Chance: ${Math.floor((g.weapons.bullet.critChance || 0.05) * 100)}% → ${Math.min(100, Math.floor(((g.weapons.bullet.critChance || 0.05) + 0.15) * 100))}%` },
             { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
             { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 50}, Speed: ${g.player.speed}→${g.player.speed + 25}` },
-            { id: 'morestars', name: 'Star Shower', icon: '🌟', desc: 'Adds 3 stars (max 8), overflow = +10 damage each', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) { if (g.stars.length < 8) g.stars.push(g.createStar()); else g.stars.forEach(s => s.damage += 10); } }, getDesc: (g) => { const toAdd = Math.min(3, 8 - g.stars.length); const overflow = 3 - toAdd; return toAdd > 0 ? `Stars: ${g.stars.length} → ${g.stars.length + toAdd}${overflow > 0 ? `, +${overflow * 10} dmg` : ''}` : `Star Damage: +30`; } },
+            { id: 'skull_shower', name: 'Skull Storm', icon: '☠️', desc: 'Adds 3 skulls (max 12), overflow = +15 damage each', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) { if (g.skulls.length < 12) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); } }, getDesc: (g) => { const toAdd = Math.min(3, 12 - g.skulls.length); const overflow = 3 - toAdd; return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}${overflow > 0 ? `, +${overflow * 15} dmg` : ''}` : `Skull Damage: +45`; } },
             { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
             { id: 'summon_wolf', name: 'Call of the Pack', icon: '🐺', desc: '+1 wolf companion (max 8)', rarity: 'rare', effect: (g) => { if ((g.maxWolves || 0) < 8) { g.maxWolves = (g.maxWolves || 0) + 1; g.addMinion('wolf'); } }, getDesc: (g) => `Wolves: ${g.minions.length}/${g.maxWolves || 0}` },
         ];
 
+        this.initSettings();
         this.initSound();
         this.init();
+    }
+
+    initSettings() {
+        // Load settings from localStorage
+        const savedSettings = localStorage.getItem('dotsSurvivorSettings');
+        if (savedSettings) {
+            this.settings = JSON.parse(savedSettings);
+        } else {
+            this.settings = {
+                soundEnabled: true,
+                volume: 50,
+                screenShake: true,
+                slowMotion: true
+            };
+        }
+    }
+
+    saveSettings() {
+        localStorage.setItem('dotsSurvivorSettings', JSON.stringify(this.settings));
     }
 
     initSound() {
@@ -459,7 +498,11 @@ class DotsSurvivor {
     }
 
     playSound(type) {
-        if (!this.audioCtx) return;
+        if (!this.audioCtx || !this.settings.soundEnabled) return;
+
+        const volumeMult = this.settings.volume / 100;
+        if (volumeMult <= 0) return;
+
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
         osc.connect(gain);
@@ -470,19 +513,20 @@ class DotsSurvivor {
             osc.type = 'sine';
             osc.frequency.setValueAtTime(1800, this.audioCtx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(300, this.audioCtx.currentTime + 0.08);
-            gain.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.08 * volumeMult, this.audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.08);
             osc.start();
             osc.stop(this.audioCtx.currentTime + 0.08);
             return;
         }
 
-        gain.gain.value = 0.1;
-	        if (type === 'hit') { osc.frequency.value = 200; osc.type = 'sawtooth'; }
-	        else if (type === 'kill') { osc.frequency.value = 600; osc.type = 'sine'; }
-	        else if (type === 'xp') { osc.frequency.value = 900; osc.type = 'square'; }
+        const baseVolume = type === 'horde' ? 0.2 : 0.1;
+        gain.gain.value = baseVolume * volumeMult;
+        if (type === 'hit') { osc.frequency.value = 200; osc.type = 'sawtooth'; }
+        else if (type === 'kill') { osc.frequency.value = 600; osc.type = 'sine'; }
+        else if (type === 'xp') { osc.frequency.value = 900; osc.type = 'square'; }
         else if (type === 'levelup') { osc.frequency.value = 800; osc.type = 'sine'; }
-        else if (type === 'horde') { osc.frequency.value = 150; osc.type = 'sawtooth'; gain.gain.value = 0.2; }
+        else if (type === 'horde') { osc.frequency.value = 150; osc.type = 'sawtooth'; }
         else if (type === 'capture') { osc.frequency.value = 1000; osc.type = 'sine'; }
 
         osc.start();
@@ -514,6 +558,136 @@ class DotsSurvivor {
             this.showBoostSelect();
         });
         document.getElementById('hud-pause-btn').addEventListener('click', (e) => { e.stopPropagation(); this.togglePause(); });
+
+        // Settings menu
+        this.initSettingsMenu();
+    }
+
+    initSettingsMenu() {
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsMenu = document.getElementById('settings-menu');
+        const settingsBackBtn = document.getElementById('settings-back-btn');
+        const soundToggle = document.getElementById('sound-toggle');
+        const volumeSlider = document.getElementById('volume-slider');
+        const volumeValue = document.getElementById('volume-value');
+        const shakeToggle = document.getElementById('shake-toggle');
+        const slowmoToggle = document.getElementById('slowmo-toggle');
+
+        if (!settingsBtn || !settingsMenu) return;
+
+        // Load current settings into UI
+        soundToggle.checked = this.settings.soundEnabled;
+        volumeSlider.value = this.settings.volume;
+        volumeValue.textContent = this.settings.volume + '%';
+        shakeToggle.checked = this.settings.screenShake;
+        slowmoToggle.checked = this.settings.slowMotion;
+
+        // Open settings
+        settingsBtn.addEventListener('click', () => {
+            document.getElementById('start-menu').classList.add('hidden');
+            settingsMenu.classList.remove('hidden');
+        });
+
+        // Close settings
+        settingsBackBtn.addEventListener('click', () => {
+            this.saveSettings();
+            settingsMenu.classList.add('hidden');
+            document.getElementById('start-menu').classList.remove('hidden');
+        });
+
+        // Sound toggle
+        soundToggle.addEventListener('change', (e) => {
+            this.settings.soundEnabled = e.target.checked;
+            if (e.target.checked) {
+                this.playSound('xp'); // Play test sound
+            }
+        });
+
+        // Volume slider
+        volumeSlider.addEventListener('input', (e) => {
+            this.settings.volume = parseInt(e.target.value);
+            volumeValue.textContent = this.settings.volume + '%';
+        });
+
+        volumeSlider.addEventListener('change', () => {
+            this.playSound('xp'); // Play test sound when done adjusting
+        });
+
+        // Screen shake toggle
+        shakeToggle.addEventListener('change', (e) => {
+            this.settings.screenShake = e.target.checked;
+        });
+
+        // Slow motion toggle
+        slowmoToggle.addEventListener('change', (e) => {
+            this.settings.slowMotion = e.target.checked;
+        });
+
+        // Help/Info button
+        const helpBtn = document.getElementById('help-btn');
+        const helpMenu = document.getElementById('help-menu');
+        const helpBackBtn = document.getElementById('help-back-btn');
+
+        if (helpBtn && helpMenu) {
+            helpBtn.addEventListener('click', () => {
+                document.getElementById('start-menu').classList.add('hidden');
+                helpMenu.classList.remove('hidden');
+                this.populateEnemyInfo();
+            });
+
+            helpBackBtn.addEventListener('click', () => {
+                helpMenu.classList.add('hidden');
+                document.getElementById('start-menu').classList.remove('hidden');
+            });
+        }
+    }
+
+    populateEnemyInfo() {
+        const grid = document.getElementById('enemy-grid');
+        if (!grid) return;
+
+        const enemies = [
+            { type: 'swarm', name: 'Swarm', desc: 'Fast & weak, attacks in numbers', color: '#ff6666' },
+            { type: 'basic', name: 'Basic', desc: 'Standard enemy', color: '#ff4444' },
+            { type: 'runner', name: 'Runner', desc: 'Very fast, low HP', color: '#ff8800' },
+            { type: 'tank', name: 'Tank', desc: 'Slow, high HP', color: '#884400' },
+            { type: 'splitter', name: 'Splitter', desc: 'Splits into minis on death', color: '#aa44ff' },
+            { type: 'bomber', name: 'Bomber', desc: 'Explodes near you', color: '#ff0000' },
+            { type: 'mini', name: 'Mini', desc: 'Tiny but quick', color: '#ffaaff' },
+            { type: 'sticky', name: 'Sticky', desc: 'Slows you on hit', color: '#88ff00' },
+            { type: 'ice', name: 'Ice', desc: 'Creates slowing zone', color: '#00ddff' },
+            { type: 'poison', name: 'Poison', desc: 'Deals damage over time', color: '#44ff44' },
+            { type: 'boss', name: 'Boss', desc: 'Powerful, spawns hordes', color: '#ff0044' },
+            { type: 'general', name: 'General', desc: 'Demon King - very strong', color: '#ff0000' }
+        ];
+
+        grid.innerHTML = enemies.map(e => {
+            const sprite = SPRITE_CACHE[e.type];
+            let imgHtml = '';
+            if (sprite) {
+                imgHtml = `<canvas class="enemy-preview" data-type="${e.type}" width="40" height="40" style="image-rendering:pixelated;"></canvas>`;
+            } else {
+                imgHtml = `<div style="width:40px;height:40px;border-radius:50%;background:${e.color};"></div>`;
+            }
+            return `
+                <div style="background:#1a1a2e;border-radius:8px;padding:0.5rem;text-align:center;">
+                    <div style="display:flex;justify-content:center;margin-bottom:0.25rem;">${imgHtml}</div>
+                    <div style="color:#fff;font-weight:600;font-size:0.85rem;">${e.name}</div>
+                    <div style="color:#888;font-size:0.7rem;">${e.desc}</div>
+                </div>
+            `;
+        }).join('');
+
+        // Draw sprites onto canvases
+        setTimeout(() => {
+            enemies.forEach(e => {
+                const canvas = grid.querySelector(`canvas[data-type="${e.type}"]`);
+                if (canvas && SPRITE_CACHE[e.type]) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(SPRITE_CACHE[e.type], 0, 0, 40, 40);
+                }
+            });
+        }, 50);
     }
 
     togglePause() {
@@ -622,9 +796,8 @@ class DotsSurvivor {
             // Weapons
             weapons: this.weapons,
 
-            // Stars/Orbitals
-            starsCount: this.stars.length,
-            orbitalsCount: this.orbitals.length,
+            // Skulls
+            skullsCount: this.skulls.length,
 
             // Perks and augments
             perks: this.perks,
@@ -673,14 +846,10 @@ class DotsSurvivor {
         // Weapons
         if (state.weapons) this.weapons = state.weapons;
 
-        // Stars/Orbitals
-        this.stars = [];
-        for (let i = 0; i < (state.starsCount || 0); i++) {
-            this.stars.push(this.createStar());
-        }
-        this.orbitals = [];
-        for (let i = 0; i < (state.orbitalsCount || 0); i++) {
-            this.orbitals.push(this.createOrbital());
+        // Skulls
+        this.skulls = [];
+        for (let i = 0; i < (state.skullsCount || 0); i++) {
+            this.skulls.push(this.createSkull());
         }
 
         // Perks and augments
@@ -757,7 +926,16 @@ class DotsSurvivor {
         document.getElementById('btn-boosted').addEventListener('click', () => this.startGame('boosted'));
     }
 
-    resizeCanvas() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
+    resizeCanvas() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        // Mobile devices get a zoomed out view for better visibility
+        if (this.isMobile || window.innerWidth < 768) {
+            this.cameraScale = 0.50; // More zoomed out on mobile
+        } else {
+            this.cameraScale = 0.65; // Default desktop zoom
+        }
+    }
 
     startGame(mode = 'fresh') {
         document.getElementById('start-menu').classList.add('hidden'); // Ensure menu hidden
@@ -767,7 +945,8 @@ class DotsSurvivor {
 
         // Apply game settings to player
         const baseHealth = Math.floor(100 * GAME_SETTINGS.playerHealthMult);
-        this.player.health = baseHealth; this.player.maxHealth = baseHealth; this.player.speed = 220;
+        const baseSpeed = Math.floor(220 * (GAME_SETTINGS.playerSpeedMult || 1));
+        this.player.health = baseHealth; this.player.maxHealth = baseHealth; this.player.speed = baseSpeed;
         this.player.xp = 0; this.player.xpToLevel = 50; this.player.kills = 0;
         this.player.hpRegen = 0;
 
@@ -790,7 +969,8 @@ class DotsSurvivor {
         if (this.selectedClass.bonuses.damage) this.weapons.bullet.damage = Math.floor(this.weapons.bullet.damage * this.selectedClass.bonuses.damage);
 
         this.enemies = []; this.projectiles = []; this.pickups = []; this.particles = []; this.damageNumbers = [];
-        this.orbitals = []; this.minions = []; this.items = {}; this.stars = [];
+        this.skulls = []; this.minions = []; this.items = {};
+        this.skullElementIndex = 0; this.skullCycleTimer = 0;
         
         // Stacking Items System
         this.stackingItems = {}; // { itemKey: { stacks: 0, evolved: false } }
@@ -931,7 +1111,7 @@ class DotsSurvivor {
         this.diamondAugments = [...DIAMOND_AUGMENTS];
 
         // Class-specific starting abilities
-        if (this.selectedClass.bonuses.orbitalCount) for (let i = 0; i < this.selectedClass.bonuses.orbitalCount; i++) this.orbitals.push(this.createOrbital());
+        if (this.selectedClass.bonuses.skullCount) for (let i = 0; i < this.selectedClass.bonuses.skullCount; i++) this.skulls.push(this.createSkull());
 
         // Chrono Field (time_stop augment)
         this.chronoFieldTimer = 0;
@@ -1728,18 +1908,19 @@ class DotsSurvivor {
         });
     }
 
-    createOrbital() {
-        return { angle: Math.random() * Math.PI * 2, radius: 80 + this.orbitals.length * 15, speed: 2 + Math.random(), damage: 12, size: 12, color: '#aa44ff' };
-    }
-
-    createStar() {
+    createSkull() {
+        // Create an elemental skull that orbits the player
+        const elements = ['fire', 'dark', 'lightning', 'slow'];
+        const element = elements[this.skulls.length % 4]; // Cycle through elements
+        const colors = { fire: '#ff4400', dark: '#6600aa', lightning: '#ffff00', slow: '#00ccff' };
         return {
             angle: Math.random() * Math.PI * 2,
-            radius: 60 + this.stars.length * 12,
-            speed: 3 + Math.random() * 0.5,
-            damage: 15,
-            size: 10,
-            color: '#ffdd00'
+            radius: 70 + this.skulls.length * 12,
+            speed: 2.5 + Math.random() * 0.5,
+            damage: 20,
+            size: 18,
+            element: element,
+            color: colors[element]
         };
     }
 
@@ -1852,7 +2033,6 @@ class DotsSurvivor {
     }
 
     spawnHorde() {
-
         // Spawn a massive wave of enemies surrounding the player
         const hordeSize = 30 + this.wave * 5;
 
@@ -1869,11 +2049,11 @@ class DotsSurvivor {
         this.hordeActive = true;
         this.hordeEnemyCount = hordeSize;
 
-        // Spawn enemies in a tight circle around player (closer spawn for surrounded feel)
+        // Spawn enemies FAR from player - gives player time to prepare
         for (let i = 0; i < hordeSize; i++) {
             setTimeout(() => {
                 const angle = (i / hordeSize) * Math.PI * 2 + Math.random() * 0.3;
-                const dist = 180 + Math.random() * 120; // Closer horde spawns for intense combat
+                const dist = 500 + Math.random() * 200; // FARTHER spawn distance for horde
                 const wx = this.worldX + Math.cos(angle) * dist;
                 const wy = this.worldY + Math.sin(angle) * dist;
 
@@ -1881,11 +2061,11 @@ class DotsSurvivor {
                 const types = ['basic', 'runner', 'swarm', 'swarm', 'sticky'];
                 if (this.wave >= 8) types.push('ice'); // Ice mobs appear in hordes after wave 8
                 const type = types[Math.floor(Math.random() * types.length)];
-                // Pass isHorde=true for +50% health and 20% slower speed
+                // Pass isHorde=true for +50% health and 40% slower speed (slower horde)
                 const enemy = this.createEnemy(wx, wy, type, false, true);
                 enemy.isHordeEnemy = true; // Mark as horde enemy for tracking
                 this.enemies.push(enemy);
-            }, i * 50); // Stagger spawns for dramatic effect
+            }, i * 60); // Slightly more stagger for dramatic effect
         }
     }
 
@@ -2222,8 +2402,7 @@ class DotsSurvivor {
         this.spawnHealthPacks();
         this.updateControlPoints(effectiveDt);
         this.updateEnemies(effectiveDt);
-        this.updateOrbitals(effectiveDt);
-        this.updateStars(effectiveDt);
+        this.updateSkulls(effectiveDt);
         this.updateMinions(effectiveDt);
         this.updateActiveMinions(effectiveDt);
         this.updateImps(effectiveDt);
@@ -2245,11 +2424,13 @@ class DotsSurvivor {
 
     // Game Juice - Screen shake, slowmo, kill streaks
     triggerScreenShake(intensity, duration = 0.2) {
+        if (!this.settings.screenShake) return; // Respect settings
         this.screenShake.intensity = Math.max(this.screenShake.intensity, intensity);
         this.screenShake.duration = Math.max(this.screenShake.duration, duration);
     }
 
     triggerSlowmo(factor = 0.3, duration = 0.5) {
+        if (!this.settings.slowMotion) return; // Respect settings
         this.slowmo.active = true;
         this.slowmo.factor = factor;
         this.slowmo.duration = duration;
@@ -2451,18 +2632,33 @@ class DotsSurvivor {
     }
 
     updateElementalCycle(dt) {
-        if (!this.augments.includes('elemental_mastery')) return;
+        // Skulls always cycle through elements every 4 seconds
+        if (this.skulls.length === 0) return;
 
-        this.elementalCycleTimer += dt;
-        if (this.elementalCycleTimer >= 3) { // Cycle every 3 seconds
-            this.elementalCycleTimer = 0;
-            this.currentElement = (this.currentElement + 1) % 3;
+        this.skullCycleTimer += dt;
+        if (this.skullCycleTimer >= 4) { // Cycle every 4 seconds
+            this.skullCycleTimer = 0;
+            this.skullElementIndex = (this.skullElementIndex + 1) % 4;
 
-            // Update orbital colors
-            for (const o of this.orbitals) {
-                o.element = this.elementNames[this.currentElement];
-                o.color = this.elementColors[this.currentElement];
+            const elements = ['fire', 'dark', 'lightning', 'slow'];
+            const colors = { fire: '#ff4400', dark: '#6600aa', lightning: '#ffff00', slow: '#00ccff' };
+            const newElement = elements[this.skullElementIndex];
+
+            // Update all skull elements
+            for (const s of this.skulls) {
+                s.element = newElement;
+                s.color = colors[newElement];
             }
+
+            // Visual feedback for element change
+            this.damageNumbers.push({
+                x: this.player.x,
+                y: this.player.y - 50,
+                value: `💀 ${newElement.toUpperCase()}!`,
+                lifetime: 1,
+                color: colors[newElement],
+                scale: 0.8
+            });
         }
     }
 
@@ -2813,9 +3009,9 @@ class DotsSurvivor {
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
-        // Horde enemies get +50% health and 20% slower speed
+        // Horde enemies get +50% health and 40% slower speed (easier to deal with)
         const hordeHealthMult = isHorde ? 1.5 : 1;
-        const hordeSpeedMult = isHorde ? 0.8 : 1;
+        const hordeSpeedMult = isHorde ? 0.6 : 1;
 
         // Unique enemy ID for damage number stacking
         if (!this.enemyIdCounter) this.enemyIdCounter = 0;
@@ -3091,6 +3287,14 @@ class DotsSurvivor {
             }
         }
 
+        // Soul Harvest (tech_wizard augment): 10% chance to spawn a skull on kill (max 12)
+        if (this.augments.includes('tech_wizard') && this.skulls.length < 12) {
+            if (Math.random() < 0.10) {
+                this.skulls.push(this.createSkull());
+                this.damageNumbers.push({ x: sx, y: sy - 20, value: '💀 SOUL!', lifetime: 1, color: '#aa44ff', scale: 0.8 });
+            }
+        }
+
         // Necro Set Bonus: enemies explode on death
         if (this.necroExplosion && !e.isBoss) {
             this.spawnParticles(sx, sy, '#aa44ff', 15);
@@ -3230,125 +3434,32 @@ class DotsSurvivor {
         this.pickups.push({ wx, wy, xp: 0, radius: 15, color: '#fbbf24', isItem: true, itemKey });
     }
 
-    updateOrbitals(dt) {
-        // Initialize orbital hit tracking if not exists
-        if (!this.orbitalHits) this.orbitalHits = new Map();
+    updateSkulls(dt) {
+        // Initialize skull hit tracking if not exists
+        if (!this.skullHits) this.skullHits = new Map();
 
-        this.orbitals.forEach((o, oIndex) => {
-            o.angle += o.speed * dt;
-            const ox = this.player.x + Math.cos(o.angle) * o.radius;
-            const oy = this.player.y + Math.sin(o.angle) * o.radius;
-
-
-
-            // Check collision with enemies
-            for (const e of this.enemies) {
-                const sx = this.player.x + (e.wx - this.worldX);
-                const sy = this.player.y + (e.wy - this.worldY);
-                const d = Math.sqrt((ox - sx) ** 2 + (oy - sy) ** 2);
-                if (d < o.size + e.radius) {
-                    // Diminishing returns system: track hits per enemy per orbital
-                    if (!e.orbitalHitId) e.orbitalHitId = Math.random(); // Unique ID for this enemy
-                    const hitKey = `o${oIndex}_${e.orbitalHitId}`;
-
-                    if (!this.orbitalHits.has(hitKey)) {
-                        this.orbitalHits.set(hitKey, { lastHit: 0, hitCount: 0 });
-                    }
-                    const hitData = this.orbitalHits.get(hitKey);
-
-                    // Hit cooldown: 0.25 seconds between hits on same target
-                    if (this.gameTime - hitData.lastHit < 250) continue;
-
-                    hitData.lastHit = this.gameTime;
-                    hitData.hitCount++;
-
-                    // Diminishing returns: damage reduces by 15% per consecutive hit, min 30% of base
-                    const diminishFactor = Math.max(0.3, 1 - (hitData.hitCount - 1) * 0.15);
-                    const actualDamage = Math.floor(o.damage * diminishFactor);
-
-                    e.health -= actualDamage; e.hitFlash = 1;
-
-                    // Elemental effects
-                    if (o.element === 'fire') {
-                        // Fire: Burn damage
-                        e.health -= Math.floor(actualDamage * 0.5);
-                        this.spawnParticles(sx, sy, '#ff4400', 5);
-                        this.addDamageNumber(sx, sy, Math.floor(actualDamage * 1.5), '#ff4400', { enemyId: e.id });
-                    } else if (o.element === 'ice') {
-                        // Ice: Slow enemy
-                        e.speed = Math.max(20, e.speed * 0.7);
-                        this.spawnParticles(sx, sy, '#00ccff', 5);
-                        this.addDamageNumber(sx, sy, actualDamage, '#00ccff', { enemyId: e.id });
-                    } else if (o.element === 'lightning') {
-                        // Lightning: Chain to nearby enemy
-                        let chainTarget = null;
-                        let chainDist = 150;
-                        for (const other of this.enemies) {
-                            if (other === e) continue;
-                            const otherSx = this.player.x + (other.wx - this.worldX);
-                            const otherSy = this.player.y + (other.wy - this.worldY);
-                            const chainD = Math.sqrt((sx - otherSx) ** 2 + (sy - otherSy) ** 2);
-                            if (chainD < chainDist) {
-                                chainDist = chainD;
-                                chainTarget = other;
-                            }
-                        }
-                        if (chainTarget) {
-                            chainTarget.health -= Math.floor(actualDamage * 0.5);
-                            chainTarget.hitFlash = 1;
-                        }
-                        this.spawnParticles(sx, sy, '#ffff00', 5);
-                        this.addDamageNumber(sx, sy, actualDamage, '#ffff00', { enemyId: e.id });
-                    } else {
-                        this.addDamageNumber(sx, sy, actualDamage, '#aa44ff', { enemyId: e.id });
-                    }
-                } else {
-                    // Enemy out of range - reset hit count for this orbital/enemy combo
-                    if (e.orbitalHitId) {
-                        const hitKey = `o${oIndex}_${e.orbitalHitId}`;
-                        if (this.orbitalHits.has(hitKey)) {
-                            this.orbitalHits.get(hitKey).hitCount = 0;
-                        }
-                    }
-                }
-            }
-        });
-
-        // Clean up old hit tracking entries periodically
-        if (this.gameTime % 5000 < 20) {
-            for (const [key, data] of this.orbitalHits) {
-                if (this.gameTime - data.lastHit > 3000) {
-                    this.orbitalHits.delete(key);
-                }
-            }
-        }
-    }
-
-    updateStars(dt) {
-        // Initialize star hit tracking if not exists
-        if (!this.starHits) this.starHits = new Map();
-
-        this.stars.forEach((s, sIndex) => {
+        this.skulls.forEach((s, sIndex) => {
             s.angle += s.speed * dt;
             const sx = this.player.x + Math.cos(s.angle) * s.radius;
             const sy = this.player.y + Math.sin(s.angle) * s.radius;
+
             // Check collision with enemies
             for (const e of this.enemies) {
                 const ex = this.player.x + (e.wx - this.worldX);
                 const ey = this.player.y + (e.wy - this.worldY);
                 const d = Math.sqrt((sx - ex) ** 2 + (sy - ey) ** 2);
                 if (d < s.size + e.radius) {
-                    // Diminishing returns system: track hits per enemy per star
-                    if (!e.starHitId) e.starHitId = Math.random(); // Unique ID for this enemy
-                    const hitKey = `s${sIndex}_${e.starHitId}`;
+                    // Diminishing returns system: track hits per enemy per skull
+                    if (!e.skullHitId) e.skullHitId = Math.random();
+                    const hitKey = `skull${sIndex}_${e.skullHitId}`;
 
-                    if (!this.starHits.has(hitKey)) {
-                        this.starHits.set(hitKey, { lastHit: 0, hitCount: 0 });
+                    if (!this.skullHits.has(hitKey)) {
+                        this.skullHits.set(hitKey, { lastHit: 0, hitCount: 0 });
                     }
-                    const hitData = this.starHits.get(hitKey);
+                    const hitData = this.skullHits.get(hitKey);
 
-                    // Hit cooldown: 0.25 seconds between hits on same target
-                    if (this.gameTime - hitData.lastHit < 250) continue;
+                    // Hit cooldown: 0.3 seconds between hits on same target
+                    if (this.gameTime - hitData.lastHit < 300) continue;
 
                     hitData.lastHit = this.gameTime;
                     hitData.hitCount++;
@@ -3358,13 +3469,58 @@ class DotsSurvivor {
                     const actualDamage = Math.floor(s.damage * diminishFactor);
 
                     e.health -= actualDamage; e.hitFlash = 1;
-                    this.addDamageNumber(ex, ey, actualDamage, '#ffdd00', { enemyId: e.id });
+
+                    // Elemental effects based on current skull element
+                    if (s.element === 'fire') {
+                        // Fire: Burn damage over time
+                        e.health -= Math.floor(actualDamage * 0.5);
+                        this.spawnParticles(ex, ey, '#ff4400', 5);
+                        this.addDamageNumber(ex, ey, Math.floor(actualDamage * 1.5), '#ff4400', { enemyId: e.id });
+                    } else if (s.element === 'dark') {
+                        // Dark: High damage, life steal
+                        const darkBonus = Math.floor(actualDamage * 0.3);
+                        e.health -= darkBonus;
+                        this.player.health = Math.min(this.player.maxHealth, this.player.health + Math.floor(darkBonus * 0.1));
+                        this.spawnParticles(ex, ey, '#6600aa', 5);
+                        this.addDamageNumber(ex, ey, actualDamage + darkBonus, '#aa44ff', { enemyId: e.id });
+                    } else if (s.element === 'lightning') {
+                        // Lightning: Chain to nearby enemies
+                        let chainTarget = null;
+                        let chainDist = 150;
+                        for (const other of this.enemies) {
+                            if (other === e) continue;
+                            const otherEx = this.player.x + (other.wx - this.worldX);
+                            const otherEy = this.player.y + (other.wy - this.worldY);
+                            const chainD = Math.sqrt((ex - otherEx) ** 2 + (ey - otherEy) ** 2);
+                            if (chainD < chainDist) {
+                                chainDist = chainD;
+                                chainTarget = other;
+                            }
+                        }
+                        if (chainTarget) {
+                            chainTarget.health -= Math.floor(actualDamage * 0.5);
+                            chainTarget.hitFlash = 1;
+                            const chainEx = this.player.x + (chainTarget.wx - this.worldX);
+                            const chainEy = this.player.y + (chainTarget.wy - this.worldY);
+                            this.addDamageNumber(chainEx, chainEy, Math.floor(actualDamage * 0.5), '#ffff00', { enemyId: chainTarget.id });
+                        }
+                        this.spawnParticles(ex, ey, '#ffff00', 5);
+                        this.addDamageNumber(ex, ey, actualDamage, '#ffff00', { enemyId: e.id });
+                    } else if (s.element === 'slow') {
+                        // Slow: Reduce enemy speed
+                        e.speed = Math.max(20, e.speed * 0.6);
+                        e.slowTimer = 2; // Slow lasts 2 seconds
+                        this.spawnParticles(ex, ey, '#00ccff', 5);
+                        this.addDamageNumber(ex, ey, actualDamage, '#00ccff', { enemyId: e.id });
+                    } else {
+                        this.addDamageNumber(ex, ey, actualDamage, s.color, { enemyId: e.id });
+                    }
                 } else {
-                    // Enemy out of range - reset hit count for this star/enemy combo
-                    if (e.starHitId) {
-                        const hitKey = `s${sIndex}_${e.starHitId}`;
-                        if (this.starHits.has(hitKey)) {
-                            this.starHits.get(hitKey).hitCount = 0;
+                    // Enemy out of range - reset hit count
+                    if (e.skullHitId) {
+                        const hitKey = `skull${sIndex}_${e.skullHitId}`;
+                        if (this.skullHits.has(hitKey)) {
+                            this.skullHits.get(hitKey).hitCount = 0;
                         }
                     }
                 }
@@ -3373,9 +3529,9 @@ class DotsSurvivor {
 
         // Clean up old hit tracking entries periodically
         if (this.gameTime % 5000 < 20) {
-            for (const [key, data] of this.starHits) {
+            for (const [key, data] of this.skullHits) {
                 if (this.gameTime - data.lastHit > 3000) {
-                    this.starHits.delete(key);
+                    this.skullHits.delete(key);
                 }
             }
         }
@@ -3976,7 +4132,7 @@ class DotsSurvivor {
     }
 
     showLevelUpMenu() {
-        // Show upgrade selection menu - player chooses from available upgrades
+        // Show upgrade selection menu - player picks from 3 RANDOM upgrades
         this.playSound('levelup');
         this.gamePaused = true;
 
@@ -4005,18 +4161,29 @@ class DotsSurvivor {
 
         container.innerHTML = '';
 
-        // Sort by rarity for better organization
-        const rarityOrder = { legendary: 0, epic: 1, rare: 2, common: 3 };
-        available.sort((a, b) => (rarityOrder[a.rarity] || 3) - (rarityOrder[b.rarity] || 3));
+        // Pick 3 RANDOM upgrades from available pool (weighted by rarity)
+        const choices = [];
+        const pool = [...available];
+        const weights = { common: 50, rare: 30, epic: 15, legendary: 5 };
 
-        available.forEach(upgrade => {
+        while (choices.length < 3 && pool.length > 0) {
+            const weightedPool = [];
+            pool.forEach((u, idx) => {
+                const w = weights[u.rarity] || 50;
+                for (let i = 0; i < w; i++) weightedPool.push(idx);
+            });
+            const idx = weightedPool[Math.floor(Math.random() * weightedPool.length)];
+            choices.push(pool.splice(idx, 1)[0]);
+        }
+
+        choices.forEach(upgrade => {
             const card = document.createElement('div');
             card.className = `upgrade-card ${upgrade.rarity || 'common'}`;
             card.innerHTML = `
                 <div class="upgrade-icon">${upgrade.icon}</div>
-                <div class="upgrade-name">${upgrade.name}</div>
-                <div class="upgrade-desc">${upgrade.desc}</div>
-                <div class="upgrade-stats">${upgrade.getDesc ? upgrade.getDesc(this) : ''}</div>
+                <div class="upgrade-name" style="color: #fff;">${upgrade.name}</div>
+                <div class="upgrade-desc" style="color: #ddd;">${upgrade.desc}</div>
+                <div class="upgrade-stats" style="color: #aaa;">${upgrade.getDesc ? upgrade.getDesc(this) : ''}</div>
             `;
             card.onclick = () => {
                 upgrade.effect(this);
@@ -4073,9 +4240,10 @@ class DotsSurvivor {
                 return;
             }
 
+            // Pick 3 RANDOM diamond augments
             choices = [];
             const pool = [...available];
-            while (choices.length < 2 && pool.length > 0) {
+            while (choices.length < 3 && pool.length > 0) {
                 const idx = Math.floor(Math.random() * pool.length);
                 choices.push(pool.splice(idx, 1)[0]);
             }
@@ -4094,9 +4262,9 @@ class DotsSurvivor {
                 <div class="upgrade-rarity" style="background:#00ffff;color:#000;">DIAMOND</div>
                 <div class="upgrade-icon">${u.icon}</div>
                 <div class="upgrade-details-container">
-                    <div class="upgrade-name" style="color:#00ffff;">${u.name}</div>
-                    <div class="upgrade-desc" style="color:#aee;">${u.desc}</div>
-                    <div class="upgrade-stats" style="color:#88ffff;font-size:0.8em;margin-top:4px;">${desc}</div>
+                    <div class="upgrade-name" style="color:#ffffff;">${u.name}</div>
+                    <div class="upgrade-desc" style="color:#ffffff;">${u.desc}</div>
+                    <div class="upgrade-stats" style="color:#cccccc;font-size:0.8em;margin-top:4px;">${desc}</div>
                 </div>
             `;
             card.addEventListener('click', () => {
@@ -4836,21 +5004,31 @@ class DotsSurvivor {
             ctx.fillStyle = '#fbbf24'; ctx.fillText('🏴', sx, sy);
         });
 
-        // Orbitals
-        this.orbitals.forEach(o => {
-            const ox = this.player.x + Math.cos(o.angle) * o.radius;
-            const oy = this.player.y + Math.sin(o.angle) * o.radius;
-            ctx.beginPath(); ctx.arc(ox, oy, o.size, 0, Math.PI * 2);
-            ctx.fillStyle = o.color; ctx.shadowBlur = 10; ctx.shadowColor = o.color; ctx.fill(); ctx.shadowBlur = 0;
-        });
-        // Stars
-        this.stars.forEach(s => {
+        // Elemental Skulls
+        this.skulls.forEach(s => {
             const sx = this.player.x + Math.cos(s.angle) * s.radius;
             const sy = this.player.y + Math.sin(s.angle) * s.radius;
-            ctx.font = `${s.size + 6}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.shadowBlur = 15; ctx.shadowColor = '#ffdd00';
-            ctx.fillText('⭐', sx, sy);
-            ctx.shadowBlur = 0;
+
+            // Try to use skull sprite
+            const skullSprite = SPRITE_CACHE['skull_' + s.element];
+            if (skullSprite) {
+                ctx.save();
+                ctx.translate(sx, sy);
+                // Add glow effect based on element
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = s.color;
+                const size = s.size * 2;
+                ctx.drawImage(skullSprite, -size / 2, -size / 2, size, size);
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else {
+                // Fallback to circle with skull emoji
+                ctx.beginPath(); ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
+                ctx.fillStyle = s.color; ctx.shadowBlur = 10; ctx.shadowColor = s.color; ctx.fill(); ctx.shadowBlur = 0;
+                ctx.font = `${s.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff';
+                ctx.fillText('💀', sx, sy);
+            }
         });
         // Minions (Wolf Pack) - Using single sprite files
         this.minions.forEach((m, idx) => {
@@ -4944,33 +5122,52 @@ class DotsSurvivor {
             });
         }
 
-        // Aura Fire Circle (augment) - Thin ring with glow
+        // Aura Fire Circle (augment) - Rotating sprite ring
         if (this.auraFire) {
             ctx.save();
             const auraRadius = this.auraFire.radius;
-            const intensity = 0.6 + Math.sin(this.gameTime / 100) * 0.2;
-            
-            // Outer glow effect
-            ctx.shadowBlur = 15 + this.auraFire.level * 3;
-            ctx.shadowColor = `rgba(255, ${100 - this.auraFire.level * 10}, 0, ${intensity})`;
-            
-            // Thin fire ring
-            ctx.beginPath();
-            ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(255, ${150 - this.auraFire.level * 15}, 0, ${intensity})`;
-            ctx.lineWidth = 3 + this.auraFire.level;
-            ctx.stroke();
-            
+            const ringSprite = SPRITE_CACHE['ringoffire'];
+
+            if (ringSprite) {
+                // Draw rotating ring of fire sprite
+                ctx.translate(this.player.x, this.player.y);
+
+                // Slow rotation based on game time
+                const rotation = this.gameTime / 500;
+                ctx.rotate(rotation);
+
+                // Size the sprite to match the aura radius (sprite covers diameter)
+                const spriteSize = auraRadius * 2.2; // Slightly larger for visual impact
+
+                // Add glow effect
+                ctx.shadowBlur = 15 + this.auraFire.level * 3;
+                ctx.shadowColor = `rgba(255, 100, 0, 0.8)`;
+
+                // Draw the ring sprite centered
+                ctx.drawImage(ringSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+
+                ctx.shadowBlur = 0;
+            } else {
+                // Fallback to circle rendering if sprite not loaded
+                const intensity = 0.6 + Math.sin(this.gameTime / 100) * 0.2;
+                ctx.shadowBlur = 15 + this.auraFire.level * 3;
+                ctx.shadowColor = `rgba(255, ${100 - this.auraFire.level * 10}, 0, ${intensity})`;
+                ctx.beginPath();
+                ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, ${150 - this.auraFire.level * 15}, 0, ${intensity})`;
+                ctx.lineWidth = 3 + this.auraFire.level;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
             // Level indicator
             if (this.auraFire.level > 1) {
                 ctx.font = 'bold 10px Inter';
                 ctx.fillStyle = '#ff6600';
                 ctx.textAlign = 'center';
-                ctx.shadowBlur = 0;
                 ctx.fillText(`🔥${this.auraFire.level}`, this.player.x, this.player.y - auraRadius - 8);
             }
-            
-            ctx.shadowBlur = 0;
+
             ctx.restore();
         }
 
