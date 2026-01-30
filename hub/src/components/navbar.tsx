@@ -9,6 +9,7 @@ export function Navbar() {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -22,6 +23,13 @@ export function Navbar() {
         setUsername("Player");
       }
     }
+
+    // Handle scroll effect
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const openSignIn = () => {
@@ -45,59 +53,60 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="bg-slate-900/95 backdrop-blur-sm px-6 py-4 flex justify-between items-center border-b border-slate-700/50 sticky top-0 z-50">
+      <nav className={`navbar-glass px-6 lg:px-8 py-4 flex justify-between items-center sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'py-3' : ''}`}>
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 text-xl font-extrabold">
-          <img src="/logo.jpg" alt="Zecruu Games" className="h-10 w-10 rounded-lg" />
-          <span className="text-white">Zecruu <span className="text-[rgb(0,212,170)]">Games</span></span>
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-r from-[rgb(0,212,170)] to-[rgb(120,80,255)] rounded-xl blur opacity-0 group-hover:opacity-40 transition-opacity" />
+            <img src="/logo.jpg" alt="Zecruu Games" className="relative h-10 w-10 rounded-xl" />
+          </div>
+          <span className="text-xl font-bold text-white">
+            Zecruu <span className="text-gradient">Games</span>
+          </span>
         </Link>
 
         {/* Navigation Links */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="text-white hover:text-[rgb(0,212,170)] transition-colors font-semibold">
-            Home
-          </Link>
-          <Link href="/store" className="text-white hover:text-[rgb(0,212,170)] transition-colors font-semibold">
-            Store
-          </Link>
-          <Link href="/library" className="text-white hover:text-[rgb(0,212,170)] transition-colors font-semibold">
-            My Library
-          </Link>
+        <div className="hidden md:flex items-center gap-1">
+          <NavLink href="/">Home</NavLink>
+          <NavLink href="/store">Store</NavLink>
+          <NavLink href="/library">Library</NavLink>
+        </div>
 
-          {/* Auth Section */}
+        {/* Auth Section */}
+        <div className="flex items-center gap-3">
           {isLoggedIn ? (
-            <div className="flex items-center gap-4 ml-4">
+            <>
               <Link
                 href="/profile"
-                className="flex items-center gap-2 text-white hover:text-[rgb(0,212,170)] transition-colors font-semibold"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors"
               >
-                <span className="w-8 h-8 bg-[rgb(0,212,170)] rounded-full flex items-center justify-center text-slate-900 font-bold text-sm">
+                <div className="w-8 h-8 bg-gradient-to-br from-[rgb(0,212,170)] to-[rgb(0,180,145)] rounded-full flex items-center justify-center text-[rgb(10,10,15)] font-bold text-sm shadow-lg shadow-[rgba(0,212,170,0.2)]">
                   {username.charAt(0).toUpperCase()}
-                </span>
-                {username}
+                </div>
+                <span className="text-white font-medium hidden sm:block">{username}</span>
               </Link>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-slate-400 hover:text-white transition-colors font-medium"
+                className="px-4 py-2 text-white/50 hover:text-white transition-colors text-sm font-medium"
               >
                 Logout
               </button>
-            </div>
+            </>
           ) : (
-            <div className="flex items-center gap-3 ml-4">
+            <>
               <button
                 onClick={openSignIn}
-                className="px-4 py-2 text-white hover:text-[rgb(0,212,170)] transition-colors font-semibold"
+                className="btn-glass btn-glass-secondary px-5 py-2.5 text-sm"
               >
                 Sign In
               </button>
               <button
                 onClick={openSignUp}
-                className="px-5 py-2 bg-[rgb(0,212,170)] hover:bg-[rgb(0,180,145)] text-slate-900 rounded-lg font-bold transition-colors"
+                className="btn-glass btn-glass-primary px-5 py-2.5 text-sm"
               >
                 Sign Up
               </button>
-            </div>
+            </>
           )}
         </div>
       </nav>
@@ -109,6 +118,17 @@ export function Navbar() {
         onModeChange={setAuthMode}
       />
     </>
+  );
+}
+
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="px-4 py-2 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all font-medium text-sm"
+    >
+      {children}
+    </Link>
   );
 }
 

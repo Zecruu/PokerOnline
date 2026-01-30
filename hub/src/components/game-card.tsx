@@ -12,46 +12,56 @@ interface Game {
 }
 
 export function GameCard({ game }: { game: Game }) {
-  const badgeStyles = {
-    gold: "bg-amber-400/10 text-amber-400 border-amber-400/20",
-    green: "bg-emerald-400/10 text-emerald-400 border-emerald-400/20",
-  };
-
   return (
-    <Link 
+    <Link
       href={game.href}
-      className="group bg-slate-800 rounded-2xl overflow-hidden border border-slate-700/50 hover:border-[rgb(0,212,170)] transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-900/50 block"
+      className="group card-glass overflow-hidden block"
     >
-      <div className="h-40 relative overflow-hidden">
-        <img 
-          src={game.thumbnail} 
+      {/* Thumbnail */}
+      <div className="relative h-44 overflow-hidden">
+        <img
+          src={game.thumbnail}
           alt={game.title}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110"
         />
-        {game.isFree && (
-          <span className="absolute top-3 left-3 px-2 py-1 bg-emerald-500 text-white text-xs font-bold rounded">
-            FREE
-          </span>
-        )}
-      </div>
-      
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-bold">{game.title}</h3>
-          {game.badge && (
-            <span className={`px-2 py-0.5 text-xs font-medium rounded border ${badgeStyles[game.badgeColor || "gold"]}`}>
-              {game.badge}
-            </span>
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[rgb(20,20,30)] via-transparent to-transparent opacity-60" />
+
+        {/* Badges */}
+        <div className="absolute top-4 left-4 flex gap-2">
+          {game.isFree && (
+            <span className="badge badge-free">FREE</span>
           )}
         </div>
-        
-        <p className="text-slate-400 text-sm mb-4 line-clamp-2">
+
+        {game.badge && (
+          <div className="absolute top-4 right-4">
+            <span className={`badge ${game.badgeColor === 'green' ? 'badge-featured' : 'badge-hot'}`}>
+              {game.badge}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-5">
+        <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[rgb(0,212,170)] transition-colors">
+          {game.title}
+        </h3>
+
+        <p className="text-white/50 text-sm mb-5 line-clamp-2 leading-relaxed">
           {game.description}
         </p>
-        
-        <span className="block w-full py-3 bg-[rgb(0,212,170)] group-hover:bg-[rgb(0,180,145)] text-slate-900 text-center rounded-lg font-bold transition-colors">
-          Play Now
-        </span>
+
+        {/* Play Button */}
+        <div className="relative">
+          <div className="btn-glass btn-glass-primary w-full justify-center group-hover:shadow-lg group-hover:shadow-[rgba(0,212,170,0.2)]">
+            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+            </svg>
+            Play Now
+          </div>
+        </div>
       </div>
     </Link>
   );
