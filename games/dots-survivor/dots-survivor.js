@@ -700,6 +700,10 @@ class DotsSurvivor {
         // Horde spawn sound
         this.hordeSound = new Audio('horde-sound.mp3');
         this.hordeSound.volume = 0.6;
+
+        // Game start voiceover
+        this.gameStartVoice = new Audio('game-start-voice.mp3');
+        this.gameStartVoice.volume = 0.7;
     }
 
     playMenuMusic() {
@@ -844,6 +848,9 @@ class DotsSurvivor {
         if (this.hordeSound) {
             this.hordeSound.volume = 0.6 * volumeMult;
         }
+        if (this.gameStartVoice) {
+            this.gameStartVoice.volume = 0.7 * volumeMult;
+        }
     }
 
     // Play fireball sound effect
@@ -880,6 +887,15 @@ class DotsSurvivor {
         this.hordeSound.volume = 0.6 * volumeMult;
         this.hordeSound.currentTime = 0;
         this.hordeSound.play().catch(e => {});
+    }
+
+    // Play game start voiceover
+    playGameStartVoice() {
+        if (!this.settings.soundEnabled || !this.gameStartVoice) return;
+        const volumeMult = this.settings.volume / 100;
+        this.gameStartVoice.volume = 0.7 * volumeMult;
+        this.gameStartVoice.currentTime = 0;
+        this.gameStartVoice.play().catch(e => {});
     }
 
     playSound(type) {
@@ -1360,6 +1376,7 @@ class DotsSurvivor {
         // Stop menu music and start game music when game starts
         this.stopMenuMusic();
         this.playGameMusic();
+        this.playGameStartVoice();
 
         // Hide all menus first
         document.getElementById('start-menu').classList.add('hidden');
@@ -5057,14 +5074,25 @@ class DotsSurvivor {
         this.stopBossMusic();
         this.stopBeamSound();
 
-        // Play menu music on game over
+        // Stop game start voice if still playing
+        if (this.gameStartVoice) {
+            this.gameStartVoice.pause();
+            this.gameStartVoice.currentTime = 0;
+        }
+
+        // Hide HUD
+        document.getElementById('game-hud').classList.add('hidden');
+
+        // Show death video first
+        await this.playDeathVideo();
+
+        // Play menu music after video
         this.playMenuMusic();
 
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
         document.getElementById('final-time').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         document.getElementById('final-kills').textContent = this.player.kills;
         document.getElementById('final-level').textContent = this.player.level;
-        document.getElementById('game-hud').classList.add('hidden');
         document.getElementById('gameover-menu').classList.remove('hidden');
 
         // Submit score if logged in
@@ -5079,6 +5107,49 @@ class DotsSurvivor {
         } else {
             document.getElementById('new-record').classList.add('hidden');
         }
+    }
+
+    playDeathVideo() {
+        return new Promise((resolve) => {
+            const overlay = document.getElementById('death-video-overlay');
+            const video = document.getElementById('death-video');
+            const skipBtn = document.getElementById('skip-video-btn');
+
+            if (!overlay || !video) {
+                resolve();
+                return;
+            }
+
+            // Show overlay
+            overlay.classList.remove('hidden');
+
+            // Reset and play video
+            video.currentTime = 0;
+            video.play().catch(e => {
+                console.log('Video autoplay blocked');
+                // If video can't play, skip to game over
+                overlay.classList.add('hidden');
+                resolve();
+            });
+
+            // When video ends, hide overlay and resolve
+            const onVideoEnd = () => {
+                overlay.classList.add('hidden');
+                video.removeEventListener('ended', onVideoEnd);
+                resolve();
+            };
+            video.addEventListener('ended', onVideoEnd);
+
+            // Skip button
+            const onSkip = () => {
+                video.pause();
+                overlay.classList.add('hidden');
+                video.removeEventListener('ended', onVideoEnd);
+                skipBtn.removeEventListener('click', onSkip);
+                resolve();
+            };
+            skipBtn.addEventListener('click', onSkip);
+        });
     }
 
     drawEvents(ctx) {
