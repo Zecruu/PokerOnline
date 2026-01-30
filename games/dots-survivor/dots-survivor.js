@@ -1,9 +1,16 @@
 // Dots Survivor - Complete Game with Classes, Items, Bosses & Infinite Map
 
-// Player, Minion, and Projectile Sprite System
+// Player, Minion, and Projectile Sprite System (Sprite Sheets)
 const PLAYER_SPRITE = 'accc005c-8f0c-4219-8828-1159494d1650-removebg-preview.png';
 const WOLF_SPRITE = 'a5560990-c2a0-41d0-94b5-61114f8bdbbe-removebg-preview.png';
 const FIREBALL_SPRITE = '0136dae6-4cde-40d9-84f8-2543fff0a72f-removebg-preview.png';
+
+// Sprite sheet frame definitions (x, y, width, height) - adjust these based on your sprite sheet layout
+const SPRITE_FRAMES = {
+    player: { x: 0, y: 0, w: 150, h: 200 },      // First mage frame (top-left)
+    wolf: { x: 0, y: 0, w: 120, h: 100 },        // First wolf frame
+    fireball: { x: 0, y: 0, w: 100, h: 80 }      // First fireball frame
+};
 
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
@@ -3976,14 +3983,18 @@ class DotsSurvivor {
         // Projectiles (Fireballs)
         this.projectiles.forEach(p => {
             const fireballSprite = SPRITE_CACHE['fireball'];
-            if (fireballSprite) {
+            const fFrame = SPRITE_FRAMES.fireball;
+            if (fireballSprite && fFrame) {
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 // Rotate fireball based on direction
                 const angle = Math.atan2(p.vy, p.vx);
                 ctx.rotate(angle);
-                const size = p.radius * 3; // Fireball sprite sizing
-                ctx.drawImage(fireballSprite, -size / 2, -size / 2, size, size);
+                const size = p.radius * 4; // Fireball sprite sizing
+                // Draw only the specific frame from sprite sheet
+                ctx.drawImage(fireballSprite,
+                    fFrame.x, fFrame.y, fFrame.w, fFrame.h,
+                    -size / 2, -size / 2, size, size);
                 ctx.restore();
             } else {
                 // Fallback to circle
@@ -4169,11 +4180,15 @@ class DotsSurvivor {
         // Minions (Wolf Pack)
         this.minions.forEach(m => {
             const wolfSprite = SPRITE_CACHE['wolf'];
-            if (wolfSprite) {
+            const wFrame = SPRITE_FRAMES.wolf;
+            if (wolfSprite && wFrame) {
                 ctx.save();
                 ctx.translate(m.x, m.y);
-                const size = m.radius * 3; // Wolf sprite sizing
-                ctx.drawImage(wolfSprite, -size / 2, -size / 2, size, size);
+                const size = m.radius * 3.5; // Wolf sprite sizing
+                // Draw only the specific frame from sprite sheet
+                ctx.drawImage(wolfSprite,
+                    wFrame.x, wFrame.y, wFrame.w, wFrame.h,
+                    -size / 2, -size / 2, size, size);
                 ctx.restore();
             } else {
                 // Fallback to circle
@@ -4537,13 +4552,17 @@ class DotsSurvivor {
 
         if (p.invincibleTime > 0 && Math.floor(p.invincibleTime * 10) % 2 === 0) ctx.globalAlpha = 0.5;
 
-        // Try to draw mage sprite
+        // Try to draw mage sprite from sprite sheet
         const playerSprite = SPRITE_CACHE['player'];
-        if (playerSprite) {
+        const pFrame = SPRITE_FRAMES.player;
+        if (playerSprite && pFrame) {
             ctx.save();
             ctx.translate(p.x, p.y);
-            const size = p.radius * 3.5; // Mage sprite is larger
-            ctx.drawImage(playerSprite, -size / 2, -size / 2, size, size);
+            const size = p.radius * 4; // Mage sprite display size
+            // Draw only the specific frame from sprite sheet
+            ctx.drawImage(playerSprite,
+                pFrame.x, pFrame.y, pFrame.w, pFrame.h,  // Source rectangle
+                -size / 2, -size / 2, size, size);        // Destination rectangle
             ctx.restore();
         } else {
             // Fallback to circle
