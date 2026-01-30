@@ -146,7 +146,7 @@ const SURVIVOR_CLASS = {
         // Consolidated upgrades from all classes (removed barrage - duplicate of multishot)
         { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+15% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.85), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.85)).toFixed(1)}/s` },
         { id: 'orbital', name: 'Arcane Orbital', icon: '🌀', desc: '+1 orbiting spell', rarity: 'rare', effect: (g) => g.orbitals.push(g.createOrbital()), getDesc: (g) => `Orbitals: ${g.orbitals.length} → ${g.orbitals.length + 1}` },
-        { id: 'guard', name: 'Summon Guard', icon: '🛡️', desc: '+1 guard minion', rarity: 'rare', effect: (g) => g.addMinion('guard'), getDesc: (g) => `Minions: ${g.minions.length}/${g.maxMinions || 5}` },
+        { id: 'summon_wolf', name: 'Call of the Pack', icon: '🐺', desc: '+1 wolf companion', rarity: 'rare', effect: (g) => { g.maxWolves = (g.maxWolves || 0) + 1; g.addMinion('wolf'); }, getDesc: (g) => `Wolves: ${g.minions.length}/${g.maxWolves || 5}` },
     ]
 };
 
@@ -163,10 +163,11 @@ const DIAMOND_AUGMENTS = [
     { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop'), getDesc: (g) => g.augments.includes('time_stop') ? 'Active ✓' : 'Not Active' },
     { id: 'elemental_mastery', name: 'Elemental Mastery', icon: '🌈', desc: 'Orbitals cycle between Fire, Ice, and Lightning effects', effect: (g) => g.augments.push('elemental_mastery'), getDesc: (g) => g.augments.includes('elemental_mastery') ? 'Active ✓' : 'Not Active' },
     { id: 'unlimited_power', name: 'Unlimited Power', icon: '⚡', desc: 'Cooldowns reduced by 50%, Orbitals spin 2x faster', effect: (g) => g.orbitals.forEach(o => o.speed *= 2), getDesc: (g) => `Orbitals: ${g.orbitals.length} (2x speed)` },
-    // Dotomancer Path
-    { id: 'army_of_dead', name: 'Army of the Dead', icon: '🧟', desc: 'Max minions +5, conversion chance +10%', effect: (g) => { g.maxMinions = (g.maxMinions || 0) + 5; g.conversionChance += 0.1; }, getDesc: (g) => `Max Minions: ${g.maxMinions || 0} → ${(g.maxMinions || 0) + 5}, Convert: ${Math.round((g.conversionChance || 0) * 100)}% → ${Math.round(((g.conversionChance || 0) + 0.1) * 100)}%` },
-    { id: 'soul_explosion', name: 'Soul Explosion', icon: '💥', desc: 'Minions explode on death dealing 500 damage', effect: (g) => g.augments.push('soul_explosion'), getDesc: (g) => g.augments.includes('soul_explosion') ? 'Active ✓' : 'Not Active' },
-    { id: 'lich_king', name: 'Lich King', icon: '👑', desc: 'You gain +10% damage for every active minion', effect: (g) => g.augments.push('lich_king'), getDesc: (g) => `Minions: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 10}% dmg)` },
+    // Wolf Pack Path
+    { id: 'dire_wolves', name: 'Dire Wolves', icon: '🐺', desc: 'Max wolves +3, wolves are 50% larger and tankier', effect: (g) => { g.maxWolves = (g.maxWolves || 0) + 3; g.wolfSizeBonus = (g.wolfSizeBonus || 1) * 1.5; for(let i = 0; i < 3; i++) g.addMinion('wolf'); }, getDesc: (g) => `Max Wolves: ${g.maxWolves || 0} → ${(g.maxWolves || 0) + 3}` },
+    { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🔥', desc: 'Wolves attack 50% faster and deal +25% damage', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
+    { id: 'pack_tactics', name: 'Pack Tactics', icon: '🌙', desc: 'You gain +5% damage for every active wolf', effect: (g) => g.augments.push('pack_tactics'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
+    { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
     // New Hybrid Paths
     { id: 'tech_wizard', name: 'Tech Wizard', icon: '🔮', desc: 'Projectiles spawn Orbitals on hit (10% chance)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
     // Demon Set Augments
@@ -319,10 +320,11 @@ const BUILD_SETS = {
         name: 'Necro Set',
         pieces: ['necroSkull', 'necroRobe', 'necroScythe'],
         color: '#aa44ff',
-        bonus: 'Killed enemies explode, +3 minions',
+        bonus: 'Killed enemies explode, +3 spirit wolves',
         effect: (g) => {
             g.necroExplosion = true;
-            for (let i = 0; i < 3; i++) g.addMinion('guard');
+            g.maxWolves = (g.maxWolves || 0) + 3;
+            for (let i = 0; i < 3; i++) g.addMinion('wolf');
         }
     }
 };
@@ -623,9 +625,11 @@ class DotsSurvivor {
             // Class
             selectedClassName: this.selectedClass?.name,
 
-            // Minion data
-            maxMinions: this.maxMinions,
-            conversionChance: this.conversionChance,
+            // Wolf pack data
+            maxWolves: this.maxWolves,
+            wolfSizeBonus: this.wolfSizeBonus,
+            wolfDamageBonus: this.wolfDamageBonus,
+            wolfAttackSpeed: this.wolfAttackSpeed,
 
             // Demon set
             demonSet: this.demonSet,
@@ -676,9 +680,11 @@ class DotsSurvivor {
         this.augments = state.augments || [];
         this.perks.forEach(p => this.applyPerk(p));
 
-        // Minions
-        this.maxMinions = state.maxMinions || 0;
-        this.conversionChance = state.conversionChance || 0;
+        // Wolf pack
+        this.maxWolves = state.maxWolves || 0;
+        this.wolfSizeBonus = state.wolfSizeBonus || 1;
+        this.wolfDamageBonus = state.wolfDamageBonus || 1;
+        this.wolfAttackSpeed = state.wolfAttackSpeed || 1;
 
         // Demon set
         this.demonSet = state.demonSet || { helm: false, chest: false, boots: false };
@@ -873,12 +879,13 @@ class DotsSurvivor {
         // Regen timer
         this.regenTimer = 0;
 
-        // Diamond Augments & Dotomancer Stats
+        // Diamond Augments & Wolf Pack Stats
         this.augments = [];
         this.titanKillerBonus = 0; // Titan Killer augment bonus damage to bosses/tanks
-        this.maxMinions = 0;
-        this.minionRespawnTime = 0;
-        this.conversionChance = 0;
+        this.maxWolves = 0;
+        this.wolfSizeBonus = 1;
+        this.wolfDamageBonus = 1;
+        this.wolfAttackSpeed = 1;
 
         // Demon Set
         this.demonSet = { helm: false, chest: false, boots: false };
@@ -887,10 +894,8 @@ class DotsSurvivor {
         this.impSpawnTimer = 0;
         this.impStats = { damage: 300, maxImps: 5, spawnInterval: 10, burnDuration: 5 };
 
-        if (this.selectedClass.bonuses.minionCount) {
-            this.maxMinions = this.selectedClass.bonuses.minionCount;
-            this.minionRespawnTime = this.selectedClass.bonuses.minionRespawn || 0;
-            this.conversionChance = this.selectedClass.bonuses.conversionChance || 0;
+        if (this.selectedClass.bonuses.wolfCount) {
+            this.maxWolves = this.selectedClass.bonuses.wolfCount;
         }
 
         // Initialize available perks for control points
@@ -961,9 +966,9 @@ class DotsSurvivor {
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
 
-        if (this.selectedClass.bonuses.minionCount) {
-            // Initial minions
-            for (let i = 0; i < this.maxMinions; i++) this.addMinion('basic');
+        if (this.selectedClass.bonuses.wolfCount) {
+            // Initial wolves
+            for (let i = 0; i < this.maxWolves; i++) this.addMinion('wolf');
         }
 
         document.getElementById('start-menu').classList.add('hidden');
@@ -1388,29 +1393,30 @@ class DotsSurvivor {
     }
 
     addMinion(type) {
-        const m = this.createMinion();
+        const m = this.createWolf();
         this.minions.push(m);
     }
 
-    createMinion() {
+    createWolf() {
         const angle = Math.random() * Math.PI * 2;
-        const radius = 60 + Math.random() * 40;
 
-        // Guard Stats - Scale with level
+        // Wolf Stats - Scale with level and augments
         const levelMult = 1 + (this.player.level * 0.15); // 15% scaling per level
+        const sizeBonus = this.wolfSizeBonus || 1;
+        const damageBonus = this.wolfDamageBonus || 1;
 
         return {
             x: this.player.x + Math.cos(angle) * 80,
             y: this.player.y + Math.sin(angle) * 80,
-            radius: 14,
-            speed: 220,
-            damage: Math.floor(30 * levelMult),
-            health: Math.floor(1500 * levelMult),
-            maxHealth: Math.floor(1500 * levelMult),
-            color: '#44ff88',
-            icon: '🛡️',
+            radius: Math.floor(14 * sizeBonus),
+            speed: 250,
+            damage: Math.floor(35 * levelMult * damageBonus),
+            health: Math.floor(1200 * levelMult * sizeBonus),
+            maxHealth: Math.floor(1200 * levelMult * sizeBonus),
+            color: '#8b7355',
+            icon: '🐺',
             attackCooldown: 0,
-            type: 'guard'
+            type: 'wolf'
         };
     }
 
@@ -2701,30 +2707,6 @@ class DotsSurvivor {
             timer: 0.15
         });
 
-        // Dotomancer Conversion
-        if (this.conversionChance > 0 && Math.random() < this.conversionChance) {
-            if (this.minions.length < (this.maxMinions || 5) + 5) {
-                const undead = {
-                    x: sx, y: sy,
-                    radius: e.radius,
-                    speed: e.speed * 0.8,
-                    damage: Math.floor(e.damage * 0.5),
-                    health: Math.floor(e.maxHealth * 0.25),
-                    maxHealth: Math.floor(e.maxHealth * 0.25),
-                    color: '#88ff88',
-                    icon: '🧟',
-                    isRanged: false,
-                    target: null,
-                    attackCooldown: 0,
-                    lifetime: 20
-                };
-                if (this.selectedClass.bonuses.minionDamage) undead.damage = Math.floor(undead.damage * this.selectedClass.bonuses.minionDamage);
-                this.minions.push(undead);
-                this.spawnParticles(sx, sy, '#88ff88', 10);
-                this.damageNumbers.push({ x: sx, y: sy - 20, value: 'Rise!', lifetime: 1, color: '#88ff88' });
-            }
-        }
-
         // Vampiric perk (from augments) - reduced by 75% while in combat
         if (this.vampiric) {
             let healAmt = 2;
@@ -3034,13 +3016,32 @@ class DotsSurvivor {
     }
 
     updateMinions(dt) {
-        // Respawn logic
-        if (this.maxMinions > 0 && this.minions.length < this.maxMinions) {
-            if (!this.minionRespawnTimer) this.minionRespawnTimer = 0;
-            this.minionRespawnTimer += dt;
-            if (this.minionRespawnTimer >= 15) {
-                this.minionRespawnTimer = 0;
-                this.addMinion('guard');
+        // Wolf respawn logic
+        const maxWolves = this.maxWolves || 0;
+        if (maxWolves > 0 && this.minions.length < maxWolves) {
+            if (!this.wolfRespawnTimer) this.wolfRespawnTimer = 0;
+            this.wolfRespawnTimer += dt;
+            if (this.wolfRespawnTimer >= 12) { // Wolves respawn every 12 seconds
+                this.wolfRespawnTimer = 0;
+                this.addMinion('wolf');
+            }
+        }
+
+        // Alpha Howl effect
+        if (this.augments.includes('alpha_howl')) {
+            this.howlTimer = (this.howlTimer || 0) + dt;
+            if (this.howlTimer >= this.howlCooldown) {
+                this.howlTimer = 0;
+                this.howlActive = true;
+                this.howlActiveTimer = this.howlDuration;
+                // Visual feedback
+                this.spawnParticles(this.player.x, this.player.y, '#ffdd00', 20);
+            }
+            if (this.howlActive) {
+                this.howlActiveTimer -= dt;
+                if (this.howlActiveTimer <= 0) {
+                    this.howlActive = false;
+                }
             }
         }
     }
@@ -3119,6 +3120,11 @@ class DotsSurvivor {
     }
 
     updateActiveMinions(dt) {
+        // Apply howl buff multipliers
+        const howlSpeedMult = this.howlActive ? 1.5 : 1;
+        const howlDamageMult = this.howlActive ? 1.5 : 1;
+        const attackSpeedMult = this.wolfAttackSpeed || 1;
+
         for (let i = this.minions.length - 1; i >= 0; i--) {
             const m = this.minions[i];
 
@@ -3128,7 +3134,7 @@ class DotsSurvivor {
                 continue;
             }
 
-            // Guard Logic: Stay near player, seek enemy if close
+            // Wolf Logic: Stay near player, seek enemy if close
             const distToPlayer = Math.sqrt((m.x - this.player.x) ** 2 + (m.y - this.player.y) ** 2);
             let target = null;
             let moveTarget = null;
@@ -3139,30 +3145,32 @@ class DotsSurvivor {
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
                 const d = Math.sqrt((m.x - sx) ** 2 + (m.y - sy) ** 2);
-                if (d < 300 && d < nd) { nd = d; target = e; moveTarget = { x: sx, y: sy }; }
+                if (d < 350 && d < nd) { nd = d; target = e; moveTarget = { x: sx, y: sy }; }
             }
 
-            // Move logic
+            // Move logic with howl speed bonus
+            const effectiveSpeed = m.speed * howlSpeedMult;
             if (target) {
                 // Chase enemy
                 const dx = moveTarget.x - m.x, dy = moveTarget.y - m.y, d = Math.sqrt(dx * dx + dy * dy);
-                if (d > 0) { m.x += (dx / d) * m.speed * dt; m.y += (dy / d) * m.speed * dt; }
+                if (d > 0) { m.x += (dx / d) * effectiveSpeed * dt; m.y += (dy / d) * effectiveSpeed * dt; }
             } else if (distToPlayer > 100) {
                 // Return to player (orbit loosely)
                 const angle = Math.atan2(this.player.y - m.y, this.player.x - m.x);
-                m.x += Math.cos(angle) * m.speed * dt;
-                m.y += Math.sin(angle) * m.speed * dt;
+                m.x += Math.cos(angle) * effectiveSpeed * dt;
+                m.y += Math.sin(angle) * effectiveSpeed * dt;
             }
 
-            // Attack cooldown
-            if (m.attackCooldown > 0) m.attackCooldown -= dt;
+            // Attack cooldown (faster with feral frenzy)
+            if (m.attackCooldown > 0) m.attackCooldown -= dt * attackSpeedMult;
 
-            // Attack
+            // Attack with howl damage bonus
             if (target && nd < m.radius + target.radius + 15 && m.attackCooldown <= 0) {
                 m.attackCooldown = 0.8;
-                target.health -= m.damage;
+                const damage = Math.floor(m.damage * howlDamageMult);
+                target.health -= damage;
                 target.hitFlash = 1;
-                this.damageNumbers.push({ x: moveTarget.x, y: moveTarget.y - 10, value: m.damage, lifetime: 0.5, color: '#44ff88' });
+                this.damageNumbers.push({ x: moveTarget.x, y: moveTarget.y - 10, value: damage, lifetime: 0.5, color: '#8b7355' });
             }
         }
     }
@@ -3226,12 +3234,17 @@ class DotsSurvivor {
                 if (d < p.radius + e.radius) {
                     // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
-                    
+
+                    // Pack Tactics: +5% damage per wolf
+                    if (this.augments.includes('pack_tactics') && this.minions.length > 0) {
+                        damage = Math.floor(damage * (1 + this.minions.length * 0.05));
+                    }
+
                     // Stacking item damage bonus
                     if (this.stackingDamageBonus) {
                         damage = Math.floor(damage * (1 + this.stackingDamageBonus));
                     }
-                    
+
                     // Titan Killer bonus damage to bosses and tanks
                     if (this.titanKillerBonus && (e.isBoss || e.type === 'tank')) {
                         damage = Math.floor(damage * (1 + this.titanKillerBonus));
