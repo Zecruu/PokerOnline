@@ -41,7 +41,8 @@ const ENEMY_SPRITES = {
     poison: 'Poison.png',
     boss: 'BossEnemy.png',
     general: 'DemonKing.png',
-    consumer: null    // The Consumer boss (has custom rendering)
+    consumer: null,    // The Consumer boss (has custom rendering)
+    cthulhu: '01a0c668-edf9-4306-aa39-391bb1d77077-removebg-preview.png'  // Cthulhu, Lord of the Sea
 };
 
 // Sprite cache - stores loaded Image objects
@@ -146,7 +147,6 @@ const SURVIVOR_CLASS = {
         // Consolidated upgrades from all classes (removed barrage - duplicate of multishot)
         { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+15% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.85), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.85)).toFixed(1)}/s` },
         { id: 'orbital', name: 'Arcane Orbital', icon: '🌀', desc: '+1 orbiting spell', rarity: 'rare', effect: (g) => g.orbitals.push(g.createOrbital()), getDesc: (g) => `Orbitals: ${g.orbitals.length} → ${g.orbitals.length + 1}` },
-        { id: 'summon_wolf', name: 'Call of the Pack', icon: '🐺', desc: '+1 wolf companion', rarity: 'rare', effect: (g) => { g.maxWolves = (g.maxWolves || 0) + 1; g.addMinion('wolf'); }, getDesc: (g) => `Wolves: ${g.minions.length}/${g.maxWolves || 5}` },
     ]
 };
 
@@ -361,6 +361,13 @@ const DEMON_SET_PIECES = [
     { id: 'boots', name: 'Demon Greaves', icon: '👢', desc: '+50 Move Speed' }
 ];
 
+// Ocean Set - Drops from Cthulhu
+const OCEAN_SET_PIECES = [
+    { id: 'crown', name: 'Crown of the Deep', icon: '👑', desc: '+1000 Max HP' },
+    { id: 'trident', name: 'Trident of Storms', icon: '🔱', desc: '+50% Damage' },
+    { id: 'scales', name: 'Scales of Leviathan', icon: '🐚', desc: '+100 Move Speed' }
+];
+
 class DotsSurvivor {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
@@ -377,7 +384,7 @@ class DotsSurvivor {
         // World offset - bounded map (no more infinite kiting!)
         this.worldX = 0;
         this.worldY = 0;
-        this.mapSize = 2000; // Medium map: 2000x2000 units (-1000 to +1000 in each direction)
+        this.mapSize = 4000; // Large map: 4000x4000 units (-2000 to +2000 in each direction)
         this.mapBounds = {
             minX: -this.mapSize / 2,
             maxX: this.mapSize / 2,
@@ -436,6 +443,7 @@ class DotsSurvivor {
             { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 50}, Speed: ${g.player.speed}→${g.player.speed + 25}` },
             { id: 'morestars', name: 'Star Shower', icon: '🌟', desc: 'Adds 3 stars (max 8), overflow = +10 damage each', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) { if (g.stars.length < 8) g.stars.push(g.createStar()); else g.stars.forEach(s => s.damage += 10); } }, getDesc: (g) => { const toAdd = Math.min(3, 8 - g.stars.length); const overflow = 3 - toAdd; return toAdd > 0 ? `Stars: ${g.stars.length} → ${g.stars.length + toAdd}${overflow > 0 ? `, +${overflow * 10} dmg` : ''}` : `Star Damage: +30`; } },
             { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
+            { id: 'summon_wolf', name: 'Call of the Pack', icon: '🐺', desc: '+1 wolf companion (max 8)', rarity: 'rare', effect: (g) => { if ((g.maxWolves || 0) < 8) { g.maxWolves = (g.maxWolves || 0) + 1; g.addMinion('wolf'); } }, getDesc: (g) => `Wolves: ${g.minions.length}/${g.maxWolves || 0}` },
         ];
 
         this.initSound();
@@ -893,6 +901,22 @@ class DotsSurvivor {
         this.imps = [];
         this.impSpawnTimer = 0;
         this.impStats = { damage: 300, maxImps: 5, spawnInterval: 10, burnDuration: 5 };
+
+        // Ocean Set (Cthulhu)
+        this.oceanSet = { crown: false, trident: false, scales: false };
+        this.oceanSetBonusActive = false;
+        this.waterTornadoes = [];
+        this.tornadoSpawnTimer = 0;
+        this.tornadoStats = { damage: 200, maxTornadoes: 3, spawnInterval: 8, duration: 6, pullRadius: 120 };
+
+        // Cthulhu Boss
+        this.cthulhuSpawned = false;
+        this.cthulhuWarning = false;
+        this.cthulhuWarningTimer = 0;
+        this.cthulhuSpawnWave = 25; // Cthulhu appears at wave 25
+        this.oceanBackground = { transitioning: false, targetColor: '#000000', currentColor: '#000000', transitionSpeed: 0.02 };
+        this.swimmingCreatures = [];
+        this.waterRipples = [];
 
         if (this.selectedClass.bonuses.wolfCount) {
             this.maxWolves = this.selectedClass.bonuses.wolfCount;
@@ -1367,6 +1391,333 @@ class DotsSurvivor {
         this.player.kills++;
     }
 
+    // ==================== CTHULHU BOSS SYSTEM ====================
+    startCthulhuWarning() {
+        if (this.cthulhuWarning || this.cthulhuSpawned) return;
+
+        this.cthulhuWarning = true;
+        this.cthulhuWarningTimer = 30; // 30 seconds until spawn
+        this.oceanBackground.transitioning = true;
+        this.oceanBackground.targetColor = '#0a2a4a'; // Deep ocean blue
+
+        // Spawn initial swimming creatures
+        for (let i = 0; i < 5; i++) {
+            this.spawnSwimmingCreature();
+        }
+
+        // Warning message
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 100,
+            value: '🌊 THE OCEAN STIRS... 🌊',
+            lifetime: 5,
+            color: '#00aaff',
+            scale: 2.5
+        });
+    }
+
+    spawnSwimmingCreature() {
+        const side = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+        let x, y, vx, vy;
+
+        if (side === 0) { x = Math.random() * this.canvas.width; y = -50; vx = (Math.random() - 0.5) * 100; vy = 50 + Math.random() * 50; }
+        else if (side === 1) { x = this.canvas.width + 50; y = Math.random() * this.canvas.height; vx = -(50 + Math.random() * 50); vy = (Math.random() - 0.5) * 100; }
+        else if (side === 2) { x = Math.random() * this.canvas.width; y = this.canvas.height + 50; vx = (Math.random() - 0.5) * 100; vy = -(50 + Math.random() * 50); }
+        else { x = -50; y = Math.random() * this.canvas.height; vx = 50 + Math.random() * 50; vy = (Math.random() - 0.5) * 100; }
+
+        this.swimmingCreatures.push({
+            x, y, vx, vy,
+            size: 20 + Math.random() * 40,
+            type: Math.random() > 0.5 ? '🐙' : '🦑',
+            alpha: 0.3 + Math.random() * 0.4,
+            wobble: Math.random() * Math.PI * 2
+        });
+    }
+
+    updateCthulhuWarning(dt) {
+        if (!this.cthulhuWarning) return;
+
+        this.cthulhuWarningTimer -= dt;
+
+        // Spawn more creatures as time goes on
+        if (Math.random() < 0.02) this.spawnSwimmingCreature();
+
+        // Water ripples
+        if (Math.random() < 0.05) {
+            this.waterRipples.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height,
+                radius: 0,
+                maxRadius: 50 + Math.random() * 100,
+                alpha: 0.5
+            });
+        }
+
+        // Update swimming creatures
+        for (let i = this.swimmingCreatures.length - 1; i >= 0; i--) {
+            const c = this.swimmingCreatures[i];
+            c.x += c.vx * dt;
+            c.y += c.vy * dt;
+            c.wobble += dt * 3;
+
+            // Remove if off screen
+            if (c.x < -100 || c.x > this.canvas.width + 100 || c.y < -100 || c.y > this.canvas.height + 100) {
+                this.swimmingCreatures.splice(i, 1);
+            }
+        }
+
+        // Update water ripples
+        for (let i = this.waterRipples.length - 1; i >= 0; i--) {
+            const r = this.waterRipples[i];
+            r.radius += 80 * dt;
+            r.alpha -= 0.3 * dt;
+            if (r.alpha <= 0 || r.radius >= r.maxRadius) {
+                this.waterRipples.splice(i, 1);
+            }
+        }
+
+        // Screen shake intensifies as Cthulhu approaches
+        if (this.cthulhuWarningTimer < 10) {
+            if (Math.random() < 0.1) {
+                this.triggerScreenShake(2 + (10 - this.cthulhuWarningTimer) * 0.5, 0.1);
+            }
+        }
+
+        // Warning messages at intervals
+        if (this.cthulhuWarningTimer <= 20 && this.cthulhuWarningTimer > 19.9) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: '🌊 SOMETHING APPROACHES... 🌊', lifetime: 3, color: '#00ddff', scale: 2 });
+        }
+        if (this.cthulhuWarningTimer <= 10 && this.cthulhuWarningTimer > 9.9) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: '⚠️ CTHULHU AWAKENS IN 10 SECONDS ⚠️', lifetime: 3, color: '#ff4400', scale: 2.5 });
+            this.triggerScreenShake(10, 0.5);
+        }
+        if (this.cthulhuWarningTimer <= 5 && this.cthulhuWarningTimer > 4.9) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: '☠️ 5... ☠️', lifetime: 1, color: '#ff0000', scale: 3 });
+        }
+        if (this.cthulhuWarningTimer <= 4 && this.cthulhuWarningTimer > 3.9) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: '☠️ 4... ☠️', lifetime: 1, color: '#ff0000', scale: 3 });
+        }
+        if (this.cthulhuWarningTimer <= 3 && this.cthulhuWarningTimer > 2.9) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: '☠️ 3... ☠️', lifetime: 1, color: '#ff0000', scale: 3 });
+        }
+        if (this.cthulhuWarningTimer <= 2 && this.cthulhuWarningTimer > 1.9) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: '☠️ 2... ☠️', lifetime: 1, color: '#ff0000', scale: 3 });
+        }
+        if (this.cthulhuWarningTimer <= 1 && this.cthulhuWarningTimer > 0.9) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: '☠️ 1... ☠️', lifetime: 1, color: '#ff0000', scale: 3 });
+        }
+
+        // Spawn Cthulhu
+        if (this.cthulhuWarningTimer <= 0) {
+            this.spawnCthulhu();
+        }
+    }
+
+    spawnCthulhu() {
+        if (this.cthulhuSpawned) return;
+
+        this.cthulhuSpawned = true;
+        this.cthulhuWarning = false;
+
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 500;
+        const wx = this.worldX + Math.cos(angle) * dist;
+        const wy = this.worldY + Math.sin(angle) * dist;
+
+        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
+        this.enemyIdCounter++;
+
+        const waveMult = 1 + this.wave * 0.1;
+
+        const cthulhu = {
+            wx, wy,
+            id: this.enemyIdCounter,
+            type: 'cthulhu',
+            name: 'CTHULHU, LORD OF THE SEA',
+            isCthulhu: true,
+            isBoss: true,
+            radius: 120,
+            baseRadius: 120,
+            speed: 40,
+            health: Math.floor(50000 * waveMult),
+            maxHealth: Math.floor(50000 * waveMult),
+            damage: 100,
+            xp: 10000,
+            color: '#0a4a2a',
+            hitFlash: 0,
+            critResistance: 0.9,
+            attackCooldown: 0,
+            tentaclePhase: 0,
+            lastTentacleAttack: 0
+        };
+
+        this.enemies.push(cthulhu);
+
+        // Clear nearby enemies
+        const nonBossEnemies = this.enemies.filter(e => !e.isBoss);
+        const enemiesToRemove = Math.floor(nonBossEnemies.length * 0.8);
+        for (let i = 0; i < enemiesToRemove; i++) {
+            const idx = this.enemies.findIndex(e => !e.isBoss);
+            if (idx !== -1) this.enemies.splice(idx, 1);
+        }
+
+        // Epic entrance
+        this.triggerScreenShake(30, 1.0);
+        this.triggerSlowmo(0.1, 2.0);
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 150,
+            value: '🐙 CTHULHU RISES! 🐙',
+            lifetime: 5,
+            color: '#00ffaa',
+            scale: 3
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 100,
+            value: 'LORD OF THE SEA',
+            lifetime: 5,
+            color: '#00ddff',
+            scale: 2
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 60,
+            value: '☠️ DEFEAT THE ANCIENT ONE ☠️',
+            lifetime: 5,
+            color: '#ff4400',
+            scale: 1.5
+        });
+
+        // Grace period
+        this.bossGracePeriod = 8;
+    }
+
+    handleCthulhuKilled(cthulhu, sx, sy) {
+        // Massive visual effects
+        this.spawnParticles(sx, sy, '#00ffaa', 80);
+        this.spawnParticles(sx, sy, '#00ddff', 60);
+        this.spawnParticles(sx, sy, '#ffffff', 40);
+
+        // Screen effects
+        this.triggerScreenShake(25, 1.0);
+        this.triggerSlowmo(0.1, 2.0);
+
+        // Reset ocean background
+        this.oceanBackground.transitioning = true;
+        this.oceanBackground.targetColor = '#000000';
+        this.swimmingCreatures = [];
+        this.waterRipples = [];
+
+        // Victory message
+        this.damageNumbers.push({
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2 - 100,
+            value: '🏆 CTHULHU DEFEATED! 🏆',
+            lifetime: 5,
+            color: '#ffd700',
+            scale: 3
+        });
+
+        // Drop Ocean Set piece
+        const missing = OCEAN_SET_PIECES.filter(p => !this.oceanSet[p.id]);
+        if (missing.length > 0) {
+            const piece = missing[Math.floor(Math.random() * missing.length)];
+            this.pickups.push({
+                wx: cthulhu.wx, wy: cthulhu.wy,
+                radius: 15, color: '#00ffaa',
+                isOceanPiece: true, pieceId: piece.id
+            });
+        }
+
+        // Drop massive XP
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * 150;
+            this.pickups.push({
+                wx: cthulhu.wx + Math.cos(angle) * dist,
+                wy: cthulhu.wy + Math.sin(angle) * dist,
+                xp: 200,
+                radius: 12,
+                color: '#00ffaa',
+                isItem: false
+            });
+        }
+
+        this.player.kills++;
+        this.spawnPauseTimer = 8;
+    }
+
+    updateWaterTornadoes(dt) {
+        if (!this.oceanSetBonusActive) return;
+
+        // Spawn tornadoes
+        if (this.waterTornadoes.length < this.tornadoStats.maxTornadoes) {
+            this.tornadoSpawnTimer += dt;
+            if (this.tornadoSpawnTimer >= this.tornadoStats.spawnInterval) {
+                this.tornadoSpawnTimer = 0;
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 100 + Math.random() * 200;
+                this.waterTornadoes.push({
+                    x: this.player.x + Math.cos(angle) * dist,
+                    y: this.player.y + Math.sin(angle) * dist,
+                    radius: 30,
+                    damage: this.tornadoStats.damage,
+                    lifetime: this.tornadoStats.duration,
+                    pullRadius: this.tornadoStats.pullRadius,
+                    rotation: 0,
+                    damageTimer: 0
+                });
+                this.spawnParticles(this.waterTornadoes[this.waterTornadoes.length-1].x, this.waterTornadoes[this.waterTornadoes.length-1].y, '#00ddff', 15);
+            }
+        }
+
+        // Update tornadoes
+        for (let i = this.waterTornadoes.length - 1; i >= 0; i--) {
+            const t = this.waterTornadoes[i];
+            t.lifetime -= dt;
+            t.rotation += dt * 10;
+            t.damageTimer += dt;
+
+            if (t.lifetime <= 0) {
+                this.waterTornadoes.splice(i, 1);
+                continue;
+            }
+
+            // Pull and damage enemies
+            for (const e of this.enemies) {
+                const ex = this.player.x + (e.wx - this.worldX);
+                const ey = this.player.y + (e.wy - this.worldY);
+                const dx = t.x - ex;
+                const dy = t.y - ey;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Pull enemies toward tornado
+                if (dist < t.pullRadius && dist > 0) {
+                    const pullStrength = (1 - dist / t.pullRadius) * 100 * dt;
+                    e.wx += (dx / dist) * pullStrength;
+                    e.wy += (dy / dist) * pullStrength;
+                }
+
+                // Damage enemies in tornado
+                if (dist < t.radius && t.damageTimer >= 0.5) {
+                    e.health -= t.damage;
+                    e.hitFlash = 0.1;
+                    this.damageNumbers.push({
+                        x: ex, y: ey - 20,
+                        value: t.damage,
+                        lifetime: 0.5,
+                        color: '#00ddff'
+                    });
+                }
+            }
+
+            if (t.damageTimer >= 0.5) t.damageTimer = 0;
+        }
+    }
+    // ==================== END CTHULHU BOSS SYSTEM ====================
+
     spawnHealthPack() {
         const angle = Math.random() * Math.PI * 2;
         const dist = 200 + Math.random() * 400;
@@ -1445,6 +1796,11 @@ class DotsSurvivor {
                 // Reset boss tracking for new wave
                 this.bossesSpawnedThisWave = 0;
                 this.generalSpawnedThisWave = false;
+
+                // Cthulhu warning at wave 25
+                if (this.wave >= this.cthulhuSpawnWave && !this.cthulhuSpawned && !this.cthulhuWarning) {
+                    this.startCthulhuWarning();
+                }
 
                 // Check for expired control points (10 waves without capture)
                 for (let i = this.controlPoints.length - 1; i >= 0; i--) {
@@ -1871,6 +2227,8 @@ class DotsSurvivor {
         this.updateMinions(effectiveDt);
         this.updateActiveMinions(effectiveDt);
         this.updateImps(effectiveDt);
+        this.updateWaterTornadoes(effectiveDt);
+        this.updateCthulhuWarning(effectiveDt);
         this.updateAuraFire(effectiveDt);
         this.updateWindPush(effectiveDt);
         this.checkHordeCompletion();
@@ -2649,6 +3007,14 @@ class DotsSurvivor {
             return;
         }
 
+        // Special handling for Cthulhu death
+        if (e.isCthulhu) {
+            this.handleCthulhuKilled(e, sx, sy);
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+            return;
+        }
+
         this.player.kills++;
         this.playSound('kill');
 
@@ -3240,6 +3606,11 @@ class DotsSurvivor {
                         damage = Math.floor(damage * (1 + this.minions.length * 0.05));
                     }
 
+                    // Ocean Trident bonus: +50% damage
+                    if (this.oceanTridentBonus) {
+                        damage = Math.floor(damage * this.oceanTridentBonus);
+                    }
+
                     // Stacking item damage bonus
                     if (this.stackingDamageBonus) {
                         damage = Math.floor(damage * (1 + this.stackingDamageBonus));
@@ -3359,6 +3730,36 @@ class DotsSurvivor {
                             this.damageNumbers.push({
                                 x: this.player.x, y: this.player.y - 120,
                                 value: `🔥 HELLFIRE SET ACTIVE! 🔥`, lifetime: 4, color: '#ff0044', scale: 2.0
+                            });
+                        }
+                    }
+                } else if (pk.isOceanPiece) {
+                    // Ocean Piece Collection (King of the Ocean Set)
+                    if (!this.oceanSet[pk.pieceId]) {
+                        this.oceanSet[pk.pieceId] = true;
+                        this.playSound('levelup');
+
+                        // Apply piece bonus
+                        const piece = OCEAN_SET_PIECES.find(p => p.id === pk.pieceId);
+                        if (piece.id === 'crown') { this.player.maxHealth += 1000; this.player.health += 1000; }
+                        if (piece.id === 'trident') { this.oceanTridentBonus = 1.5; } // 50% damage bonus
+                        if (piece.id === 'scales') { this.player.speed += 100; }
+
+                        this.damageNumbers.push({
+                            x: this.player.x, y: this.player.y - 80,
+                            value: `🌊 EQUIPPED: ${piece.name} 🌊`, lifetime: 3, color: '#00ffaa', scale: 1.5
+                        });
+
+                        // Check Full Set
+                        if (this.oceanSet.crown && this.oceanSet.trident && this.oceanSet.scales && !this.oceanSetBonusActive) {
+                            this.oceanSetBonusActive = true;
+                            this.damageNumbers.push({
+                                x: this.player.x, y: this.player.y - 120,
+                                value: `🌊 KING OF THE OCEAN SET ACTIVE! 🌊`, lifetime: 4, color: '#00ffaa', scale: 2.0
+                            });
+                            this.damageNumbers.push({
+                                x: this.player.x, y: this.player.y - 160,
+                                value: `Water Tornadoes Unleashed!`, lifetime: 4, color: '#00ddff', scale: 1.5
                             });
                         }
                     }
@@ -3670,8 +4071,18 @@ class DotsSurvivor {
 
     getRandomUpgrades(count) {
         const all = [...this.baseUpgrades, ...this.selectedClass.upgrades];
+
+        // Early waves (1-10): Only damage and HP related upgrades
+        const earlyWaveIds = ['damage', 'health', 'healregen', 'firerate', 'crit', 'critdmg', 'devastation', 'armor'];
+        let filtered;
+        if (this.wave <= 10) {
+            filtered = all.filter(u => earlyWaveIds.includes(u.id));
+        } else {
+            filtered = all;
+        }
+
         const result = [], weights = { common: 50, rare: 30, epic: 15, legendary: 5 };
-        const available = [...all];
+        const available = [...filtered];
         for (let i = 0; i < count && available.length; i++) {
             const pool = [];
             available.forEach((u, idx) => { for (let w = 0; w < (weights[u.rarity] || 50); w++) pool.push(idx); });
@@ -3922,7 +4333,39 @@ class DotsSurvivor {
 
     render() {
         const ctx = this.ctx;
-        ctx.fillStyle = '#0a0a0f';
+
+        // Ocean background transition for Cthulhu
+        if (this.oceanBackground && this.oceanBackground.transitioning) {
+            // Lerp toward target color
+            const current = this.oceanBackground.currentColor;
+            const target = this.oceanBackground.targetColor;
+            const speed = this.oceanBackground.transitionSpeed;
+
+            // Parse hex colors
+            const cR = parseInt(current.slice(1, 3), 16);
+            const cG = parseInt(current.slice(3, 5), 16);
+            const cB = parseInt(current.slice(5, 7), 16);
+            const tR = parseInt(target.slice(1, 3), 16);
+            const tG = parseInt(target.slice(3, 5), 16);
+            const tB = parseInt(target.slice(5, 7), 16);
+
+            // Lerp
+            const nR = Math.round(cR + (tR - cR) * speed);
+            const nG = Math.round(cG + (tG - cG) * speed);
+            const nB = Math.round(cB + (tB - cB) * speed);
+
+            this.oceanBackground.currentColor = `#${nR.toString(16).padStart(2,'0')}${nG.toString(16).padStart(2,'0')}${nB.toString(16).padStart(2,'0')}`;
+
+            // Check if close enough to stop
+            if (Math.abs(cR - tR) <= 1 && Math.abs(cG - tG) <= 1 && Math.abs(cB - tB) <= 1) {
+                this.oceanBackground.currentColor = target;
+                this.oceanBackground.transitioning = false;
+            }
+        }
+
+        // Use ocean background color if set, otherwise default
+        const bgColor = (this.oceanBackground && this.oceanBackground.currentColor !== '#000000') ? this.oceanBackground.currentColor : '#0a0a0f';
+        ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Apply camera zoom (centered on player) and screen shake
@@ -3944,6 +4387,76 @@ class DotsSurvivor {
 
         this.drawGrid();
         this.drawMapBorders();
+
+        // Draw Cthulhu warning effects (swimming creatures, water ripples)
+        if (this.cthulhuWarning || (this.oceanBackground && this.oceanBackground.currentColor !== '#000000')) {
+            // Water ripples
+            if (this.waterRipples) {
+                this.waterRipples.forEach(r => {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(0, 180, 255, ${r.alpha})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                });
+            }
+
+            // Swimming creatures
+            if (this.swimmingCreatures) {
+                this.swimmingCreatures.forEach(c => {
+                    ctx.save();
+                    ctx.globalAlpha = c.alpha;
+                    ctx.font = `${c.size}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    // Add wobble effect
+                    const wobbleX = Math.sin(c.wobble) * 5;
+                    const wobbleY = Math.cos(c.wobble * 0.7) * 3;
+                    ctx.fillText(c.type, c.x + wobbleX, c.y + wobbleY);
+                    ctx.restore();
+                });
+            }
+        }
+
+        // Draw water tornadoes (Ocean Set bonus)
+        if (this.waterTornadoes && this.waterTornadoes.length > 0) {
+            this.waterTornadoes.forEach(t => {
+                ctx.save();
+                ctx.translate(t.x, t.y);
+                ctx.rotate(t.rotation);
+
+                // Tornado spiral effect
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i / 5) * Math.PI * 2;
+                    const dist = t.radius * (0.3 + i * 0.15);
+                    const alpha = 0.3 + (i * 0.1);
+
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(angle) * dist * 0.5, Math.sin(angle) * dist * 0.5, t.radius * (0.8 - i * 0.1), 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(0, 200, 255, ${alpha})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+
+                // Center swirl
+                ctx.beginPath();
+                ctx.arc(0, 0, t.radius * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 220, 255, 0.5)';
+                ctx.fill();
+
+                // Pull radius indicator
+                ctx.beginPath();
+                ctx.arc(0, 0, t.pullRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0, 150, 200, 0.2)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 5]);
+                ctx.stroke();
+
+                ctx.restore();
+            });
+        }
 
         // Draw events
         this.drawEvents(ctx);
@@ -4036,8 +4549,8 @@ class DotsSurvivor {
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
 
-            // Skip default circle for Consumer - it has custom rendering
-            if (!e.isConsumer) {
+            // Skip default circle for Consumer and Cthulhu - they have custom rendering
+            if (!e.isConsumer && !e.isCthulhu) {
                 // Check for custom sprite
                 const spriteType = e.isBoss ? (e.type === 'general' ? 'general' : 'boss') : e.type;
                 const sprite = SPRITE_CACHE[spriteType];
@@ -4068,6 +4581,96 @@ class DotsSurvivor {
                         ctx.fillText(e.icon, sx, sy);
                     }
                 }
+            }
+
+            // CTHULHU - Lord of the Sea custom rendering
+            if (e.isCthulhu) {
+                ctx.save();
+                ctx.translate(sx, sy);
+
+                // Try to use Cthulhu sprite first
+                const cthulhuSprite = SPRITE_CACHE['cthulhu'];
+                if (cthulhuSprite) {
+                    // Hit flash effect
+                    if (e.hitFlash > 0) {
+                        ctx.globalAlpha = 0.7;
+                        ctx.filter = 'brightness(3)';
+                    }
+                    const size = e.radius * 3;
+                    ctx.drawImage(cthulhuSprite, -size/2, -size/2, size, size);
+                } else {
+                    // Fallback rendering - dark tentacle creature
+                    // Outer glow
+                    const glowGrad = ctx.createRadialGradient(0, 0, e.radius * 0.5, 0, 0, e.radius * 1.5);
+                    glowGrad.addColorStop(0, 'rgba(0, 100, 80, 0.8)');
+                    glowGrad.addColorStop(0.5, 'rgba(0, 60, 60, 0.5)');
+                    glowGrad.addColorStop(1, 'rgba(0, 40, 50, 0)');
+                    ctx.beginPath();
+                    ctx.arc(0, 0, e.radius * 1.5, 0, Math.PI * 2);
+                    ctx.fillStyle = glowGrad;
+                    ctx.fill();
+
+                    // Tentacles
+                    e.tentaclePhase = (e.tentaclePhase || 0) + 0.02;
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i / 8) * Math.PI * 2 + e.tentaclePhase;
+                        const tentLen = e.radius * (1.2 + Math.sin(e.tentaclePhase + i) * 0.3);
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.quadraticCurveTo(
+                            Math.cos(angle + 0.3) * tentLen * 0.5,
+                            Math.sin(angle + 0.3) * tentLen * 0.5,
+                            Math.cos(angle) * tentLen,
+                            Math.sin(angle) * tentLen
+                        );
+                        ctx.strokeStyle = e.hitFlash > 0 ? '#fff' : '#006644';
+                        ctx.lineWidth = 8;
+                        ctx.lineCap = 'round';
+                        ctx.stroke();
+                    }
+
+                    // Main body
+                    ctx.beginPath();
+                    ctx.arc(0, 0, e.radius * 0.7, 0, Math.PI * 2);
+                    const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 0.7);
+                    bodyGrad.addColorStop(0, e.hitFlash > 0 ? '#fff' : '#005544');
+                    bodyGrad.addColorStop(1, e.hitFlash > 0 ? '#fff' : '#002222');
+                    ctx.fillStyle = bodyGrad;
+                    ctx.fill();
+
+                    // Eyes
+                    ctx.fillStyle = '#ff0044';
+                    ctx.beginPath();
+                    ctx.arc(-e.radius * 0.25, -e.radius * 0.1, e.radius * 0.12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(e.radius * 0.25, -e.radius * 0.1, e.radius * 0.12, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+
+                // Cthulhu name and HP bar
+                ctx.font = 'bold 18px Inter';
+                ctx.fillStyle = '#00ffaa';
+                ctx.textAlign = 'center';
+                ctx.fillText('🐙 ' + e.name + ' 🐙', sx, sy - e.radius - 50);
+
+                // HP bar
+                const bw = e.radius * 3;
+                ctx.fillStyle = '#222';
+                ctx.fillRect(sx - bw / 2, sy - e.radius - 35, bw, 14);
+                const hpGrad = ctx.createLinearGradient(sx - bw / 2, 0, sx + bw / 2, 0);
+                hpGrad.addColorStop(0, '#00ffaa');
+                hpGrad.addColorStop(0.5, '#00ddff');
+                hpGrad.addColorStop(1, '#0088ff');
+                ctx.fillStyle = hpGrad;
+                ctx.fillRect(sx - bw / 2 + 2, sy - e.radius - 33, (bw - 4) * (e.health / e.maxHealth), 10);
+
+                // HP text
+                ctx.font = '10px Inter';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(`${Math.floor(e.health)} / ${e.maxHealth}`, sx, sy - e.radius - 25);
             }
 
             if (e.isConsumer) {
@@ -4245,6 +4848,26 @@ class DotsSurvivor {
                 ctx.font = `${m.radius + 4}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(m.icon, m.x, m.y);
             }
+
+            // Draw green health bar above wolf
+            const barWidth = m.radius * 3;
+            const barHeight = 4;
+            const barY = m.y - m.radius * 2.5;
+            const healthPercent = m.health / m.maxHealth;
+
+            // Background (dark)
+            ctx.fillStyle = '#333';
+            ctx.fillRect(m.x - barWidth / 2, barY, barWidth, barHeight);
+
+            // Health (green gradient based on health)
+            const healthColor = healthPercent > 0.5 ? '#22c55e' : healthPercent > 0.25 ? '#eab308' : '#ef4444';
+            ctx.fillStyle = healthColor;
+            ctx.fillRect(m.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+
+            // Border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(m.x - barWidth / 2, barY, barWidth, barHeight);
         });
         // Imps
         this.imps.forEach(imp => {
@@ -4483,6 +5106,46 @@ class DotsSurvivor {
             ctx.fillStyle = '#ff0044';
             ctx.textAlign = 'center';
             ctx.fillText('HELLFIRE ACTIVE', x + 60, y + 62);
+        }
+
+        // Ocean Set display (below Demon Set)
+        const oceanY = y + 75;
+        const hasAnyOcean = this.oceanSet && (this.oceanSet.crown || this.oceanSet.trident || this.oceanSet.scales);
+        if (hasAnyOcean || this.cthulhuSpawned || this.cthulhuWarning) {
+            ctx.fillStyle = 'rgba(0,40,60,0.5)';
+            ctx.fillRect(x, oceanY, 120, 50);
+            ctx.strokeStyle = '#006688';
+            ctx.strokeRect(x, oceanY, 120, 50);
+
+            OCEAN_SET_PIECES.forEach((p, i) => {
+                const has = this.oceanSet && this.oceanSet[p.id];
+                const px = x + 10 + i * 35;
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                if (has) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(p.icon, px + 15, oceanY + 32);
+                    ctx.strokeStyle = '#00ffaa';
+                    ctx.strokeRect(px, oceanY + 5, 30, 40);
+                    // Glow
+                    ctx.shadowBlur = 10; ctx.shadowColor = '#00ffaa';
+                    ctx.strokeRect(px, oceanY + 5, 30, 40);
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillStyle = '#335';
+                    ctx.fillText(p.icon, px + 15, oceanY + 32);
+                    ctx.strokeStyle = '#224';
+                    ctx.strokeRect(px, oceanY + 5, 30, 40);
+                }
+            });
+
+            // Set Bonus text
+            if (this.oceanSetBonusActive) {
+                ctx.font = 'bold 10px Inter';
+                ctx.fillStyle = '#00ffaa';
+                ctx.textAlign = 'center';
+                ctx.fillText('OCEAN KING ACTIVE', x + 60, oceanY + 62);
+            }
         }
     }
 
