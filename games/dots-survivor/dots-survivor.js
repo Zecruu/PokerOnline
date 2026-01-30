@@ -620,7 +620,7 @@ class DotsSurvivor {
             { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +5 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 5, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 5}` },
             { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 10% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.9), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
-            { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}` },
+            { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy & +3% range', rarity: 'rare', effect: (g) => { g.weapons.bullet.pierce++; g.projectileRangeBonus = (g.projectileRangeBonus || 1) * 1.03; }, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}, Range: +3%` },
             { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
             { id: 'skull_upgrade', name: 'Soul Collector', icon: '💀', desc: 'Adds a skull (max 12), then +15 damage', rarity: 'rare', effect: (g) => { if (g.skulls.length < 12) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); }, getDesc: (g) => g.skulls.length < 12 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` : `Skull Damage: ${g.skulls[0]?.damage || 20} → ${(g.skulls[0]?.damage || 20) + 15}` },
             { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
@@ -1244,6 +1244,9 @@ class DotsSurvivor {
             wolfDamageBonus: this.wolfDamageBonus,
             wolfAttackSpeed: this.wolfAttackSpeed,
 
+            // Projectile range bonus (from Piercing upgrades)
+            projectileRangeBonus: this.projectileRangeBonus,
+
             // Demon set
             demonSet: this.demonSet,
             demonSetBonusActive: this.demonSetBonusActive,
@@ -1294,6 +1297,9 @@ class DotsSurvivor {
         this.wolfSizeBonus = state.wolfSizeBonus || 1;
         this.wolfDamageBonus = state.wolfDamageBonus || 1;
         this.wolfAttackSpeed = state.wolfAttackSpeed || 1;
+
+        // Projectile range bonus
+        this.projectileRangeBonus = state.projectileRangeBonus || 1;
 
         // Demon set
         this.demonSet = state.demonSet || { helm: false, chest: false, boots: false };
@@ -1571,6 +1577,7 @@ class DotsSurvivor {
         this.wolfSizeBonus = 1;
         this.wolfDamageBonus = 1;
         this.wolfAttackSpeed = 1;
+        this.projectileRangeBonus = 1; // Piercing upgrade adds +3% range each
 
         // Demon Set
         this.demonSet = { helm: false, chest: false, boots: false };
@@ -2452,7 +2459,7 @@ class DotsSurvivor {
     createWolf() {
         const angle = Math.random() * Math.PI * 2;
 
-        // Wolf Stats - Scale with level and augments
+        // Wolf Stats - Scale with level and augments (wolves are TANKY)
         const levelMult = 1 + (this.player.level * 0.15); // 15% scaling per level
         const sizeBonus = this.wolfSizeBonus || 1;
         const damageBonus = this.wolfDamageBonus || 1;
@@ -2463,8 +2470,8 @@ class DotsSurvivor {
             radius: Math.floor(14 * sizeBonus),
             speed: 250,
             damage: Math.floor(35 * levelMult * damageBonus),
-            health: Math.floor(1200 * levelMult * sizeBonus),
-            maxHealth: Math.floor(1200 * levelMult * sizeBonus),
+            health: Math.floor(3000 * levelMult * sizeBonus), // Buffed from 1200 to 3000 (2.5x tankier)
+            maxHealth: Math.floor(3000 * levelMult * sizeBonus),
             color: '#8b7355',
             icon: '🐺',
             attackCooldown: 0,
@@ -4245,7 +4252,7 @@ class DotsSurvivor {
         if (maxWolves > 0 && this.minions.length < maxWolves) {
             if (!this.wolfRespawnTimer) this.wolfRespawnTimer = 0;
             this.wolfRespawnTimer += dt;
-            if (this.wolfRespawnTimer >= 12) { // Wolves respawn every 12 seconds
+            if (this.wolfRespawnTimer >= 15) { // Wolves respawn every 15 seconds (was 12)
                 this.wolfRespawnTimer = 0;
                 this.addMinion('wolf');
             }
@@ -4449,8 +4456,11 @@ class DotsSurvivor {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.x += p.vx * dt; p.y += p.vy * dt;
-            // Remove if too far from player (short range for close combat gameplay)
-            if (Math.abs(p.x - this.player.x) > 175 || Math.abs(p.y - this.player.y) > 175) { this.projectiles.splice(i, 1); continue; }
+            // Remove if too far from player (range scales with projectileRangeBonus)
+            const baseRange = 220; // Base range (was 175, +25% buff)
+            const rangeBonus = this.projectileRangeBonus || 1;
+            const maxRange = baseRange * rangeBonus;
+            if (Math.abs(p.x - this.player.x) > maxRange || Math.abs(p.y - this.player.y) > maxRange) { this.projectiles.splice(i, 1); continue; }
             for (const e of this.enemies) {
                 if (p.hitEnemies.includes(e)) continue;
                 const sx = this.player.x + (e.wx - this.worldX);
