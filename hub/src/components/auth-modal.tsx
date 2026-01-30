@@ -27,7 +27,7 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
     try {
       const endpoint = mode === "signin" ? "/api/auth/login" : "/api/auth/register";
       const body = mode === "signin"
-        ? { email, password, rememberMe }
+        ? { login: email, password, rememberMe }
         : { email, username, password };
 
       const res = await fetch(endpoint, {
