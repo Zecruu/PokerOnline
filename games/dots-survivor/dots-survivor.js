@@ -1,5 +1,20 @@
 // Dots Survivor - Complete Game with Classes, Items, Bosses & Infinite Map
 
+// Get base path for sprites (works on both desktop and mobile)
+const SPRITE_BASE_PATH = (() => {
+    // Get the directory of the current script/page
+    const path = window.location.pathname;
+    const dir = path.substring(0, path.lastIndexOf('/') + 1);
+    return dir;
+})();
+
+// Helper function to get full sprite path
+function getSpritePath(filename) {
+    // If already absolute or has protocol, return as is
+    if (filename.startsWith('/') || filename.startsWith('http')) return filename;
+    return SPRITE_BASE_PATH + filename;
+}
+
 // Player, Minion, and Projectile Sprite System (Single Sprites per Animation)
 const PLAYER_SPRITES = {
     standing: 'Standing-removebg-preview.png',
@@ -169,7 +184,7 @@ function loadSprite(type, path, skipProcessing = false) {
     if (SPRITE_CACHE[type]) return SPRITE_CACHE[type];
 
     const img = new Image();
-    img.src = path;
+    img.src = getSpritePath(path);
     img.onload = () => {
         // Skip processing for sprites that already have transparency
         if (skipProcessing || type.startsWith('player_') || type.startsWith('wolf_') || type === 'fireball') {
@@ -542,6 +557,7 @@ class DotsSurvivor {
 
         this.gameRunning = false;
         this.gamePaused = false;
+        this.upgradeMenuShowing = false; // Prevent multiple upgrade menus from showing
         this.gameTime = 0;
         this.lastTime = 0;
         this.wave = 1;
@@ -697,13 +713,24 @@ class DotsSurvivor {
         window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
         this.setupTouch();
 
-        // Skip class select, go straight to boost select
+        // Set default class
         this.selectedClass = SURVIVOR_CLASS;
         this.player.color = this.selectedClass.color;
 
-        this.showBoostSelect();
+        // Don't show boost select immediately - let auth manager control the flow
+        // The auth manager will show the start menu after login/guest selection
+        // The start button in start menu will trigger showBoostSelect
+
+        // Setup start button to show boost select
+        const startBtn = document.getElementById('start-btn');
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                this.showBoostSelect();
+            });
+        }
 
         document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('gameover-menu').classList.add('hidden');
             this.showBoostSelect();
         });
         document.getElementById('hud-pause-btn').addEventListener('click', (e) => { e.stopPropagation(); this.togglePause(); });
@@ -2110,8 +2137,9 @@ class DotsSurvivor {
         if (!this.gameRunning) return;
         const dt = (t - this.lastTime) / 1000; this.lastTime = t;
         if (!this.gamePaused) {
-            // Check for pending upgrades (Starting Boost)
-            if (this.pendingUpgrades > 0) {
+            // Check for pending upgrades (Starting Boost) - only show if not already showing
+            if (this.pendingUpgrades > 0 && !this.upgradeMenuShowing) {
+                this.upgradeMenuShowing = true;
                 this.showLevelUpMenu();
                 // do not return, let the loop continue so requestAnimationFrame is called
             }
@@ -4314,8 +4342,8 @@ class DotsSurvivor {
             else if (key === 'bloodSoaker') spriteSet = BLOOD_SOAKER_SPRITES;
 
             if (spriteSet) {
-                iconHtml = `<img src="${spriteSet.base}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;">`;
-                evolvedIconHtml = `<img src="${spriteSet.evolved}" style="width: 40px; height: 40px; vertical-align: middle; border-radius: 8px; margin-right: 8px;"> ${item.evolvedName}`;
+                iconHtml = `<img src="${getSpritePath(spriteSet.base)}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;" onerror="this.style.display='none'">`;
+                evolvedIconHtml = `<img src="${getSpritePath(spriteSet.evolved)}" style="width: 40px; height: 40px; vertical-align: middle; border-radius: 8px; margin-right: 8px;" onerror="this.style.display='none'"> ${item.evolvedName}`;
             }
         }
 
@@ -4550,6 +4578,7 @@ class DotsSurvivor {
             card.onclick = () => {
                 upgrade.effect(this);
                 document.getElementById('levelup-menu').classList.add('hidden');
+                this.upgradeMenuShowing = false;
                 this.gamePaused = false;
 
                 // Show what they picked
@@ -4565,9 +4594,7 @@ class DotsSurvivor {
                 // Handle multiple pending upgrades
                 if (this.pendingUpgrades > 0) {
                     this.pendingUpgrades--;
-                    if (this.pendingUpgrades > 0) {
-                        setTimeout(() => this.showLevelUpMenu(), 300);
-                    }
+                    // Next upgrade will be shown by the game loop when upgradeMenuShowing is false
                 }
             };
             container.appendChild(card);
