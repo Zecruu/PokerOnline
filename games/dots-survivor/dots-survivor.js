@@ -185,6 +185,16 @@ const DIAMOND_AUGMENTS = [
     { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
     // New Hybrid Paths
     { id: 'tech_wizard', name: 'Soul Harvest', icon: '🔮', desc: 'Projectiles spawn Skulls on kill (10% chance, max 12)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
+    // Beam of Despair - white beam that chains to enemies
+    { id: 'beam_despair', name: 'Beam of Despair', icon: '💫', desc: 'White beam drains enemies. Upgrade = +1 chain target, +10 damage', effect: (g) => {
+        if (!g.beamDespair) {
+            g.beamDespair = { damage: 15, chains: 1, range: 300 };
+            g.augments.push('beam_despair');
+        } else {
+            g.beamDespair.chains++;
+            g.beamDespair.damage += 10;
+        }
+    }, getDesc: (g) => g.beamDespair ? `Dmg: ${g.beamDespair.damage}, Chains: ${g.beamDespair.chains}` : 'Not Active' },
     // Demon Set Augments
     { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
@@ -2409,6 +2419,7 @@ class DotsSurvivor {
         this.updateWaterTornadoes(effectiveDt);
         this.updateCthulhuWarning(effectiveDt);
         this.updateAuraFire(effectiveDt);
+        this.updateBeamDespair(effectiveDt);
         this.updateWindPush(effectiveDt);
         this.checkHordeCompletion();
         this.updateConsumer(effectiveDt);
@@ -2494,6 +2505,72 @@ class DotsSurvivor {
                     const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#ff6600', 1);
                 }
+            }
+        }
+    }
+
+    // Beam of Despair - white beam that chains to enemies
+    updateBeamDespair(dt) {
+        if (!this.beamDespair) return;
+
+        // Initialize beam targets array
+        if (!this.beamTargets) this.beamTargets = [];
+
+        // Find closest enemies to target
+        const targets = [];
+        const maxTargets = this.beamDespair.chains;
+        const range = this.beamDespair.range;
+
+        // Sort enemies by distance to player
+        const sortedEnemies = [...this.enemies].map(e => {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+            return { enemy: e, sx, sy, dist };
+        }).filter(e => e.dist < range).sort((a, b) => a.dist - b.dist);
+
+        // First target: closest enemy to player
+        if (sortedEnemies.length > 0) {
+            targets.push(sortedEnemies[0]);
+
+            // Chain targets: each subsequent target is closest to the previous target
+            let lastTarget = sortedEnemies[0];
+            for (let i = 1; i < maxTargets && i < sortedEnemies.length; i++) {
+                // Find closest enemy to last target that isn't already targeted
+                let bestDist = Infinity;
+                let bestTarget = null;
+                for (const e of sortedEnemies) {
+                    if (targets.some(t => t.enemy === e.enemy)) continue;
+                    const chainDist = Math.sqrt((e.sx - lastTarget.sx) ** 2 + (e.sy - lastTarget.sy) ** 2);
+                    if (chainDist < bestDist && chainDist < 200) { // Chain range limit
+                        bestDist = chainDist;
+                        bestTarget = e;
+                    }
+                }
+                if (bestTarget) {
+                    targets.push(bestTarget);
+                    lastTarget = bestTarget;
+                }
+            }
+        }
+
+        // Store targets for rendering
+        this.beamTargets = targets;
+
+        // Deal damage to all targets
+        for (const t of targets) {
+            const damage = Math.floor(this.beamDespair.damage * dt);
+            t.enemy.health -= damage;
+            t.enemy.hitFlash = 0.3;
+
+            // Add damage numbers less frequently
+            if (Math.random() < 0.15) {
+                this.addDamageNumber(t.sx, t.sy, this.beamDespair.damage, '#ffffff', { enemyId: t.enemy.id });
+            }
+
+            // Spawn particles on targets occasionally
+            if (Math.random() < 0.1) {
+                this.spawnParticles(t.sx, t.sy, '#ffffff', 2);
             }
         }
     }
@@ -5168,6 +5245,65 @@ class DotsSurvivor {
                 ctx.fillText(`🔥${this.auraFire.level}`, this.player.x, this.player.y - auraRadius - 8);
             }
 
+            ctx.restore();
+        }
+
+        // Beam of Despair
+        if (this.beamDespair && this.beamTargets && this.beamTargets.length > 0) {
+            ctx.save();
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Draw beams connecting player -> target1 -> target2 -> target3 etc
+            let prevX = this.player.x;
+            let prevY = this.player.y;
+
+            for (let i = 0; i < this.beamTargets.length; i++) {
+                const t = this.beamTargets[i];
+
+                // Main beam line
+                ctx.beginPath();
+                ctx.moveTo(prevX, prevY);
+                ctx.lineTo(t.sx, t.sy);
+
+                // White core with glow
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ffffff';
+                ctx.stroke();
+
+                // Inner bright core
+                ctx.beginPath();
+                ctx.moveTo(prevX, prevY);
+                ctx.lineTo(t.sx, t.sy);
+                ctx.strokeStyle = '#ccddff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Pulsing effect
+                const pulse = Math.sin(this.gameTime / 50) * 0.3 + 0.7;
+                ctx.globalAlpha = pulse;
+                ctx.beginPath();
+                ctx.moveTo(prevX, prevY);
+                ctx.lineTo(t.sx, t.sy);
+                ctx.strokeStyle = '#aabbff';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+
+                // Draw target indicator circle
+                ctx.beginPath();
+                ctx.arc(t.sx, t.sy, t.enemy.radius + 5, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                prevX = t.sx;
+                prevY = t.sy;
+            }
+
+            ctx.shadowBlur = 0;
             ctx.restore();
         }
 
