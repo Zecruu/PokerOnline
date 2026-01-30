@@ -660,6 +660,47 @@ class DotsSurvivor {
         try {
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) { console.log('Audio not supported'); }
+
+        // Background music
+        this.menuMusic = new Audio('menu-music.mp3');
+        this.menuMusic.loop = true;
+        this.menuMusic.volume = 0.3; // 30% volume for background music
+        this.musicPlaying = false;
+    }
+
+    playMenuMusic() {
+        if (!this.settings.soundEnabled || this.musicPlaying) return;
+
+        const volumeMult = this.settings.volume / 100;
+        this.menuMusic.volume = 0.3 * volumeMult;
+
+        // Resume audio context if suspended (browser autoplay policy)
+        if (this.audioCtx && this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+
+        this.menuMusic.play().then(() => {
+            this.musicPlaying = true;
+            console.log('🎵 Menu music started');
+        }).catch(e => {
+            console.log('Music autoplay blocked, will play on user interaction');
+        });
+    }
+
+    stopMenuMusic() {
+        if (this.menuMusic && this.musicPlaying) {
+            this.menuMusic.pause();
+            this.menuMusic.currentTime = 0;
+            this.musicPlaying = false;
+            console.log('🎵 Menu music stopped');
+        }
+    }
+
+    updateMusicVolume() {
+        if (this.menuMusic) {
+            const volumeMult = this.settings.volume / 100;
+            this.menuMusic.volume = 0.3 * volumeMult;
+        }
     }
 
     playSound(type) {
@@ -776,6 +817,13 @@ class DotsSurvivor {
             this.settings.soundEnabled = e.target.checked;
             if (e.target.checked) {
                 this.playSound('xp'); // Play test sound
+                this.playMenuMusic(); // Resume music if on menu
+            } else {
+                // Pause music when sound is disabled
+                if (this.menuMusic) {
+                    this.menuMusic.pause();
+                    this.musicPlaying = false;
+                }
             }
         });
 
@@ -783,6 +831,7 @@ class DotsSurvivor {
         volumeSlider.addEventListener('input', (e) => {
             this.settings.volume = parseInt(e.target.value);
             volumeValue.textContent = this.settings.volume + '%';
+            this.updateMusicVolume(); // Update music volume in real-time
         });
 
         volumeSlider.addEventListener('change', () => {
@@ -1074,6 +1123,9 @@ class DotsSurvivor {
         document.getElementById('gameover-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
 
+        // Play menu music when returning to menu
+        this.playMenuMusic();
+
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
         content.innerHTML = `
@@ -1114,6 +1166,9 @@ class DotsSurvivor {
     }
 
     startGame(mode = 'fresh') {
+        // Stop menu music when game starts
+        this.stopMenuMusic();
+
         // Hide all menus first
         document.getElementById('start-menu').classList.add('hidden');
         document.getElementById('gameover-menu').classList.add('hidden');
@@ -4779,6 +4834,10 @@ class DotsSurvivor {
 
     async gameOver() {
         this.gameRunning = false;
+
+        // Play menu music on game over
+        this.playMenuMusic();
+
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
         document.getElementById('final-time').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         document.getElementById('final-kills').textContent = this.player.kills;

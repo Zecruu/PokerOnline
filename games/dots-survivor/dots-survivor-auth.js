@@ -262,12 +262,18 @@ class AuthManager {
         document.getElementById('auth-menu').classList.remove('hidden');
         document.getElementById('register-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.add('hidden');
+
+        // Play menu music
+        if (window.game) window.game.playMenuMusic();
     }
 
     showStartMenu() {
         document.getElementById('auth-menu').classList.add('hidden');
         document.getElementById('register-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
+
+        // Play menu music
+        if (window.game) window.game.playMenuMusic();
 
         // Update user info
         const userInfoEl = document.getElementById('user-info');
