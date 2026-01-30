@@ -353,7 +353,7 @@ const STACKING_ITEMS = {
             // Level up every 1000 kills
             const level = Math.floor(stacks / 1000) + 1;
             const chains = level;
-            const damage = 15 + (level - 1) * 5;  // 15 base, +5 per level
+            const damage = 17 + (level - 1) * 6;  // 17 base (+15%), +6 per level (+15%)
             const colorIndex = Math.min(level - 1, BEAM_DESPAIR_COLORS.length - 1);
             const color = BEAM_DESPAIR_COLORS[colorIndex];
 
@@ -367,8 +367,8 @@ const STACKING_ITEMS = {
             }
         },
         evolvedEffect: (g) => {
-            // Max power beam - rainbow effect
-            g.beamDespair = { damage: 60, chains: 10, range: 400, level: 10, color: '#ff00ff', evolved: true };
+            // Max power beam - rainbow effect (+15% = 69 damage)
+            g.beamDespair = { damage: 69, chains: 10, range: 400, level: 10, color: '#ff00ff', evolved: true };
         }
     },
     ringXp: {
@@ -4665,13 +4665,14 @@ class DotsSurvivor {
 
         // First time picking up this item - show info popup
         if (!this.stackingItems[key]) {
-            this.stackingItems[key] = { stacks: 0, evolved: false };
+            // Initialize with 1 stack so all items get their initial bonus
+            this.stackingItems[key] = { stacks: 1, evolved: false };
             this.droppedItems.push(key);
             this.lastItemPickupTime = this.gameTime; // Track pickup time for cooldown
 
-            // Apply initial effect immediately so lifesteal etc works right away
+            // Apply initial effect immediately with 1 stack
             if (item.effect) {
-                item.effect(this, 0);
+                item.effect(this, 1);
             }
 
             this.showItemPickupPopup(key);
