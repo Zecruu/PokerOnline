@@ -1,44 +1,30 @@
 // Dots Survivor - Complete Game with Classes, Items, Bosses & Infinite Map
 
-// Player, Minion, and Projectile Sprite System (Animated Sprite Sheets)
-const PLAYER_SPRITE = 'accc005c-8f0c-4219-8828-1159494d1650-removebg-preview.png';
-const WOLF_SPRITE = 'a5560990-c2a0-41d0-94b5-61114f8bdbbe-removebg-preview.png';
-const FIREBALL_SPRITE = '0136dae6-4cde-40d9-84f8-2543fff0a72f-removebg-preview.png';
-
-// Sprite Animation Definitions
-// Each animation has: row (y offset), frameCount, frameWidth, frameHeight
-const SPRITE_ANIMS = {
-    player: {
-        frameSize: 64,
-        idle:     { y: 0,   frames: 4 },
-        walk:     { y: 64,  frames: 6 },
-        summon:   { y: 128, frames: 8 },
-        attack:   { y: 192, frames: 6 },
-        death:    { y: 256, frames: 4 }
-    },
-    wolf: {
-        frameSize: 64,
-        idle:     { y: 0,   frames: 4 },
-        run:      { y: 64,  frames: 6 },
-        bite:     { y: 128, frames: 6 },
-        death:    { y: 192, frames: 4 }
-    },
-    fireball: {
-        frameSize: 32,
-        flight:   { y: 0,  frames: 6 },
-        impact:   { y: 32, frames: 4 }
-    }
+// Player, Minion, and Projectile Sprite System (Single Sprites per Animation)
+const PLAYER_SPRITES = {
+    standing: 'Standing-removebg-preview.png',
+    walking: 'Walking-removebg-preview.png',
+    dead: 'Dead-removebg-preview.png'
 };
 
-// Animation state tracker
+const WOLF_SPRITES = {
+    standing: 'WolfStanding-removebg-preview.png',
+    running1: 'WolfRunning-removebg-preview.png',
+    running2: 'WolfRunning2-removebg-preview.png',
+    biting: 'WolfBitting-removebg-preview.png'
+};
+
+const FIREBALL_SPRITE = 'bd0965f5-db33-4b59-9bc9-67b054787de1-removebg-preview.png';
+
+// Animation state for wolf running (alternates between running1 and running2)
 const ANIM_STATE = {
-    player: { anim: 'idle', frame: 0, timer: 0 },
-    wolves: [], // Each wolf has its own animation state
-    fireballs: [] // Each fireball has its own animation state
+    player: { current: 'standing' },
+    wolfRunFrame: 0,
+    wolfRunTimer: 0
 };
 
 // Animation speed (seconds per frame)
-const ANIM_SPEED = 0.1;
+const ANIM_SPEED = 0.15;
 
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
@@ -101,8 +87,8 @@ function loadSprite(type, path, skipProcessing = false) {
     const img = new Image();
     img.src = path;
     img.onload = () => {
-        // Skip processing for sprites that already have transparency (player, wolf, fireball)
-        if (skipProcessing || type === 'player' || type === 'wolf' || type === 'fireball') {
+        // Skip processing for sprites that already have transparency
+        if (skipProcessing || type.startsWith('player_') || type.startsWith('wolf_') || type === 'fireball') {
             SPRITE_CACHE[type] = img; // Use image directly
             console.log(`Loaded sprite for ${type} (no processing)`);
         } else {
@@ -114,20 +100,26 @@ function loadSprite(type, path, skipProcessing = false) {
     };
     img.onerror = () => {
         console.warn(`Failed to load sprite for ${type}: ${path}`);
-        ENEMY_SPRITES[type] = null; // Fallback to default rendering
     };
     return img;
 }
 
 // Initialize sprites on load
 function initSprites() {
+    // Load enemy sprites
     for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
         if (path) loadSprite(type, path);
     }
-    // Load player, wolf, and fireball sprites
-    if (PLAYER_SPRITE) loadSprite('player', PLAYER_SPRITE);
-    if (WOLF_SPRITE) loadSprite('wolf', WOLF_SPRITE);
-    if (FIREBALL_SPRITE) loadSprite('fireball', FIREBALL_SPRITE);
+    // Load player sprites (standing, walking, dead)
+    for (const [anim, path] of Object.entries(PLAYER_SPRITES)) {
+        loadSprite('player_' + anim, path, true);
+    }
+    // Load wolf sprites (standing, running1, running2, biting)
+    for (const [anim, path] of Object.entries(WOLF_SPRITES)) {
+        loadSprite('wolf_' + anim, path, true);
+    }
+    // Load fireball sprite
+    if (FIREBALL_SPRITE) loadSprite('fireball', FIREBALL_SPRITE, true);
 }
 
 // Call init when DOM is ready
@@ -4008,36 +4000,17 @@ class DotsSurvivor {
                 ctx.fillRect(sx - crossH/2, sy - crossW/2, crossH, crossW); // Horizontal bar
             }
         });
-        // Projectiles (Fireballs) - Animated
+        // Projectiles (Fireballs) - Single sprite
         this.projectiles.forEach(p => {
             const fireballSprite = SPRITE_CACHE['fireball'];
-            const fAnims = SPRITE_ANIMS.fireball;
-            if (fireballSprite && fAnims) {
-                // Initialize animation state for this projectile if needed
-                if (!p.animState) {
-                    p.animState = { frame: 0, timer: 0 };
-                }
-
-                // Update animation (flight animation loops)
-                const anim = fAnims.flight;
-                p.animState.timer += 0.016;
-                if (p.animState.timer >= ANIM_SPEED * 0.5) { // Faster animation for fireballs
-                    p.animState.timer = 0;
-                    p.animState.frame = (p.animState.frame + 1) % anim.frames;
-                }
-
-                const frameX = p.animState.frame * fAnims.frameSize;
-                const frameY = anim.y;
-
+            if (fireballSprite) {
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 // Rotate fireball based on direction
                 const angle = Math.atan2(p.vy, p.vx);
                 ctx.rotate(angle);
                 const size = p.radius * 5; // Fireball sprite sizing
-                ctx.drawImage(fireballSprite,
-                    frameX, frameY, fAnims.frameSize, fAnims.frameSize,
-                    -size / 2, -size / 2, size, size);
+                ctx.drawImage(fireballSprite, -size / 2, -size / 2, size, size);
                 ctx.restore();
             } else {
                 // Fallback to circle
@@ -4220,46 +4193,37 @@ class DotsSurvivor {
             ctx.fillText('⭐', sx, sy);
             ctx.shadowBlur = 0;
         });
-        // Minions (Wolf Pack) - Animated
+        // Minions (Wolf Pack) - Using single sprite files
         this.minions.forEach((m, idx) => {
-            const wolfSprite = SPRITE_CACHE['wolf'];
-            const wAnims = SPRITE_ANIMS.wolf;
-            if (wolfSprite && wAnims) {
-                // Initialize animation state for this wolf if needed
-                if (!m.animState) {
-                    m.animState = { anim: 'idle', frame: 0, timer: 0 };
+            // Determine which sprite to use based on wolf state
+            const isAttacking = m.attackCooldown > 0.5;
+            const isMoving = m.lastX !== undefined && (Math.abs(m.x - m.lastX) > 0.5 || Math.abs(m.y - m.lastY) > 0.5);
+
+            let spriteKey;
+            if (isAttacking) {
+                spriteKey = 'wolf_biting';
+            } else if (isMoving) {
+                // Alternate between running1 and running2 for animation
+                if (!m.runTimer) m.runTimer = 0;
+                m.runTimer += 0.016;
+                if (m.runTimer >= ANIM_SPEED) {
+                    m.runTimer = 0;
+                    m.runFrame = (m.runFrame || 0) === 0 ? 1 : 0;
                 }
+                spriteKey = m.runFrame === 0 ? 'wolf_running1' : 'wolf_running2';
+            } else {
+                spriteKey = 'wolf_standing';
+            }
 
-                // Determine animation: attacking = bite, moving = run, else idle
-                const isAttacking = m.attackCooldown > 0.5;
-                const isMoving = m.lastX !== undefined && (Math.abs(m.x - m.lastX) > 0.5 || Math.abs(m.y - m.lastY) > 0.5);
-                const animName = isAttacking ? 'bite' : (isMoving ? 'run' : 'idle');
-                const anim = wAnims[animName];
+            // Store position for movement detection
+            m.lastX = m.x; m.lastY = m.y;
 
-                // Update animation
-                m.animState.timer += 0.016;
-                if (m.animState.anim !== animName) {
-                    m.animState.anim = animName;
-                    m.animState.frame = 0;
-                    m.animState.timer = 0;
-                }
-                if (m.animState.timer >= ANIM_SPEED) {
-                    m.animState.timer = 0;
-                    m.animState.frame = (m.animState.frame + 1) % anim.frames;
-                }
-
-                // Store position for movement detection
-                m.lastX = m.x; m.lastY = m.y;
-
-                const frameX = m.animState.frame * wAnims.frameSize;
-                const frameY = anim.y;
-
+            const wolfSprite = SPRITE_CACHE[spriteKey];
+            if (wolfSprite) {
                 ctx.save();
                 ctx.translate(m.x, m.y);
                 const size = m.radius * 4; // Wolf sprite sizing
-                ctx.drawImage(wolfSprite,
-                    frameX, frameY, wAnims.frameSize, wAnims.frameSize,
-                    -size / 2, -size / 2, size, size);
+                ctx.drawImage(wolfSprite, -size / 2, -size / 2, size, size);
                 ctx.restore();
             } else {
                 // Fallback to circle
@@ -4623,37 +4587,17 @@ class DotsSurvivor {
 
         if (p.invincibleTime > 0 && Math.floor(p.invincibleTime * 10) % 2 === 0) ctx.globalAlpha = 0.5;
 
-        // Try to draw animated mage sprite
-        const playerSprite = SPRITE_CACHE['player'];
-        const pAnims = SPRITE_ANIMS.player;
-        if (playerSprite && pAnims) {
-            // Determine animation based on player state
-            const isMoving = Math.abs(p.vx || 0) > 10 || Math.abs(p.vy || 0) > 10 ||
-                            (this.keys && (this.keys['w'] || this.keys['a'] || this.keys['s'] || this.keys['d']));
-            const animName = isMoving ? 'walk' : 'idle';
-            const anim = pAnims[animName];
+        // Determine which sprite to use based on player state
+        const isMoving = this.keys && (this.keys['w'] || this.keys['a'] || this.keys['s'] || this.keys['d']);
+        const isDead = p.health <= 0;
+        const spriteKey = isDead ? 'player_dead' : (isMoving ? 'player_walking' : 'player_standing');
+        const playerSprite = SPRITE_CACHE[spriteKey];
 
-            // Update animation frame
-            ANIM_STATE.player.timer += 0.016; // ~60fps
-            if (ANIM_STATE.player.anim !== animName) {
-                ANIM_STATE.player.anim = animName;
-                ANIM_STATE.player.frame = 0;
-                ANIM_STATE.player.timer = 0;
-            }
-            if (ANIM_STATE.player.timer >= ANIM_SPEED) {
-                ANIM_STATE.player.timer = 0;
-                ANIM_STATE.player.frame = (ANIM_STATE.player.frame + 1) % anim.frames;
-            }
-
-            const frameX = ANIM_STATE.player.frame * pAnims.frameSize;
-            const frameY = anim.y;
-
+        if (playerSprite) {
             ctx.save();
             ctx.translate(p.x, p.y);
             const size = p.radius * 4; // Mage sprite display size
-            ctx.drawImage(playerSprite,
-                frameX, frameY, pAnims.frameSize, pAnims.frameSize,
-                -size / 2, -size / 2, size, size);
+            ctx.drawImage(playerSprite, -size / 2, -size / 2, size, size);
             ctx.restore();
         } else {
             // Fallback to circle
