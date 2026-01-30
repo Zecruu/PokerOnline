@@ -1114,7 +1114,14 @@ class DotsSurvivor {
     }
 
     startGame(mode = 'fresh') {
-        document.getElementById('start-menu').classList.add('hidden'); // Ensure menu hidden
+        // Hide all menus first
+        document.getElementById('start-menu').classList.add('hidden');
+        document.getElementById('gameover-menu').classList.add('hidden');
+        document.getElementById('levelup-menu').classList.add('hidden');
+        document.getElementById('game-hud').classList.remove('hidden');
+
+        // Reset upgrade menu state
+        this.upgradeMenuShowing = false;
 
         this.worldX = 0; this.worldY = 0;
         this.player.x = this.canvas.width / 2; this.player.y = this.canvas.height / 2;
@@ -1340,23 +1347,15 @@ class DotsSurvivor {
             damagePerSecond: 15
         };
 
-        // Start Game Loop
-        this.gameRunning = true;
-        this.gamePaused = false;
-        this.lastTime = performance.now();
-        this.gameLoop(this.lastTime);
-
         if (this.selectedClass.bonuses.wolfCount) {
             // Initial wolves
             for (let i = 0; i < this.maxWolves; i++) this.addMinion('wolf');
         }
 
-        document.getElementById('start-menu').classList.add('hidden');
-        document.getElementById('gameover-menu').classList.add('hidden');
-        document.getElementById('levelup-menu').classList.add('hidden');
-        document.getElementById('game-hud').classList.remove('hidden');
-
-        this.gameRunning = true; this.gamePaused = false; this.lastTime = performance.now();
+        // Start Game Loop
+        this.gameRunning = true;
+        this.gamePaused = false;
+        this.lastTime = performance.now();
         requestAnimationFrame((t) => this.gameLoop(t));
     }
 
