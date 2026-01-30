@@ -606,9 +606,7 @@ class DotsSurvivor {
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy', rarity: 'rare', effect: (g) => g.weapons.bullet.pierce++, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}` },
             { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
-            { id: 'healregen', name: 'Regeneration', icon: '💚', desc: 'Regenerate +1 HP/s (out of combat only)', rarity: 'rare', effect: (g) => g.player.hpRegen = (g.player.hpRegen || 0) + 1, getDesc: (g) => `HP Regen: ${g.player.hpRegen || 0}/s → ${(g.player.hpRegen || 0) + 1}/s (out of combat)` },
             { id: 'skull_upgrade', name: 'Soul Collector', icon: '💀', desc: 'Adds a skull (max 12), then +15 damage', rarity: 'rare', effect: (g) => { if (g.skulls.length < 12) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); }, getDesc: (g) => g.skulls.length < 12 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` : `Skull Damage: ${g.skulls[0]?.damage || 20} → ${(g.skulls[0]?.damage || 20) + 15}` },
-            { id: 'crit', name: 'Critical Hit', icon: '⚡', desc: '+15% Crit Chance (Max 100%)', rarity: 'epic', effect: (g) => g.weapons.bullet.critChance = Math.min(1.0, (g.weapons.bullet.critChance || 0.05) + 0.15), getDesc: (g) => `Crit Chance: ${Math.floor((g.weapons.bullet.critChance || 0.05) * 100)}% → ${Math.min(100, Math.floor(((g.weapons.bullet.critChance || 0.05) + 0.15) * 100))}%` },
             { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
             { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 50}, Speed: ${g.player.speed}→${g.player.speed + 25}` },
             { id: 'skull_shower', name: 'Skull Storm', icon: '☠️', desc: 'Adds 3 skulls (max 12), overflow = +15 damage each', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) { if (g.skulls.length < 12) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); } }, getDesc: (g) => { const toAdd = Math.min(3, 12 - g.skulls.length); const overflow = 3 - toAdd; return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}${overflow > 0 ? `, +${overflow * 15} dmg` : ''}` : `Skull Damage: +45`; } },
@@ -1126,7 +1124,7 @@ class DotsSurvivor {
         // Stacking Items System
         this.stackingItems = {}; // { itemKey: { stacks: 0, evolved: false } }
         this.droppedItems = []; // Track which items have already dropped (drop once only)
-        this.lastItemPickupTime = -300000; // Allow first item to drop immediately (5 min = 300000ms)
+        this.lastItemPickupTime = -180000; // Allow first item to drop immediately (3 min = 180000ms)
         this.stackingDamageBonus = 0;
         this.stackingXpBonus = 0;
         this.stackingHpBonus = 0;
@@ -3220,19 +3218,22 @@ class DotsSurvivor {
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
-        // Consumer boss spawns at wave 7+ (one time)
-        if (this.wave >= 7 && !this.consumerSpawned) {
+        // Consumer boss spawns at wave 15 (one time)
+        if (this.wave >= 15 && !this.consumerSpawned) {
             this.spawnConsumer();
             this.consumerSpawned = true;
         }
 
         // Boss spawning logic - controlled per wave
-        const isBossWave = this.wave >= 5 && this.wave % 5 === 0;
-        const isGeneralWave = this.wave >= 20 && this.wave % 20 === 0;
+        // Wave 10: First boss, Wave 15: Consumer, Wave 20: Demon King, Wave 25: Cthulhu
+        // After wave 20, random bosses spawn every 5 waves
+        const isBossWave = this.wave >= 10 && this.wave % 10 === 0;
+        const isGeneralWave = this.wave === 20; // Demon King only at wave 20
+        const isRandomBossWave = this.wave > 20 && this.wave % 5 === 0; // Random bosses after wave 20
 
-        if (isBossWave && this.lastBossWave !== this.wave) {
+        if ((isBossWave || isRandomBossWave) && this.lastBossWave !== this.wave) {
             // Calculate how many bosses should spawn this wave
-            const bossWaveNumber = Math.floor(this.wave / 5);
+            const bossWaveNumber = this.wave > 20 ? Math.floor((this.wave - 20) / 5) + 1 : 1;
             const maxBossesThisWave = Math.min(bossWaveNumber, 5); // Cap at 5 bosses
 
             // If we're past the cap, increase boss stats
@@ -3256,7 +3257,7 @@ class DotsSurvivor {
                 this.bossGracePeriod = 5;
             }
 
-            // Spawn Demonic General (1 per 20 waves)
+            // Spawn Demonic General (Demon King) at wave 20 only
             if (isGeneralWave && !this.generalSpawnedThisWave) {
                 this.enemies.push(this.createBoss(wx, wy, 'general'));
                 this.generalSpawnedThisWave = true;
@@ -3733,8 +3734,8 @@ class DotsSurvivor {
     }
 
     dropItem(wx, wy) {
-        // Check 5-minute cooldown since last item pickup (300000ms = 5 minutes)
-        const itemCooldown = 300000;
+        // Check 3-minute cooldown since last item pickup (180000ms = 3 minutes)
+        const itemCooldown = 180000;
         if (this.gameTime - this.lastItemPickupTime < itemCooldown) return;
 
         // Only drop items that haven't been collected yet
@@ -4501,7 +4502,7 @@ class DotsSurvivor {
         const all = [...this.baseUpgrades, ...this.selectedClass.upgrades];
 
         // Early waves (1-10): Only damage and HP related upgrades
-        const earlyWaveIds = ['damage', 'health', 'healregen', 'firerate', 'crit', 'critdmg', 'devastation', 'armor'];
+        const earlyWaveIds = ['damage', 'health', 'firerate', 'critdmg', 'devastation', 'armor'];
         let available;
         if (this.wave <= 10) {
             available = all.filter(u => earlyWaveIds.includes(u.id));
@@ -4645,7 +4646,7 @@ class DotsSurvivor {
         const all = [...this.baseUpgrades, ...this.selectedClass.upgrades];
 
         // Early waves (1-10): Only damage and HP related upgrades
-        const earlyWaveIds = ['damage', 'health', 'healregen', 'firerate', 'crit', 'critdmg', 'devastation', 'armor'];
+        const earlyWaveIds = ['damage', 'health', 'firerate', 'critdmg', 'devastation', 'armor'];
         let filtered;
         if (this.wave <= 10) {
             filtered = all.filter(u => earlyWaveIds.includes(u.id));
