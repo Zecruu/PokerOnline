@@ -13,11 +13,11 @@ const GAMES: Array<{
   isFree: boolean;
 }> = [
   {
-    id: "dots-survivor",
+    id: "velthara-dominion",
     title: "Velthara's Dominion",
     description: "Survive endless waves of enemies! Collect XP, level up, and choose powerful upgrades. How long can you last?",
     thumbnail: "/games/dots-survivor/velthara-bg.jpg",
-    href: "/games/dots-survivor/dots-survivor.html",
+    href: "/games/dots-survivor/velthara-dominion.html",
     badge: "FEATURED",
     badgeColor: "green",
     isFree: true,
@@ -84,7 +84,7 @@ export default function Home() {
 
               <div className="flex gap-4 flex-wrap">
                 <Link
-                  href="/games/dots-survivor/dots-survivor.html"
+                  href="/games/dots-survivor/velthara-dominion.html"
                   className="btn-glass btn-glass-primary text-base sm:text-lg px-8 sm:px-10 py-4"
                 >
                   <span className="mr-2">▶</span> Play Now — Free
