@@ -1,5 +1,10 @@
 // Dots Survivor - Complete Game with Classes, Items, Bosses & Infinite Map
 
+// Player, Minion, and Projectile Sprite System
+const PLAYER_SPRITE = 'accc005c-8f0c-4219-8828-1159494d1650-removebg-preview.png';
+const WOLF_SPRITE = 'a5560990-c2a0-41d0-94b5-61114f8bdbbe-removebg-preview.png';
+const FIREBALL_SPRITE = '0136dae6-4cde-40d9-84f8-2543fff0a72f-removebg-preview.png';
+
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
     // Define sprite paths for each enemy type (set to null for default circle rendering)
@@ -78,6 +83,10 @@ function initSprites() {
     for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
         if (path) loadSprite(type, path);
     }
+    // Load player, wolf, and fireball sprites
+    if (PLAYER_SPRITE) loadSprite('player', PLAYER_SPRITE);
+    if (WOLF_SPRITE) loadSprite('wolf', WOLF_SPRITE);
+    if (FIREBALL_SPRITE) loadSprite('fireball', FIREBALL_SPRITE);
 }
 
 // Call init when DOM is ready
@@ -3958,8 +3967,23 @@ class DotsSurvivor {
                 ctx.fillRect(sx - crossH/2, sy - crossW/2, crossH, crossW); // Horizontal bar
             }
         });
-        // Projectiles
-        this.projectiles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); });
+        // Projectiles (Fireballs)
+        this.projectiles.forEach(p => {
+            const fireballSprite = SPRITE_CACHE['fireball'];
+            if (fireballSprite) {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                // Rotate fireball based on direction
+                const angle = Math.atan2(p.vy, p.vx);
+                ctx.rotate(angle);
+                const size = p.radius * 3; // Fireball sprite sizing
+                ctx.drawImage(fireballSprite, -size / 2, -size / 2, size, size);
+                ctx.restore();
+            } else {
+                // Fallback to circle
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
+            }
+        });
         // Enemies
         this.enemies.forEach(e => {
             const sx = this.player.x + (e.wx - this.worldX);
@@ -4136,12 +4160,22 @@ class DotsSurvivor {
             ctx.fillText('⭐', sx, sy);
             ctx.shadowBlur = 0;
         });
-        // Minions
+        // Minions (Wolf Pack)
         this.minions.forEach(m => {
-            ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
-            ctx.fillStyle = m.color; ctx.fill();
-            ctx.font = `${m.radius + 4}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(m.icon, m.x, m.y);
+            const wolfSprite = SPRITE_CACHE['wolf'];
+            if (wolfSprite) {
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                const size = m.radius * 3; // Wolf sprite sizing
+                ctx.drawImage(wolfSprite, -size / 2, -size / 2, size, size);
+                ctx.restore();
+            } else {
+                // Fallback to circle
+                ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+                ctx.fillStyle = m.color; ctx.fill();
+                ctx.font = `${m.radius + 4}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(m.icon, m.x, m.y);
+            }
         });
         // Imps
         this.imps.forEach(imp => {
@@ -4483,7 +4517,7 @@ class DotsSurvivor {
     drawPlayer() {
         const ctx = this.ctx, p = this.player;
         const healthPercent = p.health / p.maxHealth;
-        
+
         // Low health danger pulse (GAME JUICE)
         if (healthPercent < 0.25) {
             const pulse = Math.sin(this.gameTime * 10) * 0.5 + 0.5;
@@ -4494,12 +4528,24 @@ class DotsSurvivor {
             ctx.fill();
             ctx.restore();
         }
-        
+
         if (p.invincibleTime > 0 && Math.floor(p.invincibleTime * 10) % 2 === 0) ctx.globalAlpha = 0.5;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 8, 0, Math.PI * 2); ctx.fillStyle = `${p.color}33`; ctx.fill();
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
-        ctx.beginPath(); ctx.arc(p.x - 3, p.y - 3, p.radius * 0.4, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fill();
-        ctx.font = '14px Arial'; ctx.fillText(this.selectedClass.icon, p.x - 7, p.y + 5);
+
+        // Try to draw mage sprite
+        const playerSprite = SPRITE_CACHE['player'];
+        if (playerSprite) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            const size = p.radius * 3.5; // Mage sprite is larger
+            ctx.drawImage(playerSprite, -size / 2, -size / 2, size, size);
+            ctx.restore();
+        } else {
+            // Fallback to circle
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 8, 0, Math.PI * 2); ctx.fillStyle = `${p.color}33`; ctx.fill();
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
+            ctx.beginPath(); ctx.arc(p.x - 3, p.y - 3, p.radius * 0.4, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fill();
+            ctx.font = '14px Arial'; ctx.fillText(this.selectedClass.icon, p.x - 7, p.y + 5);
+        }
         ctx.globalAlpha = 1;
     }
 
