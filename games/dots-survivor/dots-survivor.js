@@ -36,6 +36,26 @@ const SKULL_SPRITES = {
     lightning: '0a93e9de-a767-4d80-9df3-e21ca59d8319-removebg-preview.png'
 };
 
+// Beam of Despair Sprites (stacking item icons)
+const BEAM_DESPAIR_SPRITES = {
+    base: '1d6bda2b-9e6a-4e43-aa19-9edcf1a91255.jpg',
+    evolved: '916b5e75-0b5b-4e95-a550-c84fbfe0a268.jpg'
+};
+
+// Beam of Despair color progression (changes every 1000 kills)
+const BEAM_DESPAIR_COLORS = [
+    '#ffffff',  // Level 1: White
+    '#88ccff',  // Level 2: Light Blue
+    '#00ffff',  // Level 3: Cyan
+    '#aa44ff',  // Level 4: Purple
+    '#ff44ff',  // Level 5: Magenta
+    '#ff4444',  // Level 6: Red
+    '#ff8800',  // Level 7: Orange
+    '#ffff00',  // Level 8: Yellow
+    '#ffd700',  // Level 9: Gold
+    '#ff00ff'   // Level 10+/Evolved: Rainbow/Pink
+];
+
 // Animation state for wolf running (alternates between running1 and running2)
 const ANIM_STATE = {
     player: { current: 'standing' },
@@ -151,6 +171,10 @@ function initSprites() {
     for (const [element, path] of Object.entries(SKULL_SPRITES)) {
         loadSprite('skull_' + element, path, true);
     }
+    // Load Beam of Despair sprites
+    for (const [type, path] of Object.entries(BEAM_DESPAIR_SPRITES)) {
+        loadSprite('beam_despair_' + type, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -200,16 +224,6 @@ const DIAMOND_AUGMENTS = [
     { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
     // New Hybrid Paths
     { id: 'tech_wizard', name: 'Soul Harvest', icon: '🔮', desc: 'Projectiles spawn Skulls on kill (10% chance, max 12)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
-    // Beam of Despair - white beam that chains to enemies
-    { id: 'beam_despair', name: 'Beam of Despair', icon: '💫', desc: 'White beam drains enemies. Upgrade = +1 chain target, +10 damage', effect: (g) => {
-        if (!g.beamDespair) {
-            g.beamDespair = { damage: 15, chains: 1, range: 300 };
-            g.augments.push('beam_despair');
-        } else {
-            g.beamDespair.chains++;
-            g.beamDespair.damage += 10;
-        }
-    }, getDesc: (g) => g.beamDespair ? `Dmg: ${g.beamDespair.damage}, Chains: ${g.beamDespair.chains}` : 'Not Active' },
     // Demon Set Augments
     { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
@@ -317,6 +331,40 @@ const STACKING_ITEMS = {
         stackType: 'kill',
         effect: (g, stacks) => { g.stackingMagnetBonus = stacks * 0.1; },
         evolvedEffect: (g) => { g.stackingMagnetBonus = 200; g.pullsEnemies = true; }
+    },
+    beamDespair: {
+        name: 'Beam of Despair',
+        icon: '💫',
+        desc: 'Chains +1 enemy per 1k kills. Color changes with level.',
+        evolvedName: 'Ray of Annihilation',
+        evolvedIcon: '🌟',
+        evolvedDesc: 'Rainbow beam, 10 chains, devastating damage',
+        maxStacks: 10000,  // 10 levels, evolves at 10k kills
+        stackType: 'kill',
+        hasSprite: true,
+        spriteBase: 'beam_despair_base',
+        spriteEvolved: 'beam_despair_evolved',
+        effect: (g, stacks) => {
+            // Level up every 1000 kills
+            const level = Math.floor(stacks / 1000) + 1;
+            const chains = level;
+            const damage = 15 + (level - 1) * 5;  // 15 base, +5 per level
+            const colorIndex = Math.min(level - 1, BEAM_DESPAIR_COLORS.length - 1);
+            const color = BEAM_DESPAIR_COLORS[colorIndex];
+
+            if (!g.beamDespair) {
+                g.beamDespair = { damage: damage, chains: chains, range: 300, level: level, color: color };
+            } else {
+                g.beamDespair.damage = damage;
+                g.beamDespair.chains = chains;
+                g.beamDespair.level = level;
+                g.beamDespair.color = color;
+            }
+        },
+        evolvedEffect: (g) => {
+            // Max power beam - rainbow effect
+            g.beamDespair = { damage: 60, chains: 10, range: 400, level: 10, color: '#ff00ff', evolved: true };
+        }
     }
 };
 
@@ -2524,12 +2572,15 @@ class DotsSurvivor {
         }
     }
 
-    // Beam of Despair - white beam that chains to enemies
+    // Beam of Despair - chains to enemies, color based on level
     updateBeamDespair(dt) {
         if (!this.beamDespair) return;
 
         // Initialize beam targets array
         if (!this.beamTargets) this.beamTargets = [];
+
+        // Get beam color for visual effects
+        const beamColor = this.beamDespair.color || '#ffffff';
 
         // Find closest enemies to target
         const targets = [];
@@ -2578,14 +2629,14 @@ class DotsSurvivor {
             t.enemy.health -= damage;
             t.enemy.hitFlash = 0.3;
 
-            // Add damage numbers less frequently
+            // Add damage numbers less frequently - use beam color
             if (Math.random() < 0.15) {
-                this.addDamageNumber(t.sx, t.sy, this.beamDespair.damage, '#ffffff', { enemyId: t.enemy.id });
+                this.addDamageNumber(t.sx, t.sy, this.beamDespair.damage, beamColor, { enemyId: t.enemy.id });
             }
 
-            // Spawn particles on targets occasionally
+            // Spawn particles on targets occasionally - use beam color
             if (Math.random() < 0.1) {
-                this.spawnParticles(t.sx, t.sy, '#ffffff', 2);
+                this.spawnParticles(t.sx, t.sy, beamColor, 2);
             }
         }
     }
@@ -4039,7 +4090,7 @@ class DotsSurvivor {
         const item = STACKING_ITEMS[key];
         this.gamePaused = true;
         this.pendingItemKey = key;
-        
+
         // Create popup HTML
         const popup = document.createElement('div');
         popup.id = 'item-popup';
@@ -4051,11 +4102,20 @@ class DotsSurvivor {
         const stackTypeText = item.stackType === 'damage' ? 'STACKS WITH DAMAGE DEALT' : 'STACKS WITH KILLS';
         const stackTypeIcon = item.stackType === 'damage' ? '⚔️' : '💀';
         const maxStacksFormatted = item.maxStacks >= 1000 ? `${(item.maxStacks / 1000).toFixed(0)}k` : item.maxStacks;
+
+        // Check if item has sprite icons
+        let iconHtml = `<div style="font-size: 4rem; margin-bottom: 1rem;">${item.icon}</div>`;
+        let evolvedIconHtml = `${item.evolvedIcon} ${item.evolvedName}`;
+        if (item.hasSprite && BEAM_DESPAIR_SPRITES) {
+            iconHtml = `<img src="${BEAM_DESPAIR_SPRITES.base}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;">`;
+            evolvedIconHtml = `<img src="${BEAM_DESPAIR_SPRITES.evolved}" style="width: 40px; height: 40px; vertical-align: middle; border-radius: 8px; margin-right: 8px;"> ${item.evolvedName}`;
+        }
+
         popup.innerHTML = `
             <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 3px solid #fbbf24;
                 border-radius: 20px; padding: 2rem; max-width: 400px; text-align: center;
                 box-shadow: 0 0 50px rgba(251, 191, 36, 0.3);">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">${item.icon}</div>
+                ${iconHtml}
                 <h2 style="color: #fbbf24; font-size: 1.5rem; margin-bottom: 0.5rem;">${item.name}</h2>
                 <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 1.5rem;">${item.desc}</p>
 
@@ -4066,7 +4126,7 @@ class DotsSurvivor {
 
                 <div style="background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
                     <p style="color: #fbbf24; font-size: 0.75rem; margin-bottom: 0.3rem;">⬆️ EVOLVES INTO</p>
-                    <p style="color: #fff; font-size: 1rem;">${item.evolvedIcon} ${item.evolvedName}</p>
+                    <p style="color: #fff; font-size: 1rem;">${evolvedIconHtml}</p>
                     <p style="color: #aaa; font-size: 0.8rem;">${item.evolvedDesc}</p>
                 </div>
 
@@ -4078,7 +4138,7 @@ class DotsSurvivor {
             </div>
         `;
         document.body.appendChild(popup);
-        
+
         document.getElementById('item-popup-close').onclick = () => {
             popup.remove();
             this.gamePaused = false;
@@ -5269,6 +5329,10 @@ class DotsSurvivor {
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
+            // Get beam color based on level (from stacking item)
+            const beamColor = this.beamDespair.color || '#ffffff';
+            const isEvolved = this.beamDespair.evolved;
+
             // Draw beams connecting player -> target1 -> target2 -> target3 etc
             let prevX = this.player.x;
             let prevY = this.player.y;
@@ -5276,41 +5340,48 @@ class DotsSurvivor {
             for (let i = 0; i < this.beamTargets.length; i++) {
                 const t = this.beamTargets[i];
 
-                // Main beam line
+                // Evolved rainbow effect - cycle colors per chain
+                let chainColor = beamColor;
+                if (isEvolved) {
+                    const colorIndex = (Math.floor(this.gameTime / 100) + i) % BEAM_DESPAIR_COLORS.length;
+                    chainColor = BEAM_DESPAIR_COLORS[colorIndex];
+                }
+
+                // Main beam line with dynamic color
                 ctx.beginPath();
                 ctx.moveTo(prevX, prevY);
                 ctx.lineTo(t.sx, t.sy);
 
-                // White core with glow
-                ctx.strokeStyle = '#ffffff';
+                // Core with glow - use beam color
+                ctx.strokeStyle = chainColor;
                 ctx.lineWidth = 4;
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = '#ffffff';
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = chainColor;
                 ctx.stroke();
 
                 // Inner bright core
                 ctx.beginPath();
                 ctx.moveTo(prevX, prevY);
                 ctx.lineTo(t.sx, t.sy);
-                ctx.strokeStyle = '#ccddff';
+                ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Pulsing effect
+                // Pulsing outer glow
                 const pulse = Math.sin(this.gameTime / 50) * 0.3 + 0.7;
                 ctx.globalAlpha = pulse;
                 ctx.beginPath();
                 ctx.moveTo(prevX, prevY);
                 ctx.lineTo(t.sx, t.sy);
-                ctx.strokeStyle = '#aabbff';
-                ctx.lineWidth = 6;
+                ctx.strokeStyle = chainColor;
+                ctx.lineWidth = 8;
                 ctx.stroke();
                 ctx.globalAlpha = 1;
 
-                // Draw target indicator circle
+                // Draw target indicator circle with beam color
                 ctx.beginPath();
                 ctx.arc(t.sx, t.sy, t.enemy.radius + 5, 0, Math.PI * 2);
-                ctx.strokeStyle = '#ffffff';
+                ctx.strokeStyle = chainColor;
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
@@ -5718,6 +5789,10 @@ class DotsSurvivor {
             const stacksFormatted = formatNum(data.stacks);
             const maxFormatted = formatNum(item.maxStacks);
 
+            // Check for sprite-based item (Beam of Despair)
+            const spriteKey = isEvolved ? item.spriteEvolved : item.spriteBase;
+            const hasSprite = item.hasSprite && SPRITE_CACHE[spriteKey];
+
                 if (compact) {
                 // Compact mobile view
                 ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -5731,10 +5806,14 @@ class DotsSurvivor {
                 ctx.fillStyle = isEvolved ? '#ff6b00' : '#fbbf24';
                 ctx.fillRect(10, y + 26, 55 * progress, 4);
 
-                // Icon and stack count
-                ctx.font = '16px Inter'; ctx.fillStyle = color; ctx.textAlign = 'center';
-                ctx.fillText(icon, 25, y + 18);
-                ctx.font = 'bold 8px Inter'; ctx.fillStyle = '#fff';
+                // Icon and stack count - use sprite if available
+                if (hasSprite) {
+                    ctx.drawImage(SPRITE_CACHE[spriteKey], 12, y + 3, 24, 24);
+                } else {
+                    ctx.font = '16px Inter'; ctx.fillStyle = color; ctx.textAlign = 'center';
+                    ctx.fillText(icon, 25, y + 18);
+                }
+                ctx.font = 'bold 8px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
                 ctx.fillText(isEvolved ? '★' : stacksFormatted, 50, y + 18);
 
                 if (isEvolved) {
@@ -5754,9 +5833,13 @@ class DotsSurvivor {
                 ctx.fillStyle = isEvolved ? '#ff6b00' : '#fbbf24';
                 ctx.fillRect(10, y + 24, boxWidth * progress, 4);
 
-                // Icon only
-                ctx.font = '14px Inter'; ctx.fillStyle = color; ctx.textAlign = 'left';
-                ctx.fillText(icon, 15, y + 17);
+                // Icon - use sprite if available
+                if (hasSprite) {
+                    ctx.drawImage(SPRITE_CACHE[spriteKey], 12, y + 2, 22, 22);
+                } else {
+                    ctx.font = '14px Inter'; ctx.fillStyle = color; ctx.textAlign = 'left';
+                    ctx.fillText(icon, 15, y + 17);
+                }
 
                 // Stack count
                 ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'right';
