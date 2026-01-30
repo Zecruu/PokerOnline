@@ -13,36 +13,25 @@ class AuthManager {
     }
 
     async init() {
-        // First, check if we have hub user data (already logged in via game hub)
-        const hubUserData = localStorage.getItem('user_data');
-        const hubToken = localStorage.getItem('auth_token');
-
-        if (hubToken && hubUserData) {
-            try {
-                this.user = JSON.parse(hubUserData);
-                this.token = hubToken;
-                // Sync to game's token storage
-                localStorage.setItem('ds_token', hubToken);
-                this.showStartMenu();
-                this.setupEventListeners();
-                return;
-            } catch (e) {
-                // Invalid hub data, continue with normal flow
-            }
-        }
-
-        // Try to restore session from existing token
+        // Try to restore session from existing token (hub or game token)
         if (this.token) {
             try {
+                // Always verify token with server to get fresh user data
                 const res = await this.apiGet('/api/auth/me');
                 this.user = res;
+                // Sync tokens to both storages
+                localStorage.setItem('ds_token', this.token);
+                localStorage.setItem('auth_token', this.token);
+                localStorage.setItem('user_data', JSON.stringify(res));
                 this.showStartMenu();
                 this.setupEventListeners();
                 return;
             } catch (e) {
-                // Token expired, try remember token
+                console.log('Token verification failed, trying remember token...');
+                // Token expired, clear and try remember token
                 this.token = null;
                 localStorage.removeItem('ds_token');
+                localStorage.removeItem('auth_token');
             }
         }
 
@@ -54,8 +43,8 @@ class AuthManager {
                 });
                 this.token = res.token;
                 this.user = res.user;
+                // Sync to both storages
                 localStorage.setItem('ds_token', res.token);
-                // Also sync to hub storage
                 localStorage.setItem('auth_token', res.token);
                 localStorage.setItem('user_data', JSON.stringify(res.user));
                 this.showStartMenu();
@@ -129,14 +118,36 @@ class AuthManager {
 
         // Continue button
         document.getElementById('continue-btn')?.addEventListener('click', async () => {
-            const savedState = await this.loadSavedGame();
-            if (savedState && typeof game !== 'undefined') {
-                // Delete saved game after loading
-                await this.deleteSavedGame();
-                this.user.savedGame = { exists: false };
-                // Start game with saved state
-                game.startGameWithState(savedState);
+            const btn = document.getElementById('continue-btn');
+            btn.textContent = 'LOADING...';
+            btn.disabled = true;
+
+            try {
+                const savedState = await this.loadSavedGame();
+                if (savedState && typeof game !== 'undefined') {
+                    // Delete saved game after loading
+                    await this.deleteSavedGame();
+                    this.user.savedGame = { exists: false };
+                    // Start game with saved state
+                    game.startGameWithState(savedState);
+                } else {
+                    // No saved state found - maybe it was deleted or never existed
+                    console.error('No saved state found or game not ready');
+                    document.getElementById('saved-game-notice').classList.add('hidden');
+                    document.getElementById('start-btn').classList.remove('hidden');
+                    this.user.savedGame = { exists: false };
+                    // Update stored user data
+                    localStorage.setItem('user_data', JSON.stringify(this.user));
+                }
+            } catch (e) {
+                console.error('Failed to continue game:', e);
+                // Reset UI on error
+                document.getElementById('saved-game-notice').classList.add('hidden');
+                document.getElementById('start-btn').classList.remove('hidden');
             }
+
+            btn.textContent = 'CONTINUE';
+            btn.disabled = false;
         });
 
         // New game button
