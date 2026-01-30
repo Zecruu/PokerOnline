@@ -13,29 +13,54 @@ class AuthManager {
     }
 
     async init() {
-        // Try to restore session from existing token (hub or game token)
-        if (this.token) {
+        // PRIORITY 1: Check if user is logged in via the game hub
+        // If hub has user_data and auth_token, trust it and skip login entirely
+        const hubToken = localStorage.getItem('auth_token');
+        const hubUserData = localStorage.getItem('user_data');
+
+        if (hubToken && hubUserData) {
             try {
-                // Always verify token with server to get fresh user data
+                this.user = JSON.parse(hubUserData);
+                this.token = hubToken;
+                // Sync to game storage
+                localStorage.setItem('ds_token', hubToken);
+                console.log('✅ Logged in via Game Hub as:', this.user.username);
+
+                // Try to refresh user data from server (for saved game status)
+                // But don't fail if server is unavailable
+                try {
+                    const res = await this.apiGet('/api/auth/me');
+                    this.user = res;
+                    localStorage.setItem('user_data', JSON.stringify(res));
+                } catch (e) {
+                    console.log('Could not refresh user data from server, using cached data');
+                }
+
+                this.showStartMenu();
+                this.setupEventListeners();
+                return;
+            } catch (e) {
+                console.log('Invalid hub user data, continuing...');
+            }
+        }
+
+        // PRIORITY 2: Try game's own token
+        if (this.token && !hubToken) {
+            try {
                 const res = await this.apiGet('/api/auth/me');
                 this.user = res;
-                // Sync tokens to both storages
-                localStorage.setItem('ds_token', this.token);
-                localStorage.setItem('auth_token', this.token);
                 localStorage.setItem('user_data', JSON.stringify(res));
                 this.showStartMenu();
                 this.setupEventListeners();
                 return;
             } catch (e) {
-                console.log('Token verification failed, trying remember token...');
-                // Token expired, clear and try remember token
+                console.log('Game token invalid, trying remember token...');
                 this.token = null;
                 localStorage.removeItem('ds_token');
-                localStorage.removeItem('auth_token');
             }
         }
 
-        // Try auto-login with remember token
+        // PRIORITY 3: Try auto-login with remember token
         if (this.rememberToken) {
             try {
                 const res = await this.apiPost('/api/auth/remember', {
@@ -56,6 +81,7 @@ class AuthManager {
             }
         }
 
+        // No valid login found - show auth menu
         this.showAuthMenu();
         this.setupEventListeners();
     }
