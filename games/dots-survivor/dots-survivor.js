@@ -48,6 +48,18 @@ const CRIT_BLADE_SPRITES = {
     evolved: '151435d5-709b-4fb5-ab63-216453fa472d.jpg'
 };
 
+// Ring of XP Sprites (stacking item icons)
+const RING_XP_SPRITES = {
+    base: 'bdd432b1-e52d-43fa-b591-20759c11bd7b.jpg',
+    evolved: 'aa38aa35-9eca-4b7c-9a43-7dbd2981b7d8.jpg'
+};
+
+// Soul Collector Sprites (POI icons)
+const SOUL_COLLECTOR_SPRITES = {
+    collecting: 'f8ac43e1-63f9-4aac-9a62-bd7435a93b2b.jpg',
+    complete: 'f3e8ed8c-0406-4cbe-a85b-4d925bffb445.jpg'
+};
+
 // Beam of Despair color progression (changes every 1000 kills)
 const BEAM_DESPAIR_COLORS = [
     '#ffffff',  // Level 1: White
@@ -185,6 +197,14 @@ function initSprites() {
     for (const [type, path] of Object.entries(CRIT_BLADE_SPRITES)) {
         loadSprite('crit_blade_' + type, path, true);
     }
+    // Load Ring of XP sprites
+    for (const [type, path] of Object.entries(RING_XP_SPRITES)) {
+        loadSprite('ring_xp_' + type, path, true);
+    }
+    // Load Soul Collector sprites
+    for (const [type, path] of Object.entries(SOUL_COLLECTOR_SPRITES)) {
+        loadSprite('soul_collector_' + type, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -293,6 +313,28 @@ const STACKING_ITEMS = {
         evolvedEffect: (g) => {
             // Max power beam - rainbow effect
             g.beamDespair = { damage: 60, chains: 10, range: 400, level: 10, color: '#ff00ff', evolved: true };
+        }
+    },
+    ringXp: {
+        name: 'Ring of XP',
+        icon: '💍',
+        desc: '+0.05% XP gain per stack. Stacks on kills.',
+        evolvedName: 'Crown of Wisdom',
+        evolvedIcon: '👑',
+        evolvedDesc: '+150% XP gain, enemies drop double XP orbs',
+        maxStacks: 3000,  // Evolves at 3k kills
+        stackType: 'kill',
+        hasSprite: true,
+        spriteBase: 'ring_xp_base',
+        spriteEvolved: 'ring_xp_evolved',
+        effect: (g, stacks) => {
+            // +0.05% XP per stack = 0.0005 multiplier per stack
+            // At 3000 stacks = +150% XP
+            g.stackingXpBonus = stacks * 0.0005;
+        },
+        evolvedEffect: (g) => {
+            g.stackingXpBonus = 1.5;  // +150% XP
+            g.doubleXpOrbs = true;    // Enemies drop double XP orbs
         }
     }
 };
@@ -1033,8 +1075,8 @@ class DotsSurvivor {
         // Horde system
         this.lastHordeCount = 0;
 
-        // Control points and perks
-        this.controlPoints = [];
+        // Soul Collectors (POI) and perks
+        this.soulCollectors = [];
         this.perks = [];
         this.availablePerks = [...LEGENDARY_PERKS];
 
@@ -1045,8 +1087,8 @@ class DotsSurvivor {
         this.bossStatMultiplier = 1.0;
         this.consumerSpawned = false;
         this.bossGracePeriod = 0; // Seconds of reduced spawns after boss appears
-        this.spawnControlPoint();
-        this.lastControlPointWave = 1;
+        this.spawnSoulCollector();
+        this.lastSoulCollectorWave = 1;
 
         // Health packs (rare spawns)
         this.lastHealthPackSpawn = 0;
@@ -1206,7 +1248,7 @@ class DotsSurvivor {
         }
     }
 
-    spawnControlPoint() {
+    spawnSoulCollector() {
         const angle = Math.random() * Math.PI * 2;
         const dist = 300 + Math.random() * 400; // Reduced distance to stay in map
 
@@ -1219,11 +1261,16 @@ class DotsSurvivor {
         wx = Math.max(this.mapBounds.minX + padding, Math.min(this.mapBounds.maxX - padding, wx));
         wy = Math.max(this.mapBounds.minY + padding, Math.min(this.mapBounds.maxY - padding, wy));
 
-        this.controlPoints.push({
+        // Soul collector requires 25-50 souls based on wave
+        const soulsRequired = Math.min(25 + Math.floor(this.wave * 2), 100);
+
+        this.soulCollectors.push({
             wx, wy,
-            radius: 50,
-            captureProgress: 0,
-            captured: false,
+            radius: 120,  // Collection radius - kills within this range count
+            soulsCollected: 0,
+            soulsRequired: soulsRequired,
+            complete: false,
+            completeTimer: 0,  // Timer for showing complete icon
             spawnWave: this.wave
         });
     }
@@ -1970,10 +2017,10 @@ class DotsSurvivor {
                 this.waveTimer = 0;
                 this.enemySpawnRate = Math.max(200, this.enemySpawnRate - 80);
 
-                // Spawn control points every 5 waves
-                if (this.wave % 5 === 0 || this.wave - this.lastControlPointWave >= 5) {
-                    this.spawnControlPoint();
-                    this.lastControlPointWave = this.wave;
+                // Spawn soul collectors every 5 waves
+                if (this.wave % 5 === 0 || this.wave - this.lastSoulCollectorWave >= 5) {
+                    this.spawnSoulCollector();
+                    this.lastSoulCollectorWave = this.wave;
                 }
 
                 // Reset boss tracking for new wave
@@ -1985,16 +2032,16 @@ class DotsSurvivor {
                     this.startCthulhuWarning();
                 }
 
-                // Check for expired control points (10 waves without capture)
-                for (let i = this.controlPoints.length - 1; i >= 0; i--) {
-                    const cp = this.controlPoints[i];
-                    if (!cp.captured && this.wave - cp.spawnWave >= 10) {
+                // Check for expired soul collectors (10 waves without completion)
+                for (let i = this.soulCollectors.length - 1; i >= 0; i--) {
+                    const sc = this.soulCollectors[i];
+                    if (!sc.complete && this.wave - sc.spawnWave >= 10) {
                         // Despawn and trigger horde
-                        this.controlPoints.splice(i, 1);
+                        this.soulCollectors.splice(i, 1);
                         this.damageNumbers.push({
                             x: this.canvas.width / 2,
                             y: this.canvas.height / 2 - 100,
-                            value: '⚠️ CONTROL POINT LOST! HORDE INCOMING! ⚠️',
+                            value: '⚠️ SOUL COLLECTOR LOST! HORDE INCOMING! ⚠️',
                             lifetime: 3,
                             color: '#ff0044',
                             scale: 1.5
@@ -2402,7 +2449,7 @@ class DotsSurvivor {
         this.updateEvents(effectiveDt);
         this.spawnEnemies();
         this.spawnHealthPacks();
-        this.updateControlPoints(effectiveDt);
+        this.updateSoulCollectors(effectiveDt);
         this.updateEnemies(effectiveDt);
         this.updateSkulls(effectiveDt);
         this.updateMinions(effectiveDt);
@@ -2750,48 +2797,88 @@ class DotsSurvivor {
         }
     }
 
-    updateControlPoints(dt) {
-        for (const cp of this.controlPoints) {
-            if (cp.captured) continue;
-            const sx = this.player.x + (cp.wx - this.worldX);
-            const sy = this.player.y + (cp.wy - this.worldY);
-            const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+    updateSoulCollectors(dt) {
+        for (let i = this.soulCollectors.length - 1; i >= 0; i--) {
+            const sc = this.soulCollectors[i];
 
-            if (d < cp.radius + this.player.radius) {
-                cp.captureProgress += dt * 20; // Capture speed
-                if (cp.captureProgress >= 100) {
-                    cp.captured = true;
-                    this.captureControlPoint();
+            // Handle complete timer (show complete icon for 5 seconds then remove)
+            if (sc.complete) {
+                sc.completeTimer -= dt;
+                if (sc.completeTimer <= 0) {
+                    this.soulCollectors.splice(i, 1);
                 }
-            } else {
-                cp.captureProgress = Math.max(0, cp.captureProgress - dt * 10);
+                continue;
             }
         }
     }
 
-    captureControlPoint() {
+    // Called when enemy dies near a soul collector
+    checkSoulCollection(enemyWx, enemyWy, isBoss) {
+        for (const sc of this.soulCollectors) {
+            if (sc.complete) continue;
+
+            // Check if enemy died within collection radius
+            const dx = enemyWx - sc.wx;
+            const dy = enemyWy - sc.wy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= sc.radius) {
+                // Add souls (bosses give 5 souls)
+                const soulsGained = isBoss ? 5 : 1;
+                sc.soulsCollected += soulsGained;
+
+                // Visual feedback - soul flying to chest
+                const sx = this.player.x + (enemyWx - this.worldX);
+                const sy = this.player.y + (enemyWy - this.worldY);
+                this.spawnParticles(sx, sy, '#88ffff', 3);
+
+                // Check if complete
+                if (sc.soulsCollected >= sc.soulsRequired) {
+                    this.completeSoulCollector(sc);
+                }
+            }
+        }
+    }
+
+    completeSoulCollector(sc) {
+        sc.complete = true;
+        sc.completeTimer = 5; // Show complete icon for 5 seconds
+
         this.playSound('capture');
 
-        // Show Augment Menu instead of random
-        // Filter available diamond augments based on prereqs and already selected
+        // Grant large XP reward (scales with wave)
+        const xpReward = 500 + (this.wave * 50);
+        this.player.xp += xpReward;
+
+        // Screen position for effects
+        const sx = this.player.x + (sc.wx - this.worldX);
+        const sy = this.player.y + (sc.wy - this.worldY);
+
+        // Visual feedback
+        this.damageNumbers.push({
+            x: sx, y: sy - 40,
+            value: `💀 SOULS COLLECTED! +${xpReward} XP`,
+            lifetime: 3,
+            color: '#00ffff',
+            scale: 1.8
+        });
+
+        this.spawnParticles(sx, sy, '#00ffff', 30);
+        this.triggerScreenShake(10, 0.3);
+
+        // Show Augment Menu as reward
         let available = this.diamondAugments.filter(a => {
-            // Skip if already selected
             if (this.augments.includes(a.id)) return false;
-            // Skip demon set augments unless demon set bonus is active
             if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
             return true;
         });
 
-        // If no diamond augments left or available, fallback to legendary perks
         if (available.length === 0) {
             available = this.availablePerks;
         }
 
         if (available.length > 0) {
-            // Pick 3 random
             const choices = [];
-            // Clone available to avoid modifying original array directly here if we want to pick w/o removing yet
-            // But we want to ensure we don't pick duplicates in choices
             let pool = [...available];
 
             for (let i = 0; i < 3 && pool.length > 0; i++) {
@@ -2801,14 +2888,13 @@ class DotsSurvivor {
             }
             this.showAugmentMenu(choices, () => {
                 this.spawnHorde();
-                this.spawnControlPoint();
+                this.spawnSoulCollector();
             });
         } else {
-            // Just heal or XP if absolutely nothing left
             this.player.health = this.player.maxHealth;
             this.damageNumbers.push({ x: this.player.x, y: this.player.y, value: 'Fully Healed!', color: '#00ff00' });
             this.spawnHorde();
-            this.spawnControlPoint();
+            this.spawnSoulCollector();
         }
     }
 
@@ -3285,6 +3371,9 @@ class DotsSurvivor {
 
         this.player.kills++;
         this.playSound('kill');
+
+        // Soul Collector - check if enemy died near a collector
+        this.checkSoulCollection(e.wx, e.wy, e.isBoss);
 
         // Aura Fire kill tracking and upgrades
         if (this.auraFire) {
@@ -4040,6 +4129,7 @@ class DotsSurvivor {
             let spriteSet = null;
             if (key === 'beamDespair') spriteSet = BEAM_DESPAIR_SPRITES;
             else if (key === 'critBlade') spriteSet = CRIT_BLADE_SPRITES;
+            else if (key === 'ringXp') spriteSet = RING_XP_SPRITES;
 
             if (spriteSet) {
                 iconHtml = `<img src="${spriteSet.base}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;">`;
@@ -5073,23 +5163,57 @@ class DotsSurvivor {
             }
         });
 
-        // Control points
-        this.controlPoints.forEach(cp => {
-            if (cp.captured) return;
-            const sx = this.player.x + (cp.wx - this.worldX);
-            const sy = this.player.y + (cp.wy - this.worldY);
-            // Outer ring
-            ctx.beginPath(); ctx.arc(sx, sy, cp.radius, 0, Math.PI * 2);
-            ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 4; ctx.stroke();
-            // Capture progress
-            if (cp.captureProgress > 0) {
+        // Soul Collectors
+        this.soulCollectors.forEach(sc => {
+            const sx = this.player.x + (sc.wx - this.worldX);
+            const sy = this.player.y + (sc.wy - this.worldY);
+
+            // Collection radius indicator (dashed circle)
+            ctx.beginPath();
+            ctx.arc(sx, sy, sc.radius, 0, Math.PI * 2);
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = sc.complete ? '#00ff88' : 'rgba(136, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Progress ring
+            if (!sc.complete && sc.soulsCollected > 0) {
+                const progress = sc.soulsCollected / sc.soulsRequired;
                 ctx.beginPath();
-                ctx.arc(sx, sy, cp.radius - 5, -Math.PI / 2, -Math.PI / 2 + (cp.captureProgress / 100) * Math.PI * 2);
-                ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 6; ctx.stroke();
+                ctx.arc(sx, sy, 40, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 6;
+                ctx.stroke();
             }
-            // Icon
-            ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#fbbf24'; ctx.fillText('🏴', sx, sy);
+
+            // Soul Collector icon (sprite or fallback)
+            const spriteKey = sc.complete ? 'soul_collector_complete' : 'soul_collector_collecting';
+            const sprite = SPRITE_CACHE[spriteKey];
+            if (sprite) {
+                const iconSize = sc.complete ? 64 : 48;
+                ctx.drawImage(sprite, sx - iconSize/2, sy - iconSize/2, iconSize, iconSize);
+            } else {
+                // Fallback emoji
+                ctx.font = sc.complete ? '40px Arial' : '32px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = sc.complete ? '#00ff88' : '#88ffff';
+                ctx.fillText(sc.complete ? '✨' : '💀', sx, sy);
+            }
+
+            // Soul count UI (only if not complete)
+            if (!sc.complete) {
+                ctx.font = 'bold 14px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(`${sc.soulsCollected}/${sc.soulsRequired}`, sx, sy + 40);
+
+                // "KILL NEARBY" hint
+                ctx.font = '10px Inter';
+                ctx.fillStyle = '#88ffff';
+                ctx.fillText('KILL NEARBY', sx, sy + 52);
+            }
         });
 
         // Elemental Skulls
