@@ -1357,8 +1357,57 @@ class DotsSurvivor {
             <div class="controls-info" style="margin-top:1rem;color:#888;font-size:0.8rem;"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Auto-shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
         `;
 
-        document.getElementById('btn-fresh').addEventListener('click', () => this.startGame('fresh'));
-        document.getElementById('btn-boosted').addEventListener('click', () => this.startGame('boosted'));
+        document.getElementById('btn-fresh').addEventListener('click', () => this.showStarterItemSelect('fresh'));
+        document.getElementById('btn-boosted').addEventListener('click', () => this.showStarterItemSelect('boosted'));
+    }
+
+    showStarterItemSelect(mode) {
+        const menu = document.getElementById('start-menu');
+        const content = menu.querySelector('.menu-content');
+
+        // Get all stacking items for selection
+        const items = Object.keys(STACKING_ITEMS).map(key => ({
+            key,
+            ...STACKING_ITEMS[key]
+        }));
+
+        content.innerHTML = `
+            <h1 style="color:#fbbf24;font-size:1.8rem;margin-bottom:0.5rem;">🎁 CHOOSE STARTER ITEM</h1>
+            <p style="color:#888;font-size:0.9rem;margin-bottom:1.5rem;">Pick an item to start your run with!</p>
+            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:600px;margin:0 auto;">
+                ${items.map(item => `
+                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(255,255,255,0.05);border:2px solid #444;border-radius:12px;padding:1rem;cursor:pointer;text-align:center;transition:all 0.2s;">
+                        <div style="font-size:2rem;">${item.icon}</div>
+                        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin:0.3rem 0;">${item.name}</div>
+                        <div style="font-size:0.7rem;color:#888;line-height:1.3;">${item.desc.split('.')[0]}</div>
+                    </div>
+                `).join('')}
+            </div>
+            <button id="skip-item-btn" style="margin-top:1.5rem;padding:10px 24px;background:transparent;border:1px solid #666;color:#888;border-radius:8px;cursor:pointer;font-family:inherit;">Skip (No Item)</button>
+        `;
+
+        // Add hover effects and click handlers
+        const cards = content.querySelectorAll('.starter-item-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.borderColor = '#fbbf24';
+                card.style.background = 'rgba(251,191,36,0.1)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.borderColor = '#444';
+                card.style.background = 'rgba(255,255,255,0.05)';
+            });
+            card.addEventListener('click', () => {
+                const itemKey = card.dataset.item;
+                this.selectedStarterItem = itemKey;
+                this.startGame(mode);
+            });
+        });
+
+        document.getElementById('skip-item-btn').addEventListener('click', () => {
+            this.selectedStarterItem = null;
+            this.startGame(mode);
+        });
     }
 
     resizeCanvas() {
@@ -1408,7 +1457,7 @@ class DotsSurvivor {
             this.pendingUpgrades = 3; // 3 Free attributes for Fresh start
         }
 
-        this.weapons.bullet = { damage: 13, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
+        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
@@ -1614,6 +1663,30 @@ class DotsSurvivor {
         if (this.selectedClass.bonuses.wolfCount) {
             // Initial wolves
             for (let i = 0; i < this.maxWolves; i++) this.addMinion('wolf');
+        }
+
+        // Apply starter item if selected
+        if (this.selectedStarterItem && STACKING_ITEMS[this.selectedStarterItem]) {
+            const itemKey = this.selectedStarterItem;
+            const item = STACKING_ITEMS[itemKey];
+
+            // Initialize the item with 1 stack
+            this.stackingItems[itemKey] = { stacks: 1, evolved: false };
+            this.droppedItems.push(itemKey); // Mark as already dropped
+
+            // Apply the item's initial effect
+            if (item.effect) {
+                item.effect(this, 1);
+            }
+
+            // Show pickup message
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 40,
+                value: `🎁 ${item.name}`, lifetime: 2, color: '#fbbf24', scale: 1.3
+            });
+
+            // Clear the selection for next game
+            this.selectedStarterItem = null;
         }
 
         // Start Game Loop
@@ -3602,7 +3675,7 @@ class DotsSurvivor {
             // Speeds increased to compensate for further spawn distance
             swarm: { radius: 14, speed: 115, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
             basic: { radius: 12, speed: 100, health: 30, damage: 15, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 16, speed: 200, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' }, // Bigger radius (16 vs 10)
+            runner: { radius: 16, speed: 160, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' }, // Bigger radius (16 vs 10), slowed from 200
             tank: { radius: 28, speed: 60, health: 350, damage: 31, xp: 25, color: '#8844ff', icon: '' },
             splitter: { radius: 20, speed: 85, health: 150, damage: 19, xp: 15, color: '#44ddff', icon: '💧', splits: true },
             bomber: { radius: 16, speed: 105, health: 75, damage: 13, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
