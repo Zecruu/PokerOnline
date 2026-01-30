@@ -667,6 +667,12 @@ class DotsSurvivor {
         this.menuMusic.volume = 0.3;
         this.musicPlaying = false;
 
+        // Background music - In-game
+        this.gameMusic = new Audio('game-music.mp3');
+        this.gameMusic.loop = true;
+        this.gameMusic.volume = 0.35;
+        this.gameMusicPlaying = false;
+
         // Background music - Boss
         this.bossMusic = new Audio('boss-music.mp3');
         this.bossMusic.loop = true;
@@ -678,6 +684,22 @@ class DotsSurvivor {
         this.beamSound.loop = true;
         this.beamSound.volume = 0.25;
         this.beamSoundPlaying = false;
+
+        // Fireball shoot sound
+        this.fireballSound = new Audio('fireball-sound.mp3');
+        this.fireballSound.volume = 0.3;
+
+        // Level up sound
+        this.levelupSound = new Audio('levelup-sound.mp3');
+        this.levelupSound.volume = 0.5;
+
+        // Wolf howl sound
+        this.wolfHowlSound = new Audio('wolf-howl.mp3');
+        this.wolfHowlSound.volume = 0.4;
+
+        // Horde spawn sound
+        this.hordeSound = new Audio('horde-sound.mp3');
+        this.hordeSound.volume = 0.6;
     }
 
     playMenuMusic() {
@@ -708,8 +730,51 @@ class DotsSurvivor {
         }
     }
 
+    playGameMusic() {
+        if (!this.settings.soundEnabled || this.gameMusicPlaying) return;
+
+        const volumeMult = this.settings.volume / 100;
+        this.gameMusic.volume = 0.35 * volumeMult;
+
+        this.gameMusic.play().then(() => {
+            this.gameMusicPlaying = true;
+            console.log('🎵 Game music started');
+        }).catch(e => {
+            console.log('Game music autoplay blocked');
+        });
+    }
+
+    stopGameMusic() {
+        if (this.gameMusic && this.gameMusicPlaying) {
+            this.gameMusic.pause();
+            this.gameMusic.currentTime = 0;
+            this.gameMusicPlaying = false;
+            console.log('🎵 Game music stopped');
+        }
+    }
+
+    pauseGameMusic() {
+        if (this.gameMusic && this.gameMusicPlaying) {
+            this.gameMusic.pause();
+            console.log('🎵 Game music paused');
+        }
+    }
+
+    resumeGameMusic() {
+        if (!this.settings.soundEnabled || !this.gameMusicPlaying) return;
+
+        const volumeMult = this.settings.volume / 100;
+        this.gameMusic.volume = 0.35 * volumeMult;
+
+        this.gameMusic.play().catch(e => {});
+        console.log('🎵 Game music resumed');
+    }
+
     playBossMusic() {
         if (!this.settings.soundEnabled || this.bossMusicPlaying) return;
+
+        // Pause game music when boss music starts
+        this.pauseGameMusic();
 
         const volumeMult = this.settings.volume / 100;
         this.bossMusic.volume = 0.4 * volumeMult;
@@ -728,6 +793,9 @@ class DotsSurvivor {
             this.bossMusic.currentTime = 0;
             this.bossMusicPlaying = false;
             console.log('🎵 Boss music stopped');
+
+            // Resume game music after boss dies
+            this.resumeGameMusic();
         }
     }
 
@@ -755,12 +823,63 @@ class DotsSurvivor {
         if (this.menuMusic) {
             this.menuMusic.volume = 0.3 * volumeMult;
         }
+        if (this.gameMusic) {
+            this.gameMusic.volume = 0.35 * volumeMult;
+        }
         if (this.bossMusic) {
             this.bossMusic.volume = 0.4 * volumeMult;
         }
         if (this.beamSound) {
             this.beamSound.volume = 0.25 * volumeMult;
         }
+        if (this.fireballSound) {
+            this.fireballSound.volume = 0.3 * volumeMult;
+        }
+        if (this.levelupSound) {
+            this.levelupSound.volume = 0.5 * volumeMult;
+        }
+        if (this.wolfHowlSound) {
+            this.wolfHowlSound.volume = 0.4 * volumeMult;
+        }
+        if (this.hordeSound) {
+            this.hordeSound.volume = 0.6 * volumeMult;
+        }
+    }
+
+    // Play fireball sound effect
+    playFireballSound() {
+        if (!this.settings.soundEnabled || !this.fireballSound) return;
+        const volumeMult = this.settings.volume / 100;
+        this.fireballSound.volume = 0.3 * volumeMult;
+        this.fireballSound.currentTime = 0;
+        this.fireballSound.play().catch(e => {});
+    }
+
+    // Play level up sound effect
+    playLevelupSound() {
+        if (!this.settings.soundEnabled || !this.levelupSound) return;
+        const volumeMult = this.settings.volume / 100;
+        this.levelupSound.volume = 0.5 * volumeMult;
+        this.levelupSound.currentTime = 0;
+        this.levelupSound.play().catch(e => {});
+    }
+
+    // Play wolf howl sound effect
+    playWolfHowl() {
+        if (!this.settings.soundEnabled || !this.wolfHowlSound) return;
+        const volumeMult = this.settings.volume / 100;
+        this.wolfHowlSound.volume = 0.4 * volumeMult;
+        this.wolfHowlSound.currentTime = 0;
+        this.wolfHowlSound.play().catch(e => {});
+    }
+
+    // Play horde spawn sound effect
+    playHordeSound() {
+        if (!this.settings.soundEnabled || !this.hordeSound) return;
+        const volumeMult = this.settings.volume / 100;
+        this.hordeSound.volume = 0.6 * volumeMult;
+        this.hordeSound.currentTime = 0;
+        this.hordeSound.play().catch(e => {});
     }
 
     playSound(type) {
@@ -883,6 +1002,10 @@ class DotsSurvivor {
                 if (this.menuMusic) {
                     this.menuMusic.pause();
                     this.musicPlaying = false;
+                }
+                if (this.gameMusic) {
+                    this.gameMusic.pause();
+                    this.gameMusicPlaying = false;
                 }
                 if (this.bossMusic) {
                     this.bossMusic.pause();
@@ -1234,8 +1357,9 @@ class DotsSurvivor {
     }
 
     startGame(mode = 'fresh') {
-        // Stop menu music when game starts
+        // Stop menu music and start game music when game starts
         this.stopMenuMusic();
+        this.playGameMusic();
 
         // Hide all menus first
         document.getElementById('start-menu').classList.add('hidden');
@@ -2230,6 +2354,8 @@ class DotsSurvivor {
     addMinion(type) {
         const m = this.createWolf();
         this.minions.push(m);
+        // Play wolf howl when summoning a wolf
+        this.playWolfHowl();
     }
 
     createWolf() {
@@ -2350,6 +2476,7 @@ class DotsSurvivor {
         });
 
         this.playSound('horde');
+        this.playHordeSound();
         this.hordeActive = true;
         this.hordeEnemyCount = hordeSize;
 
@@ -4199,6 +4326,7 @@ class DotsSurvivor {
         const baseAngle = Math.atan2(nearest.sy - this.player.y, nearest.sx - this.player.x);
 
         this.playSound('shoot');
+        this.playFireballSound();
 
         // Calculate total bullet count (base + multi-shot item)
         const totalBullets = w.count + (this.extraBullets || 0);
@@ -4666,6 +4794,7 @@ class DotsSurvivor {
     showLevelUpMenu() {
         // Show upgrade selection menu - player picks from 3 RANDOM upgrades
         this.playSound('levelup');
+        this.playLevelupSound();
         this.gamePaused = true;
 
         // Get all available upgrades
@@ -4924,6 +5053,7 @@ class DotsSurvivor {
         this.gameRunning = false;
 
         // Stop all game sounds
+        this.stopGameMusic();
         this.stopBossMusic();
         this.stopBeamSound();
 
