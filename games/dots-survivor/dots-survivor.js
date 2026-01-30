@@ -7,6 +7,17 @@ const PLAYER_SPRITES = {
     dead: 'Dead-removebg-preview.png'
 };
 
+// Player level progression sprites (changes appearance as player levels up)
+const PLAYER_LEVEL_SPRITES = {
+    level1: 'Level1Mage.png',      // Level 1-4
+    level5: 'Level2Mage.png',      // Level 5-9
+    level10: 'Level3.png',         // Level 10-14
+    level15: 'Level4Mage.png',     // Level 15-19
+    level20: 'Level5Mage.png',     // Level 20-24
+    level25: 'Level6Mage.png',     // Level 25-29
+    level30: 'Standing-removebg-preview.png'  // Level 30+
+};
+
 const WOLF_SPRITES = {
     standing: 'WolfStanding-removebg-preview.png',
     running1: 'WolfRunning-removebg-preview.png',
@@ -123,6 +134,10 @@ function initSprites() {
     // Load player sprites (standing, walking, dead)
     for (const [anim, path] of Object.entries(PLAYER_SPRITES)) {
         loadSprite('player_' + anim, path, true);
+    }
+    // Load player level progression sprites
+    for (const [level, path] of Object.entries(PLAYER_LEVEL_SPRITES)) {
+        loadSprite('player_' + level, path, true);
     }
     // Load wolf sprites (standing, running1, running2, biting)
     for (const [anim, path] of Object.entries(WOLF_SPRITES)) {
@@ -5639,11 +5654,19 @@ class DotsSurvivor {
 
         if (p.invincibleTime > 0 && Math.floor(p.invincibleTime * 10) % 2 === 0) ctx.globalAlpha = 0.5;
 
-        // Determine which sprite to use based on player state
-        const isMoving = this.keys && (this.keys['w'] || this.keys['a'] || this.keys['s'] || this.keys['d']);
-        const isDead = p.health <= 0;
-        const spriteKey = isDead ? 'player_dead' : (isMoving ? 'player_walking' : 'player_standing');
-        const playerSprite = SPRITE_CACHE[spriteKey];
+        // Determine which level sprite to use based on player level
+        const level = p.level || 1;
+        let levelSpriteKey;
+        if (level >= 30) levelSpriteKey = 'player_level30';
+        else if (level >= 25) levelSpriteKey = 'player_level25';
+        else if (level >= 20) levelSpriteKey = 'player_level20';
+        else if (level >= 15) levelSpriteKey = 'player_level15';
+        else if (level >= 10) levelSpriteKey = 'player_level10';
+        else if (level >= 5) levelSpriteKey = 'player_level5';
+        else levelSpriteKey = 'player_level1';
+
+        // Get the level-based sprite
+        const playerSprite = SPRITE_CACHE[levelSpriteKey];
 
         if (playerSprite) {
             ctx.save();
