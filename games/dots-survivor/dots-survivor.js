@@ -60,6 +60,19 @@ const SOUL_COLLECTOR_SPRITES = {
     complete: 'f3e8ed8c-0406-4cbe-a85b-4d925bffb445.jpg'
 };
 
+// Boots of Swiftness Sprites (stacking item icons)
+const BOOTS_SWIFTNESS_SPRITES = {
+    base: 'b8ed813f-ac3d-4cfe-91c0-5e8b3c82cb84-removebg-preview.png',
+    evolved: 'a2d729b4-7e35-4961-a88e-bac4cc28398d-removebg-preview.png'
+};
+
+// Demon Set Sprites
+const DEMON_SET_SPRITES = {
+    helm: '0770a100-e29d-4325-8741-9951ba4affcd.jpg',
+    chest: 'deee24a8-9020-43ea-8fc9-cef4b810b858.jpg',
+    boots: 'd8a16809-cbe3-4b78-a63c-e974e12aba1d.jpg'
+};
+
 // Beam of Despair color progression (changes every 1000 kills)
 const BEAM_DESPAIR_COLORS = [
     '#ffffff',  // Level 1: White
@@ -205,6 +218,14 @@ function initSprites() {
     for (const [type, path] of Object.entries(SOUL_COLLECTOR_SPRITES)) {
         loadSprite('soul_collector_' + type, path, true);
     }
+    // Load Boots of Swiftness sprites
+    for (const [type, path] of Object.entries(BOOTS_SWIFTNESS_SPRITES)) {
+        loadSprite('boots_swiftness_' + type, path, true);
+    }
+    // Load Demon Set sprites
+    for (const [type, path] of Object.entries(DEMON_SET_SPRITES)) {
+        loadSprite('demon_' + type, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -336,6 +357,28 @@ const STACKING_ITEMS = {
             g.stackingXpBonus = 1.5;  // +150% XP
             g.doubleXpOrbs = true;    // Enemies drop double XP orbs
         }
+    },
+    bootsSwiftness: {
+        name: 'Boots of Swiftness',
+        icon: '👟',
+        desc: '+0.01% move speed per stack. Stacks by distance traveled.',
+        evolvedName: 'Wings of Mercury',
+        evolvedIcon: '🪽',
+        evolvedDesc: '+50% move speed, dash ability on double-tap',
+        maxStacks: 50000,  // 50000 units traveled = ~50km in game units
+        stackType: 'distance',
+        hasSprite: true,
+        spriteBase: 'boots_swiftness_base',
+        spriteEvolved: 'boots_swiftness_evolved',
+        effect: (g, stacks) => {
+            // +0.01% speed per stack = +0.0001 multiplier per stack
+            // At 50000 stacks = +50% speed
+            g.stackingSpeedBonus = stacks * 0.00001;
+        },
+        evolvedEffect: (g) => {
+            g.stackingSpeedBonus = 0.5;  // +50% move speed
+            g.hasDash = true;  // Unlock dash ability
+        }
     }
 };
 
@@ -416,9 +459,9 @@ const LEGENDARY_PERKS = [
 ];
 
 const DEMON_SET_PIECES = [
-    { id: 'helm', name: 'Demon Helm', icon: '👹', desc: '+500 Max HP' },
-    { id: 'chest', name: 'Demon Plate', icon: '🛡️', desc: '+20% Damage Reduction' },
-    { id: 'boots', name: 'Demon Greaves', icon: '👢', desc: '+50 Move Speed' }
+    { id: 'helm', name: 'Demon Helm', icon: '👹', desc: '+500 Max HP', spriteKey: 'demon_helm' },
+    { id: 'chest', name: 'Demon Chestplate', icon: '🛡️', desc: '+20% Damage Reduction', spriteKey: 'demon_chest' },
+    { id: 'boots', name: 'Demon Gauntlets', icon: '👢', desc: '+50 Move Speed', spriteKey: 'demon_boots' }
 ];
 
 // Ocean Set - Drops from Cthulhu
@@ -2958,9 +3001,10 @@ class DotsSurvivor {
             }
         }
 
-        // Calculate intended new position
-        const moveX = dx * this.player.speed * iceSlowMult * dt;
-        const moveY = dy * this.player.speed * iceSlowMult * dt;
+        // Calculate intended new position (apply speed bonuses from stacking items)
+        const speedBonus = 1 + (this.stackingSpeedBonus || 0);
+        const moveX = dx * this.player.speed * speedBonus * iceSlowMult * dt;
+        const moveY = dy * this.player.speed * speedBonus * iceSlowMult * dt;
         let newWorldX = this.worldX + moveX;
         let newWorldY = this.worldY + moveY;
 
@@ -3024,6 +3068,15 @@ class DotsSurvivor {
         // Clamp to map boundaries (no more infinite kiting!)
         newWorldX = Math.max(this.mapBounds.minX, Math.min(this.mapBounds.maxX, newWorldX));
         newWorldY = Math.max(this.mapBounds.minY, Math.min(this.mapBounds.maxY, newWorldY));
+
+        // Track distance traveled for stacking items
+        const distanceMoved = Math.sqrt(
+            (newWorldX - this.worldX) ** 2 +
+            (newWorldY - this.worldY) ** 2
+        );
+        if (distanceMoved > 0) {
+            this.updateStackingItems('distance', distanceMoved);
+        }
 
         this.worldX = newWorldX;
         this.worldY = newWorldY;
@@ -4117,8 +4170,17 @@ class DotsSurvivor {
             background: rgba(0, 0, 0, 0.9); display: flex; justify-content: center;
             align-items: center; z-index: 200; animation: fadeIn 0.3s ease;
         `;
-        const stackTypeText = item.stackType === 'damage' ? 'STACKS WITH DAMAGE DEALT' : 'STACKS WITH KILLS';
-        const stackTypeIcon = item.stackType === 'damage' ? '⚔️' : '💀';
+        let stackTypeText, stackTypeIcon;
+        if (item.stackType === 'damage') {
+            stackTypeText = 'STACKS WITH DAMAGE DEALT';
+            stackTypeIcon = '⚔️';
+        } else if (item.stackType === 'distance') {
+            stackTypeText = 'STACKS WITH DISTANCE TRAVELED';
+            stackTypeIcon = '🏃';
+        } else {
+            stackTypeText = 'STACKS WITH KILLS';
+            stackTypeIcon = '💀';
+        }
         const maxStacksFormatted = item.maxStacks >= 1000 ? `${(item.maxStacks / 1000).toFixed(0)}k` : item.maxStacks;
 
         // Check if item has sprite icons
@@ -4130,6 +4192,7 @@ class DotsSurvivor {
             if (key === 'beamDespair') spriteSet = BEAM_DESPAIR_SPRITES;
             else if (key === 'critBlade') spriteSet = CRIT_BLADE_SPRITES;
             else if (key === 'ringXp') spriteSet = RING_XP_SPRITES;
+            else if (key === 'bootsSwiftness') spriteSet = BOOTS_SWIFTNESS_SPRITES;
 
             if (spriteSet) {
                 iconHtml = `<img src="${spriteSet.base}" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px; border: 2px solid #fbbf24;">`;
@@ -4173,7 +4236,7 @@ class DotsSurvivor {
     }
     
     updateStackingItems(type, amount) {
-        // Called on kills or damage to add stacks to all collected stacking items
+        // Called on kills, damage, or distance to add stacks to all collected stacking items
         for (const key in this.stackingItems) {
             const itemData = this.stackingItems[key];
             const item = STACKING_ITEMS[key];
@@ -4183,6 +4246,8 @@ class DotsSurvivor {
             if (type === 'kill' && item.stackType === 'kill') {
                 itemData.stacks += amount;
             } else if (type === 'damage' && item.stackType === 'damage') {
+                itemData.stacks += amount;
+            } else if (type === 'distance' && item.stackType === 'distance') {
                 itemData.stacks += amount;
             }
 
@@ -5603,22 +5668,40 @@ class DotsSurvivor {
         DEMON_SET_PIECES.forEach((p, i) => {
             const has = this.demonSet && this.demonSet[p.id];
             const px = x + 10 + i * 35;
-            ctx.font = '20px Arial';
-            ctx.textAlign = 'center';
+
+            // Try to use sprite, fallback to emoji
+            const sprite = SPRITE_CACHE[p.spriteKey];
+
             if (has) {
-                ctx.fillStyle = '#fff';
-                ctx.fillText(p.icon, px + 15, y + 32);
                 ctx.strokeStyle = '#ff0044';
                 ctx.strokeRect(px, y + 5, 30, 40);
                 // Glow
                 ctx.shadowBlur = 10; ctx.shadowColor = '#ff0044';
                 ctx.strokeRect(px, y + 5, 30, 40);
                 ctx.shadowBlur = 0;
+
+                if (sprite) {
+                    ctx.drawImage(sprite, px + 2, y + 8, 26, 34);
+                } else {
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(p.icon, px + 15, y + 32);
+                }
             } else {
-                ctx.fillStyle = '#444';
-                ctx.fillText(p.icon, px + 15, y + 32);
                 ctx.strokeStyle = '#333';
                 ctx.strokeRect(px, y + 5, 30, 40);
+
+                if (sprite) {
+                    ctx.globalAlpha = 0.3;
+                    ctx.drawImage(sprite, px + 2, y + 8, 26, 34);
+                    ctx.globalAlpha = 1;
+                } else {
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#444';
+                    ctx.fillText(p.icon, px + 15, y + 32);
+                }
             }
         });
 
