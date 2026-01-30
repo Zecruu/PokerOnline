@@ -176,11 +176,15 @@ class AuthManager {
             btn.disabled = false;
         });
 
-        // New game button
+        // New game button - delete save and go straight to boost select
         document.getElementById('new-game-btn')?.addEventListener('click', async () => {
             await this.deleteSavedGame();
-            document.getElementById('saved-game-notice').classList.add('hidden');
-            document.getElementById('start-btn').classList.remove('hidden');
+            this.user.savedGame = { exists: false };
+            localStorage.setItem('user_data', JSON.stringify(this.user));
+            // Go directly to boost select instead of showing start button
+            if (typeof game !== 'undefined') {
+                game.showBoostSelect();
+            }
         });
     }
 

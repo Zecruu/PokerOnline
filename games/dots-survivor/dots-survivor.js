@@ -1354,6 +1354,7 @@ class DotsSurvivor {
                     <div style="font-size:0.7rem;color:#888;margin-top:0.3rem;">🎲 Augments are random</div>
                 </div>
             </div>
+            <a href="/" class="menu-btn secondary" style="margin-top:1rem;display:inline-block;">🏠 EXIT TO HUB</a>
             <div class="controls-info" style="margin-top:1rem;color:#888;font-size:0.8rem;"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Auto-shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
         `;
 
