@@ -1,16 +1,44 @@
 // Dots Survivor - Complete Game with Classes, Items, Bosses & Infinite Map
 
-// Player, Minion, and Projectile Sprite System (Sprite Sheets)
+// Player, Minion, and Projectile Sprite System (Animated Sprite Sheets)
 const PLAYER_SPRITE = 'accc005c-8f0c-4219-8828-1159494d1650-removebg-preview.png';
 const WOLF_SPRITE = 'a5560990-c2a0-41d0-94b5-61114f8bdbbe-removebg-preview.png';
 const FIREBALL_SPRITE = '0136dae6-4cde-40d9-84f8-2543fff0a72f-removebg-preview.png';
 
-// Sprite sheet frame definitions (x, y, width, height) - adjust these based on your sprite sheet layout
-const SPRITE_FRAMES = {
-    player: { x: 0, y: 0, w: 150, h: 200 },      // First mage frame (top-left)
-    wolf: { x: 0, y: 0, w: 120, h: 100 },        // First wolf frame
-    fireball: { x: 0, y: 0, w: 100, h: 80 }      // First fireball frame
+// Sprite Animation Definitions
+// Each animation has: row (y offset), frameCount, frameWidth, frameHeight
+const SPRITE_ANIMS = {
+    player: {
+        frameSize: 64,
+        idle:     { y: 0,   frames: 4 },
+        walk:     { y: 64,  frames: 6 },
+        summon:   { y: 128, frames: 8 },
+        attack:   { y: 192, frames: 6 },
+        death:    { y: 256, frames: 4 }
+    },
+    wolf: {
+        frameSize: 64,
+        idle:     { y: 0,   frames: 4 },
+        run:      { y: 64,  frames: 6 },
+        bite:     { y: 128, frames: 6 },
+        death:    { y: 192, frames: 4 }
+    },
+    fireball: {
+        frameSize: 32,
+        flight:   { y: 0,  frames: 6 },
+        impact:   { y: 32, frames: 4 }
+    }
 };
+
+// Animation state tracker
+const ANIM_STATE = {
+    player: { anim: 'idle', frame: 0, timer: 0 },
+    wolves: [], // Each wolf has its own animation state
+    fireballs: [] // Each fireball has its own animation state
+};
+
+// Animation speed (seconds per frame)
+const ANIM_SPEED = 0.1;
 
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
@@ -3980,20 +4008,35 @@ class DotsSurvivor {
                 ctx.fillRect(sx - crossH/2, sy - crossW/2, crossH, crossW); // Horizontal bar
             }
         });
-        // Projectiles (Fireballs)
+        // Projectiles (Fireballs) - Animated
         this.projectiles.forEach(p => {
             const fireballSprite = SPRITE_CACHE['fireball'];
-            const fFrame = SPRITE_FRAMES.fireball;
-            if (fireballSprite && fFrame) {
+            const fAnims = SPRITE_ANIMS.fireball;
+            if (fireballSprite && fAnims) {
+                // Initialize animation state for this projectile if needed
+                if (!p.animState) {
+                    p.animState = { frame: 0, timer: 0 };
+                }
+
+                // Update animation (flight animation loops)
+                const anim = fAnims.flight;
+                p.animState.timer += 0.016;
+                if (p.animState.timer >= ANIM_SPEED * 0.5) { // Faster animation for fireballs
+                    p.animState.timer = 0;
+                    p.animState.frame = (p.animState.frame + 1) % anim.frames;
+                }
+
+                const frameX = p.animState.frame * fAnims.frameSize;
+                const frameY = anim.y;
+
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 // Rotate fireball based on direction
                 const angle = Math.atan2(p.vy, p.vx);
                 ctx.rotate(angle);
-                const size = p.radius * 4; // Fireball sprite sizing
-                // Draw only the specific frame from sprite sheet
+                const size = p.radius * 5; // Fireball sprite sizing
                 ctx.drawImage(fireballSprite,
-                    fFrame.x, fFrame.y, fFrame.w, fFrame.h,
+                    frameX, frameY, fAnims.frameSize, fAnims.frameSize,
                     -size / 2, -size / 2, size, size);
                 ctx.restore();
             } else {
@@ -4177,17 +4220,45 @@ class DotsSurvivor {
             ctx.fillText('⭐', sx, sy);
             ctx.shadowBlur = 0;
         });
-        // Minions (Wolf Pack)
-        this.minions.forEach(m => {
+        // Minions (Wolf Pack) - Animated
+        this.minions.forEach((m, idx) => {
             const wolfSprite = SPRITE_CACHE['wolf'];
-            const wFrame = SPRITE_FRAMES.wolf;
-            if (wolfSprite && wFrame) {
+            const wAnims = SPRITE_ANIMS.wolf;
+            if (wolfSprite && wAnims) {
+                // Initialize animation state for this wolf if needed
+                if (!m.animState) {
+                    m.animState = { anim: 'idle', frame: 0, timer: 0 };
+                }
+
+                // Determine animation: attacking = bite, moving = run, else idle
+                const isAttacking = m.attackCooldown > 0.5;
+                const isMoving = m.lastX !== undefined && (Math.abs(m.x - m.lastX) > 0.5 || Math.abs(m.y - m.lastY) > 0.5);
+                const animName = isAttacking ? 'bite' : (isMoving ? 'run' : 'idle');
+                const anim = wAnims[animName];
+
+                // Update animation
+                m.animState.timer += 0.016;
+                if (m.animState.anim !== animName) {
+                    m.animState.anim = animName;
+                    m.animState.frame = 0;
+                    m.animState.timer = 0;
+                }
+                if (m.animState.timer >= ANIM_SPEED) {
+                    m.animState.timer = 0;
+                    m.animState.frame = (m.animState.frame + 1) % anim.frames;
+                }
+
+                // Store position for movement detection
+                m.lastX = m.x; m.lastY = m.y;
+
+                const frameX = m.animState.frame * wAnims.frameSize;
+                const frameY = anim.y;
+
                 ctx.save();
                 ctx.translate(m.x, m.y);
-                const size = m.radius * 3.5; // Wolf sprite sizing
-                // Draw only the specific frame from sprite sheet
+                const size = m.radius * 4; // Wolf sprite sizing
                 ctx.drawImage(wolfSprite,
-                    wFrame.x, wFrame.y, wFrame.w, wFrame.h,
+                    frameX, frameY, wAnims.frameSize, wAnims.frameSize,
                     -size / 2, -size / 2, size, size);
                 ctx.restore();
             } else {
@@ -4552,17 +4623,37 @@ class DotsSurvivor {
 
         if (p.invincibleTime > 0 && Math.floor(p.invincibleTime * 10) % 2 === 0) ctx.globalAlpha = 0.5;
 
-        // Try to draw mage sprite from sprite sheet
+        // Try to draw animated mage sprite
         const playerSprite = SPRITE_CACHE['player'];
-        const pFrame = SPRITE_FRAMES.player;
-        if (playerSprite && pFrame) {
+        const pAnims = SPRITE_ANIMS.player;
+        if (playerSprite && pAnims) {
+            // Determine animation based on player state
+            const isMoving = Math.abs(p.vx || 0) > 10 || Math.abs(p.vy || 0) > 10 ||
+                            (this.keys && (this.keys['w'] || this.keys['a'] || this.keys['s'] || this.keys['d']));
+            const animName = isMoving ? 'walk' : 'idle';
+            const anim = pAnims[animName];
+
+            // Update animation frame
+            ANIM_STATE.player.timer += 0.016; // ~60fps
+            if (ANIM_STATE.player.anim !== animName) {
+                ANIM_STATE.player.anim = animName;
+                ANIM_STATE.player.frame = 0;
+                ANIM_STATE.player.timer = 0;
+            }
+            if (ANIM_STATE.player.timer >= ANIM_SPEED) {
+                ANIM_STATE.player.timer = 0;
+                ANIM_STATE.player.frame = (ANIM_STATE.player.frame + 1) % anim.frames;
+            }
+
+            const frameX = ANIM_STATE.player.frame * pAnims.frameSize;
+            const frameY = anim.y;
+
             ctx.save();
             ctx.translate(p.x, p.y);
             const size = p.radius * 4; // Mage sprite display size
-            // Draw only the specific frame from sprite sheet
             ctx.drawImage(playerSprite,
-                pFrame.x, pFrame.y, pFrame.w, pFrame.h,  // Source rectangle
-                -size / 2, -size / 2, size, size);        // Destination rectangle
+                frameX, frameY, pAnims.frameSize, pAnims.frameSize,
+                -size / 2, -size / 2, size, size);
             ctx.restore();
         } else {
             // Fallback to circle
