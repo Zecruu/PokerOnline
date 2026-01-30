@@ -661,11 +661,23 @@ class DotsSurvivor {
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) { console.log('Audio not supported'); }
 
-        // Background music
+        // Background music - Menu
         this.menuMusic = new Audio('menu-music.mp3');
         this.menuMusic.loop = true;
-        this.menuMusic.volume = 0.3; // 30% volume for background music
+        this.menuMusic.volume = 0.3;
         this.musicPlaying = false;
+
+        // Background music - Boss
+        this.bossMusic = new Audio('boss-music.mp3');
+        this.bossMusic.loop = true;
+        this.bossMusic.volume = 0.4;
+        this.bossMusicPlaying = false;
+
+        // Beam of Despair sound effect
+        this.beamSound = new Audio('beam-sound.mp3');
+        this.beamSound.loop = true;
+        this.beamSound.volume = 0.25;
+        this.beamSoundPlaying = false;
     }
 
     playMenuMusic() {
@@ -696,10 +708,58 @@ class DotsSurvivor {
         }
     }
 
+    playBossMusic() {
+        if (!this.settings.soundEnabled || this.bossMusicPlaying) return;
+
+        const volumeMult = this.settings.volume / 100;
+        this.bossMusic.volume = 0.4 * volumeMult;
+
+        this.bossMusic.play().then(() => {
+            this.bossMusicPlaying = true;
+            console.log('🎵 Boss music started');
+        }).catch(e => {
+            console.log('Boss music autoplay blocked');
+        });
+    }
+
+    stopBossMusic() {
+        if (this.bossMusic && this.bossMusicPlaying) {
+            this.bossMusic.pause();
+            this.bossMusic.currentTime = 0;
+            this.bossMusicPlaying = false;
+            console.log('🎵 Boss music stopped');
+        }
+    }
+
+    playBeamSound() {
+        if (!this.settings.soundEnabled || this.beamSoundPlaying) return;
+
+        const volumeMult = this.settings.volume / 100;
+        this.beamSound.volume = 0.25 * volumeMult;
+
+        this.beamSound.play().then(() => {
+            this.beamSoundPlaying = true;
+        }).catch(e => {});
+    }
+
+    stopBeamSound() {
+        if (this.beamSound && this.beamSoundPlaying) {
+            this.beamSound.pause();
+            this.beamSound.currentTime = 0;
+            this.beamSoundPlaying = false;
+        }
+    }
+
     updateMusicVolume() {
+        const volumeMult = this.settings.volume / 100;
         if (this.menuMusic) {
-            const volumeMult = this.settings.volume / 100;
             this.menuMusic.volume = 0.3 * volumeMult;
+        }
+        if (this.bossMusic) {
+            this.bossMusic.volume = 0.4 * volumeMult;
+        }
+        if (this.beamSound) {
+            this.beamSound.volume = 0.25 * volumeMult;
         }
     }
 
@@ -819,10 +879,18 @@ class DotsSurvivor {
                 this.playSound('xp'); // Play test sound
                 this.playMenuMusic(); // Resume music if on menu
             } else {
-                // Pause music when sound is disabled
+                // Pause all sounds when sound is disabled
                 if (this.menuMusic) {
                     this.menuMusic.pause();
                     this.musicPlaying = false;
+                }
+                if (this.bossMusic) {
+                    this.bossMusic.pause();
+                    this.bossMusicPlaying = false;
+                }
+                if (this.beamSound) {
+                    this.beamSound.pause();
+                    this.beamSoundPlaying = false;
                 }
             }
         });
@@ -2737,7 +2805,11 @@ class DotsSurvivor {
 
     // Beam of Despair - chains to enemies, color based on level
     updateBeamDespair(dt) {
-        if (!this.beamDespair) return;
+        if (!this.beamDespair) {
+            // Stop beam sound if beam is not active
+            this.stopBeamSound();
+            return;
+        }
 
         // Initialize beam targets array
         if (!this.beamTargets) this.beamTargets = [];
@@ -2785,6 +2857,13 @@ class DotsSurvivor {
 
         // Store targets for rendering
         this.beamTargets = targets;
+
+        // Play/stop beam sound based on whether we have targets
+        if (targets.length > 0) {
+            this.playBeamSound();
+        } else {
+            this.stopBeamSound();
+        }
 
         // Deal damage to all targets
         for (const t of targets) {
@@ -3337,6 +3416,9 @@ class DotsSurvivor {
                 }
                 // Start grace period - reduced spawns for 5 seconds
                 this.bossGracePeriod = 5;
+
+                // Play boss music when first boss spawns
+                this.playBossMusic();
             }
 
             // Spawn Demonic General (Demon King) at wave 20 only
@@ -3633,23 +3715,29 @@ class DotsSurvivor {
         if (e.isBoss) {
             this.triggerScreenShake(15, 0.4);
             this.triggerSlowmo(0.15, 1.2); // Epic slowmo for boss kills
-            
+
+            // Check if all bosses are dead - stop boss music
+            const remainingBosses = this.enemies.filter(en => en.isBoss && en !== e).length;
+            if (remainingBosses === 0) {
+                this.stopBossMusic();
+            }
+
             // Boss death message and revenge horde
-            this.damageNumbers.push({ 
-                x: sx, y: sy - 60, 
-                value: '💀 I WILL RETURN!', 
-                lifetime: 2, 
-                color: '#ff0000', 
-                scale: 2.5 
+            this.damageNumbers.push({
+                x: sx, y: sy - 60,
+                value: '💀 I WILL RETURN!',
+                lifetime: 2,
+                color: '#ff0000',
+                scale: 2.5
             });
-            this.damageNumbers.push({ 
-                x: sx, y: sy - 30, 
-                value: '⚔️ AVENGE ME WARRIORS!', 
-                lifetime: 2, 
-                color: '#ff4400', 
-                scale: 2 
+            this.damageNumbers.push({
+                x: sx, y: sy - 30,
+                value: '⚔️ AVENGE ME WARRIORS!',
+                lifetime: 2,
+                color: '#ff4400',
+                scale: 2
             });
-            
+
             // Spawn revenge horde
             setTimeout(() => this.spawnHorde(), 500);
         }
@@ -4834,6 +4922,10 @@ class DotsSurvivor {
 
     async gameOver() {
         this.gameRunning = false;
+
+        // Stop all game sounds
+        this.stopBossMusic();
+        this.stopBeamSound();
 
         // Play menu music on game over
         this.playMenuMusic();
