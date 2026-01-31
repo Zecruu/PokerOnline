@@ -35,19 +35,18 @@ app.use((req, res, next) => {
     next();
 });
 
-// Cache static assets aggressively (1 year for immutable assets)
+// Cache static assets - short cache for JS/CSS to allow quick updates
 const cacheOptions = {
-    maxAge: '1y',
     etag: true,
     lastModified: true,
     setHeaders: (res, filePath) => {
-        // Cache images and audio longer
+        // Cache images and audio longer (1 week)
         if (filePath.match(/\.(jpg|jpeg|png|gif|webp|mp3|wav|ogg)$/i)) {
-            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            res.setHeader('Cache-Control', 'public, max-age=604800');
         }
-        // Cache JS/CSS for 1 day (allows updates)
+        // JS/CSS - short cache (5 minutes) to allow quick updates
         else if (filePath.match(/\.(js|css)$/i)) {
-            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
         }
         // HTML - no cache (always fresh)
         else if (filePath.match(/\.html$/i)) {
