@@ -43,13 +43,15 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: url('velthara-bg.jpg') center top / cover no-repeat;
+    background: linear-gradient(180deg, #0a0008 0%, #1a0010 50%, #0a0008 100%);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 100;
+    overflow: hidden;
 }
 
+/* Blood drip animation container */
 .menu-overlay::before {
     content: '';
     position: absolute;
@@ -57,8 +59,63 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.75) 100%);
+    background:
+        /* Blood drips - multiple positioned across the top */
+        radial-gradient(ellipse 8px 120px at 5% 0%, #8b0000 0%, transparent 100%),
+        radial-gradient(ellipse 6px 180px at 12% 0%, #660000 0%, transparent 100%),
+        radial-gradient(ellipse 10px 250px at 20% 0%, #8b0000 0%, transparent 100%),
+        radial-gradient(ellipse 5px 100px at 28% 0%, #550000 0%, transparent 100%),
+        radial-gradient(ellipse 12px 300px at 35% 0%, #8b0000 0%, transparent 100%),
+        radial-gradient(ellipse 7px 150px at 45% 0%, #660000 0%, transparent 100%),
+        radial-gradient(ellipse 9px 200px at 55% 0%, #8b0000 0%, transparent 100%),
+        radial-gradient(ellipse 6px 130px at 62% 0%, #550000 0%, transparent 100%),
+        radial-gradient(ellipse 11px 280px at 70% 0%, #8b0000 0%, transparent 100%),
+        radial-gradient(ellipse 8px 160px at 78% 0%, #660000 0%, transparent 100%),
+        radial-gradient(ellipse 10px 220px at 88% 0%, #8b0000 0%, transparent 100%),
+        radial-gradient(ellipse 7px 140px at 95% 0%, #550000 0%, transparent 100%);
+    animation: bloodDrip 8s ease-in-out infinite;
     pointer-events: none;
+    opacity: 0.8;
+}
+
+/* Second layer of drips with offset timing */
+.menu-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(ellipse 7px 170px at 8% 0%, #990000 0%, transparent 100%),
+        radial-gradient(ellipse 9px 230px at 18% 0%, #770000 0%, transparent 100%),
+        radial-gradient(ellipse 6px 110px at 25% 0%, #880000 0%, transparent 100%),
+        radial-gradient(ellipse 11px 290px at 38% 0%, #990000 0%, transparent 100%),
+        radial-gradient(ellipse 8px 180px at 50% 0%, #770000 0%, transparent 100%),
+        radial-gradient(ellipse 10px 240px at 60% 0%, #880000 0%, transparent 100%),
+        radial-gradient(ellipse 7px 150px at 72% 0%, #990000 0%, transparent 100%),
+        radial-gradient(ellipse 9px 200px at 82% 0%, #770000 0%, transparent 100%),
+        radial-gradient(ellipse 6px 120px at 92% 0%, #880000 0%, transparent 100%);
+    animation: bloodDrip 8s ease-in-out infinite 4s;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+@keyframes bloodDrip {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.8;
+    }
+    90% {
+        opacity: 0.8;
+    }
+    100% {
+        transform: translateY(100%);
+        opacity: 0;
+    }
 }
 
 .menu-overlay.hidden {
@@ -68,6 +125,8 @@ body {
 .menu-content {
     text-align: center;
     padding: 3rem;
+    position: relative;
+    z-index: 10;
 }
 
 .game-title {
