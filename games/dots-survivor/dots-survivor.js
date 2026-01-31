@@ -1298,7 +1298,12 @@ class DotsSurvivor {
         this.magnetRadius = state.magnetRadius || 100;
 
         // Weapons
-        if (state.weapons) this.weapons = state.weapons;
+        if (state.weapons) {
+            this.weapons = state.weapons;
+            // Reset lastFired to 0 so player can shoot immediately after loading
+            // (performance.now() resets each session, so old timestamps would prevent firing)
+            if (this.weapons.bullet) this.weapons.bullet.lastFired = 0;
+        }
 
         // Skulls
         this.skulls = [];
@@ -2146,10 +2151,7 @@ class DotsSurvivor {
             this.arenaFloorImage.src = '4513c543-5ff6-499f-8105-a008fa343452.jpg';
         }
 
-        // Spawn initial swimming creatures
-        for (let i = 0; i < 5; i++) {
-            this.spawnSwimmingCreature();
-        }
+        // Swimming creatures removed - they were confusing during the fight
 
         // Warning message
         this.damageNumbers.push({
@@ -2185,8 +2187,7 @@ class DotsSurvivor {
 
         this.cthulhuWarningTimer -= dt;
 
-        // Spawn more creatures as time goes on
-        if (Math.random() < 0.02) this.spawnSwimmingCreature();
+        // Swimming creatures spawning disabled
 
         // Water ripples
         if (Math.random() < 0.05) {

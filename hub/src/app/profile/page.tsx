@@ -11,6 +11,13 @@ interface UserData {
   library?: string[];
   wishlist?: string[];
   favorites?: string[];
+  dotsSurvivorStats?: {
+    totalGamesPlayed?: number;
+    totalTimePlayed?: number;
+    highestWave?: number;
+    highestKills?: number;
+    highestScore?: number;
+  };
 }
 
 export default function ProfilePage() {
@@ -88,9 +95,28 @@ export default function ProfilePage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <StatCard icon="🎮" label="Games Played" value="0" />
-          <StatCard icon="⏱️" label="Hours Played" value="0" />
-          <StatCard icon="🏆" label="Achievements" value="0" />
+          <StatCard icon="🎮" label="Games Played" value={String(user.dotsSurvivorStats?.totalGamesPlayed || 0)} />
+          <StatCard icon="⏱️" label="Hours Played" value={((user.dotsSurvivorStats?.totalTimePlayed || 0) / 3600000).toFixed(1)} />
+          <StatCard icon="🏆" label="Achievements" value="Coming Soon" />
+        </div>
+
+        {/* Best Records */}
+        <div className="card-glass p-6 mb-8">
+          <h2 className="text-xl font-bold text-white mb-4">🏆 Best Records</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-white/5 rounded-xl">
+              <p className="text-white/50 text-sm">Highest Wave</p>
+              <p className="text-2xl font-bold text-[rgb(0,212,170)]">{user.dotsSurvivorStats?.highestWave || 0}</p>
+            </div>
+            <div className="text-center p-4 bg-white/5 rounded-xl">
+              <p className="text-white/50 text-sm">Most Kills</p>
+              <p className="text-2xl font-bold text-[rgb(255,100,100)]">{user.dotsSurvivorStats?.highestKills || 0}</p>
+            </div>
+            <div className="text-center p-4 bg-white/5 rounded-xl">
+              <p className="text-white/50 text-sm">Highest Score</p>
+              <p className="text-2xl font-bold text-[rgb(255,200,50)]">{user.dotsSurvivorStats?.highestScore || 0}</p>
+            </div>
+          </div>
         </div>
 
         {/* Quick Actions */}
@@ -104,7 +130,7 @@ export default function ProfilePage() {
               <span className="mr-3 text-xl">🛒</span> Browse Store
             </Link>
             <Link href="/games/dots-survivor/dots-survivor.html" className="btn-glass btn-glass-primary justify-start px-5 py-4">
-              <span className="mr-3 text-xl">🎮</span> Play Dots Survivor
+              <span className="mr-3 text-xl">🎮</span> Play Velthara&apos;s Dominion
             </Link>
             <Link href="/games/poker/poker.html" className="btn-glass btn-glass-secondary justify-start px-5 py-4">
               <span className="mr-3 text-xl">🃏</span> Play Poker

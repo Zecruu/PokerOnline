@@ -1204,11 +1204,15 @@ app.post('/api/dots-survivor/submit-score', authenticateToken, async (req, res) 
 
 async function updateLeaderboard(userId, username, category, value) {
     try {
-        await LeaderboardEntry.findOneAndUpdate(
-            { userId, category },
-            { userId, username, category, value: Math.max(value, 0), achievedAt: new Date() },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
+        // Only update if new value is higher than existing value
+        const existing = await LeaderboardEntry.findOne({ userId, category });
+        if (!existing || value > existing.value) {
+            await LeaderboardEntry.findOneAndUpdate(
+                { userId, category },
+                { userId, username, category, value: Math.max(value, 0), achievedAt: new Date() },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+        }
     } catch (error) {
         console.error('Leaderboard update error:', error);
     }
