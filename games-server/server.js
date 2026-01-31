@@ -35,22 +35,20 @@ app.use((req, res, next) => {
     next();
 });
 
-// Cache static assets - short cache for JS/CSS to allow quick updates
+// Cache static assets - NO CACHE during development for quick updates
 const cacheOptions = {
-    etag: true,
+    etag: false,
     lastModified: true,
     setHeaders: (res, filePath) => {
-        // Cache images and audio longer (1 week)
+        // Cache images and audio longer (1 day)
         if (filePath.match(/\.(jpg|jpeg|png|gif|webp|mp3|wav|ogg)$/i)) {
-            res.setHeader('Cache-Control', 'public, max-age=604800');
+            res.setHeader('Cache-Control', 'public, max-age=86400');
         }
-        // JS/CSS - short cache (5 minutes) to allow quick updates
-        else if (filePath.match(/\.(js|css)$/i)) {
-            res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
-        }
-        // HTML - no cache (always fresh)
-        else if (filePath.match(/\.html$/i)) {
+        // JS/CSS/HTML - NO CACHE during development
+        else {
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
         }
     }
 };
