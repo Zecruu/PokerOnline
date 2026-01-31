@@ -178,7 +178,7 @@ export function Navbar() {
 
           <p className="text-xs text-white/40 uppercase tracking-wider px-3 mb-2">Games</p>
           <div className="space-y-1">
-            <SidebarLink href="/games/dots-survivor/dots-survivor.html" icon="🎮" onClick={() => setSidebarOpen(false)}>Velthara&apos;s Dominion</SidebarLink>
+            <SidebarLink href="https://games.zecrugames.com/veltharas-dominion/" icon="🎮" onClick={() => setSidebarOpen(false)}>Velthara&apos;s Dominion</SidebarLink>
             <SidebarLink href="/games/poker/poker.html" icon="🃏" onClick={() => setSidebarOpen(false)}>Poker Online</SidebarLink>
           </div>
 

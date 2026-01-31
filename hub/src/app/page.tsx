@@ -16,8 +16,8 @@ const GAMES: Array<{
     id: "velthara-dominion",
     title: "Velthara's Dominion",
     description: "Survive endless waves of enemies! Collect XP, level up, and choose powerful upgrades. How long can you last?",
-    thumbnail: "/games/dots-survivor/velthara-bg.jpg",
-    href: "/games/dots-survivor/velthara-dominion.html",
+    thumbnail: "https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg",
+    href: "https://games.zecrugames.com/veltharas-dominion/",
     badge: "FEATURED",
     badgeColor: "green",
     isFree: true,
@@ -46,7 +46,7 @@ export default function Home() {
           <div
             className="absolute inset-0 bg-cover bg-center scale-110"
             style={{
-              backgroundImage: "url('/games/dots-survivor/velthara-bg.jpg')",
+              backgroundImage: "url('https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg')",
               filter: "blur(40px) brightness(0.3)"
             }}
           />
@@ -84,7 +84,7 @@ export default function Home() {
 
               <div className="flex gap-4 flex-wrap">
                 <Link
-                  href="/games/dots-survivor/velthara-dominion.html"
+                  href="https://games.zecrugames.com/veltharas-dominion/"
                   className="btn-glass btn-glass-primary text-base sm:text-lg px-8 sm:px-10 py-4"
                 >
                   <span className="mr-2">▶</span> Play Now — Free
@@ -106,7 +106,7 @@ export default function Home() {
 
                 <div className="relative card-glass p-3 animate-float">
                   <img
-                    src="/games/dots-survivor/velthara-bg.jpg"
+                    src="https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg"
                     alt="Velthara's Dominion"
                     className="w-full aspect-video object-cover rounded-xl"
                   />

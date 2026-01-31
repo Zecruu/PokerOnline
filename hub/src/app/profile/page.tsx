@@ -129,7 +129,7 @@ export default function ProfilePage() {
             <Link href="/store" className="btn-glass btn-glass-secondary justify-start px-5 py-4">
               <span className="mr-3 text-xl">🛒</span> Browse Store
             </Link>
-            <Link href="/games/dots-survivor/dots-survivor.html" className="btn-glass btn-glass-primary justify-start px-5 py-4">
+            <Link href="https://games.zecrugames.com/veltharas-dominion/" className="btn-glass btn-glass-primary justify-start px-5 py-4">
               <span className="mr-3 text-xl">🎮</span> Play Velthara&apos;s Dominion
             </Link>
             <Link href="/games/poker/poker.html" className="btn-glass btn-glass-secondary justify-start px-5 py-4">
