@@ -1196,14 +1196,19 @@ app.post('/api/dots-survivor/submit-score', authenticateToken, async (req, res) 
             user.accountProgression = {
                 level: 1,
                 xp: 0,
-                xpToNextLevel: 100,
+                xpToNextLevel: 1000, // Base 1000 XP for level 1
                 tokens: 0,
                 totalTokensEarned: 0
             };
         }
 
-        // Calculate XP earned: wave * 10 + kills + time bonus (1 XP per 10 seconds)
-        const xpEarned = Math.floor(wave * 10 + kills + (timePlayed || 0) / 10);
+        // Calculate XP earned:
+        // - 1 XP per kill
+        // - Wave XP scales with wave survived: wave 1 = 10, wave 2 = 20, wave 3 = 30, etc.
+        // Total wave XP = sum of (10 * i) for i from 1 to wave = 10 * (wave * (wave + 1) / 2)
+        const waveXP = 10 * (wave * (wave + 1) / 2);
+        const killXP = kills;
+        const xpEarned = Math.floor(waveXP + killXP);
         let levelsGained = 0;
         let tokensEarned = 0;
 
@@ -1221,8 +1226,9 @@ app.post('/api/dots-survivor/submit-score', authenticateToken, async (req, res) 
             user.accountProgression.tokens += tokenReward;
             user.accountProgression.totalTokensEarned += tokenReward;
 
-            // XP requirement increases each level: base 100 + 50 per level
-            user.accountProgression.xpToNextLevel = 100 + (user.accountProgression.level - 1) * 50;
+            // XP requirement: 1000 base + 300 per level
+            // Level 1 = 1000, Level 2 = 1300, Level 3 = 1600, etc.
+            user.accountProgression.xpToNextLevel = 1000 + (user.accountProgression.level - 1) * 300;
         }
 
         // Clear saved game on submission

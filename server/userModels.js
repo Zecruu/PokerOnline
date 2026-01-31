@@ -56,7 +56,7 @@ const UserSchema = new mongoose.Schema({
     accountProgression: {
         level: { type: Number, default: 1 },
         xp: { type: Number, default: 0 },
-        xpToNextLevel: { type: Number, default: 100 },
+        xpToNextLevel: { type: Number, default: 1000 }, // Base 1000 XP, +300 per level
         tokens: { type: Number, default: 0 },
         totalTokensEarned: { type: Number, default: 0 }
     }

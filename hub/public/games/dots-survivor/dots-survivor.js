@@ -977,21 +977,26 @@ class DotsSurvivor {
         this.resizeCanvas();
         window.addEventListener('resize', () => this.resizeCanvas());
         window.addEventListener('keydown', (e) => {
-            this.keys[e.key.toLowerCase()] = true;
-            if ('wasd'.includes(e.key.toLowerCase()) || e.key.startsWith('Arrow')) e.preventDefault();
+            if (!e.key) return; // Guard against undefined key
+            const key = e.key.toLowerCase();
+            this.keys[key] = true;
+            if ('wasd'.includes(key) || e.key.startsWith('Arrow')) e.preventDefault();
             // Pause toggle
-            if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && this.gameRunning) {
+            if ((e.key === 'Escape' || key === 'p') && this.gameRunning) {
                 this.togglePause();
             }
             // Ability activation - Q for Dash, E for Nuclear Blast
-            if (e.key.toLowerCase() === 'q' && this.gameRunning && !this.gamePaused) {
+            if (key === 'q' && this.gameRunning && !this.gamePaused) {
                 this.activateAbility('dash');
             }
-            if (e.key.toLowerCase() === 'e' && this.gameRunning && !this.gamePaused) {
+            if (key === 'e' && this.gameRunning && !this.gamePaused) {
                 this.activateAbility('nuclearBlast');
             }
         });
-        window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
+        window.addEventListener('keyup', (e) => {
+            if (!e.key) return; // Guard against undefined key
+            this.keys[e.key.toLowerCase()] = false;
+        });
         this.setupTouch();
 
         // Set default class
@@ -5708,6 +5713,19 @@ class DotsSurvivor {
         document.getElementById('final-level').textContent = this.player.level;
         document.getElementById('gameover-menu').classList.remove('hidden');
 
+        // Get or create account progression display element
+        let progressionDisplay = document.getElementById('account-progression-display');
+        if (!progressionDisplay) {
+            progressionDisplay = document.createElement('div');
+            progressionDisplay.id = 'account-progression-display';
+            progressionDisplay.style.cssText = 'margin-top:1rem;padding:1rem;background:rgba(0,100,150,0.3);border:2px solid #00ccff;border-radius:12px;text-align:center;';
+            const gameoverMenu = document.getElementById('gameover-menu');
+            const menuContent = gameoverMenu.querySelector('.menu-content');
+            if (menuContent) {
+                menuContent.appendChild(progressionDisplay);
+            }
+        }
+
         // Submit score if logged in
         if (typeof authManager !== 'undefined' && authManager.user) {
             const score = this.player.kills * 10 + this.wave * 100; // Simple score formula
@@ -5717,8 +5735,62 @@ class DotsSurvivor {
             } else {
                 document.getElementById('new-record').classList.add('hidden');
             }
+
+            // Display account progression
+            if (result?.accountProgression) {
+                const prog = result.accountProgression;
+                const xpPercent = Math.floor((prog.xp / prog.xpToNextLevel) * 100);
+
+                let progressionHTML = '';
+                if (prog.levelsGained > 0) {
+                    // Level up celebration
+                    progressionHTML = `
+                        <div style="font-size:1.5rem;color:#ffd700;font-weight:bold;margin-bottom:0.5rem;">
+                            🎉 LEVEL UP! 🎉
+                        </div>
+                        <div style="font-size:1.2rem;color:#00ffff;margin-bottom:0.5rem;">
+                            Account Level ${prog.level}
+                        </div>
+                        <div style="color:#44ff88;font-size:1rem;margin-bottom:0.5rem;">
+                            +${prog.tokensEarned} 🪙 Tokens Earned!
+                        </div>
+                    `;
+                } else {
+                    progressionHTML = `
+                        <div style="font-size:1rem;color:#00ccff;margin-bottom:0.5rem;">
+                            📊 Account Level ${prog.level}
+                        </div>
+                    `;
+                }
+
+                progressionHTML += `
+                    <div style="color:#aaa;font-size:0.9rem;margin-bottom:0.5rem;">
+                        +${prog.xpEarned} XP earned this game
+                    </div>
+                    <div style="background:#222;border-radius:8px;height:20px;overflow:hidden;margin:0.5rem 0;">
+                        <div style="background:linear-gradient(90deg,#00ccff,#00ffaa);height:100%;width:${xpPercent}%;transition:width 0.5s;"></div>
+                    </div>
+                    <div style="color:#fff;font-size:0.85rem;">
+                        ${prog.xp} / ${prog.xpToNextLevel} XP to Level ${prog.level + 1}
+                    </div>
+                    <div style="color:#ffd700;font-size:0.9rem;margin-top:0.5rem;">
+                        🪙 ${prog.tokens} Tokens
+                    </div>
+                `;
+
+                progressionDisplay.innerHTML = progressionHTML;
+                progressionDisplay.style.display = 'block';
+            } else {
+                progressionDisplay.style.display = 'none';
+            }
         } else {
             document.getElementById('new-record').classList.add('hidden');
+            progressionDisplay.innerHTML = `
+                <div style="color:#888;font-size:0.9rem;">
+                    🔒 Log in to track account progression!
+                </div>
+            `;
+            progressionDisplay.style.display = 'block';
         }
     }
 
