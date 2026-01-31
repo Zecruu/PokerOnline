@@ -2623,7 +2623,10 @@ class DotsSurvivor {
     }
 
     createWolf() {
-        const angle = Math.random() * Math.PI * 2;
+        // Spread wolves evenly around player based on how many exist
+        const existingWolves = this.minions.length;
+        const baseAngle = (existingWolves * (Math.PI * 2 / 3)) + (Math.random() * 0.5 - 0.25); // Spread by 120 degrees + small random offset
+        const spawnDistance = 80 + (existingWolves * 30); // Each wolf spawns further out
 
         // Wolf Stats - Scale with level and augments (wolves are TANKY)
         const levelMult = 1 + (this.player.level * 0.15); // 15% scaling per level
@@ -2631,8 +2634,8 @@ class DotsSurvivor {
         const damageBonus = this.wolfDamageBonus || 1;
 
         return {
-            x: this.player.x + Math.cos(angle) * 80,
-            y: this.player.y + Math.sin(angle) * 80,
+            x: this.player.x + Math.cos(baseAngle) * spawnDistance,
+            y: this.player.y + Math.sin(baseAngle) * spawnDistance,
             radius: Math.floor(14 * sizeBonus),
             speed: 250,
             damage: Math.floor(35 * levelMult * damageBonus),
@@ -5391,7 +5394,7 @@ class DotsSurvivor {
                 document.getElementById('augment-menu').classList.add('hidden');
                 this.gamePaused = false;
                 this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: `💎 ${u.name}!`, lifetime: 3, color: '#00ffff' });
-                this.updateAugmentDisplay();
+                // updateAugmentDisplay removed - not needed
                 if (onComplete) onComplete();
             });
             container.appendChild(card);
@@ -6538,19 +6541,22 @@ class DotsSurvivor {
             ctx.shadowColor = '#8800ff';
             ctx.stroke();
 
-            // Inner bright ring
-            ctx.beginPath();
-            ctx.arc(sx, sy, wave.radius - 15, 0, Math.PI * 2);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 0;
-            ctx.stroke();
+            // Inner bright ring (only draw if radius is large enough)
+            if (wave.radius > 15) {
+                ctx.beginPath();
+                ctx.arc(sx, sy, wave.radius - 15, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 0;
+                ctx.stroke();
+            }
 
             // Center flash (fades quickly)
             if (wave.radius < 100) {
                 const centerAlpha = (1 - wave.radius / 100) * wave.alpha;
+                const centerRadius = Math.max(5, 50 - wave.radius * 0.3); // Ensure positive radius
                 ctx.beginPath();
-                ctx.arc(sx, sy, 50 - wave.radius * 0.3, 0, Math.PI * 2);
+                ctx.arc(sx, sy, centerRadius, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(255, 255, 255, ${centerAlpha})`;
                 ctx.fill();
             }
