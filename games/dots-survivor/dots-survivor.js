@@ -139,7 +139,7 @@ const ENEMY_SPRITES = {
     poison: 'Poison.png',
     boss: 'BossEnemy.png',
     general: 'DemonKing.png',
-    consumer: null,    // The Consumer boss (has custom rendering)
+    consumer: 'affafb7e-20ab-48d6-aa16-726fa9b54c9c-removebg-preview.png'  // The Consumer boss - void spiral
     cthulhu: '01a0c668-edf9-4306-aa39-391bb1d77077-removebg-preview.png'  // Cthulhu, Lord of the Sea
 };
 
@@ -531,12 +531,12 @@ const BUILD_SETS = {
 
 // Game balance settings (balanced around medium difficulty)
 const GAME_SETTINGS = {
-    enemyHealthMult: 0.5,        // Much lower base health for easy waves 1-9
+    enemyHealthMult: 0.35,       // Lower base health for easier early game (waves 1-14)
     enemyDamageMult: 1.0,
     enemySpeedMult: 1.3,         // FASTER enemies for more exciting gameplay
     spawnRateMult: 0.7,          // FASTER spawns (lower = more frequent)
-    scalingPerWave: 0.10,        // Slightly higher scaling for progression feel
-    scalingPerWaveLate: 0.55,    // Heavy scaling after wave 10 (difficulty ramps up)
+    scalingPerWave: 0.08,        // Slightly lower early scaling for smoother progression
+    scalingPerWaveLate: 0.60,    // Heavy scaling after wave 10 (difficulty ramps up)
     lateGameWave: 10,            // When late game scaling kicks in
     playerHealthMult: 1.0,
     xpMult: 1.2,                 // More XP for faster leveling
@@ -1808,24 +1808,29 @@ class DotsSurvivor {
             name: 'THE CONSUMER',
             isConsumer: true,
             isBoss: true,
-            radius: 80,
-            baseRadius: 80,
-            speed: 20, // Much slower - menacing crawl
-            health: 15000, // Tanky but killable
-            maxHealth: 15000,
-            baseHealth: 15000,
-            damage: 50, // High contact damage
-            xp: 2000,
+            radius: 100,           // Bigger base size
+            baseRadius: 100,
+            spriteSize: 300,       // Sprite render size (grows when consuming)
+            baseSpriteSize: 300,
+            speed: 18, // Slightly slower - menacing crawl
+            health: 35000,         // Much tankier - increased from 15000
+            maxHealth: 35000,
+            baseHealth: 35000,
+            damage: 60, // High contact damage
+            xp: 3000,
             color: '#8800ff',
             hitFlash: 0,
             consumedCount: 0,
             rotationAngle: 0,
-            consumeRadius: 180, // Larger consume range
-            pullRadius: 250, // Visual pull effect radius
-            critResistance: 0.8, // 80% crit resistance
+            spiralAngle: 0,        // For spiraling void effect
+            consumeRadius: 220,    // Larger consume/suck range
+            pullRadius: 350,       // Larger visual pull effect radius
+            suckStrength: 400,     // How strongly it pulls enemies
+            critResistance: 0.85,  // 85% crit resistance
             lifeTimer: 0,
             maxLifeTime: 90, // 1:30 survival time
             vacuumParticles: [], // For vacuum effect
+            spiralParticles: [], // For spiraling void effect
             attackCooldown: 0 // For attack speed system
         };
 
@@ -1896,57 +1901,59 @@ class DotsSurvivor {
             return;
         }
 
-        // Update rotation for visual effect (faster as time runs out)
+        // Update rotation and spiral for visual effect (faster as time runs out)
         const urgency = Math.max(1, (consumer.lifeTimer / consumer.maxLifeTime) * 5);
         consumer.rotationAngle += dt * 2 * urgency;
+        consumer.spiralAngle = (consumer.spiralAngle || 0) + dt * 3 * (1 + urgency * 0.5);
 
-        // Initialize vacuum particles array if needed
+        // Initialize particle arrays if needed
         if (!consumer.vacuumParticles) consumer.vacuumParticles = [];
+        if (!consumer.spiralParticles) consumer.spiralParticles = [];
 
-        // Spawn vacuum particles around the pull radius
-        if (Math.random() < 0.4) { // 40% chance per frame to spawn particle
+        // Spawn spiral void particles (more frequent, more dramatic)
+        if (Math.random() < 0.6) {
             const angle = Math.random() * Math.PI * 2;
-            const dist = consumer.pullRadius + Math.random() * 50;
+            const dist = consumer.pullRadius + Math.random() * 80;
             consumer.vacuumParticles.push({
                 x: Math.cos(angle) * dist,
                 y: Math.sin(angle) * dist,
                 angle: angle,
-                speed: 80 + Math.random() * 60,
-                size: 2 + Math.random() * 4,
-                alpha: 0.8,
-                color: Math.random() > 0.3 ? '#8800ff' : '#ff00ff'
+                speed: 120 + Math.random() * 80,
+                size: 3 + Math.random() * 6,
+                alpha: 0.9,
+                color: Math.random() > 0.5 ? '#8800ff' : (Math.random() > 0.5 ? '#ff00ff' : '#4400aa')
             });
         }
 
-        // Update vacuum particles - spiral inward
+        // Update vacuum particles - spiral inward with stronger effect
         for (let i = consumer.vacuumParticles.length - 1; i >= 0; i--) {
             const p = consumer.vacuumParticles[i];
             const pDist = Math.sqrt(p.x * p.x + p.y * p.y);
 
-            // Move toward center with spiral motion
-            p.angle += dt * (3 + urgency); // Spiral faster as urgency increases
-            const pullSpeed = p.speed * (1 + urgency * 0.3);
+            // Move toward center with stronger spiral motion
+            p.angle += dt * (4 + urgency * 1.5);
+            const pullSpeed = p.speed * (1 + urgency * 0.5);
             p.x -= (p.x / pDist) * pullSpeed * dt;
             p.y -= (p.y / pDist) * pullSpeed * dt;
 
-            // Add spiral offset
-            p.x += Math.cos(p.angle + Math.PI/2) * 20 * dt;
-            p.y += Math.sin(p.angle + Math.PI/2) * 20 * dt;
+            // Add stronger spiral offset
+            p.x += Math.cos(p.angle + Math.PI/2) * 35 * dt;
+            p.y += Math.sin(p.angle + Math.PI/2) * 35 * dt;
 
             // Fade in as it gets closer
             const newDist = Math.sqrt(p.x * p.x + p.y * p.y);
-            p.alpha = Math.min(1, 0.3 + (1 - newDist / consumer.pullRadius) * 0.7);
+            p.alpha = Math.min(1, 0.4 + (1 - newDist / consumer.pullRadius) * 0.6);
             p.size = Math.max(1, p.size * (newDist / consumer.pullRadius));
 
             // Remove when reached center
-            if (newDist < consumer.radius * 0.3) {
+            if (newDist < consumer.radius * 0.2) {
                 consumer.vacuumParticles.splice(i, 1);
             }
         }
 
         // Limit particle count
-        if (consumer.vacuumParticles.length > 60) {
-            consumer.vacuumParticles.splice(0, consumer.vacuumParticles.length - 60);
+        if (consumer.vacuumParticles.length > 80) {
+            consumer.vacuumParticles.splice(0, consumer.vacuumParticles.length - 80);
         }
 
         // Move toward player (slowly)
@@ -1958,7 +1965,7 @@ class DotsSurvivor {
             consumer.wy += (dy / dist) * consumer.speed * dt;
         }
 
-        // Consume nearby non-boss enemies
+        // ENHANCED: Suck and consume nearby non-boss enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i];
             if (e === consumer || e.isBoss) continue;
@@ -1967,43 +1974,49 @@ class DotsSurvivor {
             const edy = consumer.wy - e.wy;
             const edist = Math.sqrt(edx * edx + edy * edy);
 
+            // Pull enemies within consume radius with strong suction
             if (edist < consumer.consumeRadius) {
-                // Pull enemy toward consumer
-                const pullStrength = 200 * dt;
+                // Stronger pull - scales with proximity (closer = stronger pull)
+                const pullMult = 1 + (1 - edist / consumer.consumeRadius) * 2;
+                const pullStrength = (consumer.suckStrength || 400) * pullMult * dt;
                 e.wx += (edx / edist) * pullStrength;
                 e.wy += (edy / edist) * pullStrength;
 
-                // Consume if very close
-                if (edist < consumer.radius + e.radius) {
-                    // Absorb health (15% of enemy max health)
-                    const healthGain = Math.floor(e.maxHealth * 0.15);
+                // Consume if very close - DEVOUR the enemy
+                if (edist < consumer.radius + e.radius * 0.5) {
+                    // Absorb health (20% of enemy max health)
+                    const healthGain = Math.floor(e.maxHealth * 0.20);
                     consumer.maxHealth += healthGain;
                     consumer.health += healthGain;
                     consumer.consumedCount++;
 
-                    // Grow slightly
-                    consumer.radius = consumer.baseRadius + Math.min(consumer.consumedCount * 2, 60);
-                    consumer.consumeRadius = 120 + Math.min(consumer.consumedCount * 3, 80);
+                    // GROW BIGGER - both hitbox and sprite
+                    consumer.radius = consumer.baseRadius + Math.min(consumer.consumedCount * 3, 100);
+                    consumer.spriteSize = consumer.baseSpriteSize + Math.min(consumer.consumedCount * 8, 300);
+                    consumer.consumeRadius = 220 + Math.min(consumer.consumedCount * 4, 150);
+                    consumer.pullRadius = 350 + Math.min(consumer.consumedCount * 5, 200);
 
-                    // Increase damage slightly
-                    consumer.damage = 30 + Math.floor(consumer.consumedCount * 2);
+                    // Increase damage
+                    consumer.damage = 60 + Math.floor(consumer.consumedCount * 3);
 
-                    // Visual feedback
+                    // Visual feedback - particles spiral into consumer
                     const sx = this.player.x + (e.wx - this.worldX);
                     const sy = this.player.y + (e.wy - this.worldY);
-                    this.spawnParticles(sx, sy, '#8800ff', 8);
-                    
+                    this.spawnParticles(sx, sy, '#8800ff', 12);
+                    this.spawnParticles(sx, sy, '#ff00ff', 6);
+
                     // Remove consumed enemy
                     this.enemies.splice(i, 1);
 
-                    // Announce growth
+                    // Announce growth every 5 consumed
                     if (consumer.consumedCount % 5 === 0) {
                         this.damageNumbers.push({
                             x: this.canvas.width / 2,
                             y: 100,
-                            value: `🌀 Consumer grows! HP: ${consumer.health}`,
+                            value: `🌀 CONSUMER GROWS! HP: ${Math.floor(consumer.health)}`,
                             lifetime: 1.5,
-                            color: '#cc88ff'
+                            color: '#cc88ff',
+                            scale: 1.3
                         });
                     }
                 }
@@ -5891,91 +5904,143 @@ class DotsSurvivor {
             }
 
             if (e.isConsumer) {
-                // THE CONSUMER - Clean dark void design (no flickering)
+                // THE CONSUMER - Spiraling void with sprite and eyeball
                 ctx.save();
                 ctx.translate(sx, sy);
 
-                // Simple dark core with subtle glow
+                const spriteSize = e.spriteSize || 300;
                 const coreRadius = e.radius;
 
-                // Outer dark ring (static, no animation)
+                // Draw spiraling vacuum particles BEHIND the sprite
+                if (e.vacuumParticles) {
+                    for (const p of e.vacuumParticles) {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = p.alpha * 0.7;
+                        ctx.fill();
+                    }
+                    ctx.globalAlpha = 1;
+                }
+
+                // Draw spiraling void rings (rotating effect)
+                const spiralAngle = e.spiralAngle || 0;
+                for (let ring = 0; ring < 4; ring++) {
+                    const ringRadius = coreRadius * (1.3 + ring * 0.25);
+                    const ringAlpha = 0.3 - ring * 0.06;
+                    ctx.save();
+                    ctx.rotate(spiralAngle * (ring % 2 === 0 ? 1 : -1) * (0.5 + ring * 0.2));
+                    ctx.beginPath();
+                    ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(136, 0, 255, ${ringAlpha})`;
+                    ctx.lineWidth = 3 - ring * 0.5;
+                    ctx.setLineDash([15 + ring * 5, 10 + ring * 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.restore();
+                }
+
+                // Draw the void sprite (rotating slowly)
+                const consumerSprite = SPRITE_CACHE['consumer'];
+                if (consumerSprite) {
+                    ctx.save();
+                    ctx.rotate(e.rotationAngle * 0.3); // Slow rotation
+                    // Hit flash effect
+                    if (e.hitFlash > 0) {
+                        ctx.globalAlpha = 0.7;
+                        ctx.filter = 'brightness(2)';
+                    }
+                    ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+                    ctx.filter = 'none';
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+                } else {
+                    // Fallback: dark void circle if sprite not loaded
+                    ctx.beginPath();
+                    ctx.arc(0, 0, coreRadius, 0, Math.PI * 2);
+                    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
+                    coreGrad.addColorStop(0, '#000000');
+                    coreGrad.addColorStop(0.6, '#1a0030');
+                    coreGrad.addColorStop(1, '#4400aa');
+                    ctx.fillStyle = coreGrad;
+                    ctx.fill();
+                }
+
+                // Draw the EYEBALL in the center of the sprite
+                const eyeSize = coreRadius * 0.35;
+
+                // Eye white/red glow
                 ctx.beginPath();
-                ctx.arc(0, 0, coreRadius * 1.2, 0, Math.PI * 2);
-                const outerGrad = ctx.createRadialGradient(0, 0, coreRadius * 0.8, 0, 0, coreRadius * 1.2);
-                outerGrad.addColorStop(0, 'rgba(20, 0, 40, 0.9)');
-                outerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = outerGrad;
+                ctx.arc(0, 0, eyeSize * 1.2, 0, Math.PI * 2);
+                const eyeGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize * 1.2);
+                eyeGlow.addColorStop(0, 'rgba(255, 0, 100, 0.8)');
+                eyeGlow.addColorStop(0.7, 'rgba(200, 0, 80, 0.4)');
+                eyeGlow.addColorStop(1, 'rgba(100, 0, 50, 0)');
+                ctx.fillStyle = eyeGlow;
                 ctx.fill();
 
-                // Main dark core
+                // Main eye (red, menacing)
                 ctx.beginPath();
-                ctx.arc(0, 0, coreRadius, 0, Math.PI * 2);
-                const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
-                coreGrad.addColorStop(0, '#000000');
-                coreGrad.addColorStop(0.5, '#0a0015');
-                coreGrad.addColorStop(0.9, '#1a0030');
-                coreGrad.addColorStop(1, e.hitFlash > 0 ? '#ffffff' : '#2a0050');
-                ctx.fillStyle = coreGrad;
-                ctx.fill();
-
-                // Evil eye in center
-                const eyeSize = coreRadius * 0.4;
-                ctx.beginPath();
-                ctx.ellipse(0, 0, eyeSize, eyeSize * 0.4, 0, 0, Math.PI * 2);
+                ctx.ellipse(0, 0, eyeSize, eyeSize * 0.5, 0, 0, Math.PI * 2);
                 ctx.fillStyle = '#cc0044';
                 ctx.fill();
+                ctx.strokeStyle = '#ff0066';
+                ctx.lineWidth = 2;
+                ctx.stroke();
 
                 // Pupil - follows player direction
                 const playerDx = this.worldX - e.wx;
                 const playerDy = this.worldY - e.wy;
                 const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
-                const pupilOffset = Math.min(eyeSize * 0.3, playerDist * 0.05);
+                const pupilOffset = Math.min(eyeSize * 0.35, playerDist * 0.06);
                 const pupilX = playerDist > 0 ? (playerDx / playerDist) * pupilOffset : 0;
-                const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset * 0.4 : 0;
+                const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset * 0.5 : 0;
 
                 ctx.beginPath();
-                ctx.ellipse(pupilX, pupilY, eyeSize * 0.25, eyeSize * 0.15, 0, 0, Math.PI * 2);
+                ctx.ellipse(pupilX, pupilY, eyeSize * 0.3, eyeSize * 0.18, 0, 0, Math.PI * 2);
                 ctx.fillStyle = '#000';
                 ctx.fill();
 
-                // Inner highlight
+                // Inner highlight (makes eye look alive)
                 ctx.beginPath();
-                ctx.arc(pupilX - eyeSize * 0.1, pupilY - eyeSize * 0.05, eyeSize * 0.08, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.arc(pupilX - eyeSize * 0.12, pupilY - eyeSize * 0.06, eyeSize * 0.1, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
                 ctx.fill();
 
-                // Simple consume radius indicator (dashed line, no animation)
+                // Consume radius indicator (pulsing dashed circle)
+                const pulseAlpha = 0.2 + Math.sin(e.spiralAngle * 2) * 0.1;
                 ctx.beginPath();
                 ctx.arc(0, 0, e.consumeRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(100, 0, 50, 0.3)';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([10, 8]);
+                ctx.strokeStyle = `rgba(136, 0, 255, ${pulseAlpha})`;
+                ctx.lineWidth = 3;
+                ctx.setLineDash([12, 8]);
                 ctx.stroke();
                 ctx.setLineDash([]);
 
                 ctx.restore();
 
                 // Name and HP bar (outside save/restore)
-                ctx.font = 'bold 16px Inter'; ctx.fillStyle = '#ff0066'; ctx.textAlign = 'center';
-                ctx.fillText('⚫ ' + e.name + ' ⚫', sx, sy - e.radius - 45);
-                ctx.font = '11px Inter'; ctx.fillStyle = '#cc88ff';
-                ctx.fillText(`Souls Consumed: ${e.consumedCount}`, sx, sy - e.radius - 30);
+                const displayRadius = spriteSize / 2;
+                ctx.font = 'bold 18px Inter'; ctx.fillStyle = '#ff0066'; ctx.textAlign = 'center';
+                ctx.fillText('🌀 ' + e.name + ' 🌀', sx, sy - displayRadius - 55);
+                ctx.font = '12px Inter'; ctx.fillStyle = '#cc88ff';
+                ctx.fillText(`Souls Consumed: ${e.consumedCount}`, sx, sy - displayRadius - 38);
                 // Time remaining
                 if (e.lifeTimer !== undefined) {
                     const timeLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
-                    const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#888');
-                    ctx.font = '10px Inter'; ctx.fillStyle = timeColor;
-                    ctx.fillText(`Detonates in: ${timeLeft}s`, sx, sy - e.radius - 18);
+                    const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#aaa');
+                    ctx.font = '11px Inter'; ctx.fillStyle = timeColor;
+                    ctx.fillText(`Detonates in: ${timeLeft}s`, sx, sy - displayRadius - 22);
                 }
-                const bw = e.radius * 2.5;
-                ctx.fillStyle = '#222'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 10);
-                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2 + 1, sy - e.radius - 7, bw - 2, 8);
+                const bw = Math.max(e.radius * 2.5, 200);
+                ctx.fillStyle = '#222'; ctx.fillRect(sx - bw / 2, sy - displayRadius - 12, bw, 12);
+                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2 + 1, sy - displayRadius - 11, bw - 2, 10);
                 const hpGrad = ctx.createLinearGradient(sx - bw / 2, 0, sx + bw / 2, 0);
                 hpGrad.addColorStop(0, '#8800ff');
                 hpGrad.addColorStop(0.5, '#cc00aa');
                 hpGrad.addColorStop(1, '#ff0066');
                 ctx.fillStyle = hpGrad;
-                ctx.fillRect(sx - bw / 2 + 1, sy - e.radius - 7, (bw - 2) * (e.health / e.maxHealth), 8);
+                ctx.fillRect(sx - bw / 2 + 1, sy - displayRadius - 11, (bw - 2) * (e.health / e.maxHealth), 10);
             } else if (e.isBoss) {
                 // Boss name (no emoji on the boss itself - sprites handle visuals)
                 ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
