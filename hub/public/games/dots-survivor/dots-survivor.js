@@ -145,7 +145,7 @@ const ENEMY_SPRITES = {
     poison: 'Poison.png',
     boss: 'BossEnemy.png',
     general: 'DemonKing.png',
-    consumer: 'affafb7e-20ab-48d6-aa16-726fa9b54c9c-removebg-preview.png'  // The Consumer boss - void spiral
+    consumer: 'affafb7e-20ab-48d6-aa16-726fa9b54c9c-removebg-preview.png',  // The Consumer boss - void spiral
     cthulhu: '01a0c668-edf9-4306-aa39-391bb1d77077-removebg-preview.png'  // Cthulhu, Lord of the Sea
 };
 
