@@ -100,6 +100,12 @@ const BLOOD_SOAKER_SPRITES = {
     evolved: '977daf8c-4a8b-43bb-ac0f-3abd5824a2ad.jpg'
 };
 
+// Ability Icons
+const ABILITY_SPRITES = {
+    dash: '0a9fd5ff-f2e6-4a80-8788-d21979342ffc.jpg',
+    nuclearBlast: 'a8ed4028-237c-4ba6-b084-c92b9176c417.jpg'
+};
+
 // Beam of Despair color progression (changes every 1000 kills)
 const BEAM_DESPAIR_COLORS = [
     '#ffffff',  // Level 1: White
@@ -261,6 +267,10 @@ function initSprites() {
     for (const [type, path] of Object.entries(BLOOD_SOAKER_SPRITES)) {
         loadSprite('blood_soaker_' + type, path, true);
     }
+    // Load Ability sprites
+    for (const [type, path] of Object.entries(ABILITY_SPRITES)) {
+        loadSprite('ability_' + type, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -413,6 +423,10 @@ const STACKING_ITEMS = {
         evolvedEffect: (g) => {
             g.stackingSpeedBonus = 0.5;  // +50% move speed
             g.hasDash = true;  // Unlock dash ability
+            // Unlock Dash ability in abilities system
+            if (g.abilities && g.abilities.dash) {
+                g.abilities.dash.unlocked = true;
+            }
         }
     },
     heartVitality: {
@@ -963,6 +977,13 @@ class DotsSurvivor {
             // Pause toggle
             if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && this.gameRunning) {
                 this.togglePause();
+            }
+            // Ability activation - Q for Dash, E for Nuclear Blast
+            if (e.key.toLowerCase() === 'q' && this.gameRunning && !this.gamePaused) {
+                this.activateAbility('dash');
+            }
+            if (e.key.toLowerCase() === 'e' && this.gameRunning && !this.gamePaused) {
+                this.activateAbility('nuclearBlast');
             }
         });
         window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
@@ -1597,6 +1618,26 @@ class DotsSurvivor {
         this.killStreak = 0;
         this.killStreakTimer = 0;
         this.auraFire = null; // Fire aura augment
+
+        // ABILITIES SYSTEM - Active abilities with cooldowns
+        this.abilities = {
+            dash: {
+                unlocked: false,
+                cooldown: 10,        // 10 second cooldown
+                currentCooldown: 0,
+                distance: 100,       // Blinks 100px
+                key: 'q'             // Q key to activate
+            },
+            nuclearBlast: {
+                unlocked: false,
+                cooldown: 60,        // 60 second cooldown
+                currentCooldown: 0,
+                damage: 500,         // Base damage
+                range: 800,          // Max range 800px
+                key: 'e'             // E key to activate
+            }
+        };
+        this.nuclearBlastWave = null; // Active nuclear blast effect
 
         // Horde tracking
         this.hordeActive = false;
@@ -2978,6 +3019,7 @@ class DotsSurvivor {
         this.updateCthulhuWarning(effectiveDt);
         this.updateWaterHoles(effectiveDt);
         this.updateAuraFire(effectiveDt);
+        this.updateAbilities(effectiveDt);
         this.updateBeamDespair(effectiveDt);
         this.updateWindPush(effectiveDt);
         this.checkHordeCompletion();
@@ -3066,6 +3108,185 @@ class DotsSurvivor {
                 }
             }
         }
+    }
+
+    // ABILITIES SYSTEM - Update cooldowns and active effects
+    updateAbilities(dt) {
+        if (!this.abilities) return;
+
+        // Update Dash cooldown
+        if (this.abilities.dash.currentCooldown > 0) {
+            this.abilities.dash.currentCooldown -= dt;
+        }
+
+        // Update Nuclear Blast cooldown
+        if (this.abilities.nuclearBlast.currentCooldown > 0) {
+            this.abilities.nuclearBlast.currentCooldown -= dt;
+        }
+
+        // Update active Nuclear Blast wave effect
+        if (this.nuclearBlastWave) {
+            this.nuclearBlastWave.radius += 600 * dt; // Expand at 600px/s
+            this.nuclearBlastWave.alpha -= dt * 0.8;  // Fade out
+
+            // Damage enemies in the wave ring
+            for (const e of this.enemies) {
+                if (e.nuclearBlastHit) continue; // Already hit by this blast
+
+                const edist = Math.sqrt((e.wx - this.nuclearBlastWave.wx) ** 2 + (e.wy - this.nuclearBlastWave.wy) ** 2);
+                const waveInner = this.nuclearBlastWave.radius - 30;
+                const waveOuter = this.nuclearBlastWave.radius + 30;
+
+                if (edist >= waveInner && edist <= waveOuter) {
+                    // Hit by wave - deal massive damage
+                    const damage = this.nuclearBlastWave.damage;
+                    e.health -= damage;
+                    e.hitFlash = 0.3;
+                    e.nuclearBlastHit = true; // Mark as hit
+
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.damageNumbers.push({ x: sx, y: sy - 20, value: `☢️${Math.floor(damage)}`, lifetime: 1, color: '#aa00ff', scale: 1.2 });
+                    this.spawnParticles(sx, sy, '#aa00ff', 5);
+
+                    if (e.health <= 0 && !e.dead) {
+                        e.dead = true;
+                        this.killEnemy(e);
+                    }
+                }
+            }
+
+            // Remove wave when fully expanded or faded
+            if (this.nuclearBlastWave.radius >= this.nuclearBlastWave.maxRadius || this.nuclearBlastWave.alpha <= 0) {
+                // Clear nuclearBlastHit flags from enemies
+                for (const e of this.enemies) {
+                    delete e.nuclearBlastHit;
+                }
+                this.nuclearBlastWave = null;
+            }
+        }
+    }
+
+    // Activate an ability
+    activateAbility(abilityKey) {
+        if (!this.abilities || !this.abilities[abilityKey]) return;
+
+        const ability = this.abilities[abilityKey];
+
+        // Check if unlocked and off cooldown
+        if (!ability.unlocked) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: 'ABILITY LOCKED', lifetime: 1, color: '#888' });
+            return;
+        }
+        if (ability.currentCooldown > 0) {
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: `ON COOLDOWN (${Math.ceil(ability.currentCooldown)}s)`, lifetime: 0.5, color: '#ff4444' });
+            return;
+        }
+
+        // Activate the ability
+        if (abilityKey === 'dash') {
+            this.activateDash();
+        } else if (abilityKey === 'nuclearBlast') {
+            this.activateNuclearBlast();
+        }
+    }
+
+    // Dash - Blink player 100px in movement direction
+    activateDash() {
+        const ability = this.abilities.dash;
+
+        // Get movement direction from current input
+        let dx = 0, dy = 0;
+        if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
+        if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
+        if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
+        if (this.keys['d'] || this.keys['arrowright']) dx += 1;
+
+        // If no movement input, dash in facing direction (last movement)
+        if (dx === 0 && dy === 0) {
+            dx = this.lastMoveDirX || 1;
+            dy = this.lastMoveDirY || 0;
+        } else {
+            // Store last move direction
+            this.lastMoveDirX = dx;
+            this.lastMoveDirY = dy;
+        }
+
+        // Normalize
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 0) {
+            dx /= len;
+            dy /= len;
+        }
+
+        // Move player in world coordinates
+        this.worldX += dx * ability.distance;
+        this.worldY += dy * ability.distance;
+
+        // Visual effect - particles trail
+        for (let i = 0; i < 10; i++) {
+            const px = this.player.x - dx * ability.distance * (i / 10);
+            const py = this.player.y - dy * ability.distance * (i / 10);
+            this.particles.push({
+                x: px + (Math.random() - 0.5) * 20,
+                y: py + (Math.random() - 0.5) * 20,
+                vx: (Math.random() - 0.5) * 50,
+                vy: (Math.random() - 0.5) * 50,
+                lifetime: 0.5,
+                color: '#00ccff'
+            });
+        }
+
+        // Invincibility frames during dash
+        this.player.invincibleTime = 0.3;
+
+        // Start cooldown
+        ability.currentCooldown = ability.cooldown;
+
+        // Sound effect and screen juice
+        this.playSound('levelup');
+        this.triggerScreenShake(5, 0.15);
+
+        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: '💨 DASH!', lifetime: 0.8, color: '#00ccff' });
+    }
+
+    // Nuclear Blast - Massive purple damage wave
+    activateNuclearBlast() {
+        const ability = this.abilities.nuclearBlast;
+
+        // Create the wave effect
+        this.nuclearBlastWave = {
+            wx: this.worldX,     // Center on player's world position
+            wy: this.worldY,
+            radius: 0,           // Starts at 0
+            maxRadius: ability.range,
+            damage: ability.damage,
+            alpha: 1
+        };
+
+        // Start cooldown
+        ability.currentCooldown = ability.cooldown;
+
+        // Epic effects
+        this.playSound('levelup');
+        this.triggerScreenShake(15, 0.5);
+        this.triggerSlowmo(0.2, 0.3);
+
+        // Spawn particles at center
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 100 + Math.random() * 200;
+            this.particles.push({
+                x: this.player.x,
+                y: this.player.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                lifetime: 0.8,
+                color: Math.random() > 0.5 ? '#aa00ff' : '#ff00ff'
+            });
+        }
+
+        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 50, value: '☢️ NUCLEAR BLAST!', lifetime: 1.5, color: '#aa00ff', scale: 2 });
     }
 
     // Beam of Despair - chains to enemies, color based on level
@@ -3964,6 +4185,20 @@ class DotsSurvivor {
                 this.auraFire.radius += 5;
                 this.auraFire.kills = 0;
                 this.damageNumbers.push({ x: this.player.x, y: this.player.y - 60, value: `🔥 AURA LVL ${this.auraFire.level}!`, lifetime: 2, color: '#ff6600', scale: 1.5 });
+
+                // At max level 10, unlock Nuclear Blast ability
+                if (this.auraFire.level === 10 && this.abilities && this.abilities.nuclearBlast) {
+                    this.abilities.nuclearBlast.unlocked = true;
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2,
+                        y: this.canvas.height / 2 - 50,
+                        value: `☢️ NUCLEAR BLAST UNLOCKED! (E)`,
+                        lifetime: 3,
+                        color: '#aa00ff',
+                        scale: 2
+                    });
+                    this.triggerScreenShake(8, 0.3);
+                }
             }
         }
 
@@ -6276,6 +6511,53 @@ class DotsSurvivor {
             ctx.restore();
         }
 
+        // Nuclear Blast Wave Effect
+        if (this.nuclearBlastWave) {
+            const wave = this.nuclearBlastWave;
+            const sx = this.player.x + (wave.wx - this.worldX);
+            const sy = this.player.y + (wave.wy - this.worldY);
+
+            ctx.save();
+            ctx.globalAlpha = wave.alpha;
+
+            // Outer glow ring
+            ctx.beginPath();
+            ctx.arc(sx, sy, wave.radius + 20, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 8;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#aa00ff';
+            ctx.stroke();
+
+            // Main wave ring
+            ctx.beginPath();
+            ctx.arc(sx, sy, wave.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#aa00ff';
+            ctx.lineWidth = 25;
+            ctx.shadowBlur = 50;
+            ctx.shadowColor = '#8800ff';
+            ctx.stroke();
+
+            // Inner bright ring
+            ctx.beginPath();
+            ctx.arc(sx, sy, wave.radius - 15, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            // Center flash (fades quickly)
+            if (wave.radius < 100) {
+                const centerAlpha = (1 - wave.radius / 100) * wave.alpha;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 50 - wave.radius * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${centerAlpha})`;
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
         // Beam of Despair
         if (this.beamDespair && this.beamTargets && this.beamTargets.length > 0) {
             ctx.save();
@@ -6411,6 +6693,8 @@ class DotsSurvivor {
         this.drawHealthBar();
         // Items display
         this.drawItems();
+        // Abilities UI (bottom right)
+        this.drawAbilities();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
 
@@ -6848,6 +7132,112 @@ class DotsSurvivor {
                 }
             }
         });
+    }
+
+    // Draw Abilities UI - Bottom right corner, mobile friendly
+    drawAbilities() {
+        if (!this.abilities) return;
+
+        const ctx = this.ctx;
+        const compact = this.canvas.width < 768;
+        const abilitySize = compact ? 45 : 55;
+        const padding = compact ? 8 : 12;
+        const margin = compact ? 10 : 15;
+
+        // Position in bottom right
+        let x = this.canvas.width - margin - abilitySize;
+        let y = this.canvas.height - margin - abilitySize;
+
+        // Draw abilities from right to left (so newest is on right)
+        const abilityKeys = ['nuclearBlast', 'dash'];
+
+        for (const key of abilityKeys) {
+            const ability = this.abilities[key];
+            const isUnlocked = ability.unlocked;
+            const isReady = ability.currentCooldown <= 0;
+            const cooldownPercent = isReady ? 0 : ability.currentCooldown / ability.cooldown;
+
+            // Background panel
+            ctx.fillStyle = isUnlocked ? 'rgba(0,0,0,0.7)' : 'rgba(30,30,30,0.5)';
+            ctx.beginPath();
+            ctx.roundRect(x, y, abilitySize, abilitySize, 8);
+            ctx.fill();
+
+            // Border - glow when ready
+            if (isUnlocked && isReady) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = key === 'dash' ? '#00ccff' : '#aa00ff';
+            }
+            ctx.strokeStyle = isUnlocked ? (isReady ? (key === 'dash' ? '#00ccff' : '#aa00ff') : '#666') : '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Ability icon (sprite or fallback)
+            const spriteKey = key === 'dash' ? 'ability_dash' : 'ability_nuclearBlast';
+            const sprite = SPRITE_CACHE[spriteKey];
+
+            if (sprite && isUnlocked) {
+                ctx.globalAlpha = isReady ? 1 : 0.4;
+                ctx.drawImage(sprite, x + 4, y + 4, abilitySize - 8, abilitySize - 8);
+                ctx.globalAlpha = 1;
+            } else {
+                // Fallback icon
+                ctx.font = `${compact ? 20 : 24}px Inter`;
+                ctx.fillStyle = isUnlocked ? (isReady ? '#fff' : '#666') : '#444';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(key === 'dash' ? '💨' : '☢️', x + abilitySize / 2, y + abilitySize / 2);
+            }
+
+            // Cooldown overlay
+            if (isUnlocked && !isReady) {
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.beginPath();
+                ctx.moveTo(x + abilitySize / 2, y + abilitySize / 2);
+                ctx.arc(x + abilitySize / 2, y + abilitySize / 2, abilitySize / 2 - 4,
+                    -Math.PI / 2, -Math.PI / 2 + cooldownPercent * Math.PI * 2);
+                ctx.lineTo(x + abilitySize / 2, y + abilitySize / 2);
+                ctx.fill();
+
+                // Cooldown text
+                ctx.font = `bold ${compact ? 12 : 14}px Inter`;
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${Math.ceil(ability.currentCooldown)}`, x + abilitySize / 2, y + abilitySize / 2);
+            }
+
+            // Key hint (bottom of button)
+            if (!compact && isUnlocked) {
+                ctx.font = 'bold 10px Inter';
+                ctx.fillStyle = isReady ? '#fff' : '#888';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(ability.key.toUpperCase(), x + abilitySize / 2, y + abilitySize - 3);
+            }
+
+            // Locked overlay
+            if (!isUnlocked) {
+                ctx.font = `${compact ? 16 : 20}px Inter`;
+                ctx.fillStyle = '#666';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🔒', x + abilitySize / 2, y + abilitySize / 2);
+            }
+
+            // Move to next ability slot (left)
+            x -= abilitySize + padding;
+        }
+
+        // Draw "ABILITIES" label above on desktop
+        if (!compact) {
+            ctx.font = 'bold 10px Inter';
+            ctx.fillStyle = '#888';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('ABILITIES', this.canvas.width - margin, y - 5);
+        }
     }
 
     drawJoystick() {
