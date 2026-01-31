@@ -538,8 +538,8 @@ h2 {
 .player-hand-section {
     background: var(--surface);
     border-top: 2px solid var(--surface-light);
-    padding: var(--spacing-lg);
-    padding-bottom: calc(var(--spacing-lg) + 60px);
+    padding: var(--spacing-md);
+    padding-bottom: var(--spacing-lg);
     flex-shrink: 0;
 }
 
@@ -578,12 +578,16 @@ h2 {
 
 /* ===== ACTION CONTROLS ===== */
 .action-controls {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-md);
 }
 
 .bet-controls {
-    margin-bottom: var(--spacing-md);
+    flex: 1;
     background: var(--bg-dark);
     padding: var(--spacing-md);
     border-radius: var(--radius-md);
@@ -628,14 +632,15 @@ h2 {
 }
 
 .action-buttons {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    display: flex;
+    flex-direction: row;
     gap: var(--spacing-sm);
+    flex-shrink: 0;
 }
 
 .action-btn {
-    padding: 1rem;
-    font-size: 1rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
     font-weight: 700;
     border: none;
     border-radius: var(--radius-md);
@@ -643,6 +648,7 @@ h2 {
     transition: all var(--transition-fast);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    white-space: nowrap;
 }
 
 .fold-btn {
@@ -1391,12 +1397,18 @@ body {
     }
 
     .action-controls {
+        flex-direction: column;
         padding: 5px;
         gap: 5px;
     }
 
+    .action-buttons {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
     .action-btn {
         padding: 8px 12px;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
     }
 }
