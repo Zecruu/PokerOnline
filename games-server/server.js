@@ -2,6 +2,22 @@ const express = require('express');
 const compression = require('compression');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+
+// Log startup
+console.log('🚀 Starting games server...');
+console.log(`   Node version: ${process.version}`);
+console.log(`   PORT env: ${process.env.PORT || 'not set, using 3001'}`);
+
+// Verify public directory exists
+const publicPath = path.join(__dirname, 'public');
+if (!fs.existsSync(publicPath)) {
+    console.error('❌ ERROR: public directory not found at:', publicPath);
+    console.log('   Available files:', fs.readdirSync(__dirname));
+} else {
+    console.log('✅ Public directory found:', publicPath);
+    console.log('   Games:', fs.readdirSync(publicPath));
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -112,8 +128,14 @@ app.use((req, res) => {
     res.status(404).send('Game not found. <a href="/">Back to games</a>');
 });
 
-app.listen(PORT, () => {
-    console.log(`🎮 Games server running on port ${PORT}`);
+// Bind to 0.0.0.0 explicitly for Railway
+const HOST = '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
+    console.log(`🎮 Games server running on http://${HOST}:${PORT}`);
     console.log(`   Serving games from: ${path.join(__dirname, 'public')}`);
+}).on('error', (err) => {
+    console.error('❌ Server failed to start:', err);
+    process.exit(1);
 });
 
