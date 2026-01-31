@@ -21,8 +21,18 @@ const io = new Server(server, {
     }
 });
 
-// Middleware
-app.use(cors());
+// Middleware - CORS for games subdomain and main site
+app.use(cors({
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:8000',
+        'https://www.zecrugames.com',
+        'https://zecrugames.com',
+        'https://games.zecrugames.com'
+    ],
+    credentials: true
+}));
 app.use(express.json());
 // Serve the Next.js static export from hub/out
 app.use(express.static(path.join(__dirname, '../hub/out')));
