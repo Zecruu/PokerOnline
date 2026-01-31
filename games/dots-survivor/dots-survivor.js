@@ -583,7 +583,7 @@ class DotsSurvivor {
 
         // Combat
         this.projectiles = [];
-        this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
+        this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 350, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
         this.skulls = []; // Elemental skulls (replaced orbitals and stars)
         this.skullElements = ['fire', 'dark', 'lightning', 'slow'];
         this.skullElementIndex = 0;
@@ -1464,7 +1464,7 @@ class DotsSurvivor {
             this.pendingUpgrades = 3; // 3 Free attributes for Fresh start
         }
 
-        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 450, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
+        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 350, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
@@ -1646,10 +1646,10 @@ class DotsSurvivor {
             burnDuration: 5
         };
 
-        // Unescapable Square event data
+        // Unescapable Square event data (Cube of Death)
         this.trapSquare = {
             active: false,
-            size: 400,
+            size: 600, // Increased from 400 for more room
             duration: 30,
             timer: 0,
             spawnBoost: 3
@@ -2637,7 +2637,8 @@ class DotsSurvivor {
     }
 
     triggerRandomEvent() {
-        const eventTypes = ['ring_of_fire', 'trap_square', 'circle_of_doom'];
+        // Removed trap_square (Cube of Death) - too difficult
+        const eventTypes = ['ring_of_fire', 'circle_of_doom'];
         const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
 
         this.activeEvent = eventType;
@@ -4415,17 +4416,38 @@ class DotsSurvivor {
         if (now - w.lastFired < w.fireRate) return;
         w.lastFired = now;
 
-        // Auto-aim at nearest enemy
-        let nearest = null, nd = Infinity;
+        // Auto-aim at nearest enemy with PREDICTIVE targeting
+        let nearestEnemy = null, nd = Infinity;
         for (const e of this.enemies) {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
             const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-            if (d < nd) { nd = d; nearest = { sx, sy }; }
+            if (d < nd) { nd = d; nearestEnemy = e; }
         }
-        if (!nearest) return;
+        if (!nearestEnemy) return;
 
-        const baseAngle = Math.atan2(nearest.sy - this.player.y, nearest.sx - this.player.x);
+        // Calculate enemy screen position
+        const ex = this.player.x + (nearestEnemy.wx - this.worldX);
+        const ey = this.player.y + (nearestEnemy.wy - this.worldY);
+
+        // Calculate enemy velocity (they move towards player)
+        const edx = this.worldX - nearestEnemy.wx;
+        const edy = this.worldY - nearestEnemy.wy;
+        const ed = Math.sqrt(edx * edx + edy * edy);
+        const evx = ed > 0 ? (edx / ed) * nearestEnemy.speed : 0;
+        const evy = ed > 0 ? (edy / ed) * nearestEnemy.speed : 0;
+
+        // Predictive aiming: calculate intercept point
+        // Time for projectile to reach enemy = distance / projectile_speed
+        // Enemy will move during that time, so aim at predicted position
+        const distToEnemy = Math.sqrt((ex - this.player.x) ** 2 + (ey - this.player.y) ** 2);
+        const timeToIntercept = distToEnemy / w.speed;
+
+        // Predict where enemy will be
+        const predictedX = ex + evx * timeToIntercept;
+        const predictedY = ey + evy * timeToIntercept;
+
+        const baseAngle = Math.atan2(predictedY - this.player.y, predictedX - this.player.x);
 
         this.playSound('shoot');
         this.playFireballSound();
@@ -4461,7 +4483,7 @@ class DotsSurvivor {
             const p = this.projectiles[i];
             p.x += p.vx * dt; p.y += p.vy * dt;
             // Remove if too far from player (range scales with projectileRangeBonus)
-            const baseRange = 220; // Base range (was 175, +25% buff)
+            const baseRange = 260; // Base range (was 220, +18% buff for more reach)
             const rangeBonus = this.projectileRangeBonus || 1;
             const maxRange = baseRange * rangeBonus;
             if (Math.abs(p.x - this.player.x) > maxRange || Math.abs(p.y - this.player.y) > maxRange) { this.projectiles.splice(i, 1); continue; }
