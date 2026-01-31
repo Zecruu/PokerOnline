@@ -294,8 +294,8 @@ const SURVIVOR_CLASS = {
 const DIAMOND_AUGMENTS = [
     // Soldier Path
     { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke'), getDesc: (g) => g.augments.includes('tactical_nuke') ? 'Active ✓' : 'Not Active' },
-    // Nerfed per user request: only ~10% faster fire rate instead of 100%
-    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%, but accuracy decreases slightly', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; g.spread = (g.spread || 0) + 0.2; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
+    // Nerfed per user request: only ~10% faster fire rate, no accuracy penalty
+    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
     { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm'), getDesc: (g) => g.augments.includes('bullet_storm') ? 'Active ✓' : 'Not Active' },
     { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +15% damage to Bosses and Tanks (+5% per stack)', effect: (g) => { if (!g.augments.includes('titan_killer')) g.augments.push('titan_killer'); g.titanKillerBonus = (g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15); }, getDesc: (g) => `Boss/Tank Dmg: +${Math.round((g.titanKillerBonus || 0) * 100)}% → +${Math.round(((g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15)) * 100)}%` },
     // Mage Path
@@ -418,23 +418,39 @@ const STACKING_ITEMS = {
     heartVitality: {
         name: 'Heart of Vitality',
         icon: '❤️',
-        desc: '+0.02 HP5 per stack (out of combat). Stacks on kills.',
+        desc: '+1 max HP per stack (max 1000), +0.02 HP5 per stack. Stacks on kills.',
         evolvedName: 'Immortal Heart',
         evolvedIcon: '💖',
-        evolvedDesc: '+100 HP5 out of combat, +50 HP5 in combat',
+        evolvedDesc: '+1000 max HP, heal 0.5% max HP per 5 seconds',
         maxStacks: 5000,  // 5k kills to evolve
         stackType: 'kill',
         hasSprite: true,
         spriteBase: 'heart_vitality_base',
         spriteEvolved: 'heart_vitality_evolved',
         effect: (g, stacks) => {
+            // +1 max HP per stack, capped at 1000
+            const hpBonus = Math.min(stacks, 1000);
+            const prevHpBonus = g.heartVitalityHpBonus || 0;
+            const hpDiff = hpBonus - prevHpBonus;
+            if (hpDiff > 0) {
+                g.player.maxHealth += hpDiff;
+                g.player.health += hpDiff;
+            }
+            g.heartVitalityHpBonus = hpBonus;
             // +0.02 HP5 per stack = 0.02 HP per 5 seconds per stack
-            // At 5000 stacks = 100 HP5
             g.stackingHp5Bonus = stacks * 0.02;
         },
         evolvedEffect: (g) => {
-            g.stackingHp5Bonus = 100;  // +100 HP5 out of combat
-            g.inCombatHp5 = 50;  // +50 HP5 even in combat
+            // Ensure max HP bonus is at cap
+            const hpBonus = 1000;
+            const prevHpBonus = g.heartVitalityHpBonus || 0;
+            const hpDiff = hpBonus - prevHpBonus;
+            if (hpDiff > 0) {
+                g.player.maxHealth += hpDiff;
+                g.player.health += hpDiff;
+            }
+            g.heartVitalityHpBonus = hpBonus;
+            g.heartVitalityEvolved = true;  // Flag for % based healing
         }
     },
     bloodSoaker: {
@@ -1372,21 +1388,32 @@ class DotsSurvivor {
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
 
-        // Get all stacking items for selection
-        const items = Object.keys(STACKING_ITEMS).map(key => ({
-            key,
-            ...STACKING_ITEMS[key]
-        }));
+        // Get all stacking items for selection with their sprite paths
+        const items = Object.keys(STACKING_ITEMS).map(key => {
+            const item = STACKING_ITEMS[key];
+            let spritePath = null;
+            if (key === 'beamDespair') spritePath = getSpritePath(BEAM_DESPAIR_SPRITES.base);
+            else if (key === 'critBlade') spritePath = getSpritePath(CRIT_BLADE_SPRITES.base);
+            else if (key === 'ringXp') spritePath = getSpritePath(RING_XP_SPRITES.base);
+            else if (key === 'bootsSwiftness') spritePath = getSpritePath(BOOTS_SWIFTNESS_SPRITES.base);
+            else if (key === 'heartVitality') spritePath = getSpritePath(HEART_VITALITY_SPRITES.base);
+            else if (key === 'bloodSoaker') spritePath = getSpritePath(BLOOD_SOAKER_SPRITES.base);
+            return { key, spritePath, ...item };
+        });
 
         content.innerHTML = `
             <h1 style="color:#fbbf24;font-size:1.8rem;margin-bottom:0.5rem;">🎁 CHOOSE STARTER ITEM</h1>
             <p style="color:#888;font-size:0.9rem;margin-bottom:1.5rem;">Pick an item to start your run with!</p>
-            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:600px;margin:0 auto;">
+            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:700px;margin:0 auto;">
                 ${items.map(item => `
-                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(255,255,255,0.05);border:2px solid #444;border-radius:12px;padding:1rem;cursor:pointer;text-align:center;transition:all 0.2s;">
-                        <div style="font-size:2rem;">${item.icon}</div>
+                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(255,255,255,0.05);border:2px solid #444;border-radius:12px;padding:1rem;cursor:pointer;text-align:center;transition:all 0.2s;min-height:160px;">
+                        ${item.spritePath ?
+                            `<img src="${item.spritePath}" style="width:60px;height:60px;border-radius:10px;border:2px solid #fbbf24;margin-bottom:0.5rem;" onerror="this.outerHTML='<div style=font-size:2.5rem;margin-bottom:0.5rem;>${item.icon}</div>'">` :
+                            `<div style="font-size:2.5rem;margin-bottom:0.5rem;">${item.icon}</div>`
+                        }
                         <div style="font-weight:700;color:#fff;font-size:0.95rem;margin:0.3rem 0;">${item.name}</div>
-                        <div style="font-size:0.7rem;color:#888;line-height:1.3;">${item.desc.split('.')[0]}</div>
+                        <div style="font-size:0.65rem;color:#aaa;line-height:1.4;padding:0 0.3rem;">${item.desc}</div>
+                        <div style="font-size:0.6rem;color:#fbbf24;margin-top:0.4rem;">⭐ ${item.evolvedName}</div>
                     </div>
                 `).join('')}
             </div>
@@ -3185,20 +3212,25 @@ class DotsSurvivor {
 
         // Heart of Vitality HP5 bonus (HP per 5 seconds)
         const hp5Bonus = this.stackingHp5Bonus || 0;
-        const inCombatHp5 = this.inCombatHp5 || 0;
-        if (hp5Bonus > 0 || inCombatHp5 > 0) {
+        const heartEvolved = this.heartVitalityEvolved || false;
+        if (hp5Bonus > 0 || heartEvolved) {
             this.hp5Timer = (this.hp5Timer || 0) + dt;
             if (this.hp5Timer >= 5) {
                 this.hp5Timer = 0;
-                // Out of combat: full HP5 bonus, In combat: only inCombatHp5 (from evolved)
-                const healAmount = inCombat ? inCombatHp5 : hp5Bonus;
+                // Evolved: heal 0.5% of max HP, otherwise use HP5 bonus
+                let healAmount;
+                if (heartEvolved) {
+                    healAmount = Math.floor(this.player.maxHealth * 0.005); // 0.5% max HP
+                } else {
+                    healAmount = hp5Bonus;
+                }
                 if (healAmount > 0 && this.player.health < this.player.maxHealth) {
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
                     this.damageNumbers.push({
                         x: this.player.x, y: this.player.y - 40,
                         value: `❤️ +${Math.floor(healAmount)}`,
                         lifetime: 0.8,
-                        color: inCombat ? '#ff6688' : '#ff4466'
+                        color: heartEvolved ? '#ff44aa' : '#ff4466'
                     });
                 }
             }
@@ -4481,6 +4513,38 @@ class DotsSurvivor {
     updateProjectiles(dt) {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
+
+            // HOMING MISSILES: Find and track nearest enemy
+            let nearestEnemy = null, minDist = Infinity;
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const dist = Math.sqrt((p.x - sx) ** 2 + (p.y - sy) ** 2);
+                if (dist < minDist) { minDist = dist; nearestEnemy = e; }
+            }
+
+            if (nearestEnemy) {
+                const sx = this.player.x + (nearestEnemy.wx - this.worldX);
+                const sy = this.player.y + (nearestEnemy.wy - this.worldY);
+                const dx = sx - p.x, dy = sy - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 0) {
+                    // Strong homing - turn toward target
+                    const homingStrength = 8; // Higher = faster turning
+                    const targetVx = (dx / dist) * this.weapons.bullet.speed;
+                    const targetVy = (dy / dist) * this.weapons.bullet.speed;
+                    // Lerp toward target velocity
+                    p.vx += (targetVx - p.vx) * homingStrength * dt;
+                    p.vy += (targetVy - p.vy) * homingStrength * dt;
+                    // Normalize to maintain consistent speed
+                    const currentSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                    if (currentSpeed > 0) {
+                        p.vx = (p.vx / currentSpeed) * this.weapons.bullet.speed;
+                        p.vy = (p.vy / currentSpeed) * this.weapons.bullet.speed;
+                    }
+                }
+            }
+
             p.x += p.vx * dt; p.y += p.vy * dt;
             // Remove if too far from player (range scales with projectileRangeBonus)
             const baseRange = 260; // Base range (was 220, +18% buff for more reach)
@@ -4537,11 +4601,12 @@ class DotsSurvivor {
 
                     // Blood Soaker lifesteal
                     if (this.stackingLifesteal && this.stackingLifesteal > 0) {
-                        const healAmount = Math.floor(damage * this.stackingLifesteal);
-                        if (healAmount > 0 && this.player.health < this.player.maxHealth) {
+                        // Use ceil to ensure at least 1 HP is healed per hit
+                        const healAmount = Math.max(1, Math.ceil(damage * this.stackingLifesteal));
+                        if (this.player.health < this.player.maxHealth) {
                             this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
                             // Show lifesteal heal (less frequently to avoid spam)
-                            if (Math.random() < 0.1) {
+                            if (Math.random() < 0.15) {
                                 this.damageNumbers.push({
                                     x: this.player.x, y: this.player.y - 30,
                                     value: `🩸 +${healAmount}`,
