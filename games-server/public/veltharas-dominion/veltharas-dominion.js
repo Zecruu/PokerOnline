@@ -146,7 +146,12 @@ const ENEMY_SPRITES = {
     boss: 'BossEnemy.png',
     general: 'DemonKing.png',
     consumer: 'affafb7e-20ab-48d6-aa16-726fa9b54c9c-removebg-preview.png',  // The Consumer boss - void spiral
-    cthulhu: '01a0c668-edf9-4306-aa39-391bb1d77077-removebg-preview.png'  // Cthulhu, Lord of the Sea
+    cthulhu: '01a0c668-edf9-4306-aa39-391bb1d77077-removebg-preview.png',  // Cthulhu, Lord of the Sea
+    // New enemies - Wave 5+
+    goblin: 'goblin.png',           // Wave 5 - Passive XP stealer
+    necromancer: 'necromancer.png', // Wave 6 - Spawns sprites
+    necro_sprite: 'sprite.png',     // Necromancer's minions
+    miniconsumer: 'miniconsumer.png' // Wave 10 - Grows with deaths
 };
 
 // Sprite cache - stores loaded Image objects
@@ -3033,8 +3038,18 @@ class DotsSurvivor {
         this.updateParticles(effectiveDt);
         this.updateDamageNumbers(effectiveDt);
         this.updateGameJuice(dt); // Always real-time for juice effects
+        this.updateGreenMucusEffect(effectiveDt); // Mini Consumer death effect
         if (this.player.health <= 0) this.gameOver();
         this.updateHUD();
+    }
+
+    updateGreenMucusEffect(dt) {
+        if (this.greenMucusEffect && this.greenMucusEffect.active) {
+            this.greenMucusEffect.timer -= dt;
+            if (this.greenMucusEffect.timer <= 0) {
+                this.greenMucusEffect.active = false;
+            }
+        }
     }
 
     // Game Juice - Screen shake, slowmo, kill streaks
@@ -3857,11 +3872,12 @@ class DotsSurvivor {
         if (this.wave >= 2) types.push('swarm', 'swarm', 'basic');
         if (this.wave >= 3) types.push('runner', 'runner', 'swarm');
         if (this.wave >= 4) types.push('tank', 'splitter', 'swarm');
-        if (this.wave >= 5) types.push('bomber', 'splitter', 'swarm');
+        if (this.wave >= 5) types.push('bomber', 'splitter', 'swarm', 'goblin'); // Goblin at wave 5
         // Add sticky, ice, and poison enemies to spawn pool
-        if (this.wave >= 6) types.push('sticky', 'sticky', 'swarm');
+        if (this.wave >= 6) types.push('sticky', 'sticky', 'swarm', 'necromancer'); // Necromancer at wave 6
         if (this.wave >= 7) types.push('poison', 'poison'); // Poison enemies at wave 7+
         if (this.wave >= 8) types.push('ice', 'swarm');
+        if (this.wave >= 10) types.push('miniconsumer'); // Mini Consumer at wave 10
 
         // Pick enemy type first to determine spawn distance
         const type = types[Math.floor(Math.random() * types.length)];
@@ -3960,7 +3976,12 @@ class DotsSurvivor {
             // New enemy types
             sticky: { radius: 12, speed: 120, health: 50, damage: 6, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
             ice: { radius: 32, speed: 55, health: 200, damage: 25, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
-            poison: { radius: 14, speed: 90, health: 80, damage: 12, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true } // Green poison explosion
+            poison: { radius: 14, speed: 90, health: 80, damage: 12, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
+            // Wave 5+ enemy types
+            goblin: { radius: 14, speed: 95, health: 40, damage: 5, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true }, // Passive XP stealer
+            necromancer: { radius: 18, speed: 40, health: 120, damage: 8, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true }, // Spawns sprites
+            necro_sprite: { radius: 8, speed: 130, health: 15, damage: 6, xp: 0, color: '#aa44ff', icon: '👻' }, // Necromancer's minions - no XP
+            miniconsumer: { radius: 20, speed: 50, health: 300, damage: 20, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true } // Grows with enemy deaths
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -3980,6 +4001,7 @@ class DotsSurvivor {
             wx, wy, type,
             id: this.enemyIdCounter, // Unique ID for damage stacking
             radius: Math.floor(data.radius * sizeMult * lateGameSizeMult),
+            baseRadius: Math.floor(data.radius * sizeMult * lateGameSizeMult), // For mini consumer growth
             speed: Math.floor(data.speed * GAME_SETTINGS.enemySpeedMult * hordeSpeedMult),
             health: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult),
             maxHealth: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult),
@@ -3991,7 +4013,15 @@ class DotsSurvivor {
             stickies: data.stickies || false,
             freezesOnDeath: data.freezesOnDeath || false,
             isHorde: isHorde,
-            attackCooldown: 0 // For attack speed system
+            attackCooldown: 0, // For attack speed system
+            // New enemy behaviors
+            isGoblin: data.isGoblin || false,
+            stolenXP: 0, // XP stolen by goblin
+            isNecromancer: data.isNecromancer || false,
+            lastSpriteSpawn: 0, // Timer for necromancer sprite spawning
+            isMiniConsumer: data.isMiniConsumer || false,
+            absorbedKills: 0, // Kills absorbed by mini consumer
+            passive: data.passive || false // Passive enemies don't chase player
         };
     }
 
@@ -4078,11 +4108,67 @@ class DotsSurvivor {
                 continue; // Skip movement and collision for frozen enemies
             }
 
-            // Normal enemy - Move towards player (world coords)
+            // PASSIVE ENEMIES: Goblin and Necromancer don't chase player directly
             const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
             const d = Math.sqrt(dx * dx + dy * dy);
-            if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
+
+            if (e.passive) {
+                // Passive enemies wander randomly around, not towards player
+                if (!e.wanderAngle) e.wanderAngle = Math.random() * Math.PI * 2;
+                if (!e.wanderTimer) e.wanderTimer = 0;
+                e.wanderTimer -= dt;
+                if (e.wanderTimer <= 0) {
+                    e.wanderAngle += (Math.random() - 0.5) * Math.PI; // Random turn
+                    e.wanderTimer = 1 + Math.random() * 2; // New direction every 1-3s
+                }
+                e.wx += Math.cos(e.wanderAngle) * e.speed * dt * 0.5;
+                e.wy += Math.sin(e.wanderAngle) * e.speed * dt * 0.5;
+            } else {
+                // Normal enemy - Move towards player (world coords)
+                if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
+            }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
+
+            // GOBLIN: Steal XP from nearby orbs
+            if (e.isGoblin) {
+                for (let p = this.pickups.length - 1; p >= 0; p--) {
+                    const pickup = this.pickups[p];
+                    if (pickup.type === 'xp') {
+                        const psx = this.player.x + (pickup.wx - this.worldX);
+                        const psy = this.player.y + (pickup.wy - this.worldY);
+                        const gsx = this.player.x + (e.wx - this.worldX);
+                        const gsy = this.player.y + (e.wy - this.worldY);
+                        const dist = Math.sqrt((psx - gsx) ** 2 + (psy - gsy) ** 2);
+                        if (dist < 60) { // Goblin steal radius
+                            e.stolenXP += pickup.value;
+                            this.pickups.splice(p, 1);
+                            this.spawnParticles(gsx, gsy, '#44aa44', 3);
+                        }
+                    }
+                }
+            }
+
+            // NECROMANCER: Spawn sprites periodically
+            if (e.isNecromancer) {
+                e.lastSpriteSpawn += dt;
+                if (e.lastSpriteSpawn >= 3) { // Spawn sprite every 3 seconds
+                    e.lastSpriteSpawn = 0;
+                    // Spawn 1-2 sprites near the necromancer
+                    const spriteCount = 1 + Math.floor(Math.random() * 2);
+                    for (let s = 0; s < spriteCount; s++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const spriteDist = 30 + Math.random() * 20;
+                        const spriteWx = e.wx + Math.cos(angle) * spriteDist;
+                        const spriteWy = e.wy + Math.sin(angle) * spriteDist;
+                        const sprite = this.createEnemy(spriteWx, spriteWy, 'necro_sprite');
+                        this.enemies.push(sprite);
+                    }
+                    // Visual effect when spawning
+                    const necroSx = this.player.x + (e.wx - this.worldX);
+                    const necroSy = this.player.y + (e.wy - this.worldY);
+                    this.spawnParticles(necroSx, necroSy, '#aa44ff', 8);
+                }
+            }
             // Update screen position after movement
             const sxMoved = this.player.x + (e.wx - this.worldX);
             const syMoved = this.player.y + (e.wy - this.worldY);
@@ -4373,6 +4459,78 @@ class DotsSurvivor {
                 x: sx, y: sy - 20,
                 value: '❄️ ICY ZONE!', lifetime: 2, color: '#00ddff', scale: 1.3
             });
+        }
+
+        // GOBLIN: Drop 50% of stolen XP when killed
+        if (e.isGoblin && e.stolenXP > 0) {
+            const xpDrop = Math.floor(e.stolenXP * 0.5);
+            if (xpDrop > 0) {
+                // Create multiple XP orbs for the stolen XP
+                const orbCount = Math.min(5, Math.ceil(xpDrop / 10));
+                const xpPerOrb = Math.floor(xpDrop / orbCount);
+                for (let o = 0; o < orbCount; o++) {
+                    const angle = (o / orbCount) * Math.PI * 2;
+                    const dist = 20 + Math.random() * 15;
+                    this.pickups.push({
+                        wx: e.wx + Math.cos(angle) * dist,
+                        wy: e.wy + Math.sin(angle) * dist,
+                        type: 'xp',
+                        value: xpPerOrb,
+                        radius: 10,
+                        color: '#44aa44'
+                    });
+                }
+                this.damageNumbers.push({
+                    x: sx, y: sy - 30,
+                    value: `🧌 +${xpDrop} XP RECOVERED!`,
+                    lifetime: 2,
+                    color: '#44aa44',
+                    scale: 1.3
+                });
+            }
+            this.spawnParticles(sx, sy, '#44aa44', 15);
+        }
+
+        // MINI CONSUMER: Green mucus screen effect on death if player in radius
+        if (e.isMiniConsumer) {
+            const effectRadius = e.radius * 4; // Effect radius based on size
+            const playerDist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+            if (playerDist < effectRadius) {
+                // Apply green screen effect
+                this.greenMucusEffect = {
+                    active: true,
+                    timer: 5, // 5 seconds
+                    alpha: 0.6
+                };
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 50,
+                    value: '🟢 MUCUS BLINDED!',
+                    lifetime: 2,
+                    color: '#00ff44',
+                    scale: 1.5
+                });
+            }
+            this.spawnParticles(sx, sy, '#00ff44', 30);
+        }
+
+        // MINI CONSUMER GROWTH: When any enemy dies, nearby mini consumers grow
+        for (const mc of this.enemies) {
+            if (mc.isMiniConsumer && mc !== e) {
+                const mcSx = this.player.x + (mc.wx - this.worldX);
+                const mcSy = this.player.y + (mc.wy - this.worldY);
+                const dist = Math.sqrt((sx - mcSx) ** 2 + (sy - mcSy) ** 2);
+                if (dist < 200) { // Within growth radius
+                    mc.absorbedKills++;
+                    // Grow every 3 kills absorbed
+                    if (mc.absorbedKills % 3 === 0) {
+                        mc.radius = Math.floor(mc.baseRadius * (1 + mc.absorbedKills * 0.1));
+                        mc.health += 50;
+                        mc.maxHealth += 50;
+                        mc.damage += 5;
+                        this.spawnParticles(mcSx, mcSy, '#00ff44', 5);
+                    }
+                }
+            }
         }
 
         // Nuclear perk - enemies explode
@@ -6703,6 +6861,47 @@ class DotsSurvivor {
         this.drawAbilities();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
+
+        // GREEN MUCUS EFFECT (Mini Consumer death effect)
+        if (this.greenMucusEffect && this.greenMucusEffect.active) {
+            const ctx = this.ctx;
+            const alpha = this.greenMucusEffect.alpha * (this.greenMucusEffect.timer / 5);
+
+            // Main green overlay
+            ctx.fillStyle = `rgba(0, 255, 68, ${alpha * 0.4})`;
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Dripping mucus blobs from top
+            for (let i = 0; i < 8; i++) {
+                const x = (i + 0.5) * (this.canvas.width / 8);
+                const blobSize = 40 + Math.sin(Date.now() / 300 + i) * 20;
+                const yOffset = Math.sin(Date.now() / 400 + i * 0.5) * 30;
+
+                const gradient = ctx.createRadialGradient(x, -20 + yOffset, 0, x, blobSize + yOffset, blobSize);
+                gradient.addColorStop(0, `rgba(0, 200, 50, ${alpha * 0.8})`);
+                gradient.addColorStop(1, `rgba(0, 150, 30, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.ellipse(x, blobSize / 2 + yOffset, blobSize, blobSize * 1.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Mucus drips from edges
+            ctx.fillStyle = `rgba(0, 180, 40, ${alpha * 0.6})`;
+            for (let i = 0; i < 12; i++) {
+                const x = Math.random() * this.canvas.width;
+                const dripLen = 100 + Math.sin(Date.now() / 200 + i) * 50;
+                ctx.beginPath();
+                ctx.ellipse(x, dripLen / 2, 8, dripLen / 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Warning text
+            ctx.font = 'bold 24px Inter';
+            ctx.fillStyle = `rgba(200, 255, 200, ${alpha})`;
+            ctx.textAlign = 'center';
+            ctx.fillText(`🟢 VISION OBSCURED: ${this.greenMucusEffect.timer.toFixed(1)}s`, this.canvas.width / 2, 80);
+        }
 
         // Armor HUD
         this.drawArmorHUD();

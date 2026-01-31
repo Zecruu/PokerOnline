@@ -1,41 +1,77 @@
-// Dots Survivor - Authentication & Save System
+// Velthara's Dominion - Authentication & Save System
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3002'  // Local dev server
-    : '';  // Same origin in production
+    : 'https://www.zecrugames.com';  // Main API server in production
 
 class AuthManager {
     constructor() {
         this.user = null;
-        this.token = localStorage.getItem('ds_token');
-        this.rememberToken = localStorage.getItem('ds_remember_token');
+        // Check both game token and hub token
+        this.token = localStorage.getItem('ds_token') || localStorage.getItem('auth_token');
+        this.rememberToken = localStorage.getItem('ds_remember_token') || localStorage.getItem('remember_token');
         this.init();
     }
 
     async init() {
-        // Try to restore session from existing token
-        if (this.token) {
+        // PRIORITY 1: Check if user is logged in via the game hub
+        // If hub has user_data and auth_token, trust it and skip login entirely
+        const hubToken = localStorage.getItem('auth_token');
+        const hubUserData = localStorage.getItem('user_data');
+
+        if (hubToken && hubUserData) {
             try {
-                const res = await this.apiGet('/api/auth/me');
-                this.user = res;
+                this.user = JSON.parse(hubUserData);
+                this.token = hubToken;
+                // Sync to game storage
+                localStorage.setItem('ds_token', hubToken);
+                console.log('✅ Logged in via Game Hub as:', this.user.username);
+
+                // Try to refresh user data from server (for saved game status)
+                // But don't fail if server is unavailable
+                try {
+                    const res = await this.apiGet('/api/auth/me');
+                    this.user = res;
+                    localStorage.setItem('user_data', JSON.stringify(res));
+                } catch (e) {
+                    console.log('Could not refresh user data from server, using cached data');
+                }
+
                 this.showStartMenu();
                 this.setupEventListeners();
                 return;
             } catch (e) {
-                // Token expired, try remember token
+                console.log('Invalid hub user data, continuing...');
+            }
+        }
+
+        // PRIORITY 2: Try game's own token
+        if (this.token && !hubToken) {
+            try {
+                const res = await this.apiGet('/api/auth/me');
+                this.user = res;
+                localStorage.setItem('user_data', JSON.stringify(res));
+                this.showStartMenu();
+                this.setupEventListeners();
+                return;
+            } catch (e) {
+                console.log('Game token invalid, trying remember token...');
                 this.token = null;
                 localStorage.removeItem('ds_token');
             }
         }
-        
-        // Try auto-login with remember token
+
+        // PRIORITY 3: Try auto-login with remember token
         if (this.rememberToken) {
             try {
-                const res = await this.apiPost('/api/auth/remember', { 
-                    rememberToken: this.rememberToken 
+                const res = await this.apiPost('/api/auth/remember', {
+                    rememberToken: this.rememberToken
                 });
                 this.token = res.token;
                 this.user = res.user;
+                // Sync to both storages
                 localStorage.setItem('ds_token', res.token);
+                localStorage.setItem('auth_token', res.token);
+                localStorage.setItem('user_data', JSON.stringify(res.user));
                 this.showStartMenu();
                 this.setupEventListeners();
                 return;
@@ -44,7 +80,8 @@ class AuthManager {
                 this.clearSession();
             }
         }
-        
+
+        // No valid login found - show auth menu
         this.showAuthMenu();
         this.setupEventListeners();
     }
@@ -107,21 +144,47 @@ class AuthManager {
 
         // Continue button
         document.getElementById('continue-btn')?.addEventListener('click', async () => {
-            const savedState = await this.loadSavedGame();
-            if (savedState && typeof game !== 'undefined') {
-                // Delete saved game after loading
-                await this.deleteSavedGame();
-                this.user.savedGame = { exists: false };
-                // Start game with saved state
-                game.startGameWithState(savedState);
+            const btn = document.getElementById('continue-btn');
+            btn.textContent = 'LOADING...';
+            btn.disabled = true;
+
+            try {
+                const savedState = await this.loadSavedGame();
+                if (savedState && typeof game !== 'undefined') {
+                    // Delete saved game after loading
+                    await this.deleteSavedGame();
+                    this.user.savedGame = { exists: false };
+                    // Start game with saved state
+                    game.startGameWithState(savedState);
+                } else {
+                    // No saved state found - maybe it was deleted or never existed
+                    console.error('No saved state found or game not ready');
+                    document.getElementById('saved-game-notice').classList.add('hidden');
+                    document.getElementById('start-btn').classList.remove('hidden');
+                    this.user.savedGame = { exists: false };
+                    // Update stored user data
+                    localStorage.setItem('user_data', JSON.stringify(this.user));
+                }
+            } catch (e) {
+                console.error('Failed to continue game:', e);
+                // Reset UI on error
+                document.getElementById('saved-game-notice').classList.add('hidden');
+                document.getElementById('start-btn').classList.remove('hidden');
             }
+
+            btn.textContent = 'CONTINUE';
+            btn.disabled = false;
         });
 
-        // New game button
+        // New game button - delete save and go straight to boost select
         document.getElementById('new-game-btn')?.addEventListener('click', async () => {
             await this.deleteSavedGame();
-            document.getElementById('saved-game-notice').classList.add('hidden');
-            document.getElementById('start-btn').classList.remove('hidden');
+            this.user.savedGame = { exists: false };
+            localStorage.setItem('user_data', JSON.stringify(this.user));
+            // Go directly to boost select instead of showing start button
+            if (typeof game !== 'undefined') {
+                game.showBoostSelect();
+            }
         });
     }
 
@@ -203,12 +266,18 @@ class AuthManager {
         document.getElementById('auth-menu').classList.remove('hidden');
         document.getElementById('register-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.add('hidden');
+
+        // Play menu music
+        if (window.game) window.game.playMenuMusic();
     }
 
     showStartMenu() {
         document.getElementById('auth-menu').classList.add('hidden');
         document.getElementById('register-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
+
+        // Play menu music
+        if (window.game) window.game.playMenuMusic();
 
         // Update user info
         const userInfoEl = document.getElementById('user-info');
@@ -251,7 +320,7 @@ class AuthManager {
                 return;
             }
 
-            const categoryLabels = { wave: 'Waves', kills: 'Kills', score: 'Score' };
+            const categoryLabels = { wave: 'Waves', kills: 'Kills' };
 
             let html = '<div class="lb-list">';
             res.entries.forEach(entry => {
@@ -280,6 +349,28 @@ class AuthManager {
             this.user.savedGame = { exists: true, savedAt: new Date() };
             return true;
         } catch (e) {
+            // If token expired, try to refresh and retry
+            if (e.message && e.message.toLowerCase().includes('token') && this.rememberToken) {
+                console.log('Token expired, attempting refresh...');
+                try {
+                    const res = await this.apiPost('/api/auth/remember', {
+                        rememberToken: this.rememberToken
+                    });
+                    this.token = res.token;
+                    this.user = res.user;
+                    localStorage.setItem('ds_token', res.token);
+                    localStorage.setItem('auth_token', res.token);
+                    localStorage.setItem('user_data', JSON.stringify(res.user));
+                    console.log('Token refreshed, retrying save...');
+
+                    // Retry the save with new token
+                    await this.apiPost('/api/dots-survivor/save', { gameState });
+                    this.user.savedGame = { exists: true, savedAt: new Date() };
+                    return true;
+                } catch (refreshError) {
+                    console.error('Token refresh failed:', refreshError);
+                }
+            }
             console.error('Failed to save game:', e);
             return false;
         }

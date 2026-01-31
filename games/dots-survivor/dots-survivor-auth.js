@@ -1,7 +1,7 @@
-// Dots Survivor - Authentication & Save System
+// Velthara's Dominion - Authentication & Save System
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3002'  // Local dev server
-    : '';  // Same origin in production
+    : 'https://www.zecrugames.com';  // Main API server in production
 
 class AuthManager {
     constructor() {
@@ -320,7 +320,7 @@ class AuthManager {
                 return;
             }
 
-            const categoryLabels = { wave: 'Waves', kills: 'Kills', score: 'Score' };
+            const categoryLabels = { wave: 'Waves', kills: 'Kills' };
 
             let html = '<div class="lb-list">';
             res.entries.forEach(entry => {

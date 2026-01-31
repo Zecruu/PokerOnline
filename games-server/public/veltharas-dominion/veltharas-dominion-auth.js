@@ -320,7 +320,7 @@ class AuthManager {
                 return;
             }
 
-            const categoryLabels = { wave: 'Waves', kills: 'Kills', score: 'Score' };
+            const categoryLabels = { wave: 'Waves', kills: 'Kills' };
 
             let html = '<div class="lb-list">';
             res.entries.forEach(entry => {

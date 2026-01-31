@@ -1190,22 +1190,69 @@ app.post('/api/dots-survivor/submit-score', authenticateToken, async (req, res) 
         stats.totalGamesPlayed++;
         stats.totalTimePlayed += timePlayed || 0;
 
+        // ========== ACCOUNT PROGRESSION ==========
+        // Initialize account progression if not exists
+        if (!user.accountProgression) {
+            user.accountProgression = {
+                level: 1,
+                xp: 0,
+                xpToNextLevel: 100,
+                tokens: 0,
+                totalTokensEarned: 0
+            };
+        }
+
+        // Calculate XP earned: wave * 10 + kills + time bonus (1 XP per 10 seconds)
+        const xpEarned = Math.floor(wave * 10 + kills + (timePlayed || 0) / 10);
+        let levelsGained = 0;
+        let tokensEarned = 0;
+
+        user.accountProgression.xp += xpEarned;
+
+        // Check for level ups
+        while (user.accountProgression.xp >= user.accountProgression.xpToNextLevel) {
+            user.accountProgression.xp -= user.accountProgression.xpToNextLevel;
+            user.accountProgression.level++;
+            levelsGained++;
+
+            // Award tokens per level (starts at 1, increases every 5 levels)
+            const tokenReward = Math.floor(user.accountProgression.level / 5) + 1;
+            tokensEarned += tokenReward;
+            user.accountProgression.tokens += tokenReward;
+            user.accountProgression.totalTokensEarned += tokenReward;
+
+            // XP requirement increases each level: base 100 + 50 per level
+            user.accountProgression.xpToNextLevel = 100 + (user.accountProgression.level - 1) * 50;
+        }
+
         // Clear saved game on submission
         user.savedGame = { exists: false };
         await user.save();
 
-        // Update leaderboards
-        await updateLeaderboard(user._id, user.username, 'score', score);
+        // Update leaderboards (only wave and kills - score removed)
         await updateLeaderboard(user._id, user.username, 'wave', wave);
         await updateLeaderboard(user._id, user.username, 'kills', kills);
 
         res.json({
             success: true,
             newPersonalBest: updated,
-            stats: user.dotsSurvivorStats
+            stats: user.dotsSurvivorStats,
+            // Account progression info
+            accountProgression: {
+                level: user.accountProgression.level,
+                xp: user.accountProgression.xp,
+                xpToNextLevel: user.accountProgression.xpToNextLevel,
+                tokens: user.accountProgression.tokens,
+                xpEarned,
+                levelsGained,
+                tokensEarned
+            }
         });
 
-        console.log(`🏆 Score submitted: ${user.username} - Wave ${wave}, ${kills} kills`);
+        if (levelsGained > 0) {
+            console.log(`🎉 ${user.username} leveled up! Now level ${user.accountProgression.level} (+${tokensEarned} tokens)`);
+        }
+        console.log(`🏆 Score submitted: ${user.username} - Wave ${wave}, ${kills} kills, +${xpEarned} XP`);
     } catch (error) {
         console.error('Submit score error:', error);
         res.status(500).json({ error: 'Failed to submit score' });
@@ -1236,7 +1283,7 @@ app.get('/api/leaderboard/:category', async (req, res) => {
         const { category } = req.params;
         const limit = parseInt(req.query.limit) || 10;
 
-        if (!['score', 'wave', 'kills'].includes(category)) {
+        if (!['wave', 'kills'].includes(category)) {
             return res.status(400).json({ error: 'Invalid category' });
         }
 
@@ -1265,7 +1312,7 @@ app.get('/api/leaderboard/:category/rank', authenticateToken, async (req, res) =
     try {
         const { category } = req.params;
 
-        if (!['score', 'wave', 'kills'].includes(category)) {
+        if (!['wave', 'kills'].includes(category)) {
             return res.status(400).json({ error: 'Invalid category' });
         }
 

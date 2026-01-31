@@ -50,6 +50,15 @@ const UserSchema = new mongoose.Schema({
         highestKills: { type: Number, default: 0 },
         totalGamesPlayed: { type: Number, default: 0 },
         totalTimePlayed: { type: Number, default: 0 } // in seconds
+    },
+
+    // Account progression system (for future perk tree)
+    accountProgression: {
+        level: { type: Number, default: 1 },
+        xp: { type: Number, default: 0 },
+        xpToNextLevel: { type: Number, default: 100 },
+        tokens: { type: Number, default: 0 },
+        totalTokensEarned: { type: Number, default: 0 }
     }
 });
 
