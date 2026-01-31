@@ -431,10 +431,12 @@ h2 {
 /* ===== GAME SCREEN ===== */
 .game-container {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
     background: var(--bg-dark);
     overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 
 .game-header {
@@ -537,7 +539,8 @@ h2 {
     background: var(--surface);
     border-top: 2px solid var(--surface-light);
     padding: var(--spacing-lg);
-    padding-bottom: calc(var(--spacing-lg) + 20px);
+    padding-bottom: calc(var(--spacing-lg) + 60px);
+    flex-shrink: 0;
 }
 
 .player-cards {

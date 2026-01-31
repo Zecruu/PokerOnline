@@ -622,12 +622,12 @@ class DotsSurvivor {
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy & +3% range', rarity: 'rare', effect: (g) => { g.weapons.bullet.pierce++; g.projectileRangeBonus = (g.projectileRangeBonus || 1) * 1.03; }, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}, Range: +3%` },
             { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
-            { id: 'skull_upgrade', name: 'Soul Collector', icon: '💀', desc: 'Adds a skull (max 12), then +15 damage', rarity: 'rare', effect: (g) => { if (g.skulls.length < 12) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); }, getDesc: (g) => g.skulls.length < 12 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` : `Skull Damage: ${g.skulls[0]?.damage || 20} → ${(g.skulls[0]?.damage || 20) + 15}` },
+            { id: 'skull_upgrade', name: 'Soul Collector', icon: '💀', desc: 'Adds a skull (max 6), then +15 damage', rarity: 'rare', effect: (g) => { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); }, getDesc: (g) => g.skulls.length < 6 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` : `Skull Damage: ${g.skulls[0]?.damage || 20} → ${(g.skulls[0]?.damage || 20) + 15}` },
             { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
             { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 50}, Speed: ${g.player.speed}→${g.player.speed + 25}` },
-            { id: 'skull_shower', name: 'Skull Storm', icon: '☠️', desc: 'Adds 3 skulls (max 12), overflow = +15 damage each', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) { if (g.skulls.length < 12) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); } }, getDesc: (g) => { const toAdd = Math.min(3, 12 - g.skulls.length); const overflow = 3 - toAdd; return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}${overflow > 0 ? `, +${overflow * 15} dmg` : ''}` : `Skull Damage: +45`; } },
+            { id: 'skull_shower', name: 'Skull Storm', icon: '☠️', desc: 'Adds 3 skulls (max 6), overflow = +15 damage each', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); const overflow = 3 - toAdd; return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}${overflow > 0 ? `, +${overflow * 15} dmg` : ''}` : `Skull Damage: +45`; } },
             { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
-            { id: 'summon_wolf', name: 'Call of the Pack', icon: '🐺', desc: '+1 wolf companion (max 8)', rarity: 'rare', effect: (g) => { if ((g.maxWolves || 0) < 8) { g.maxWolves = (g.maxWolves || 0) + 1; g.addMinion('wolf'); } }, getDesc: (g) => `Wolves: ${g.minions.length}/${g.maxWolves || 0}` },
+            { id: 'summon_wolf', name: 'Call of the Pack', icon: '🐺', desc: '+1 wolf companion (max 3)', rarity: 'rare', effect: (g) => { if ((g.maxWolves || 0) < 3) { g.maxWolves = (g.maxWolves || 0) + 1; g.addMinion('wolf'); } }, getDesc: (g) => `Wolves: ${g.minions.length}/${g.maxWolves || 0}` },
         ];
 
         this.initSettings();
@@ -2637,8 +2637,8 @@ class DotsSurvivor {
     }
 
     triggerRandomEvent() {
-        // Removed trap_square (Cube of Death) - too difficult
-        const eventTypes = ['ring_of_fire', 'circle_of_doom'];
+        // Removed trap_square (Cube of Death) and circle_of_doom (causes crash)
+        const eventTypes = ['ring_of_fire'];
         const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
 
         this.activeEvent = eventType;
@@ -3575,10 +3575,10 @@ class DotsSurvivor {
 
         const now = performance.now();
 
-        // DYNAMIC MINIMUM: Start at 10, +1 per wave, max 30
+        // DYNAMIC MINIMUM: Start at 10, +1 per wave, max 30 (or 40 after wave 10)
         // Early game is manageable, late game gets overwhelming
         // BOSS GRACE PERIOD: Reduce minimum enemies when boss just spawned
-        let MIN_ENEMIES = Math.min(30, 10 + this.wave - 1);
+        let MIN_ENEMIES = this.wave >= 10 ? Math.max(40, 10 + this.wave - 1) : Math.min(30, 10 + this.wave - 1);
         if (this.bossGracePeriod > 0) {
             MIN_ENEMIES = Math.floor(MIN_ENEMIES * 0.3); // Only 30% of normal during grace period
         }
@@ -4001,8 +4001,8 @@ class DotsSurvivor {
             }
         }
 
-        // Soul Harvest (tech_wizard augment): 10% chance to spawn a skull on kill (max 12)
-        if (this.augments.includes('tech_wizard') && this.skulls.length < 12) {
+        // Soul Harvest (tech_wizard augment): 10% chance to spawn a skull on kill (max 6)
+        if (this.augments.includes('tech_wizard') && this.skulls.length < 6) {
             if (Math.random() < 0.10) {
                 this.skulls.push(this.createSkull());
                 this.damageNumbers.push({ x: sx, y: sy - 20, value: '💀 SOUL!', lifetime: 1, color: '#aa44ff', scale: 0.8 });
@@ -4943,6 +4943,16 @@ class DotsSurvivor {
             available = all;
         }
 
+        // Filter out maxed skull/wolf upgrades - only show damage upgrades when maxed
+        const skullsMaxed = this.skulls.length >= 6;
+        const wolvesMaxed = (this.maxWolves || 0) >= 3;
+        if (skullsMaxed) {
+            available = available.filter(u => u.id !== 'skull_upgrade' && u.id !== 'skull_shower');
+        }
+        if (wolvesMaxed) {
+            available = available.filter(u => u.id !== 'summon_wolf');
+        }
+
         // Build the upgrade menu
         const container = document.getElementById('upgrade-choices');
         if (!container) {
@@ -5084,6 +5094,16 @@ class DotsSurvivor {
             filtered = all.filter(u => earlyWaveIds.includes(u.id));
         } else {
             filtered = all;
+        }
+
+        // Filter out maxed skull/wolf upgrades - only show damage upgrades when maxed
+        const skullsMaxed = this.skulls.length >= 6;
+        const wolvesMaxed = (this.maxWolves || 0) >= 3;
+        if (skullsMaxed) {
+            filtered = filtered.filter(u => u.id !== 'skull_upgrade' && u.id !== 'skull_shower');
+        }
+        if (wolvesMaxed) {
+            filtered = filtered.filter(u => u.id !== 'summon_wolf');
         }
 
         const result = [], weights = { common: 50, rare: 30, epic: 15, legendary: 5 };
