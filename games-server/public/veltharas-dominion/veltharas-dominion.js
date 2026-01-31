@@ -5739,16 +5739,20 @@ class DotsSurvivor {
             // Display account progression
             if (result?.accountProgression) {
                 const prog = result.accountProgression;
-                const xpPercent = Math.floor((prog.xp / prog.xpToNextLevel) * 100);
+                const xpPercent = Math.min(100, Math.floor((prog.xp / prog.xpToNextLevel) * 100));
+
+                // Calculate XP breakdown
+                const killXP = this.player.kills;
+                const waveXP = 10 * (this.wave * (this.wave + 1) / 2);
 
                 let progressionHTML = '';
                 if (prog.levelsGained > 0) {
                     // Level up celebration
                     progressionHTML = `
-                        <div style="font-size:1.5rem;color:#ffd700;font-weight:bold;margin-bottom:0.5rem;">
+                        <div style="font-size:1.5rem;color:#ffd700;font-weight:bold;margin-bottom:0.5rem;text-shadow:0 0 10px #ffd700;">
                             🎉 LEVEL UP! 🎉
                         </div>
-                        <div style="font-size:1.2rem;color:#00ffff;margin-bottom:0.5rem;">
+                        <div style="font-size:1.3rem;color:#00ffff;margin-bottom:0.5rem;">
                             Account Level ${prog.level}
                         </div>
                         <div style="color:#44ff88;font-size:1rem;margin-bottom:0.5rem;">
@@ -5757,23 +5761,32 @@ class DotsSurvivor {
                     `;
                 } else {
                     progressionHTML = `
-                        <div style="font-size:1rem;color:#00ccff;margin-bottom:0.5rem;">
+                        <div style="font-size:1.1rem;color:#00ccff;margin-bottom:0.5rem;font-weight:bold;">
                             📊 Account Level ${prog.level}
                         </div>
                     `;
                 }
 
                 progressionHTML += `
-                    <div style="color:#aaa;font-size:0.9rem;margin-bottom:0.5rem;">
-                        +${prog.xpEarned} XP earned this game
+                    <div style="background:#1a1a2e;border-radius:8px;padding:0.75rem;margin:0.5rem 0;">
+                        <div style="color:#00ffaa;font-size:1rem;font-weight:bold;margin-bottom:0.5rem;">
+                            +${prog.xpEarned} XP Earned
+                        </div>
+                        <div style="display:flex;justify-content:space-around;color:#aaa;font-size:0.8rem;">
+                            <span>💀 Kills: +${killXP} XP</span>
+                            <span>🌊 Waves: +${Math.floor(waveXP)} XP</span>
+                        </div>
                     </div>
-                    <div style="background:#222;border-radius:8px;height:20px;overflow:hidden;margin:0.5rem 0;">
-                        <div style="background:linear-gradient(90deg,#00ccff,#00ffaa);height:100%;width:${xpPercent}%;transition:width 0.5s;"></div>
+                    <div style="background:#222;border-radius:10px;height:24px;overflow:hidden;margin:0.75rem 0;border:1px solid #333;">
+                        <div style="background:linear-gradient(90deg,#00ccff,#00ffaa);height:100%;width:${xpPercent}%;transition:width 0.5s;box-shadow:0 0 10px #00ffaa;"></div>
                     </div>
-                    <div style="color:#fff;font-size:0.85rem;">
-                        ${prog.xp} / ${prog.xpToNextLevel} XP to Level ${prog.level + 1}
+                    <div style="color:#fff;font-size:0.9rem;font-weight:bold;">
+                        ${prog.xp.toLocaleString()} / ${prog.xpToNextLevel.toLocaleString()} XP
                     </div>
-                    <div style="color:#ffd700;font-size:0.9rem;margin-top:0.5rem;">
+                    <div style="color:#888;font-size:0.75rem;margin-top:0.25rem;">
+                        to Level ${prog.level + 1}
+                    </div>
+                    <div style="color:#ffd700;font-size:1rem;margin-top:0.75rem;font-weight:bold;">
                         🪙 ${prog.tokens} Tokens
                     </div>
                 `;
@@ -5781,7 +5794,13 @@ class DotsSurvivor {
                 progressionDisplay.innerHTML = progressionHTML;
                 progressionDisplay.style.display = 'block';
             } else {
-                progressionDisplay.style.display = 'none';
+                // No progression data returned - show error
+                progressionDisplay.innerHTML = `
+                    <div style="color:#ff6666;font-size:0.9rem;">
+                        ⚠️ Could not load progression data
+                    </div>
+                `;
+                progressionDisplay.style.display = 'block';
             }
         } else {
             document.getElementById('new-record').classList.add('hidden');
