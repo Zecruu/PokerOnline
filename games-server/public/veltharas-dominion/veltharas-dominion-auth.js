@@ -207,14 +207,27 @@ class AuthManager {
             btn.disabled = false;
         });
 
-        // New game button - delete save and go straight to boost select
+        // New game button - delete save and go straight to character select
         document.getElementById('new-game-btn')?.addEventListener('click', async () => {
-            await this.deleteSavedGame();
-            this.user.savedGame = { exists: false };
-            localStorage.setItem('user_data', JSON.stringify(this.user));
-            // Go directly to boost select instead of showing start button
+            // Try to delete save but don't block game start if it fails
+            try {
+                await this.deleteSavedGame();
+            } catch (e) {
+                console.log('Could not delete save (continuing anyway):', e.message);
+            }
+
+            // Clear local saved game state regardless of API result
+            if (this.user) {
+                this.user.savedGame = { exists: false };
+                localStorage.setItem('user_data', JSON.stringify(this.user));
+            }
+
+            // Hide saved game notice
+            document.getElementById('saved-game-notice')?.classList.add('hidden');
+
+            // Go directly to character select
             if (typeof game !== 'undefined') {
-                game.showBoostSelect();
+                game.showCharacterSelect();
             }
         });
     }

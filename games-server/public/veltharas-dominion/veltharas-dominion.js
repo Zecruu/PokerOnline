@@ -1190,17 +1190,17 @@ class DotsSurvivor {
         // The auth manager will show the start menu after login/guest selection
         // The start button in start menu will trigger showBoostSelect
 
-        // Setup start button to show boost select
+        // Setup start button to show character select
         const startBtn = document.getElementById('start-btn');
         if (startBtn) {
             startBtn.addEventListener('click', () => {
-                this.showBoostSelect();
+                this.showCharacterSelect();
             });
         }
 
         document.getElementById('restart-btn').addEventListener('click', () => {
             document.getElementById('gameover-menu').classList.add('hidden');
-            this.showBoostSelect();
+            this.showCharacterSelect();
         });
         document.getElementById('hud-pause-btn').addEventListener('click', (e) => { e.stopPropagation(); this.togglePause(); });
 
