@@ -503,7 +503,7 @@ const DIAMOND_AUGMENTS = [
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
     { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
     // Aura augment
-    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take burn damage. Upgrades with kills.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 80, damage: 25, burnDuration: 3, kills: 0, level: 1 }; }, getDesc: (g) => g.auraFire ? `Lvl ${g.auraFire.level}: ${g.auraFire.damage} dmg/s (${g.auraFire.kills}/50 kills)` : 'Not Active' }
+    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take burn damage.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 80, damage: 25, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
 ];
 
 // STACKING ITEMS SYSTEM - Items drop once and stack with kills/damage
@@ -1943,7 +1943,7 @@ class DotsSurvivor {
 
         // ========== FIRE MAGE ==========
         if (this.selectedClass.bonuses.hasAuraFire) {
-            this.auraFire = { radius: 80, damage: 25, burnDuration: 3, kills: 0, level: 1 };
+            this.auraFire = { radius: 80, damage: 25, burnDuration: 3 };
             this.augments.push('aura_fire');
         }
         if (this.selectedClass.bonuses.hasFireballs) {
@@ -4295,30 +4295,7 @@ class DotsSurvivor {
         }
 
         // Aura Fire kill tracking and upgrades
-        if (this.auraFire) {
-            this.auraFire.kills++;
-            if (this.auraFire.kills >= 50 && this.auraFire.level < 10) {
-                this.auraFire.level++;
-                this.auraFire.damage += 10;
-                this.auraFire.radius += 5;
-                this.auraFire.kills = 0;
-                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 60, value: `🔥 AURA LVL ${this.auraFire.level}!`, lifetime: 2, color: '#ff6600', scale: 1.5 });
-
-                // At max level 10, unlock Nuclear Blast ability
-                if (this.auraFire.level === 10 && this.abilities && this.abilities.nuclearBlast) {
-                    this.abilities.nuclearBlast.unlocked = true;
-                    this.damageNumbers.push({
-                        x: this.canvas.width / 2,
-                        y: this.canvas.height / 2 - 50,
-                        value: `☢️ NUCLEAR BLAST UNLOCKED! (E)`,
-                        lifetime: 3,
-                        color: '#aa00ff',
-                        scale: 2
-                    });
-                    this.triggerScreenShake(8, 0.3);
-                }
-            }
-        }
+        // Aura Fire no longer auto-levels - only upgrades via "Inferno Expansion" augment
 
         // Stacking items - add kills
         this.updateStackingItems('kill', e.isBoss ? 5 : 1);
@@ -7561,14 +7538,6 @@ class DotsSurvivor {
                 ctx.lineWidth = 3 + this.auraFire.level;
                 ctx.stroke();
                 ctx.shadowBlur = 0;
-            }
-
-            // Level indicator
-            if (this.auraFire.level > 1) {
-                ctx.font = 'bold 10px Inter';
-                ctx.fillStyle = '#ff6600';
-                ctx.textAlign = 'center';
-                ctx.fillText(`🔥${this.auraFire.level}`, this.player.x, this.player.y - auraRadius - 8);
             }
 
             ctx.restore();
