@@ -170,6 +170,34 @@ class AuthManager {
             });
         });
 
+        // Customize button
+        document.getElementById('customize-btn')?.addEventListener('click', () => {
+            this.showCustomize();
+        });
+
+        // Customize back button
+        document.getElementById('customize-back-btn')?.addEventListener('click', () => {
+            document.getElementById('customize-menu').classList.add('hidden');
+            document.getElementById('start-menu').classList.remove('hidden');
+        });
+
+        // Customize tabs
+        document.querySelectorAll('.customize-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.customize-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.style.background = '#33333366';
+                    t.style.borderColor = '#444';
+                    t.style.color = '#888';
+                });
+                tab.classList.add('active');
+                tab.style.background = '#a855f733';
+                tab.style.borderColor = '#a855f7';
+                tab.style.color = '#a855f7';
+                this.populateCustomizeItems(tab.dataset.category);
+            });
+        });
+
         // Check for Stripe purchase success (redirect from checkout)
         this.checkPurchaseSuccess();
 
@@ -395,6 +423,154 @@ class AuthManager {
         } catch (e) {
             contentEl.innerHTML = '<div class="lb-error">Failed to load leaderboard</div>';
         }
+    }
+
+    // ============================================
+    // CUSTOMIZATION SYSTEM
+    // ============================================
+    showCustomize() {
+        document.getElementById('start-menu').classList.add('hidden');
+        document.getElementById('customize-menu').classList.remove('hidden');
+
+        // Populate with default category (skins)
+        this.populateCustomizeItems('skins');
+        this.updateCurrentlyEquipped();
+    }
+
+    populateCustomizeItems(category) {
+        const grid = document.getElementById('customize-items-grid');
+        const emptyMsg = document.getElementById('customize-empty');
+        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
+
+        if (!store || !store[category]) {
+            grid.innerHTML = '';
+            emptyMsg?.classList.remove('hidden');
+            return;
+        }
+
+        const owned = this.getOwnedCosmetics();
+        const equipped = this.getEquippedCosmetics();
+        const isAdmin = this.isAdmin();
+
+        // Filter to only owned items (or all items for admin)
+        const items = store[category].filter(item => owned.includes(item.id) || isAdmin);
+
+        if (items.length === 0) {
+            grid.innerHTML = '';
+            emptyMsg?.classList.remove('hidden');
+            return;
+        }
+
+        emptyMsg?.classList.add('hidden');
+
+        grid.innerHTML = items.map(item => {
+            const isEquipped = equipped[category] === item.id;
+            const isOwned = owned.includes(item.id);
+
+            return `
+                <div class="customize-item" data-id="${item.id}" data-category="${category}" style="
+                    background: ${isEquipped ? '#a855f722' : '#1a1a2e'};
+                    border: 2px solid ${isEquipped ? '#a855f7' : '#333'};
+                    border-radius: 12px;
+                    padding: 1rem;
+                    text-align: center;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    <div style="font-size:2.5rem;margin-bottom:0.3rem;">${item.icon}</div>
+                    <div style="font-weight:600;color:${isEquipped ? '#a855f7' : '#fff'};font-size:0.9rem;">${item.name}</div>
+                    <div style="font-size:0.75rem;color:#888;margin:0.3rem 0;">${item.desc}</div>
+                    ${!isOwned && isAdmin ? '<div style="font-size:0.7rem;color:#ffd700;">👑 Admin</div>' : ''}
+                    <button class="customize-equip-btn" data-id="${item.id}" data-category="${category}" style="
+                        margin-top:0.5rem;
+                        padding:0.4rem 0.8rem;
+                        background: ${isEquipped ? '#666' : 'linear-gradient(135deg, #a855f7, #6366f1)'};
+                        border: none;
+                        border-radius: 6px;
+                        color: #fff;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-family: inherit;
+                        font-size: 0.8rem;
+                    ">${isEquipped ? '✓ EQUIPPED' : 'EQUIP'}</button>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers for equip buttons
+        grid.querySelectorAll('.customize-equip-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const itemId = btn.dataset.id;
+                const cat = btn.dataset.category;
+                this.toggleEquipCosmetic(itemId, cat);
+                this.populateCustomizeItems(cat);
+                this.updateCurrentlyEquipped();
+            });
+        });
+    }
+
+    updateCurrentlyEquipped() {
+        const container = document.getElementById('currently-equipped');
+        const equipped = this.getEquippedCosmetics();
+        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
+
+        if (!store || Object.keys(equipped).length === 0) {
+            container.innerHTML = '<span style="color:#666;">Nothing equipped</span>';
+            return;
+        }
+
+        const equippedItems = [];
+        Object.entries(equipped).forEach(([category, itemId]) => {
+            const item = store[category]?.find(i => i.id === itemId);
+            if (item) {
+                equippedItems.push({ ...item, category });
+            }
+        });
+
+        if (equippedItems.length === 0) {
+            container.innerHTML = '<span style="color:#666;">Nothing equipped</span>';
+            return;
+        }
+
+        container.innerHTML = equippedItems.map(item => `
+            <div style="
+                background:#a855f722;
+                border:1px solid #a855f7;
+                border-radius:8px;
+                padding:0.5rem 0.8rem;
+                display:flex;
+                align-items:center;
+                gap:0.5rem;
+            ">
+                <span style="font-size:1.2rem;">${item.icon}</span>
+                <span style="color:#a855f7;font-size:0.85rem;font-weight:600;">${item.name}</span>
+                <button class="unequip-btn" data-id="${item.id}" data-category="${item.category}" style="
+                    background:none;
+                    border:none;
+                    color:#ff6666;
+                    cursor:pointer;
+                    font-size:1rem;
+                    padding:0 0.3rem;
+                ">✕</button>
+            </div>
+        `).join('');
+
+        // Add unequip handlers
+        container.querySelectorAll('.unequip-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const itemId = btn.dataset.id;
+                const category = btn.dataset.category;
+                this.toggleEquipCosmetic(itemId, category);
+
+                // Refresh the active tab
+                const activeTab = document.querySelector('.customize-tab.active');
+                if (activeTab) {
+                    this.populateCustomizeItems(activeTab.dataset.category);
+                }
+                this.updateCurrentlyEquipped();
+            });
+        });
     }
 
     // ============================================
