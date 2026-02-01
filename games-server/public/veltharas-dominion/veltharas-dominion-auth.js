@@ -295,9 +295,13 @@ class AuthManager {
     // Check if current user is an admin (unlocks all cosmetics for free)
     isAdmin() {
         if (!this.user) return false;
-        // Check various role formats from game hub
-        const role = this.user.role || this.user.userRole || '';
-        return role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator';
+        // Check various role formats from game hub (debug logging to find correct field)
+        console.log('🔍 Admin check - User object:', this.user);
+        const role = this.user.role || this.user.userRole || this.user.user_role || this.user.accountType || '';
+        console.log('🔍 Admin check - Role found:', role);
+        const isAdminResult = role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator';
+        console.log('🔍 Admin check - Result:', isAdminResult);
+        return isAdminResult;
     }
 
     clearSession() {

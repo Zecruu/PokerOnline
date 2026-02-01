@@ -6046,8 +6046,8 @@ class DotsSurvivor {
         this.playLevelupSound();
         this.gamePaused = true;
 
-        // Get all available upgrades
-        const all = [...this.baseUpgrades, ...this.selectedClass.upgrades];
+        // Get all available upgrades (new classes may not have upgrades array)
+        const all = [...this.baseUpgrades, ...(this.selectedClass.upgrades || [])];
 
         // Early waves (1-10): Only damage and HP related upgrades
         const earlyWaveIds = ['damage', 'health', 'firerate', 'critdmg', 'devastation', 'armor'];
@@ -6200,7 +6200,7 @@ class DotsSurvivor {
     }
 
     getRandomUpgrades(count) {
-        const all = [...this.baseUpgrades, ...this.selectedClass.upgrades];
+        const all = [...this.baseUpgrades, ...(this.selectedClass.upgrades || [])];
 
         // Early waves (1-10): Only damage and HP related upgrades
         const earlyWaveIds = ['damage', 'health', 'firerate', 'critdmg', 'devastation', 'armor'];
