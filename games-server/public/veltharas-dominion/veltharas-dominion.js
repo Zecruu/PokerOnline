@@ -7483,10 +7483,12 @@ class DotsSurvivor {
         if (this.deathPops) {
             this.deathPops = this.deathPops.filter(pop => {
                 pop.timer -= 0.016;
+                if (pop.timer <= 0) return false;
+
                 const progress = 1 - (pop.timer / 0.15);
-                const currentRadius = pop.radius + (pop.maxRadius - pop.radius) * progress;
-                pop.alpha = 1 - progress;
-                
+                const currentRadius = Math.max(1, pop.radius + (pop.maxRadius - pop.radius) * progress);
+                pop.alpha = Math.max(0, 1 - progress);
+
                 ctx.save();
                 ctx.globalAlpha = pop.alpha;
                 ctx.beginPath();
@@ -7497,8 +7499,8 @@ class DotsSurvivor {
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.restore();
-                
-                return pop.timer > 0;
+
+                return true;
             });
         }
 

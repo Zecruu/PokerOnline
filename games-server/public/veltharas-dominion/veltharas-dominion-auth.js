@@ -498,7 +498,7 @@ class AuthManager {
                 e.stopPropagation();
                 const itemId = btn.dataset.id;
                 const cat = btn.dataset.category;
-                this.toggleEquipCosmetic(itemId, cat);
+                this.equipCosmetic(itemId, cat);
                 this.populateCustomizeItems(cat);
                 this.updateCurrentlyEquipped();
             });
@@ -556,7 +556,7 @@ class AuthManager {
             btn.addEventListener('click', () => {
                 const itemId = btn.dataset.id;
                 const category = btn.dataset.category;
-                this.toggleEquipCosmetic(itemId, category);
+                this.equipCosmetic(itemId, category);
 
                 // Refresh the active tab
                 const activeTab = document.querySelector('.customize-tab.active');
