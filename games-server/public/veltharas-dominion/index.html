@@ -136,11 +136,12 @@
             </div>
 
             <button id="start-btn" class="menu-btn primary">START GAME</button>
+            <button id="store-btn" class="menu-btn secondary" style="margin-top:0.5rem;background:linear-gradient(135deg,#fbbf2422,#ff880022);border-color:#fbbf24;">🛒 STORE</button>
             <button id="leaderboard-btn" class="menu-btn secondary" style="margin-top:0.5rem;">🏆 LEADERBOARDS</button>
             <button id="settings-btn" class="menu-btn secondary" style="margin-top:0.5rem;">⚙️ SETTINGS</button>
             <button id="help-btn" class="menu-btn secondary" style="margin-top:0.5rem;">❓ GAME INFO</button>
             <a href="/" class="menu-btn secondary" style="margin-top:0.5rem;">🏠 EXIT TO HUB</a>
-            <p class="game-version">v0.1.0</p>
+            <p class="game-version">v0.2.0</p>
 
             <div class="controls-info">
                 <p>🎮 WASD or Arrow Keys to move</p>
@@ -267,6 +268,36 @@
         </div>
     </div>
 
+    <!-- Store Menu -->
+    <div id="store-menu" class="menu-overlay hidden">
+        <div class="menu-content" style="max-width:800px;max-height:85vh;overflow-y:auto;">
+            <h1 style="color:#fbbf24;margin-bottom:0.5rem;">🛒 COSMETIC STORE</h1>
+            <div style="color:#888;font-size:0.9rem;margin-bottom:1rem;">Purchase cosmetics with real money via Stripe</div>
+
+            <!-- Store Tabs -->
+            <div id="store-tabs" style="display:flex;gap:0;margin-bottom:1rem;justify-content:center;">
+                <button class="store-tab active" data-category="skins" style="padding:0.6rem 1.2rem;background:#fbbf2433;border:2px solid #fbbf24;color:#fbbf24;cursor:pointer;border-radius:8px 0 0 8px;font-family:inherit;font-weight:600;">🎨 Skins</button>
+                <button class="store-tab" data-category="trails" style="padding:0.6rem 1.2rem;background:#33333366;border:2px solid #444;color:#888;cursor:pointer;border-radius:0;font-family:inherit;font-weight:600;">✨ Trails</button>
+                <button class="store-tab" data-category="effects" style="padding:0.6rem 1.2rem;background:#33333366;border:2px solid #444;color:#888;cursor:pointer;border-radius:0 8px 8px 0;font-family:inherit;font-weight:600;">💫 Effects</button>
+            </div>
+
+            <!-- Store Items Grid -->
+            <div id="store-items-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
+                <!-- Items populated by JS -->
+            </div>
+
+            <!-- Owned Items Section -->
+            <div style="border-top:1px solid #333;padding-top:1rem;margin-top:1rem;">
+                <h3 style="color:#00ffaa;margin-bottom:0.8rem;">✅ Your Cosmetics</h3>
+                <div id="owned-items" style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;min-height:40px;">
+                    <span style="color:#666;font-size:0.9rem;">No cosmetics owned yet</span>
+                </div>
+            </div>
+
+            <button id="store-back-btn" class="menu-btn secondary" style="margin-top:1.5rem;">← BACK</button>
+        </div>
+    </div>
+
     <!-- Game Canvas -->
     <canvas id="game-canvas"></canvas>
 
@@ -282,12 +313,14 @@
             </div>
             <div class="wave-display">
                 Wave <span id="wave-num">1</span>
+                <div id="difficulty-tier" style="font-size:0.9rem;font-weight:bold;margin-top:0.2rem;text-shadow:0 0 5px currentColor;">🌱 Easy</div>
             </div>
         </div>
         <div class="hud-bottom">
             <div class="xp-bar-container">
                 <div id="xp-bar" class="xp-bar"></div>
                 <span id="level-display">Lv. 1</span>
+                <span id="class-display" style="margin-left:1rem;font-size:0.9rem;font-weight:bold;">🔥 Fire Mage</span>
             </div>
             <div class="stats-display">
                 <span id="kill-count">💀 0</span>

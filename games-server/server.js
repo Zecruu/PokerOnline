@@ -4,10 +4,29 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
+// ============================================
+// STRIPE CONFIGURATION (Add API keys when ready)
+// ============================================
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || null;
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || null;
+const STRIPE_ENABLED = !!STRIPE_SECRET_KEY;
+
+// Initialize Stripe if key is provided
+let stripe = null;
+if (STRIPE_ENABLED) {
+    try {
+        stripe = require('stripe')(STRIPE_SECRET_KEY);
+        console.log('💳 Stripe initialized successfully');
+    } catch (e) {
+        console.log('⚠️ Stripe package not installed - run: npm install stripe');
+    }
+}
+
 // Log startup
 console.log('🚀 Starting games server...');
 console.log(`   Node version: ${process.version}`);
 console.log(`   PORT env: ${process.env.PORT || 'not set, using 3001'}`);
+console.log(`   Stripe: ${STRIPE_ENABLED ? '✅ Configured' : '⏳ Not configured (add STRIPE_SECRET_KEY env var)'}`);
 
 // Verify public directory exists
 const publicPath = path.join(__dirname, 'public');
@@ -118,6 +137,146 @@ app.get('/', (req, res) => {
         </body>
         </html>
     `);
+});
+
+// ============================================
+// STRIPE PAYMENT ROUTES
+// ============================================
+
+// Parse JSON for API routes (but NOT for webhook - needs raw body)
+app.use('/api', express.json());
+
+// Create Stripe Checkout Session
+app.post('/api/payments/create-checkout', async (req, res) => {
+    if (!STRIPE_ENABLED || !stripe) {
+        return res.status(503).json({
+            error: 'Payments not configured yet. Coming soon!',
+            stripeEnabled: false
+        });
+    }
+
+    try {
+        const { itemId, category, price, userId } = req.body;
+
+        if (!itemId || !category || !price) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Convert price string to cents (e.g., "4.99" -> 499)
+        const priceInCents = Math.round(parseFloat(price) * 100);
+
+        // Create Stripe Checkout Session
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: `Cosmetic: ${itemId}`,
+                        description: `${category} cosmetic for Velthara's Dominion`,
+                    },
+                    unit_amount: priceInCents,
+                },
+                quantity: 1,
+            }],
+            mode: 'payment',
+            success_url: `${req.protocol}://${req.get('host')}/veltharas-dominion/?purchase_success=1&item=${itemId}&category=${category}`,
+            cancel_url: `${req.protocol}://${req.get('host')}/veltharas-dominion/?purchase_cancelled=1`,
+            metadata: {
+                itemId,
+                category,
+                userId: userId || 'guest',
+                game: 'veltharas-dominion'
+            }
+        });
+
+        res.json({ checkoutUrl: session.url, sessionId: session.id });
+    } catch (error) {
+        console.error('Stripe checkout error:', error);
+        res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
+
+// Stripe Webhook Handler (for payment confirmation)
+// Note: This route needs raw body, not JSON parsed
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!STRIPE_ENABLED || !stripe) {
+        return res.status(503).json({ error: 'Payments not configured' });
+    }
+
+    const sig = req.headers['stripe-signature'];
+
+    let event;
+    try {
+        // Verify webhook signature if secret is configured
+        if (STRIPE_WEBHOOK_SECRET) {
+            event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
+        } else {
+            // Development mode - parse without verification
+            event = JSON.parse(req.body.toString());
+            console.log('⚠️ Webhook signature not verified (STRIPE_WEBHOOK_SECRET not set)');
+        }
+    } catch (err) {
+        console.error('Webhook signature verification failed:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+        case 'checkout.session.completed':
+            const session = event.data.object;
+            console.log('💰 Payment successful!', {
+                sessionId: session.id,
+                itemId: session.metadata?.itemId,
+                category: session.metadata?.category,
+                userId: session.metadata?.userId,
+                amount: session.amount_total
+            });
+
+            // TODO: Update user's owned cosmetics in database
+            // For now, the client handles this via URL params on redirect
+            break;
+
+        case 'payment_intent.payment_failed':
+            const paymentIntent = event.data.object;
+            console.log('❌ Payment failed:', paymentIntent.id);
+            break;
+
+        default:
+            console.log(`Unhandled event type: ${event.type}`);
+    }
+
+    res.json({ received: true });
+});
+
+// Check payment status (for verifying purchases)
+app.get('/api/payments/verify/:sessionId', async (req, res) => {
+    if (!STRIPE_ENABLED || !stripe) {
+        return res.status(503).json({ error: 'Payments not configured' });
+    }
+
+    try {
+        const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
+
+        res.json({
+            paid: session.payment_status === 'paid',
+            itemId: session.metadata?.itemId,
+            category: session.metadata?.category
+        });
+    } catch (error) {
+        console.error('Payment verification error:', error);
+        res.status(500).json({ error: 'Failed to verify payment' });
+    }
+});
+
+// Payment status endpoint (for debugging)
+app.get('/api/payments/status', (req, res) => {
+    res.json({
+        stripeEnabled: STRIPE_ENABLED,
+        message: STRIPE_ENABLED
+            ? 'Stripe payments are active'
+            : 'Stripe not configured. Set STRIPE_SECRET_KEY environment variable.'
+    });
 });
 
 // 404 handler

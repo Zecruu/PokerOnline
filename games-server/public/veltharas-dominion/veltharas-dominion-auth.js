@@ -142,6 +142,37 @@ class AuthManager {
             });
         });
 
+        // Store button
+        document.getElementById('store-btn')?.addEventListener('click', () => {
+            this.showStore();
+        });
+
+        // Store back button
+        document.getElementById('store-back-btn')?.addEventListener('click', () => {
+            document.getElementById('store-menu').classList.add('hidden');
+            document.getElementById('start-menu').classList.remove('hidden');
+        });
+
+        // Store tabs
+        document.querySelectorAll('.store-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.store-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.style.background = '#33333366';
+                    t.style.borderColor = '#444';
+                    t.style.color = '#888';
+                });
+                tab.classList.add('active');
+                tab.style.background = '#fbbf2433';
+                tab.style.borderColor = '#fbbf24';
+                tab.style.color = '#fbbf24';
+                this.populateStoreItems(tab.dataset.category);
+            });
+        });
+
+        // Check for Stripe purchase success (redirect from checkout)
+        this.checkPurchaseSuccess();
+
         // Continue button
         document.getElementById('continue-btn')?.addEventListener('click', async () => {
             const btn = document.getElementById('continue-btn');
@@ -248,6 +279,14 @@ class AuthManager {
         this.showStartMenu();
     }
 
+    // Check if current user is an admin (unlocks all cosmetics for free)
+    isAdmin() {
+        if (!this.user) return false;
+        // Check various role formats from game hub
+        const role = this.user.role || this.user.userRole || '';
+        return role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator';
+    }
+
     clearSession() {
         this.user = null;
         this.token = null;
@@ -339,6 +378,334 @@ class AuthManager {
         } catch (e) {
             contentEl.innerHTML = '<div class="lb-error">Failed to load leaderboard</div>';
         }
+    }
+
+    // ============================================
+    // COSMETIC STORE SYSTEM
+    // ============================================
+    showStore() {
+        document.getElementById('start-menu').classList.add('hidden');
+        document.getElementById('store-menu').classList.remove('hidden');
+
+        // Populate with default category (skins)
+        this.populateStoreItems('skins');
+        this.updateOwnedCosmetics();
+    }
+
+    getOwnedCosmetics() {
+        try {
+            return JSON.parse(localStorage.getItem('owned_cosmetics') || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    setOwnedCosmetics(cosmetics) {
+        localStorage.setItem('owned_cosmetics', JSON.stringify(cosmetics));
+    }
+
+    getEquippedCosmetics() {
+        try {
+            return JSON.parse(localStorage.getItem('equipped_cosmetics') || '{}');
+        } catch (e) {
+            return {};
+        }
+    }
+
+    setEquippedCosmetics(equipped) {
+        localStorage.setItem('equipped_cosmetics', JSON.stringify(equipped));
+    }
+
+    populateStoreItems(category) {
+        const grid = document.getElementById('store-items-grid');
+        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
+
+        if (!store || !store[category]) {
+            grid.innerHTML = '<p style="color:#888;">Store data not loaded</p>';
+            return;
+        }
+
+        const items = store[category];
+        const owned = this.getOwnedCosmetics();
+        const equipped = this.getEquippedCosmetics();
+        const isAdmin = this.isAdmin(); // Admins get everything free
+
+        grid.innerHTML = items.map(item => {
+            const isOwned = owned.includes(item.id);
+            const isEquipped = equipped[category] === item.id;
+            // Convert price to USD (cents / 100 = dollars)
+            const usdPrice = (item.price / 100).toFixed(2);
+
+            // Determine button to show
+            let buttonHtml;
+            if (isOwned) {
+                // Already owned - show equip button
+                buttonHtml = `<button class="store-equip-btn" data-id="${item.id}" data-category="${category}" style="
+                    background: ${isEquipped ? '#fbbf24' : '#00ffaa'};
+                    border: none;
+                    color: #000;
+                    padding: 0.4rem 1rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    font-family: inherit;
+                ">${isEquipped ? '✓ EQUIPPED' : 'EQUIP'}</button>`;
+            } else if (isAdmin) {
+                // Admin - free unlock button
+                buttonHtml = `<button class="store-admin-btn" data-id="${item.id}" data-category="${category}" style="
+                    background: linear-gradient(135deg, #ffd700, #ff8c00);
+                    border: none;
+                    color: #000;
+                    padding: 0.4rem 1rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    font-family: inherit;
+                ">👑 FREE</button>`;
+            } else {
+                // Regular user - Stripe purchase button
+                buttonHtml = `<button class="store-buy-btn" data-id="${item.id}" data-category="${category}" data-price="${usdPrice}" style="
+                    background: linear-gradient(135deg, #635bff, #8b5cf6);
+                    border: none;
+                    color: #fff;
+                    padding: 0.4rem 1rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    font-family: inherit;
+                ">💳 $${usdPrice}</button>`;
+            }
+
+            return `
+                <div class="store-item" data-id="${item.id}" data-category="${category}" style="
+                    background: ${isOwned ? '#00ffaa22' : isAdmin ? '#ffd70011' : '#1a1a2e'};
+                    border: 2px solid ${isOwned ? '#00ffaa' : isEquipped ? '#fbbf24' : isAdmin ? '#ffd700' : '#333'};
+                    border-radius: 12px;
+                    padding: 1rem;
+                    text-align: center;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">${item.icon}</div>
+                    <div style="color: ${item.color === 'rainbow' ? '#ff66aa' : item.color || '#fff'}; font-weight: bold; margin-bottom: 0.3rem;">${item.name}</div>
+                    <div style="color: #888; font-size: 0.8rem; margin-bottom: 0.5rem;">${item.desc}</div>
+                    ${buttonHtml}
+                </div>
+            `;
+        }).join('');
+
+        // Add event listeners for admin free unlock buttons
+        grid.querySelectorAll('.store-admin-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                const cat = btn.dataset.category;
+                this.adminUnlockCosmetic(id, cat);
+            });
+        });
+
+        // Add event listeners for buy buttons (Stripe checkout)
+        grid.querySelectorAll('.store-buy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                const cat = btn.dataset.category;
+                const price = btn.dataset.price;
+                this.initStripeCheckout(id, cat, price);
+            });
+        });
+
+        // Add event listeners for equip buttons
+        grid.querySelectorAll('.store-equip-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                const cat = btn.dataset.category;
+                this.equipCosmetic(id, cat);
+            });
+        });
+    }
+
+    // Admin instant unlock (free)
+    adminUnlockCosmetic(itemId, category) {
+        console.log('👑 Admin unlocking cosmetic:', itemId);
+        this.handleSuccessfulPurchase(itemId, category);
+        this.showStoreMessage('👑 Admin Unlock! Item added to your collection.', '#ffd700');
+    }
+
+    // Stripe Checkout - skeleton ready for API credentials
+    async initStripeCheckout(itemId, category, price) {
+        // Check if user is logged in
+        if (!this.user) {
+            this.showStoreMessage('⚠️ Please login to purchase', '#ff8844');
+            return;
+        }
+
+        this.showStoreMessage('⏳ Connecting to payment...', '#635bff');
+
+        try {
+            // Create checkout session on games-server (same origin)
+            const response = await fetch('/api/payments/create-checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {})
+                },
+                body: JSON.stringify({
+                    itemId,
+                    category,
+                    price,
+                    userId: this.user.id || this.user._id
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.checkoutUrl) {
+                // Redirect to Stripe Checkout
+                window.location.href = data.checkoutUrl;
+            } else if (data.error) {
+                this.showStoreMessage(`❌ ${data.error}`, '#ff4466');
+            }
+        } catch (e) {
+            // Stripe not configured yet - show placeholder message
+            console.log('Stripe checkout error:', e);
+            this.showStoreMessage('⚠️ Payments coming soon!', '#ff8844');
+        }
+    }
+
+    // Called after successful Stripe payment (via webhook or redirect)
+    handleSuccessfulPurchase(itemId, category) {
+        // Add to owned cosmetics
+        const owned = this.getOwnedCosmetics();
+        if (!owned.includes(itemId)) {
+            owned.push(itemId);
+            this.setOwnedCosmetics(owned);
+        }
+
+        // Auto-equip newly purchased item
+        this.equipCosmetic(itemId, category);
+
+        // Refresh the store display
+        this.populateStoreItems(category);
+        this.updateOwnedCosmetics();
+
+        this.showStoreMessage('✅ Purchase successful!', '#00ffaa');
+    }
+
+    // Check URL params for successful Stripe purchase (called on page load)
+    checkPurchaseSuccess() {
+        const params = new URLSearchParams(window.location.search);
+
+        if (params.get('purchase_success') === '1') {
+            const itemId = params.get('item');
+            const category = params.get('category');
+
+            if (itemId && category) {
+                console.log('💳 Processing successful purchase:', { itemId, category });
+
+                // Add to owned cosmetics
+                this.handleSuccessfulPurchase(itemId, category);
+
+                // Show success notification
+                setTimeout(() => {
+                    this.showStore();
+                    this.showStoreMessage('🎉 Purchase Complete! Item added to your collection.', '#00ffaa');
+                }, 500);
+            }
+
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        if (params.get('purchase_cancelled') === '1') {
+            console.log('❌ Purchase was cancelled');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    equipCosmetic(itemId, category) {
+        const equipped = this.getEquippedCosmetics();
+
+        // If already equipped, unequip
+        if (equipped[category] === itemId) {
+            delete equipped[category];
+            this.showStoreMessage('🔓 Unequipped!', '#888');
+        } else {
+            equipped[category] = itemId;
+            this.showStoreMessage('✨ Equipped!', '#fbbf24');
+        }
+
+        this.setEquippedCosmetics(equipped);
+
+        // Find active tab and refresh
+        const activeTab = document.querySelector('.store-tab.active');
+        if (activeTab) {
+            this.populateStoreItems(activeTab.dataset.category);
+        }
+        this.updateOwnedCosmetics();
+    }
+
+    updateOwnedCosmetics() {
+        const ownedEl = document.getElementById('owned-items');
+        const owned = this.getOwnedCosmetics();
+        const equipped = this.getEquippedCosmetics();
+        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
+
+        if (!store || owned.length === 0) {
+            ownedEl.innerHTML = '<span style="color:#666;font-size:0.9rem;">No cosmetics owned yet</span>';
+            return;
+        }
+
+        // Find all owned items from all categories
+        const ownedItems = [];
+        Object.entries(store).forEach(([category, items]) => {
+            items.forEach(item => {
+                if (owned.includes(item.id)) {
+                    ownedItems.push({
+                        ...item,
+                        category,
+                        isEquipped: equipped[category] === item.id
+                    });
+                }
+            });
+        });
+
+        ownedEl.innerHTML = ownedItems.map(item => `
+            <div style="
+                background: ${item.isEquipped ? '#fbbf2433' : '#333'};
+                border: 2px solid ${item.isEquipped ? '#fbbf24' : '#555'};
+                border-radius: 8px;
+                padding: 0.4rem 0.6rem;
+                display: flex;
+                align-items: center;
+                gap: 0.3rem;
+                font-size: 0.85rem;
+            ">
+                <span>${item.icon}</span>
+                <span style="color: ${item.isEquipped ? '#fbbf24' : '#aaa'};">${item.name}</span>
+                ${item.isEquipped ? '<span style="color:#00ffaa;">✓</span>' : ''}
+            </div>
+        `).join('');
+    }
+
+    showStoreMessage(text, color) {
+        // Create or update a temporary message
+        let msgEl = document.getElementById('store-message');
+        if (!msgEl) {
+            msgEl = document.createElement('div');
+            msgEl.id = 'store-message';
+            msgEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:1rem 2rem;border-radius:12px;font-weight:bold;font-size:1.2rem;z-index:1000;pointer-events:none;transition:opacity 0.3s;';
+            document.body.appendChild(msgEl);
+        }
+
+        msgEl.textContent = text;
+        msgEl.style.background = '#1a1a2e';
+        msgEl.style.border = `2px solid ${color}`;
+        msgEl.style.color = color;
+        msgEl.style.opacity = '1';
+
+        setTimeout(() => {
+            msgEl.style.opacity = '0';
+        }, 1500);
     }
 
     async saveGame(gameState) {

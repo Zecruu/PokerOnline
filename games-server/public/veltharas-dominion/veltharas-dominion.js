@@ -146,7 +146,6 @@ const ENEMY_SPRITES = {
     boss: 'BossEnemy.png',
     general: 'DemonKing.png',
     consumer: 'affafb7e-20ab-48d6-aa16-726fa9b54c9c-removebg-preview.png',  // The Consumer boss - void spiral
-    cthulhu: '01a0c668-edf9-4306-aa39-391bb1d77077-removebg-preview.png',  // Cthulhu, Lord of the Sea
     // New enemies - Wave 5+
     goblin: 'goblin.png',           // Wave 5 - Passive XP stealer
     necromancer: 'necromancer.png', // Wave 6 - Spawns sprites
@@ -291,7 +290,7 @@ const BOSS_NAMES = ['Destroyer', 'Eater', 'Bringer', 'Lord', 'King', 'Master', '
 const BOSS_SUFFIXES = ['of Pain', 'of Souls', 'the Cruel', 'the Mighty', 'Supreme', 'Eternal', 'Unstoppable', 'the Devourer'];
 
 // Class definitions
-// Basic class (no selection)
+// Legacy class (kept for backwards compatibility)
 const SURVIVOR_CLASS = {
     name: 'Survivor',
     icon: '👤',
@@ -299,9 +298,183 @@ const SURVIVOR_CLASS = {
     desc: 'The last hope.',
     bonuses: { bulletCount: 0, fireRate: 1, damage: 1 },
     upgrades: [
-        // Consolidated upgrades from all classes (removed barrage - duplicate of multishot)
         { id: 'rapidfire', name: 'Machine Gun', icon: '💥', desc: '+15% fire rate', rarity: 'epic', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.85), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.85)).toFixed(1)}/s` },
         { id: 'skull', name: 'Elemental Skull', icon: '💀', desc: '+1 orbiting skull (cycles Fire/Dark/Lightning/Slow)', rarity: 'rare', effect: (g) => g.skulls.push(g.createSkull()), getDesc: (g) => `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` },
+    ]
+};
+
+// ============================================
+// PLAYABLE CHARACTER CLASSES (Launch: 3 classes)
+// Each character has: 3 Skills + 2 Abilities
+// Augments: Common/Rare = stats, Epic/Legendary = skill/ability upgrades
+// ============================================
+
+// 🔥 FIRE MAGE - Elemental destruction specialist
+// Skills: Fireballs, Aura Ring, Elemental Orbs
+// Abilities: Fire Blast (Q), Fire Amp (E)
+const FIRE_MAGE_CLASS = {
+    id: 'fire_mage',
+    name: 'Fire Mage',
+    icon: '🔥',
+    color: '#ff4400',
+    desc: 'Master of flames. Burns enemies with fireballs, aura ring, and elemental orbs.',
+    // Starting state
+    bonuses: {
+        hasFireballs: true,    // Skill 1: Fireballs (projectiles)
+        hasAuraFire: true,     // Skill 2: Aura Ring
+        skullCount: 2,         // Skill 3: Elemental Orbs (starts with 2)
+        damage: 1.1,           // +10% base damage
+        fireRate: 1
+    },
+    skills: {
+        fireball: { name: 'Fireballs', icon: '🔥', desc: 'Homing fireballs that seek enemies', level: 1 },
+        auraRing: { name: 'Aura Ring', icon: '🔵', desc: 'Burning ring damages nearby enemies', level: 1 },
+        elementalOrbs: { name: 'Elemental Orbs', icon: '🔮', desc: 'Orbiting orbs that cycle elements', level: 1 }
+    },
+    abilities: {
+        fireBlast: { name: 'Fire Blast', icon: '💥', key: 'Q', desc: 'Expanding circle deals fire damage (800px)', cooldown: 12, level: 1 },
+        fireAmp: { name: 'Fire Amp', icon: '⬆️', key: 'E', desc: 'Zone that boosts fireball & aura damage', cooldown: 15, level: 1 }
+    },
+    // Augments for leveling up
+    augments: [
+        // Common
+        { id: 'fm_speed', name: 'Swift Flames', icon: '💨', desc: '+10% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.1, getDesc: (g) => `Speed: ${g.player.speed} → ${Math.floor(g.player.speed * 1.1)}` },
+        { id: 'fm_hp', name: 'Flame Shield', icon: '🛡️', desc: '+50 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 50}` },
+        // Rare
+        { id: 'fm_orb', name: 'Elemental Orb', icon: '🔮', desc: '+1 orbiting orb (max 6)', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Orbs: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
+        { id: 'fm_firerate', name: 'Rapid Fire', icon: '🔥', desc: '+15% fire rate', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate *= 0.85, getDesc: (g) => `Fire Rate: +15%` },
+        // Epic (Skill Upgrades)
+        { id: 'fm_aura_expand', name: 'Inferno Expansion', icon: '🔵', desc: 'Aura Ring +25 radius, +15 damage', rarity: 'epic', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { if(g.auraFire) { g.auraFire.radius += 25; g.auraFire.damage += 15; } }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 25}` : 'Aura not active' },
+        { id: 'fm_fireball_size', name: 'Meteor Strike', icon: '☄️', desc: 'Fireballs +40% size, +20% damage', rarity: 'epic', isSkillUpgrade: true, skill: 'fireball', effect: (g) => { g.weapons.bullet.size = Math.floor(g.weapons.bullet.size * 1.4); g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.2); }, getDesc: (g) => `Size +40%, Damage +20%` },
+        { id: 'fm_blast_radius', name: 'Supernova', icon: '💥', desc: 'Fire Blast radius +200px, damage +25%', rarity: 'epic', isAbilityUpgrade: true, ability: 'fireBlast', effect: (g) => { g.fireBlastRadius = (g.fireBlastRadius || 800) + 200; g.fireBlastDamage = (g.fireBlastDamage || 1) * 1.25; }, getDesc: (g) => `Radius: ${g.fireBlastRadius || 800} → ${(g.fireBlastRadius || 800) + 200}` },
+        // Legendary (Major Skill/Ability Upgrades)
+        { id: 'fm_orb_frenzy', name: 'Orb Frenzy', icon: '🌀', desc: 'Orbs spin 2x faster, +50% damage', rarity: 'legendary', isSkillUpgrade: true, skill: 'elementalOrbs', effect: (g) => { g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => `Orb Speed & Damage doubled` },
+        { id: 'fm_burn_spread', name: 'Wildfire', icon: '🌋', desc: 'Burning enemies spread fire to nearby enemies', rarity: 'legendary', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => g.augments.push('burn_spread'), getDesc: (g) => g.augments.includes('burn_spread') ? 'Active ✓' : 'Activate' },
+        { id: 'fm_amp_persist', name: 'Eternal Flame', icon: '🔥', desc: 'Fire Amp lasts 3s longer, +50% damage boost', rarity: 'legendary', isAbilityUpgrade: true, ability: 'fireAmp', effect: (g) => { g.fireAmpDuration = (g.fireAmpDuration || 5) + 3; g.fireAmpBoost = (g.fireAmpBoost || 1.5) + 0.5; }, getDesc: (g) => `Duration +3s, Boost +50%` },
+    ]
+};
+
+// 🌑 SHADOW MASTER - Shadow creature summoner with whip attack
+// Skills: Whip Attack, Shadow Monsters, Shadow Sentinels
+// Abilities: Shadow Cloak (Q), Shadow Step (E)
+const SHADOW_MASTER_CLASS = {
+    id: 'shadow_master',
+    name: 'Shadow Master',
+    icon: '🌑',
+    color: '#6600aa',
+    desc: 'Commands shadows. Whip attack, shadow monsters, and sentinel guardians.',
+    bonuses: {
+        hasWhipAttack: true,       // Skill 1: Whip (replaces projectiles)
+        shadowMonsterCount: 1,     // Skill 2: Shadow Monsters (starts with 1)
+        shadowSentinelCount: 2,    // Skill 3: Shadow Sentinels (stationary defenders)
+        damage: 1.4,               // +40% damage (whip hits hard)
+        fireRate: 0.85             // Slightly slower
+    },
+    skills: {
+        whipAttack: { name: 'Whip Attack', icon: '🔗', desc: 'Arc attack hits multiple enemies', level: 1 },
+        shadowMonsters: { name: 'Shadow Monsters', icon: '👻', desc: 'Summon shadows to fight for you', level: 1 },
+        shadowSentinels: { name: 'Shadow Sentinels', icon: '🦇', desc: 'Stationary guardians that attack nearby enemies', level: 1 }
+    },
+    abilities: {
+        shadowCloak: { name: 'Shadow Cloak', icon: '👤', key: 'Q', desc: 'Invisible 3s, enemies freeze', cooldown: 18, level: 1 },
+        shadowStep: { name: 'Shadow Step', icon: '💨', key: 'E', desc: 'Dash 200px + 1s invisibility', cooldown: 8, level: 1 }
+    },
+    augments: [
+        // Common
+        { id: 'sm_speed', name: 'Shadow Speed', icon: '💨', desc: '+12% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.12, getDesc: (g) => `Speed +12%` },
+        { id: 'sm_hp', name: 'Dark Resilience', icon: '🛡️', desc: '+40 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 40; g.player.health += 40; }, getDesc: (g) => `HP +40` },
+        // Rare
+        { id: 'sm_monster', name: 'Shadow Summon', icon: '👻', desc: '+1 shadow monster (max 5)', rarity: 'rare', effect: (g) => { if((g.shadowMonsters?.length || 0) < 5) g.shadowMonsters.push(g.createShadowMonster()); }, getDesc: (g) => `Monsters: ${g.shadowMonsters?.length || 0} → ${Math.min(5, (g.shadowMonsters?.length || 0) + 1)}` },
+        { id: 'sm_sentinel', name: 'Sentinel Guard', icon: '🦇', desc: '+1 shadow sentinel (max 6)', rarity: 'rare', effect: (g) => { if((g.shadowSentinels?.length || 0) < 6) g.shadowSentinels.push(g.createShadowSentinel()); }, getDesc: (g) => `Sentinels: ${g.shadowSentinels?.length || 0} → ${Math.min(6, (g.shadowSentinels?.length || 0) + 1)}` },
+        // Epic (Skill Upgrades)
+        { id: 'sm_whip_range', name: 'Extended Lash', icon: '🔗', desc: 'Whip +35% range, hits +2 enemies', rarity: 'epic', isSkillUpgrade: true, skill: 'whipAttack', effect: (g) => { g.whipRange = (g.whipRange || 120) * 1.35; g.whipTargets = (g.whipTargets || 3) + 2; }, getDesc: (g) => `Range +35%, Targets +2` },
+        { id: 'sm_monster_frenzy', name: 'Shadow Frenzy', icon: '👻', desc: 'Monsters attack 50% faster, +30% damage', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.shadowAttackSpeed = (g.shadowAttackSpeed || 1) * 1.5; g.shadowDamageBonus = (g.shadowDamageBonus || 1) * 1.3; }, getDesc: (g) => `Attack +50%, Damage +30%` },
+        { id: 'sm_cloak_extend', name: 'Deeper Shadows', icon: '👤', desc: 'Shadow Cloak +2s duration', rarity: 'epic', isAbilityUpgrade: true, ability: 'shadowCloak', effect: (g) => g.shadowCloakDuration = (g.shadowCloakDuration || 3) + 2, getDesc: (g) => `Duration: ${g.shadowCloakDuration || 3}s → ${(g.shadowCloakDuration || 3) + 2}s` },
+        // Legendary
+        { id: 'sm_dark_pact', name: 'Dark Pact', icon: '💀', desc: 'Shadow monsters heal you for 8% damage dealt', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.augments.push('dark_pact'); g.darkPactHeal = 0.08; }, getDesc: (g) => g.augments.includes('dark_pact') ? 'Active ✓' : 'Activate' },
+        { id: 'sm_sentinel_explode', name: 'Shadow Burst', icon: '💥', desc: 'Sentinels explode on death dealing 150 damage', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowSentinels', effect: (g) => g.augments.push('sentinel_explode'), getDesc: (g) => g.augments.includes('sentinel_explode') ? 'Active ✓' : 'Activate' },
+        { id: 'sm_step_damage', name: 'Phantom Strike', icon: '💨', desc: 'Shadow Step deals 100 damage to passed enemies', rarity: 'legendary', isAbilityUpgrade: true, ability: 'shadowStep', effect: (g) => g.shadowStepDamage = 100, getDesc: (g) => `Step Damage: 100` },
+    ]
+};
+
+// ☠️ NECROMANCER - Master of death, raises the fallen
+// Skills: Floating Skulls (main attack), Raise Dead, Death Drain
+// Abilities: Bone Pit (Q), Soul Shield (E)
+const NECROMANCER_CLASS = {
+    id: 'necromancer',
+    name: 'Necromancer',
+    icon: '☠️',
+    color: '#00cc66',
+    desc: 'Master of death. Floating skulls, raise the dead, and drain life.',
+    bonuses: {
+        hasFloatingSkulls: true,   // Skill 1: Floating skulls (NO projectiles)
+        skullCount: 3,             // Starts with 3 skulls
+        hasRaiseDead: true,        // Skill 2: Raise Dead passive
+        hasDeathDrain: true,       // Skill 3: Death Drain beam (from beam of despair)
+        noProjectiles: true,       // Necromancer doesn't shoot projectiles
+        damage: 1.0,
+        fireRate: 1
+    },
+    skills: {
+        floatingSkulls: { name: 'Floating Skulls', icon: '💀', desc: 'Orbiting skulls damage enemies', level: 1 },
+        raiseDead: { name: 'Raise Dead', icon: '🧟', desc: 'Killed enemies may rise to fight for you', level: 1 },
+        deathDrain: { name: 'Death Drain', icon: '🩸', desc: 'Red beam chains to enemies, draining life', level: 1 }
+    },
+    abilities: {
+        bonePit: { name: 'Bone Pit', icon: '🦴', key: 'Q', desc: 'Pit of bones slows enemies (5s)', cooldown: 14, level: 1 },
+        soulShield: { name: 'Soul Shield', icon: '👻', key: 'E', desc: 'Corpses absorb damage for you (4s)', cooldown: 20, level: 1 }
+    },
+    augments: [
+        // Common
+        { id: 'nc_speed', name: 'Death March', icon: '💨', desc: '+8% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.08, getDesc: (g) => `Speed +8%` },
+        { id: 'nc_hp', name: 'Undying Will', icon: '🛡️', desc: '+60 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 60; g.player.health += 60; }, getDesc: (g) => `HP +60` },
+        // Rare
+        { id: 'nc_skull', name: 'Soul Collector', icon: '💀', desc: '+1 floating skull (max 6)', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Skulls: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
+        { id: 'nc_corpse_limit', name: 'Army of Dead', icon: '🧟', desc: '+3 max raised corpses', rarity: 'rare', effect: (g) => g.maxRaisedCorpses = (g.maxRaisedCorpses || 5) + 3, getDesc: (g) => `Max Corpses: ${g.maxRaisedCorpses || 5} → ${(g.maxRaisedCorpses || 5) + 3}` },
+        // Epic (Skill Upgrades)
+        { id: 'nc_raise_chance', name: 'Mass Resurrection', icon: '🧟', desc: '+10% raise chance, corpses last +5s', rarity: 'epic', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.raiseChance = (g.raiseChance || 0.15) + 0.1; g.corpseLifetime = (g.corpseLifetime || 20) + 5; }, getDesc: (g) => `Raise: ${Math.floor((g.raiseChance || 0.15) * 100)}% → ${Math.floor(((g.raiseChance || 0.15) + 0.1) * 100)}%` },
+        { id: 'nc_drain_chain', name: 'Chain Drain', icon: '🩸', desc: 'Death Drain chains to +2 enemies', rarity: 'epic', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => g.deathDrainChains = (g.deathDrainChains || 1) + 2, getDesc: (g) => `Chains: ${g.deathDrainChains || 1} → ${(g.deathDrainChains || 1) + 2}` },
+        { id: 'nc_pit_radius', name: 'Mass Grave', icon: '🦴', desc: 'Bone Pit +50% radius', rarity: 'epic', isAbilityUpgrade: true, ability: 'bonePit', effect: (g) => g.bonePitRadius = (g.bonePitRadius || 100) * 1.5, getDesc: (g) => `Radius: ${g.bonePitRadius || 100} → ${Math.floor((g.bonePitRadius || 100) * 1.5)}` },
+        // Legendary
+        { id: 'nc_corpse_explode', name: 'Corpse Explosion', icon: '💥', desc: 'Raised corpses explode on death (250 dmg)', rarity: 'legendary', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.augments.push('corpse_explode'); g.corpseExplosionDamage = 250; }, getDesc: (g) => g.augments.includes('corpse_explode') ? 'Active ✓' : 'Activate' },
+        { id: 'nc_drain_evolve', name: 'Life Siphon', icon: '💚', desc: 'Death Drain heals you, beam turns green', rarity: 'legendary', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => { g.augments.push('drain_heals'); g.deathDrainEvolved = true; }, getDesc: (g) => g.augments.includes('drain_heals') ? 'Active ✓' : 'Activate' },
+        { id: 'nc_soul_harvest', name: 'Soul Harvest', icon: '🔮', desc: '+1% max HP per 10 kills (permanent)', rarity: 'legendary', isSkillUpgrade: true, skill: 'floatingSkulls', effect: (g) => g.augments.push('soul_harvest'), getDesc: (g) => g.augments.includes('soul_harvest') ? 'Active ✓' : 'Activate' },
+    ]
+};
+
+// All playable classes for character select
+const PLAYABLE_CLASSES = [FIRE_MAGE_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS];
+
+// ============================================
+// COSMETIC STORE SYSTEM (Stripe Prices in cents for easy conversion)
+// Price shown to user = price / 100 (e.g., 499 = $4.99)
+// ============================================
+const COSMETIC_STORE = {
+    skins: [
+        { id: 'skin_golden', name: 'Golden Warrior', icon: '👑', desc: 'Shimmering gold player aura', price: 499, color: '#ffd700', effect: 'golden_glow' },
+        { id: 'skin_shadow', name: 'Shadow Form', icon: '🌑', desc: 'Dark purple ethereal form', price: 399, color: '#6600aa', effect: 'shadow_form' },
+        { id: 'skin_ice', name: 'Frost Walker', icon: '❄️', desc: 'Icy blue crystalline skin', price: 399, color: '#00ccff', effect: 'ice_form' },
+        { id: 'skin_fire', name: 'Inferno', icon: '🔥', desc: 'Blazing fire aura', price: 449, color: '#ff4400', effect: 'fire_form' },
+        { id: 'skin_nature', name: 'Forest Spirit', icon: '🌿', desc: 'Green nature essence', price: 349, color: '#44ff88', effect: 'nature_form' },
+        { id: 'skin_void', name: 'Void Walker', icon: '🕳️', desc: 'Dark void energy', price: 599, color: '#220044', effect: 'void_form' },
+        { id: 'skin_rainbow', name: 'Prismatic', icon: '🌈', desc: 'Color-shifting rainbow', price: 799, color: 'rainbow', effect: 'rainbow_form' },
+        { id: 'skin_skull', name: 'Death Knight', icon: '💀', desc: 'Skeletal warrior form', price: 549, color: '#aaaaaa', effect: 'skull_form' },
+    ],
+    trails: [
+        { id: 'trail_fire', name: 'Fire Trail', icon: '🔥', desc: 'Leave flames behind you', price: 299, color: '#ff4400', effect: 'fire_trail' },
+        { id: 'trail_ice', name: 'Ice Trail', icon: '❄️', desc: 'Leave frost crystals', price: 299, color: '#00ccff', effect: 'ice_trail' },
+        { id: 'trail_shadow', name: 'Shadow Trail', icon: '🌑', desc: 'Dark shadow wisps', price: 349, color: '#6600aa', effect: 'shadow_trail' },
+        { id: 'trail_sparkle', name: 'Sparkle Trail', icon: '✨', desc: 'Glittering particles', price: 249, color: '#ffd700', effect: 'sparkle_trail' },
+        { id: 'trail_hearts', name: 'Heart Trail', icon: '💕', desc: 'Floating hearts', price: 199, color: '#ff66aa', effect: 'heart_trail' },
+        { id: 'trail_lightning', name: 'Lightning Trail', icon: '⚡', desc: 'Electric sparks', price: 399, color: '#ffff00', effect: 'lightning_trail' },
+    ],
+    effects: [
+        { id: 'effect_explosion', name: 'Epic Explosions', icon: '💥', desc: 'Bigger kill explosions', price: 399, effect: 'big_explosions' },
+        { id: 'effect_screenshake', name: 'Extra Shake', icon: '📳', desc: 'More screen shake on hits', price: 149, effect: 'extra_shake' },
+        { id: 'effect_confetti', name: 'Confetti Kills', icon: '🎉', desc: 'Confetti on enemy death', price: 299, effect: 'confetti_kills' },
+        { id: 'effect_coins', name: 'Coin Shower', icon: '🪙', desc: 'Coins fly out on kills', price: 349, effect: 'coin_shower' },
+        { id: 'effect_skull_eyes', name: 'Glowing Skulls', icon: '👁️', desc: 'Your skulls have glowing eyes', price: 249, effect: 'glowing_skulls' },
+        { id: 'effect_rainbow_damage', name: 'Rainbow Numbers', icon: '🌈', desc: 'Damage numbers cycle colors', price: 199, effect: 'rainbow_damage' },
     ]
 };
 
@@ -562,6 +735,23 @@ const GAME_SETTINGS = {
     playerSpeedMult: 1.15        // Faster player movement
 };
 
+// Dynamic Difficulty Tiers (based on wave number)
+// Waves 1-20: EASY, Waves 21-40: NORMAL, Waves 41-60: HARD, Waves 60+: INFERNAL
+const DIFFICULTY_TIERS = {
+    EASY: { name: 'Easy', icon: '🌱', color: '#44ff44', healthMult: 0.75, damageMult: 0.75, maxWave: 20 },
+    NORMAL: { name: 'Normal', icon: '⚔️', color: '#ffaa00', healthMult: 1.0, damageMult: 1.0, maxWave: 40 },
+    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.5, damageMult: 1.5, maxWave: 60 },
+    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 2.5, damageMult: 2.5, maxWave: Infinity }
+};
+
+// Get difficulty tier based on wave number
+function getDifficultyTier(wave) {
+    if (wave <= 20) return DIFFICULTY_TIERS.EASY;
+    if (wave <= 40) return DIFFICULTY_TIERS.NORMAL;
+    if (wave <= 60) return DIFFICULTY_TIERS.HARD;
+    return DIFFICULTY_TIERS.INFERNAL;
+}
+
 // Legendary Perks (from control points)
 const LEGENDARY_PERKS = [
     { id: 'vampiric', name: 'Vampiric Touch', icon: '🧛', desc: 'Heal 2 HP per enemy killed' },
@@ -579,13 +769,6 @@ const DEMON_SET_PIECES = [
     { id: 'helm', name: 'Demon Helm', icon: '👹', desc: '+500 Max HP', spriteKey: 'demon_helm' },
     { id: 'chest', name: 'Demon Chestplate', icon: '🛡️', desc: '+20% Damage Reduction', spriteKey: 'demon_chest' },
     { id: 'boots', name: 'Demon Gauntlets', icon: '👢', desc: '+50 Move Speed', spriteKey: 'demon_boots' }
-];
-
-// Ocean Set - Drops from Cthulhu
-const OCEAN_SET_PIECES = [
-    { id: 'crown', name: 'Crown of the Deep', icon: '👑', desc: '+1000 Max HP' },
-    { id: 'trident', name: 'Trident of Storms', icon: '🔱', desc: '+50% Damage' },
-    { id: 'scales', name: 'Scales of Leviathan', icon: '🐚', desc: '+100 Move Speed' }
 ];
 
 class DotsSurvivor {
@@ -985,12 +1168,12 @@ class DotsSurvivor {
             if ((e.key === 'Escape' || key === 'p') && this.gameRunning) {
                 this.togglePause();
             }
-            // Ability activation - Q for Dash, E for Nuclear Blast
+            // Character ability activation - Q and E keys
             if (key === 'q' && this.gameRunning && !this.gamePaused) {
-                this.activateAbility('dash');
+                this.activateCharacterAbility('q');
             }
             if (key === 'e' && this.gameRunning && !this.gamePaused) {
-                this.activateAbility('nuclearBlast');
+                this.activateCharacterAbility('e');
             }
         });
         window.addEventListener('keyup', (e) => {
@@ -1387,6 +1570,10 @@ class DotsSurvivor {
     }
 
     showBoostSelect() {
+        this.showCharacterSelect();
+    }
+
+    showCharacterSelect() {
         // Hide game over menu and show start menu
         document.getElementById('gameover-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
@@ -1396,34 +1583,72 @@ class DotsSurvivor {
 
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
+
+        // Build character cards HTML
+        const characterCardsHTML = PLAYABLE_CLASSES.map((charClass, index) => {
+            const skillsHTML = Object.values(charClass.skills).map(s =>
+                `<div style="display:flex;align-items:center;gap:0.3rem;font-size:0.7rem;color:#ccc;"><span>${s.icon}</span><span>${s.name}</span></div>`
+            ).join('');
+
+            const abilitiesHTML = Object.values(charClass.abilities).map(a =>
+                `<div style="display:flex;align-items:center;gap:0.3rem;font-size:0.65rem;color:#aaa;"><span style="background:#333;padding:1px 4px;border-radius:3px;font-size:0.6rem;">${a.key}</span><span>${a.icon} ${a.name}</span></div>`
+            ).join('');
+
+            return `
+                <div class="char-card" data-class-index="${index}" style="background:${charClass.color}22;border:3px solid ${charClass.color};border-radius:16px;padding:1.2rem;width:220px;cursor:pointer;text-align:center;transition:all 0.3s;position:relative;">
+                    <div style="font-size:3rem;margin-bottom:0.3rem;">${charClass.icon}</div>
+                    <div style="font-weight:700;color:${charClass.color};font-size:1.3rem;margin:0.3rem 0;">${charClass.name}</div>
+                    <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.8rem;line-height:1.3;">${charClass.desc}</div>
+
+                    <div style="text-align:left;margin-top:0.8rem;">
+                        <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:0.3rem;">⚔️ Skills</div>
+                        ${skillsHTML}
+                    </div>
+
+                    <div style="text-align:left;margin-top:0.6rem;">
+                        <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:0.3rem;">✨ Abilities</div>
+                        ${abilitiesHTML}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
         content.innerHTML = `
             <h1 class="game-title">VELTHARA'S<span>DOMINION</span></h1>
-            <p class="game-subtitle">Survive the endless horde!</p>
-            <div style="display:flex;gap:1.5rem;justify-content:center;margin:2rem 0;">
-                <div class="diff-card" id="btn-fresh" style="background:#44ff8822;border:2px solid #44ff88;border-radius:12px;padding:1.5rem;width:180px;cursor:pointer;text-align:center;">
-                    <div style="font-size:2.5rem;">🌱</div>
-                    <div style="font-weight:700;color:#44ff88;font-size:1.2rem;margin:0.5rem 0;">Fresh Start</div>
-                    <div style="font-size:0.85rem;color:#ccc;">Start at Level 1</div>
-                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+3 Random Upgrades</div>
-                    <div style="font-size:0.7rem;color:#888;margin-top:0.3rem;">🎲 Augments are random</div>
-                </div>
-                <div class="diff-card" id="btn-boosted" style="background:#00ccff22;border:2px solid #00ccff;border-radius:12px;padding:1.5rem;width:180px;cursor:pointer;text-align:center;">
-                    <div style="font-size:2.5rem;">🚀</div>
-                    <div style="font-weight:700;color:#00ccff;font-size:1.2rem;margin:0.5rem 0;">Head Start</div>
-                    <div style="font-size:0.85rem;color:#ccc;">Start at Level 5</div>
-                    <div style="font-size:0.9rem;color:#fff;margin-top:0.5rem;">+5 Random Upgrades</div>
-                    <div style="font-size:0.7rem;color:#888;margin-top:0.3rem;">🎲 Augments are random</div>
-                </div>
+            <p class="game-subtitle" style="margin-bottom:0.5rem;">Choose Your Champion</p>
+            <div style="display:flex;gap:1.2rem;justify-content:center;margin:1.5rem 0;flex-wrap:wrap;">
+                ${characterCardsHTML}
             </div>
             <a href="/" class="menu-btn secondary" style="margin-top:1rem;display:inline-block;">🏠 EXIT TO HUB</a>
-            <div class="controls-info" style="margin-top:1rem;color:#888;font-size:0.8rem;"><p>🎮 WASD/Arrows to move & aim</p><p>🔫 Auto-shoots in movement direction</p><p>⏸️ ESC/P to pause</p></div>
+            <div class="controls-info" style="margin-top:1rem;color:#888;font-size:0.8rem;">
+                <p>🎮 WASD/Arrows to move • 🔫 Auto-attack • ⏸️ ESC to pause</p>
+                <p style="color:#fbbf24;">Q/E for special abilities</p>
+            </div>
         `;
 
-        document.getElementById('btn-fresh').addEventListener('click', () => this.showStarterItemSelect('fresh'));
-        document.getElementById('btn-boosted').addEventListener('click', () => this.showStarterItemSelect('boosted'));
+        // Add hover effects and click handlers
+        const cards = content.querySelectorAll('.char-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'scale(1.05)';
+                card.style.boxShadow = '0 0 30px rgba(255,255,255,0.2)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'scale(1)';
+                card.style.boxShadow = 'none';
+            });
+            card.addEventListener('click', () => {
+                const classIndex = parseInt(card.dataset.classIndex);
+                const selectedClass = PLAYABLE_CLASSES[classIndex];
+                this.showStarterItemSelect(selectedClass);
+            });
+        });
     }
 
-    showStarterItemSelect(mode) {
+    showStarterItemSelect(characterClass) {
+        // Store selected character class for startGame
+        this.pendingCharacterClass = characterClass;
+
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
 
@@ -1441,8 +1666,12 @@ class DotsSurvivor {
         });
 
         content.innerHTML = `
-            <h1 style="color:#fbbf24;font-size:1.8rem;margin-bottom:0.5rem;">🎁 CHOOSE STARTER ITEM</h1>
-            <p style="color:#888;font-size:0.9rem;margin-bottom:1.5rem;">Pick an item to start your run with!</p>
+            <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;">
+                <span style="font-size:2rem;">${characterClass.icon}</span>
+                <span style="color:${characterClass.color};font-size:1.2rem;font-weight:700;">${characterClass.name}</span>
+            </div>
+            <h1 style="color:#fbbf24;font-size:1.6rem;margin-bottom:0.5rem;">🎁 CHOOSE STARTER ITEM</h1>
+            <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Pick an item to start your run with!</p>
             <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:700px;margin:0 auto;">
                 ${items.map(item => `
                     <div class="starter-item-card" data-item="${item.key}" style="background:rgba(255,255,255,0.05);border:2px solid #444;border-radius:12px;padding:1rem;cursor:pointer;text-align:center;transition:all 0.2s;min-height:160px;">
@@ -1457,6 +1686,7 @@ class DotsSurvivor {
                 `).join('')}
             </div>
             <button id="skip-item-btn" style="margin-top:1.5rem;padding:10px 24px;background:transparent;border:1px solid #666;color:#888;border-radius:8px;cursor:pointer;font-family:inherit;">Skip (No Item)</button>
+            <button id="back-to-chars-btn" style="margin-top:0.5rem;padding:8px 20px;background:transparent;border:1px solid #444;color:#666;border-radius:8px;cursor:pointer;font-family:inherit;display:block;margin-left:auto;margin-right:auto;">← Back to Characters</button>
         `;
 
         // Add hover effects and click handlers
@@ -1473,13 +1703,17 @@ class DotsSurvivor {
             card.addEventListener('click', () => {
                 const itemKey = card.dataset.item;
                 this.selectedStarterItem = itemKey;
-                this.startGame(mode);
+                this.startGame();
             });
         });
 
         document.getElementById('skip-item-btn').addEventListener('click', () => {
             this.selectedStarterItem = null;
-            this.startGame(mode);
+            this.startGame();
+        });
+
+        document.getElementById('back-to-chars-btn').addEventListener('click', () => {
+            this.showCharacterSelect();
         });
     }
 
@@ -1494,7 +1728,17 @@ class DotsSurvivor {
         }
     }
 
-    startGame(mode = 'fresh') {
+    startGame() {
+        // Use the pending character class selected from character select screen
+        if (this.pendingCharacterClass) {
+            this.selectedClass = this.pendingCharacterClass;
+            this.pendingCharacterClass = null;
+        } else {
+            // Fallback to Fire Mage if no class selected
+            this.selectedClass = FIRE_MAGE_CLASS;
+        }
+        this.player.color = this.selectedClass.color;
+
         // Stop menu music and start game music when game starts
         this.stopMenuMusic();
         this.playGameMusic();
@@ -1509,6 +1753,9 @@ class DotsSurvivor {
         // Reset upgrade menu state
         this.upgradeMenuShowing = false;
 
+        // Load equipped cosmetics from store
+        this.loadEquippedCosmetics();
+
         this.worldX = 0; this.worldY = 0;
         this.player.x = this.canvas.width / 2; this.player.y = this.canvas.height / 2;
 
@@ -1519,16 +1766,9 @@ class DotsSurvivor {
         this.player.xp = 0; this.player.xpToLevel = 50; this.player.kills = 0;
         this.player.hpRegen = 0;
 
-        // Mode logic
-        if (mode === 'boosted') {
-            this.player.level = 5;
-            this.pendingUpgrades = 5;
-            // Scale XP requirement for lvl 5
-            for (let i = 1; i < 5; i++) this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.15);
-        } else {
-            this.player.level = 1;
-            this.pendingUpgrades = 3; // 3 Free attributes for Fresh start
-        }
+        // All characters start at level 1 with 3 starting augments
+        this.player.level = 1;
+        this.pendingUpgrades = 3;
 
         this.weapons.bullet = { damage: 15, speed: 450, fireRate: 350, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
@@ -1672,22 +1912,6 @@ class DotsSurvivor {
         this.impSpawnTimer = 0;
         this.impStats = { damage: 300, maxImps: 5, spawnInterval: 10, burnDuration: 5 };
 
-        // Ocean Set (Cthulhu)
-        this.oceanSet = { crown: false, trident: false, scales: false };
-        this.oceanSetBonusActive = false;
-        this.waterTornadoes = [];
-        this.tornadoSpawnTimer = 0;
-        this.tornadoStats = { damage: 200, maxTornadoes: 3, spawnInterval: 8, duration: 6, pullRadius: 120 };
-
-        // Cthulhu Boss
-        this.cthulhuSpawned = false;
-        this.cthulhuWarning = false;
-        this.cthulhuWarningTimer = 0;
-        this.cthulhuSpawnWave = 25; // Cthulhu appears at wave 25
-        this.oceanBackground = { transitioning: false, targetColor: '#000000', currentColor: '#000000', transitionSpeed: 0.02 };
-        this.swimmingCreatures = [];
-        this.waterRipples = [];
-
         if (this.selectedClass.bonuses.wolfCount) {
             this.maxWolves = this.selectedClass.bonuses.wolfCount;
         }
@@ -1700,8 +1924,92 @@ class DotsSurvivor {
         // Current code likely wasn't using them if grep failed, but let's ensure they are used
         this.diamondAugments = [...DIAMOND_AUGMENTS];
 
-        // Class-specific starting abilities
-        if (this.selectedClass.bonuses.skullCount) for (let i = 0; i < this.selectedClass.bonuses.skullCount; i++) this.skulls.push(this.createSkull());
+        // ============================================
+        // CLASS-SPECIFIC INITIALIZATION
+        // ============================================
+
+        // Initialize character abilities (Q and E keys)
+        this.characterAbilities = {
+            q: { cooldown: 0, maxCooldown: 12, ready: true },
+            e: { cooldown: 0, maxCooldown: 15, ready: true }
+        };
+
+        // Skulls/Orbs (Fire Mage & Necromancer)
+        if (this.selectedClass.bonuses.skullCount) {
+            for (let i = 0; i < this.selectedClass.bonuses.skullCount; i++) {
+                this.skulls.push(this.createSkull());
+            }
+        }
+
+        // ========== FIRE MAGE ==========
+        if (this.selectedClass.bonuses.hasAuraFire) {
+            this.auraFire = { radius: 80, damage: 25, burnDuration: 3, kills: 0, level: 1 };
+            this.augments.push('aura_fire');
+        }
+        if (this.selectedClass.bonuses.hasFireballs) {
+            // Fire Mage uses fireballs (default projectile system)
+            this.hasFireballs = true;
+        }
+        // Fire Mage abilities
+        this.fireBlastRadius = 800;
+        this.fireBlastDamage = 1;
+        this.fireAmpDuration = 5;
+        this.fireAmpBoost = 1.5;
+        this.fireAmpActive = false;
+        this.fireAmpTimer = 0;
+
+        // ========== SHADOW MASTER ==========
+        if (this.selectedClass.bonuses.hasWhipAttack) {
+            this.hasWhipAttack = true;
+            this.whipRange = 120;
+            this.whipArc = Math.PI * 0.6;
+            this.whipTargets = 3;
+        }
+        if (this.selectedClass.bonuses.shadowMonsterCount) {
+            this.shadowMonsters = [];
+            this.shadowAttackSpeed = 1;
+            this.shadowDamageBonus = 1;
+            for (let i = 0; i < this.selectedClass.bonuses.shadowMonsterCount; i++) {
+                this.shadowMonsters.push(this.createShadowMonster());
+            }
+        }
+        if (this.selectedClass.bonuses.shadowSentinelCount) {
+            this.shadowSentinels = [];
+            for (let i = 0; i < this.selectedClass.bonuses.shadowSentinelCount; i++) {
+                this.shadowSentinels.push(this.createShadowSentinel());
+            }
+        }
+        // Shadow Master abilities
+        this.shadowCloakDuration = 3;
+        this.shadowCloakActive = false;
+        this.shadowCloakTimer = 0;
+        this.shadowStepDistance = 200;
+        this.shadowStepDamage = 0;
+        this.isInvisible = false;
+
+        // ========== NECROMANCER ==========
+        if (this.selectedClass.bonuses.hasRaiseDead) {
+            this.raisedCorpses = [];
+            this.maxRaisedCorpses = 5;
+            this.raiseChance = 0.15;
+            this.corpseLifetime = 20;
+            this.deathAura = null;
+        }
+        if (this.selectedClass.bonuses.hasDeathDrain) {
+            this.hasDeathDrain = true;
+            this.deathDrainChains = 1;
+            this.deathDrainEvolved = false;
+            this.deathDrainDamage = 15;
+        }
+        if (this.selectedClass.bonuses.noProjectiles) {
+            this.noProjectiles = true;
+        }
+        // Necromancer abilities
+        this.bonePitRadius = 100;
+        this.bonePits = [];
+        this.soulShieldActive = false;
+        this.soulShieldTimer = 0;
+        this.soulShieldDuration = 4;
 
         // Chrono Field (time_stop augment)
         this.chronoFieldTimer = 0;
@@ -2199,406 +2507,6 @@ class DotsSurvivor {
         this.player.kills++;
     }
 
-    // ==================== CTHULHU BOSS SYSTEM ====================
-    startCthulhuWarning() {
-        if (this.cthulhuWarning || this.cthulhuSpawned) return;
-
-        this.cthulhuWarning = true;
-        this.cthulhuWarningTimer = 30; // 30 seconds until spawn
-        this.oceanBackground.transitioning = true;
-        this.oceanBackground.useArenaImage = true;  // Use arena floor image during warning
-        this.oceanBackground.targetColor = '#0a2a4a'; // Fallback color
-
-        // Load arena floor image for warning phase
-        if (!this.arenaFloorImage) {
-            this.arenaFloorImage = new Image();
-            this.arenaFloorImage.src = '4513c543-5ff6-499f-8105-a008fa343452.jpg';
-        }
-
-        // Swimming creatures removed - they were confusing during the fight
-
-        // Warning message
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 100,
-            value: '🌊 THE OCEAN STIRS... 🌊',
-            lifetime: 5,
-            color: '#00aaff',
-            scale: 2.5
-        });
-    }
-
-    spawnSwimmingCreature() {
-        const side = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
-        let x, y, vx, vy;
-
-        if (side === 0) { x = Math.random() * this.canvas.width; y = -50; vx = (Math.random() - 0.5) * 100; vy = 50 + Math.random() * 50; }
-        else if (side === 1) { x = this.canvas.width + 50; y = Math.random() * this.canvas.height; vx = -(50 + Math.random() * 50); vy = (Math.random() - 0.5) * 100; }
-        else if (side === 2) { x = Math.random() * this.canvas.width; y = this.canvas.height + 50; vx = (Math.random() - 0.5) * 100; vy = -(50 + Math.random() * 50); }
-        else { x = -50; y = Math.random() * this.canvas.height; vx = 50 + Math.random() * 50; vy = (Math.random() - 0.5) * 100; }
-
-        this.swimmingCreatures.push({
-            x, y, vx, vy,
-            size: 20 + Math.random() * 40,
-            type: Math.random() > 0.5 ? '🐙' : '🦑',
-            alpha: 0.3 + Math.random() * 0.4,
-            wobble: Math.random() * Math.PI * 2
-        });
-    }
-
-    updateCthulhuWarning(dt) {
-        if (!this.cthulhuWarning) return;
-
-        this.cthulhuWarningTimer -= dt;
-
-        // Swimming creatures spawning disabled
-
-        // Water ripples
-        if (Math.random() < 0.05) {
-            this.waterRipples.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
-                radius: 0,
-                maxRadius: 50 + Math.random() * 100,
-                alpha: 0.5
-            });
-        }
-
-        // Update swimming creatures
-        for (let i = this.swimmingCreatures.length - 1; i >= 0; i--) {
-            const c = this.swimmingCreatures[i];
-            c.x += c.vx * dt;
-            c.y += c.vy * dt;
-            c.wobble += dt * 3;
-
-            // Remove if off screen
-            if (c.x < -100 || c.x > this.canvas.width + 100 || c.y < -100 || c.y > this.canvas.height + 100) {
-                this.swimmingCreatures.splice(i, 1);
-            }
-        }
-
-        // Update water ripples
-        for (let i = this.waterRipples.length - 1; i >= 0; i--) {
-            const r = this.waterRipples[i];
-            r.radius += 80 * dt;
-            r.alpha -= 0.3 * dt;
-            if (r.alpha <= 0 || r.radius >= r.maxRadius) {
-                this.waterRipples.splice(i, 1);
-            }
-        }
-
-        // Screen shake intensifies as Cthulhu approaches
-        if (this.cthulhuWarningTimer < 10) {
-            if (Math.random() < 0.1) {
-                this.triggerScreenShake(2 + (10 - this.cthulhuWarningTimer) * 0.5, 0.1);
-            }
-        }
-
-        // Removed emoji countdown - just screen shake as Cthulhu approaches
-        // (No more ☠️ 5... 4... 3... countdown messages)
-
-        // Spawn Cthulhu
-        if (this.cthulhuWarningTimer <= 0) {
-            this.spawnCthulhu();
-        }
-    }
-
-    spawnCthulhu() {
-        if (this.cthulhuSpawned) return;
-
-        this.cthulhuSpawned = true;
-        this.cthulhuWarning = false;
-
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 500;
-        const wx = this.worldX + Math.cos(angle) * dist;
-        const wy = this.worldY + Math.sin(angle) * dist;
-
-        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
-        this.enemyIdCounter++;
-
-        const waveMult = 1 + this.wave * 0.1;
-
-        const cthulhu = {
-            wx, wy,
-            id: this.enemyIdCounter,
-            type: 'cthulhu',
-            name: 'CTHULHU, LORD OF THE SEA',
-            isCthulhu: true,
-            isBoss: true,
-            radius: 200,  // BIGGER Cthulhu
-            baseRadius: 200,
-            speed: 40,
-            health: Math.floor(100000 * waveMult),  // 100k HP base
-            maxHealth: Math.floor(100000 * waveMult),
-            damage: 100,
-            xp: 10000,
-            color: '#0a4a2a',
-            hitFlash: 0,
-            critResistance: 0.9,
-            attackCooldown: 0,
-            tentaclePhase: 0,
-            lastTentacleAttack: 0,
-            lastWaterHoleSpawn: 0  // For spawning water holes
-        };
-
-        this.enemies.push(cthulhu);
-
-        // Initialize water holes array for Cthulhu fight
-        this.waterHoles = [];
-
-        // Set background to blue for the fight (switch from arena floor image)
-        this.oceanBackground.useArenaImage = false;  // Stop using arena image
-        this.oceanBackground.transitioning = true;
-        this.oceanBackground.targetColor = '#0a2a6a';  // Deeper blue for fight
-
-        // Clear nearby enemies
-        const nonBossEnemies = this.enemies.filter(e => !e.isBoss);
-        const enemiesToRemove = Math.floor(nonBossEnemies.length * 0.8);
-        for (let i = 0; i < enemiesToRemove; i++) {
-            const idx = this.enemies.findIndex(e => !e.isBoss);
-            if (idx !== -1) this.enemies.splice(idx, 1);
-        }
-
-        // Epic entrance
-        this.triggerScreenShake(30, 1.0);
-        this.triggerSlowmo(0.1, 2.0);
-
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 150,
-            value: '🐙 CTHULHU RISES! 🐙',
-            lifetime: 5,
-            color: '#00ffaa',
-            scale: 3
-        });
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 100,
-            value: 'LORD OF THE SEA',
-            lifetime: 5,
-            color: '#00ddff',
-            scale: 2
-        });
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 60,
-            value: '☠️ DEFEAT THE ANCIENT ONE ☠️',
-            lifetime: 5,
-            color: '#ff4400',
-            scale: 1.5
-        });
-
-        // Grace period
-        this.bossGracePeriod = 8;
-    }
-
-    handleCthulhuKilled(cthulhu, sx, sy) {
-        // Massive visual effects
-        this.spawnParticles(sx, sy, '#00ffaa', 80);
-        this.spawnParticles(sx, sy, '#00ddff', 60);
-        this.spawnParticles(sx, sy, '#ffffff', 40);
-
-        // Screen effects
-        this.triggerScreenShake(25, 1.0);
-        this.triggerSlowmo(0.1, 2.0);
-
-        // Reset ocean background to default (black)
-        this.oceanBackground.transitioning = true;
-        this.oceanBackground.targetColor = '#000000';
-        this.oceanBackground.useArenaImage = false;  // Stop using arena image
-        this.swimmingCreatures = [];
-        this.waterRipples = [];
-        this.waterHoles = [];  // Clear water holes
-
-        // Victory message
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 100,
-            value: '🏆 CTHULHU DEFEATED! 🏆',
-            lifetime: 5,
-            color: '#ffd700',
-            scale: 3
-        });
-
-        // Drop Ocean Set piece
-        const missing = OCEAN_SET_PIECES.filter(p => !this.oceanSet[p.id]);
-        if (missing.length > 0) {
-            const piece = missing[Math.floor(Math.random() * missing.length)];
-            this.pickups.push({
-                wx: cthulhu.wx, wy: cthulhu.wy,
-                radius: 15, color: '#00ffaa',
-                isOceanPiece: true, pieceId: piece.id
-            });
-        }
-
-        // Drop massive XP
-        for (let i = 0; i < 30; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = Math.random() * 150;
-            this.pickups.push({
-                wx: cthulhu.wx + Math.cos(angle) * dist,
-                wy: cthulhu.wy + Math.sin(angle) * dist,
-                xp: 200,
-                radius: 12,
-                color: '#00ffaa',
-                isItem: false
-            });
-        }
-
-        this.player.kills++;
-        this.spawnPauseTimer = 8;
-    }
-
-    updateWaterHoles(dt) {
-        // Only active during Cthulhu fight
-        if (!this.cthulhuSpawned) return;
-        if (!this.waterHoles) this.waterHoles = [];
-
-        // Check if Cthulhu is still alive
-        const cthulhu = this.enemies.find(e => e.isCthulhu);
-        if (!cthulhu) return;
-
-        // Spawn water holes periodically
-        if (!this.waterHoleSpawnTimer) this.waterHoleSpawnTimer = 0;
-        this.waterHoleSpawnTimer += dt;
-
-        // Spawn a new water hole every 3 seconds, max 5 active
-        if (this.waterHoleSpawnTimer >= 3 && this.waterHoles.length < 5) {
-            this.waterHoleSpawnTimer = 0;
-
-            // Spawn near player but not on top of them
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 80 + Math.random() * 150;
-
-            this.waterHoles.push({
-                wx: this.worldX + Math.cos(angle) * dist,
-                wy: this.worldY + Math.sin(angle) * dist,
-                radius: 40 + Math.random() * 20,
-                damage: 15,  // Damage per tick
-                damageTimer: 0,
-                lifetime: 8 + Math.random() * 4,  // 8-12 seconds
-                wobble: Math.random() * Math.PI * 2
-            });
-
-            // Splash effect
-            const hole = this.waterHoles[this.waterHoles.length - 1];
-            const sx = this.player.x + (hole.wx - this.worldX);
-            const sy = this.player.y + (hole.wy - this.worldY);
-            this.spawnParticles(sx, sy, '#0066ff', 10);
-        }
-
-        // Update water holes
-        for (let i = this.waterHoles.length - 1; i >= 0; i--) {
-            const hole = this.waterHoles[i];
-            hole.lifetime -= dt;
-            hole.wobble += dt * 2;
-            hole.damageTimer -= dt;
-
-            // Remove expired holes
-            if (hole.lifetime <= 0) {
-                this.waterHoles.splice(i, 1);
-                continue;
-            }
-
-            // Calculate screen position
-            const sx = this.player.x + (hole.wx - this.worldX);
-            const sy = this.player.y + (hole.wy - this.worldY);
-
-            // Check if player is standing in the water hole
-            const dx = this.player.x - sx;
-            const dy = this.player.y - sy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist < hole.radius + this.player.radius - 10 && hole.damageTimer <= 0) {
-                // Damage player
-                this.player.health -= hole.damage;
-                hole.damageTimer = 0.5;  // Damage every 0.5 seconds
-
-                this.damageNumbers.push({
-                    x: this.player.x,
-                    y: this.player.y - 30,
-                    value: -hole.damage,
-                    lifetime: 1,
-                    color: '#0088ff',
-                    isText: true,
-                    scale: 1.2
-                });
-
-                this.spawnParticles(this.player.x, this.player.y, '#0066ff', 5);
-            }
-        }
-    }
-
-    updateWaterTornadoes(dt) {
-        if (!this.oceanSetBonusActive) return;
-
-        // Spawn tornadoes
-        if (this.waterTornadoes.length < this.tornadoStats.maxTornadoes) {
-            this.tornadoSpawnTimer += dt;
-            if (this.tornadoSpawnTimer >= this.tornadoStats.spawnInterval) {
-                this.tornadoSpawnTimer = 0;
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 100 + Math.random() * 200;
-                this.waterTornadoes.push({
-                    x: this.player.x + Math.cos(angle) * dist,
-                    y: this.player.y + Math.sin(angle) * dist,
-                    radius: 30,
-                    damage: this.tornadoStats.damage,
-                    lifetime: this.tornadoStats.duration,
-                    pullRadius: this.tornadoStats.pullRadius,
-                    rotation: 0,
-                    damageTimer: 0
-                });
-                this.spawnParticles(this.waterTornadoes[this.waterTornadoes.length-1].x, this.waterTornadoes[this.waterTornadoes.length-1].y, '#00ddff', 15);
-            }
-        }
-
-        // Update tornadoes
-        for (let i = this.waterTornadoes.length - 1; i >= 0; i--) {
-            const t = this.waterTornadoes[i];
-            t.lifetime -= dt;
-            t.rotation += dt * 10;
-            t.damageTimer += dt;
-
-            if (t.lifetime <= 0) {
-                this.waterTornadoes.splice(i, 1);
-                continue;
-            }
-
-            // Pull and damage enemies
-            for (const e of this.enemies) {
-                const ex = this.player.x + (e.wx - this.worldX);
-                const ey = this.player.y + (e.wy - this.worldY);
-                const dx = t.x - ex;
-                const dy = t.y - ey;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                // Pull enemies toward tornado
-                if (dist < t.pullRadius && dist > 0) {
-                    const pullStrength = (1 - dist / t.pullRadius) * 100 * dt;
-                    e.wx += (dx / dist) * pullStrength;
-                    e.wy += (dy / dist) * pullStrength;
-                }
-
-                // Damage enemies in tornado
-                if (dist < t.radius && t.damageTimer >= 0.5) {
-                    e.health -= t.damage;
-                    e.hitFlash = 0.1;
-                    this.damageNumbers.push({
-                        x: ex, y: ey - 20,
-                        value: t.damage,
-                        lifetime: 0.5,
-                        color: '#00ddff'
-                    });
-                }
-            }
-
-            if (t.damageTimer >= 0.5) t.damageTimer = 0;
-        }
-    }
-    // ==================== END CTHULHU BOSS SYSTEM ====================
-
     spawnHealthPack() {
         const angle = Math.random() * Math.PI * 2;
         const dist = 200 + Math.random() * 400;
@@ -2658,6 +2566,57 @@ class DotsSurvivor {
         };
     }
 
+    // Beast Tamer: Create shadow monster minion
+    createShadowMonster() {
+        const existingMonsters = this.shadowMonsters?.length || 0;
+        const baseAngle = (existingMonsters * (Math.PI * 2 / 5)) + (Math.random() * 0.3 - 0.15);
+        const spawnDistance = 100 + (existingMonsters * 25);
+
+        const levelMult = 1 + (this.player.level * 0.12);
+        const damageBonus = this.shadowDamageBonus || 1;
+
+        return {
+            x: this.player.x + Math.cos(baseAngle) * spawnDistance,
+            y: this.player.y + Math.sin(baseAngle) * spawnDistance,
+            radius: 16,
+            speed: 280,
+            damage: Math.floor(45 * levelMult * damageBonus),
+            health: Math.floor(800 * levelMult),
+            maxHealth: Math.floor(800 * levelMult),
+            color: '#6600aa',
+            icon: '👻',
+            attackCooldown: 0,
+            type: 'shadow',
+            alpha: 0.7,  // Semi-transparent
+            phaseTimer: 0  // For phasing animation
+        };
+    }
+
+    // Shadow Master: Create shadow sentinel (stationary guardian)
+    createShadowSentinel() {
+        const existingSentinels = this.shadowSentinels?.length || 0;
+        const baseAngle = (existingSentinels * (Math.PI * 2 / 6)) + (Math.random() * 0.2 - 0.1);
+        const orbitRadius = 90 + (existingSentinels * 15);
+
+        const levelMult = 1 + (this.player.level * 0.1);
+
+        return {
+            angle: baseAngle,
+            orbitRadius: orbitRadius,
+            x: this.player.x + Math.cos(baseAngle) * orbitRadius,
+            y: this.player.y + Math.sin(baseAngle) * orbitRadius,
+            radius: 12,
+            damage: Math.floor(30 * levelMult),
+            health: Math.floor(400 * levelMult),
+            maxHealth: Math.floor(400 * levelMult),
+            color: '#8844cc',
+            icon: '🦇',
+            attackCooldown: 0,
+            attackRange: 80,  // Attack enemies within this range
+            type: 'sentinel'
+        };
+    }
+
     gameLoop(t) {
         if (!this.gameRunning) return;
         const dt = (t - this.lastTime) / 1000; this.lastTime = t;
@@ -2686,11 +2645,6 @@ class DotsSurvivor {
                 // Reset boss tracking for new wave
                 this.bossesSpawnedThisWave = 0;
                 this.generalSpawnedThisWave = false;
-
-                // Cthulhu warning at wave 25
-                if (this.wave >= this.cthulhuSpawnWave && !this.cthulhuSpawned && !this.cthulhuWarning) {
-                    this.startCthulhuWarning();
-                }
 
                 // Check for expired soul collectors (10 waves without completion)
                 for (let i = this.soulCollectors.length - 1; i >= 0; i--) {
@@ -3027,10 +2981,18 @@ class DotsSurvivor {
         this.updateSkulls(effectiveDt);
         this.updateMinions(effectiveDt);
         this.updateActiveMinions(effectiveDt);
+        this.updateShadowMonsters(effectiveDt);  // Shadow Master shadow monsters
+        this.updateShadowSentinels(effectiveDt); // Shadow Master sentinels
+        this.updateRaisedCorpses(effectiveDt);   // Necromancer raised dead
+        this.updateDeathAura(effectiveDt);       // Necromancer death aura
+        this.updateDeathDrain(effectiveDt);      // Necromancer death drain beam
+        this.updateBonePits(effectiveDt);        // Necromancer bone pits
+        this.updateSoulShield(effectiveDt);      // Necromancer soul shield
+        this.updateCharacterAbilities(effectiveDt); // Q/E ability cooldowns
+        this.updateInvisibility(effectiveDt);    // Shadow Master invisibility
+        this.updateFireAmp(effectiveDt);         // Fire Mage fire amp zone
+        this.updateFireBlast(effectiveDt);       // Fire Mage fire blast ability
         this.updateImps(effectiveDt);
-        this.updateWaterTornadoes(effectiveDt);
-        this.updateCthulhuWarning(effectiveDt);
-        this.updateWaterHoles(effectiveDt);
         this.updateAuraFire(effectiveDt);
         this.updateAbilities(effectiveDt);
         this.updateBeamDespair(effectiveDt);
@@ -3041,6 +3003,7 @@ class DotsSurvivor {
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
         this.updateParticles(effectiveDt);
+        this.updateTrailParticles(effectiveDt); // Cosmetic trails
         this.updateDamageNumbers(effectiveDt);
         this.updateGameJuice(dt); // Always real-time for juice effects
         this.updateGreenMucusEffect(effectiveDt); // Mini Consumer death effect
@@ -3121,8 +3084,10 @@ class DotsSurvivor {
         for (const e of this.enemies) {
             if (e.auraBurn && e.auraBurn.timer > 0) {
                 e.auraBurn.timer -= dt;
-                e.health -= this.auraFire.damage * dt;
-                
+                // Apply Fire Amp boost if active
+                const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+                e.health -= this.auraFire.damage * dt * ampBoost;
+
                 // Visual burn effect
                 if (Math.random() < 0.1) {
                     const sx = this.player.x + (e.wx - this.worldX);
@@ -3901,7 +3866,7 @@ class DotsSurvivor {
         }
 
         // Boss spawning logic - controlled per wave
-        // Wave 10: First boss, Wave 15: Consumer, Wave 20: Demon King, Wave 25: Cthulhu
+        // Wave 10: First boss, Wave 15: Consumer, Wave 20: Demon King
         // After wave 20, random bosses spawn every 5 waves
         const isBossWave = this.wave >= 10 && this.wave % 10 === 0;
         const isGeneralWave = this.wave === 20; // Demon King only at wave 20
@@ -3958,7 +3923,10 @@ class DotsSurvivor {
     }
 
     createEnemy(wx, wy, type, isSplit = false, isHorde = false) {
-        // Scaling: early game is easier, late game (wave 10+) scales harder
+        // Dynamic difficulty tier based on wave number
+        const difficultyTier = getDifficultyTier(this.wave);
+
+        // Wave-based scaling (gradual increase within each tier)
         let waveMult;
         if (this.wave < GAME_SETTINGS.lateGameWave) {
             waveMult = 1 + (this.wave - 1) * GAME_SETTINGS.scalingPerWave;
@@ -3968,6 +3936,7 @@ class DotsSurvivor {
             const lateWaves = this.wave - GAME_SETTINGS.lateGameWave;
             waveMult = 1 + earlyScaling + lateWaves * GAME_SETTINGS.scalingPerWaveLate;
         }
+
         const data = {
             // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
             // Speeds increased to compensate for further spawn distance
@@ -4002,15 +3971,19 @@ class DotsSurvivor {
         if (!this.enemyIdCounter) this.enemyIdCounter = 0;
         this.enemyIdCounter++;
 
+        // Apply difficulty tier multipliers to health and damage
+        const tierHealthMult = difficultyTier.healthMult;
+        const tierDamageMult = difficultyTier.damageMult;
+
         return {
             wx, wy, type,
             id: this.enemyIdCounter, // Unique ID for damage stacking
             radius: Math.floor(data.radius * sizeMult * lateGameSizeMult),
             baseRadius: Math.floor(data.radius * sizeMult * lateGameSizeMult), // For mini consumer growth
             speed: Math.floor(data.speed * GAME_SETTINGS.enemySpeedMult * hordeSpeedMult),
-            health: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult),
-            maxHealth: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult),
-            damage: Math.floor(data.damage * waveMult * GAME_SETTINGS.enemyDamageMult * lateGameStatMult),
+            health: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult * tierHealthMult),
+            maxHealth: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult * tierHealthMult),
+            damage: Math.floor(data.damage * waveMult * GAME_SETTINGS.enemyDamageMult * lateGameStatMult * tierDamageMult),
             xp: Math.floor(data.xp * waveMult),
             color: data.color, icon: data.icon || '', hitFlash: 0, isBoss: false,
             splits: data.splits || false,
@@ -4031,6 +4004,9 @@ class DotsSurvivor {
     }
 
     createBoss(wx, wy, type = 'boss') {
+        // Dynamic difficulty tier based on wave number
+        const difficultyTier = getDifficultyTier(this.wave);
+
         // Scaling: early game is easier, late game (wave 10+) scales harder
         let waveMult;
         if (this.wave < GAME_SETTINGS.lateGameWave) {
@@ -4066,6 +4042,10 @@ class DotsSurvivor {
         // TRIPLE boss HP and damage for more challenge
         const bossBaseMult = 3.0;
 
+        // Apply difficulty tier multipliers to health and damage
+        const tierHealthMult = difficultyTier.healthMult;
+        const tierDamageMult = difficultyTier.damageMult;
+
         // Unique enemy ID for damage number stacking
         if (!this.enemyIdCounter) this.enemyIdCounter = 0;
         this.enemyIdCounter++;
@@ -4076,9 +4056,9 @@ class DotsSurvivor {
             face,
             radius: stats.radius,
             speed: Math.floor(stats.speed * GAME_SETTINGS.enemySpeedMult), // Speed does NOT scale
-            health: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult * bossBaseMult),
-            maxHealth: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult * bossBaseMult),
-            damage: Math.floor(stats.damage * waveMult * GAME_SETTINGS.enemyDamageMult * statMult * bossBaseMult),
+            health: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult * bossBaseMult * tierHealthMult),
+            maxHealth: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult * bossBaseMult * tierHealthMult),
+            damage: Math.floor(stats.damage * waveMult * GAME_SETTINGS.enemyDamageMult * statMult * bossBaseMult * tierDamageMult),
             xp: Math.floor(stats.xp * waveMult),
             color, hitFlash: 0, isBoss: true,
             critResistance: critResist,
@@ -4117,6 +4097,18 @@ class DotsSurvivor {
             const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
             const d = Math.sqrt(dx * dx + dy * dy);
 
+            // Bone Pit slow effect (Necromancer Q ability) - 60% slow
+            let speedMult = 1;
+            if (e.bonePitSlow) {
+                speedMult = 0.4; // 60% slow
+                if (e.bonePitSlowTimer !== undefined) {
+                    e.bonePitSlowTimer -= dt;
+                    if (e.bonePitSlowTimer <= 0) {
+                        e.bonePitSlow = false;
+                    }
+                }
+            }
+
             if (e.passive) {
                 // Passive enemies wander randomly around, not towards player
                 if (!e.wanderAngle) e.wanderAngle = Math.random() * Math.PI * 2;
@@ -4126,11 +4118,11 @@ class DotsSurvivor {
                     e.wanderAngle += (Math.random() - 0.5) * Math.PI; // Random turn
                     e.wanderTimer = 1 + Math.random() * 2; // New direction every 1-3s
                 }
-                e.wx += Math.cos(e.wanderAngle) * e.speed * dt * 0.5;
-                e.wy += Math.sin(e.wanderAngle) * e.speed * dt * 0.5;
+                e.wx += Math.cos(e.wanderAngle) * e.speed * dt * 0.5 * speedMult;
+                e.wy += Math.sin(e.wanderAngle) * e.speed * dt * 0.5 * speedMult;
             } else {
                 // Normal enemy - Move towards player (world coords)
-                if (d > 0) { e.wx += (dx / d) * e.speed * dt; e.wy += (dy / d) * e.speed * dt; }
+                if (d > 0) { e.wx += (dx / d) * e.speed * dt * speedMult; e.wy += (dy / d) * e.speed * dt * speedMult; }
             }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
 
@@ -4198,6 +4190,13 @@ class DotsSurvivor {
                     this.shieldActive = false;
                     this.shieldTimer = 0;
                     this.spawnParticles(this.player.x, this.player.y, '#00aaff', 10);
+                } else if (this.soulShieldActive && this.raisedCorpses && this.raisedCorpses.length > 0) {
+                    // Necromancer Soul Shield: Raised corpses absorb damage
+                    const corpse = this.raisedCorpses[0];
+                    corpse.health -= e.damage;
+                    this.damageNumbers.push({ x: corpse.x, y: corpse.y - 10, value: -e.damage, lifetime: 1, color: '#00cc66', isText: true });
+                    this.spawnParticles(corpse.x, corpse.y, '#00cc66', 5);
+                    this.playSound('hit');
                 } else {
                     this.player.health -= e.damage;
                     this.player.invincibleTime = 0.5;
@@ -4256,19 +4255,44 @@ class DotsSurvivor {
             return;
         }
 
-        // Special handling for Cthulhu death
-        if (e.isCthulhu) {
-            this.handleCthulhuKilled(e, sx, sy);
-            const idx = this.enemies.indexOf(e);
-            if (idx >= 0) this.enemies.splice(idx, 1);
-            return;
-        }
-
         this.player.kills++;
         this.playSound('kill');
 
         // Soul Collector - check if enemy died near a collector
         this.checkSoulCollection(e.wx, e.wy, e.isBoss);
+
+        // Necromancer: Raise Dead - chance to raise killed enemy as ally
+        if (this.raisedCorpses && !e.isBoss && !e.isRaised) {
+            const raiseChance = this.raiseChance || 0.15;
+            if (Math.random() < raiseChance && this.raisedCorpses.length < (this.maxRaisedCorpses || 5)) {
+                const levelMult = 1 + (this.player.level * 0.08);
+                this.raisedCorpses.push({
+                    x: sx, y: sy,
+                    radius: Math.max(10, e.radius * 0.8),
+                    speed: 180,
+                    damage: Math.floor(30 * levelMult),
+                    health: Math.floor(200 * levelMult),
+                    maxHealth: Math.floor(200 * levelMult),
+                    color: '#00cc66',
+                    icon: '💀',
+                    attackCooldown: 0,
+                    lifetime: 20,  // 20 seconds before despawn
+                    isRaised: true
+                });
+                this.damageNumbers.push({ x: sx, y: sy - 20, value: '💀 RAISED!', lifetime: 1, color: '#00cc66', scale: 1 });
+                this.spawnParticles(sx, sy, '#00cc66', 10);
+            }
+        }
+
+        // Soul Harvest augment: +1% max HP for every 10 kills
+        if (this.augments.includes('soul_harvest')) {
+            if (this.player.kills % 10 === 0) {
+                const hpBonus = Math.floor(this.player.maxHealth * 0.01);
+                this.player.maxHealth += hpBonus;
+                this.player.health += hpBonus;
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 50, value: `🔮 +${hpBonus} MAX HP!`, lifetime: 1.5, color: '#00cc66', scale: 1 });
+            }
+        }
 
         // Aura Fire kill tracking and upgrades
         if (this.auraFire) {
@@ -4350,14 +4374,51 @@ class DotsSurvivor {
 
         // Death pop effect - scale up then burst
         this.deathPops = this.deathPops || [];
+        const explosionMult = this.hasEffect('big_explosions') ? 2.5 : 1.0;
         this.deathPops.push({
             x: sx, y: sy,
             radius: e.radius,
-            maxRadius: e.radius * 1.8,
+            maxRadius: e.radius * 1.8 * explosionMult,
             color: e.color,
             alpha: 1,
-            timer: 0.15
+            timer: 0.15 * explosionMult
         });
+
+        // Cosmetic Effect: Confetti Kills
+        if (this.hasEffect('confetti_kills')) {
+            const confettiColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#00d2d3', '#54a0ff', '#5f27cd'];
+            for (let i = 0; i < 12; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 100 + Math.random() * 150;
+                this.particles.push({
+                    x: sx, y: sy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 50,
+                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                    lifetime: 1.5 + Math.random() * 0.5,
+                    size: 4 + Math.random() * 3
+                });
+            }
+        }
+
+        // Cosmetic Effect: Coin Shower
+        if (this.hasEffect('coin_shower')) {
+            for (let i = 0; i < 5; i++) {
+                this.damageNumbers.push({
+                    x: sx + (Math.random() - 0.5) * 30,
+                    y: sy + (Math.random() - 0.5) * 20,
+                    value: '🪙',
+                    lifetime: 0.8 + Math.random() * 0.4,
+                    color: '#ffd700',
+                    scale: 0.8 + Math.random() * 0.4
+                });
+            }
+        }
+
+        // Cosmetic Effect: Extra Screen Shake
+        if (this.hasEffect('extra_shake') && !e.isBoss) {
+            this.triggerScreenShake(3, 0.1);
+        }
 
         // Vampiric perk (from augments) - reduced by 75% while in combat
         if (this.vampiric) {
@@ -4803,6 +4864,521 @@ class DotsSurvivor {
         }
     }
 
+    // Beast Tamer: Update shadow monsters
+    updateShadowMonsters(dt) {
+        if (!this.shadowMonsters || this.shadowMonsters.length === 0) return;
+
+        const attackSpeedMult = this.shadowAttackSpeed || 1;
+        const damageBonus = this.shadowDamageBonus || 1;
+
+        for (let i = this.shadowMonsters.length - 1; i >= 0; i--) {
+            const m = this.shadowMonsters[i];
+
+            // Phase animation (ghostly effect)
+            m.phaseTimer += dt;
+            m.alpha = 0.5 + Math.sin(m.phaseTimer * 3) * 0.3;
+
+            if (m.health <= 0) {
+                this.spawnParticles(m.x, m.y, '#6600aa', 12);
+                this.shadowMonsters.splice(i, 1);
+                continue;
+            }
+
+            // Find nearest enemy
+            let target = null, nd = Infinity, moveTarget = null;
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const d = Math.sqrt((m.x - sx) ** 2 + (m.y - sy) ** 2);
+                if (d < 400 && d < nd) { nd = d; target = e; moveTarget = { x: sx, y: sy }; }
+            }
+
+            const distToPlayer = Math.sqrt((m.x - this.player.x) ** 2 + (m.y - this.player.y) ** 2);
+
+            if (target && moveTarget) {
+                // Chase enemy
+                const dx = moveTarget.x - m.x, dy = moveTarget.y - m.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > m.radius + target.radius) {
+                    m.x += (dx / d) * m.speed * dt;
+                    m.y += (dy / d) * m.speed * dt;
+                }
+
+                // Attack enemy
+                if (m.attackCooldown <= 0 && d < m.radius + target.radius + 20) {
+                    const damage = Math.floor(m.damage * damageBonus);
+                    target.health -= damage;
+                    target.hitFlash = 1;
+                    this.damageNumbers.push({ x: moveTarget.x, y: moveTarget.y - 15, value: damage, color: '#6600aa', scale: 1 });
+                    this.spawnParticles(moveTarget.x, moveTarget.y, '#6600aa', 5);
+                    m.attackCooldown = 0.8 / attackSpeedMult;
+
+                    // Dark Pact: heal player for 5% of damage dealt
+                    if (this.augments.includes('dark_pact')) {
+                        const heal = Math.floor(damage * 0.05);
+                        this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    }
+                }
+            } else if (distToPlayer > 150) {
+                // Return to player
+                const dx = this.player.x - m.x, dy = this.player.y - m.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                m.x += (dx / d) * m.speed * 0.7 * dt;
+                m.y += (dy / d) * m.speed * 0.7 * dt;
+            }
+
+            if (m.attackCooldown > 0) m.attackCooldown -= dt;
+        }
+    }
+
+    // Necromancer: Update raised corpses
+    updateRaisedCorpses(dt) {
+        if (!this.raisedCorpses || this.raisedCorpses.length === 0) return;
+
+        for (let i = this.raisedCorpses.length - 1; i >= 0; i--) {
+            const corpse = this.raisedCorpses[i];
+
+            corpse.lifetime -= dt;
+            if (corpse.lifetime <= 0 || corpse.health <= 0) {
+                // Corpse Explosion augment
+                if (this.augments.includes('corpse_explode')) {
+                    this.spawnParticles(corpse.x, corpse.y, '#00cc66', 20);
+                    for (const e of this.enemies) {
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        const d = Math.sqrt((corpse.x - sx) ** 2 + (corpse.y - sy) ** 2);
+                        if (d < 80) {
+                            e.health -= 200;
+                            e.hitFlash = 1;
+                            this.damageNumbers.push({ x: sx, y: sy - 15, value: 200, color: '#00cc66', scale: 1.2 });
+                        }
+                    }
+                }
+                this.raisedCorpses.splice(i, 1);
+                continue;
+            }
+
+            // Find nearest enemy
+            let target = null, nd = Infinity, moveTarget = null;
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const d = Math.sqrt((corpse.x - sx) ** 2 + (corpse.y - sy) ** 2);
+                if (d < 300 && d < nd) { nd = d; target = e; moveTarget = { x: sx, y: sy }; }
+            }
+
+            if (target && moveTarget) {
+                const dx = moveTarget.x - corpse.x, dy = moveTarget.y - corpse.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > corpse.radius + target.radius) {
+                    corpse.x += (dx / d) * corpse.speed * dt;
+                    corpse.y += (dy / d) * corpse.speed * dt;
+                }
+
+                // Attack
+                if (corpse.attackCooldown <= 0 && d < corpse.radius + target.radius + 15) {
+                    target.health -= corpse.damage;
+                    target.hitFlash = 1;
+                    this.damageNumbers.push({ x: moveTarget.x, y: moveTarget.y - 15, value: corpse.damage, color: '#00cc66', scale: 0.9 });
+                    corpse.attackCooldown = 1.2;
+                }
+            }
+
+            if (corpse.attackCooldown > 0) corpse.attackCooldown -= dt;
+        }
+    }
+
+    // Necromancer: Death Aura - damages nearby enemies
+    updateDeathAura(dt) {
+        if (!this.deathAura) return;
+
+        this.deathAura.timer = (this.deathAura.timer || 0) + dt;
+
+        // Deal damage every 0.5 seconds
+        if (this.deathAura.timer >= 0.5) {
+            this.deathAura.timer = 0;
+
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const d = Math.sqrt((this.player.x - sx) ** 2 + (this.player.y - sy) ** 2);
+
+                if (d < this.deathAura.radius) {
+                    const damage = Math.floor(this.deathAura.damage * 0.5); // 0.5s tick
+                    e.health -= damage;
+                    e.hitFlash = 0.3;
+                }
+            }
+        }
+    }
+
+    // Shadow Master: Update shadow sentinels (stationary defenders)
+    updateShadowSentinels(dt) {
+        if (!this.shadowSentinels || this.shadowSentinels.length === 0) return;
+
+        for (let i = this.shadowSentinels.length - 1; i >= 0; i--) {
+            const s = this.shadowSentinels[i];
+
+            if (s.health <= 0) {
+                // Sentinel explode augment
+                if (this.augments.includes('sentinel_explode')) {
+                    this.spawnParticles(s.x, s.y, '#8844cc', 15);
+                    for (const e of this.enemies) {
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        const d = Math.sqrt((s.x - sx) ** 2 + (s.y - sy) ** 2);
+                        if (d < 60) {
+                            e.health -= 150;
+                            e.hitFlash = 1;
+                        }
+                    }
+                }
+                this.shadowSentinels.splice(i, 1);
+                continue;
+            }
+
+            // Stay in orbit around player
+            s.x = this.player.x + Math.cos(s.angle) * s.orbitRadius;
+            s.y = this.player.y + Math.sin(s.angle) * s.orbitRadius;
+
+            // Attack nearby enemies
+            if (s.attackCooldown <= 0) {
+                for (const e of this.enemies) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    const d = Math.sqrt((s.x - sx) ** 2 + (s.y - sy) ** 2);
+
+                    if (d < s.attackRange) {
+                        e.health -= s.damage;
+                        e.hitFlash = 0.5;
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: s.damage, color: '#8844cc', scale: 0.8 });
+                        this.spawnParticles(sx, sy, '#8844cc', 3);
+                        s.attackCooldown = 1.0;
+                        break;
+                    }
+                }
+            }
+
+            if (s.attackCooldown > 0) s.attackCooldown -= dt;
+        }
+    }
+
+    // Necromancer: Death Drain beam (chains to enemies)
+    updateDeathDrain(dt) {
+        if (!this.hasDeathDrain) return;
+
+        this.deathDrainTimer = (this.deathDrainTimer || 0) + dt;
+
+        // Tick damage every 0.3 seconds
+        if (this.deathDrainTimer >= 0.3) {
+            this.deathDrainTimer = 0;
+
+            const maxChains = this.deathDrainChains || 1;
+            const damage = this.deathDrainDamage || 15;
+            const heals = this.augments.includes('drain_heals');
+
+            // Find closest enemies to chain to
+            let chainedEnemies = [];
+            let lastPoint = { x: this.player.x, y: this.player.y };
+
+            for (let c = 0; c < maxChains; c++) {
+                let nearest = null, nd = Infinity;
+                for (const e of this.enemies) {
+                    if (chainedEnemies.includes(e)) continue;
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    const d = Math.sqrt((lastPoint.x - sx) ** 2 + (lastPoint.y - sy) ** 2);
+                    if (d < 200 && d < nd) { nd = d; nearest = { e, sx, sy }; }
+                }
+
+                if (nearest) {
+                    chainedEnemies.push(nearest.e);
+                    nearest.e.health -= damage;
+                    nearest.e.hitFlash = 0.3;
+
+                    // Heal if evolved
+                    if (heals) {
+                        const healAmount = Math.floor(damage * 0.2);
+                        this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                    }
+
+                    lastPoint = { x: nearest.sx, y: nearest.sy };
+                }
+            }
+
+            // Store for rendering
+            this.deathDrainTargets = chainedEnemies;
+        }
+    }
+
+    // Necromancer: Bone Pits (slow zones)
+    updateBonePits(dt) {
+        if (!this.bonePits) return;
+
+        for (let i = this.bonePits.length - 1; i >= 0; i--) {
+            const pit = this.bonePits[i];
+            pit.timer -= dt;
+
+            if (pit.timer <= 0) {
+                this.bonePits.splice(i, 1);
+                continue;
+            }
+
+            // Slow enemies inside
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const d = Math.sqrt((pit.x - sx) ** 2 + (pit.y - sy) ** 2);
+
+                if (d < pit.radius) {
+                    e.bonePitSlow = true;
+                    e.bonePitSlowTimer = 0.5;  // Slow persists briefly after leaving
+                }
+            }
+        }
+    }
+
+    // Necromancer: Soul Shield timer
+    updateSoulShield(dt) {
+        if (!this.soulShieldActive) return;
+
+        this.soulShieldTimer -= dt;
+        if (this.soulShieldTimer <= 0) {
+            this.soulShieldActive = false;
+            // Remove shielding flag from corpses
+            if (this.raisedCorpses) {
+                for (const c of this.raisedCorpses) {
+                    c.shielding = false;
+                }
+            }
+        }
+    }
+
+    // Character Abilities: Update cooldowns
+    updateCharacterAbilities(dt) {
+        if (!this.characterAbilities) return;
+
+        if (this.characterAbilities.q.cooldown > 0) {
+            this.characterAbilities.q.cooldown -= dt;
+            if (this.characterAbilities.q.cooldown <= 0) {
+                this.characterAbilities.q.ready = true;
+            }
+        }
+
+        if (this.characterAbilities.e.cooldown > 0) {
+            this.characterAbilities.e.cooldown -= dt;
+            if (this.characterAbilities.e.cooldown <= 0) {
+                this.characterAbilities.e.ready = true;
+            }
+        }
+    }
+
+    // Shadow Master: Invisibility state
+    updateInvisibility(dt) {
+        if (!this.isInvisible) return;
+
+        // Freeze all enemies while invisible
+        for (const e of this.enemies) {
+            e.frozen = true;
+            e.frozenByInvisibility = true;
+        }
+
+        // Check timers
+        if (this.shadowCloakActive) {
+            this.shadowCloakTimer -= dt;
+            if (this.shadowCloakTimer <= 0) {
+                this.shadowCloakActive = false;
+                this.isInvisible = false;
+                this.unfreezeEnemies();
+            }
+        }
+    }
+
+    unfreezeEnemies() {
+        for (const e of this.enemies) {
+            if (e.frozenByInvisibility) {
+                e.frozen = false;
+                e.frozenByInvisibility = false;
+            }
+        }
+    }
+
+    // Fire Mage: Fire Amp zone
+    updateFireAmp(dt) {
+        if (!this.fireAmpActive) return;
+
+        this.fireAmpTimer -= dt;
+        if (this.fireAmpTimer <= 0) {
+            this.fireAmpActive = false;
+        }
+    }
+
+    // Fire Mage: Fire Blast (expanding damage circle)
+    updateFireBlast(dt) {
+        if (!this.fireBlast) return;
+
+        const fb = this.fireBlast;
+        fb.timer += dt;
+        fb.radius = Math.min(fb.radius + fb.expandSpeed * dt, fb.maxRadius);
+
+        // Deal damage to enemies caught in the expanding wave
+        const waveThickness = 40;
+        for (const e of this.enemies) {
+            if (e.hitByFireBlast) continue;  // Don't hit same enemy twice
+
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const d = Math.sqrt((fb.x - sx) ** 2 + (fb.y - sy) ** 2);
+
+            // Check if enemy is within the expanding ring
+            if (d <= fb.radius && d >= fb.radius - waveThickness) {
+                e.health -= fb.damage;
+                e.hitFlash = 1;
+                e.hitByFireBlast = true;
+                this.damageNumbers.push({ x: sx, y: sy - 15, value: fb.damage, color: '#ff4400', scale: 1.2 });
+                this.spawnParticles(sx, sy, '#ff4400', 5);
+            }
+        }
+
+        // Finish when max radius reached
+        if (fb.radius >= fb.maxRadius) {
+            this.fireBlast = null;
+            // Clear hitByFireBlast flags
+            for (const e of this.enemies) {
+                e.hitByFireBlast = false;
+            }
+        }
+    }
+
+    // Activate character-specific ability (Q or E)
+    activateCharacterAbility(abilityKey) {
+        if (!this.characterAbilities) return;
+        const ability = this.characterAbilities[abilityKey];
+        if (!ability || !ability.ready) return;
+
+        const classId = this.selectedClass?.id;
+
+        // ========== FIRE MAGE ABILITIES ==========
+        if (classId === 'fire_mage') {
+            if (abilityKey === 'q') {
+                // Fire Blast: Expanding damage circle
+                this.fireBlast = {
+                    x: this.player.x,
+                    y: this.player.y,
+                    radius: 0,
+                    maxRadius: this.fireBlastRadius || 800,
+                    damage: Math.floor(50 * this.fireBlastDamage),
+                    timer: 0,
+                    expandSpeed: 800  // pixels per second
+                };
+                this.playSound('shoot');
+                this.triggerScreenShake(8, 0.2);
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+            else if (abilityKey === 'e') {
+                // Fire Amp: Damage boost zone
+                this.fireAmpActive = true;
+                this.fireAmpTimer = this.fireAmpDuration || 5;
+                this.fireAmpZone = {
+                    x: this.player.x,
+                    y: this.player.y,
+                    radius: 120
+                };
+                this.playSound('shoot');
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+        }
+        // ========== SHADOW MASTER ABILITIES ==========
+        else if (classId === 'shadow_master') {
+            if (abilityKey === 'q') {
+                // Shadow Cloak: 3 second invisibility, freeze enemies
+                this.shadowCloakActive = true;
+                this.shadowCloakTimer = this.shadowCloakDuration || 3;
+                this.isInvisible = true;
+                this.playSound('shoot');
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+            else if (abilityKey === 'e') {
+                // Shadow Step: Dash 200px + 1s invisibility
+                const dashDist = this.shadowStepDistance || 200;
+                // Dash in movement direction or facing direction
+                let dx = 0, dy = 0;
+                if (this.keys['w'] || this.keys['arrowup']) dy = -1;
+                if (this.keys['s'] || this.keys['arrowdown']) dy = 1;
+                if (this.keys['a'] || this.keys['arrowleft']) dx = -1;
+                if (this.keys['d'] || this.keys['arrowright']) dx = 1;
+
+                // If not moving, dash toward nearest enemy
+                if (dx === 0 && dy === 0) {
+                    let nearest = null, nd = Infinity;
+                    for (const e of this.enemies) {
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+                        if (d < nd) { nd = d; nearest = { x: sx, y: sy }; }
+                    }
+                    if (nearest) {
+                        dx = nearest.x - this.player.x;
+                        dy = nearest.y - this.player.y;
+                    }
+                }
+
+                if (dx !== 0 || dy !== 0) {
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    this.worldX -= (dx / dist) * dashDist;
+                    this.worldY -= (dy / dist) * dashDist;
+                }
+
+                // Short invisibility after dash
+                this.isInvisible = true;
+                this.shadowCloakActive = true;
+                this.shadowCloakTimer = 1;
+
+                this.spawnParticles(this.player.x, this.player.y, '#6600aa', 15);
+                this.playSound('shoot');
+                this.triggerScreenShake(5, 0.15);
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+        }
+        // ========== NECROMANCER ABILITIES ==========
+        else if (classId === 'necromancer') {
+            if (abilityKey === 'q') {
+                // Bone Pit: Slow zone at cursor/player position
+                const pit = {
+                    x: this.player.x,
+                    y: this.player.y,
+                    radius: this.bonePitRadius || 100,
+                    timer: 5,  // Fixed 5 second duration
+                    damage: 0  // Slows only, no damage
+                };
+                if (!this.bonePits) this.bonePits = [];
+                this.bonePits.push(pit);
+                this.playSound('shoot');
+                this.spawnParticles(this.player.x, this.player.y, '#aaaaaa', 10);
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+            else if (abilityKey === 'e') {
+                // Soul Shield: Raised corpses absorb damage for 4 seconds
+                this.soulShieldActive = true;
+                this.soulShieldTimer = this.soulShieldDuration || 4;
+                this.playSound('shoot');
+                // Visual feedback - corpses glow
+                if (this.raisedCorpses) {
+                    for (const c of this.raisedCorpses) {
+                        c.shielding = true;
+                    }
+                }
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+        }
+    }
+
     updateActiveMinions(dt) {
         // Apply howl buff multipliers
         const howlSpeedMult = this.howlActive ? 1.5 : 1;
@@ -4863,6 +5439,17 @@ class DotsSurvivor {
         const now = performance.now(), w = this.weapons.bullet;
         if (now - w.lastFired < w.fireRate) return;
         w.lastFired = now;
+
+        // Shadow Master: Whip attack instead of projectiles
+        if (this.hasWhipAttack) {
+            this.fireWhipAttack();
+            return;
+        }
+
+        // Necromancer: No projectiles - relies on skulls and death drain
+        if (this.noProjectiles) {
+            return;
+        }
 
         // Auto-aim at nearest enemy with PREDICTIVE targeting
         let nearestEnemy = null, nd = Infinity;
@@ -4926,6 +5513,83 @@ class DotsSurvivor {
         }
     }
 
+    // Beast Tamer: Whip attack - short range arc attack
+    fireWhipAttack() {
+        this.playSound('shoot');
+
+        const whipRange = this.whipRange || 120;
+        const whipArc = this.whipArc || (Math.PI * 0.6);  // 108 degrees
+        const maxTargets = this.whipTargets || 3;
+        const baseDamage = Math.floor(this.weapons.bullet.damage * (this.selectedClass?.bonuses?.damage || 1.5));
+
+        // Find nearest enemy to determine whip direction
+        let nearestEnemy = null, nd = Infinity;
+        for (const e of this.enemies) {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+            if (d < nd && d < whipRange * 1.5) { nd = d; nearestEnemy = e; }
+        }
+
+        if (!nearestEnemy) return;
+
+        // Calculate whip direction
+        const ex = this.player.x + (nearestEnemy.wx - this.worldX);
+        const ey = this.player.y + (nearestEnemy.wy - this.worldY);
+        const whipAngle = Math.atan2(ey - this.player.y, ex - this.player.x);
+
+        // Store whip data for visual rendering
+        this.activeWhip = {
+            angle: whipAngle,
+            range: whipRange,
+            arc: whipArc,
+            timer: 0.3,  // Visual duration
+            x: this.player.x,
+            y: this.player.y
+        };
+
+        // Find all enemies in whip arc
+        let hitCount = 0;
+        const enemiesInRange = [];
+
+        for (const e of this.enemies) {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+            if (d <= whipRange) {
+                // Check if enemy is within arc
+                const angleToEnemy = Math.atan2(sy - this.player.y, sx - this.player.x);
+                let angleDiff = angleToEnemy - whipAngle;
+                // Normalize angle difference
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+                if (Math.abs(angleDiff) <= whipArc / 2) {
+                    enemiesInRange.push({ enemy: e, dist: d, sx, sy });
+                }
+            }
+        }
+
+        // Sort by distance and hit up to maxTargets
+        enemiesInRange.sort((a, b) => a.dist - b.dist);
+
+        for (const hit of enemiesInRange.slice(0, maxTargets)) {
+            const e = hit.enemy;
+            const damage = baseDamage;
+
+            e.health -= damage;
+            e.hitFlash = 1;
+            this.damageNumbers.push({ x: hit.sx, y: hit.sy - 15, value: damage, color: '#6600aa', scale: 1.1 });
+            this.spawnParticles(hit.sx, hit.sy, '#6600aa', 4);
+            hitCount++;
+        }
+
+        if (hitCount > 0) {
+            this.triggerScreenShake(3, 0.1);
+        }
+    }
+
     updateProjectiles(dt) {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
@@ -4976,14 +5640,14 @@ class DotsSurvivor {
                     // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
 
+                    // Fire Mage: Fire Amp boost (applies to fireballs)
+                    if (this.fireAmpActive && this.hasFireballs) {
+                        damage = Math.floor(damage * (this.fireAmpBoost || 1.5));
+                    }
+
                     // Pack Tactics: +5% damage per wolf
                     if (this.augments.includes('pack_tactics') && this.minions.length > 0) {
                         damage = Math.floor(damage * (1 + this.minions.length * 0.05));
-                    }
-
-                    // Ocean Trident bonus: +50% damage
-                    if (this.oceanTridentBonus) {
-                        damage = Math.floor(damage * this.oceanTridentBonus);
                     }
 
                     // Stacking item damage bonus
@@ -5123,36 +5787,6 @@ class DotsSurvivor {
                             this.damageNumbers.push({
                                 x: this.player.x, y: this.player.y - 120,
                                 value: `🔥 HELLFIRE SET ACTIVE! 🔥`, lifetime: 4, color: '#ff0044', scale: 2.0
-                            });
-                        }
-                    }
-                } else if (pk.isOceanPiece) {
-                    // Ocean Piece Collection (King of the Ocean Set)
-                    if (!this.oceanSet[pk.pieceId]) {
-                        this.oceanSet[pk.pieceId] = true;
-                        this.playSound('levelup');
-
-                        // Apply piece bonus
-                        const piece = OCEAN_SET_PIECES.find(p => p.id === pk.pieceId);
-                        if (piece.id === 'crown') { this.player.maxHealth += 1000; this.player.health += 1000; }
-                        if (piece.id === 'trident') { this.oceanTridentBonus = 1.5; } // 50% damage bonus
-                        if (piece.id === 'scales') { this.player.speed += 100; }
-
-                        this.damageNumbers.push({
-                            x: this.player.x, y: this.player.y - 80,
-                            value: `🌊 EQUIPPED: ${piece.name} 🌊`, lifetime: 3, color: '#00ffaa', scale: 1.5
-                        });
-
-                        // Check Full Set
-                        if (this.oceanSet.crown && this.oceanSet.trident && this.oceanSet.scales && !this.oceanSetBonusActive) {
-                            this.oceanSetBonusActive = true;
-                            this.damageNumbers.push({
-                                x: this.player.x, y: this.player.y - 120,
-                                value: `🌊 KING OF THE OCEAN SET ACTIVE! 🌊`, lifetime: 4, color: '#00ffaa', scale: 2.0
-                            });
-                            this.damageNumbers.push({
-                                x: this.player.x, y: this.player.y - 160,
-                                value: `Water Tornadoes Unleashed!`, lifetime: 4, color: '#00ddff', scale: 1.5
                             });
                         }
                     }
@@ -5682,6 +6316,210 @@ class DotsSurvivor {
         document.getElementById('xp-bar').style.width = `${(this.player.xp / this.player.xpToLevel) * 100}%`;
         document.getElementById('level-display').textContent = `Lv. ${this.player.level}`;
         document.getElementById('kill-count').textContent = `💀 ${this.player.kills}`;
+
+        // Update difficulty tier display
+        const difficultyTier = getDifficultyTier(this.wave);
+        const difficultyEl = document.getElementById('difficulty-tier');
+        if (difficultyEl) {
+            difficultyEl.textContent = `${difficultyTier.icon} ${difficultyTier.name}`;
+            difficultyEl.style.color = difficultyTier.color;
+        }
+
+        // Update character class display
+        const classEl = document.getElementById('class-display');
+        if (classEl && this.selectedClass) {
+            classEl.textContent = `${this.selectedClass.icon} ${this.selectedClass.name}`;
+            classEl.style.color = this.selectedClass.color;
+        }
+    }
+
+    // Load equipped cosmetics at game start
+    loadEquippedCosmetics() {
+        this.equippedCosmetics = { skins: null, trails: null, effects: null };
+        this.trailParticles = []; // For rendering trail effects
+        this.lastTrailPos = { x: 0, y: 0 };
+
+        if (typeof authManager !== 'undefined') {
+            const equipped = authManager.getEquippedCosmetics();
+            if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
+            if (equipped.trails) this.equippedCosmetics.trails = equipped.trails;
+            if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
+        } else {
+            try {
+                const equipped = JSON.parse(localStorage.getItem('equipped_cosmetics') || '{}');
+                if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
+                if (equipped.trails) this.equippedCosmetics.trails = equipped.trails;
+                if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    // Get cosmetic skin color for player glow
+    getCosmeticSkinColor() {
+        if (!this.equippedCosmetics?.skins) return null;
+        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
+        if (!store) return null;
+        const skin = store.skins.find(s => s.id === this.equippedCosmetics.skins);
+        return skin ? skin.color : null;
+    }
+
+    // Update trail particles (called in update loop)
+    updateTrailParticles(dt) {
+        if (!this.equippedCosmetics?.trails || !this.trailParticles) return;
+
+        const trailId = this.equippedCosmetics.trails;
+
+        // Update existing particles with physics based on trail type
+        for (let i = this.trailParticles.length - 1; i >= 0; i--) {
+            const p = this.trailParticles[i];
+            p.lifetime -= dt;
+            p.age += dt;
+
+            // Apply trail-specific physics
+            switch (p.trailType) {
+                case 'fire_trail':
+                    // Fire Mage scaling: faster rise, more flicker at higher tiers
+                    const tierMult = 1 + (p.fireMageTier || 0) * 0.15; // 1x to 1.9x
+                    p.y -= 30 * tierMult * dt; // Rise upward (faster at higher tiers)
+                    p.x += Math.sin(p.age * 10 + p.seed) * 15 * tierMult * dt; // Flicker side to side
+                    // Slower shrink at higher tiers (particles last longer visually)
+                    p.size *= 0.97 + (p.fireMageTier || 0) * 0.003;
+                    break;
+                case 'ice_trail':
+                    p.rotation += p.rotSpeed * dt; // Rotate
+                    p.y += 5 * dt; // Slight fall
+                    p.size *= 0.98;
+                    break;
+                case 'shadow_trail':
+                    p.x += Math.sin(p.age * 5 + p.seed) * 20 * dt; // Swirl
+                    p.y += Math.cos(p.age * 5 + p.seed) * 20 * dt;
+                    p.size *= 0.96;
+                    break;
+                case 'sparkle_trail':
+                    p.twinkle = Math.sin(p.age * 15 + p.seed) * 0.5 + 0.5; // Twinkle
+                    p.rotation += p.rotSpeed * dt;
+                    p.y -= 10 * dt; // Float up
+                    break;
+                case 'heart_trail':
+                    p.y -= 25 * dt; // Float up
+                    p.x += Math.sin(p.age * 3) * 10 * dt; // Gentle sway
+                    p.scale = 1 + Math.sin(p.age * 8) * 0.2; // Pulse
+                    break;
+                case 'lightning_trail':
+                    // Lightning flickers and branches
+                    if (Math.random() < 0.1 && p.branches < 2 && p.lifetime > 0.2) {
+                        p.branches++;
+                        // Add a branch particle
+                        this.trailParticles.push(this.createTrailParticle(
+                            p.x + (Math.random() - 0.5) * 20,
+                            p.y + (Math.random() - 0.5) * 20,
+                            'lightning_trail', p.color, true
+                        ));
+                    }
+                    p.flicker = Math.random() > 0.3 ? 1 : 0.3;
+                    break;
+            }
+
+            if (p.lifetime <= 0) {
+                this.trailParticles.splice(i, 1);
+            }
+        }
+
+        // Add new trail particles if player moved
+        const dx = this.player.x - (this.lastTrailPos?.x || this.player.x);
+        const dy = this.player.y - (this.lastTrailPos?.y || this.player.y);
+        const moved = Math.sqrt(dx * dx + dy * dy) > 3;
+
+        // Fire Mage level-scaling for fire trail
+        const isFireMage = this.selectedClass?.id === 'fire_mage';
+        const level = this.player.level || 1;
+        const fireTier = Math.min(6, Math.floor(level / 5)); // 0-6 based on level
+
+        // Increase particle limit for Fire Mage at higher levels
+        const particleLimit = isFireMage ? 80 + fireTier * 20 : 80;
+
+        if (moved && this.trailParticles.length < particleLimit) {
+            const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
+            if (store) {
+                const trail = store.trails.find(t => t.id === trailId);
+                if (trail) {
+                    // Fire Mage fire trail: More particles at higher levels
+                    let count;
+                    if (isFireMage && trail.effect === 'fire_trail') {
+                        count = 2 + fireTier; // 2-8 particles based on tier
+                    } else {
+                        count = trail.effect === 'fire_trail' ? 3 : trail.effect === 'sparkle_trail' ? 2 : 1;
+                    }
+
+                    for (let i = 0; i < count; i++) {
+                        // Wider spawn area for Fire Mage at higher tiers
+                        const spreadMult = isFireMage ? 1 + fireTier * 0.15 : 1;
+                        this.trailParticles.push(this.createTrailParticle(
+                            this.player.x + (Math.random() - 0.5) * 15 * spreadMult,
+                            this.player.y + (Math.random() - 0.5) * 15 * spreadMult,
+                            trail.effect, trail.color, false, isFireMage ? fireTier : 0
+                        ));
+                    }
+                }
+            }
+        }
+        this.lastTrailPos = { x: this.player.x, y: this.player.y };
+    }
+
+    // Create a trail particle with type-specific properties
+    // fireMageTier: 0-6 for Fire Mage level scaling (0 for other classes/trails)
+    createTrailParticle(x, y, trailType, color, isBranch = false, fireMageTier = 0) {
+        // Fire Mage scaling: longer life and larger size at higher tiers
+        const tierBonus = fireMageTier * 0.1; // 0 to 0.6 bonus
+        const baseLife = isBranch ? 0.3 : (0.8 + tierBonus);
+
+        // Size scaling for fire trail with Fire Mage
+        let size;
+        if (trailType === 'fire_trail') {
+            const baseSize = 8 + Math.random() * 6;
+            size = baseSize * (1 + fireMageTier * 0.15); // 1x to 1.9x at tier 6
+        } else if (trailType === 'lightning_trail') {
+            size = 3 + Math.random() * 2;
+        } else if (trailType === 'heart_trail') {
+            size = 10 + Math.random() * 4;
+        } else {
+            size = 6 + Math.random() * 4;
+        }
+
+        return {
+            x, y,
+            lifetime: baseLife + Math.random() * 0.3,
+            maxLife: baseLife + 0.3,
+            age: 0,
+            color,
+            trailType,
+            size,
+            seed: Math.random() * Math.PI * 2,
+            rotation: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 10,
+            scale: 1,
+            twinkle: 1,
+            flicker: 1,
+            branches: isBranch ? 2 : 0, // Prevent infinite branching
+            vx: (Math.random() - 0.5) * 20,
+            vy: (Math.random() - 0.5) * 20,
+            fireMageTier // Store tier for rendering intensity
+        };
+    }
+
+    // Check if effect cosmetic is active
+    hasEffect(effectName) {
+        if (!this.equippedCosmetics?.effects) return false;
+        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
+        if (!store) return false;
+        const effect = store.effects.find(e => e.id === this.equippedCosmetics.effects);
+        return effect && effect.effect === effectName;
+    }
+
+    // Get rainbow color for rainbow damage numbers
+    getRainbowColor() {
+        const hue = (this.gameTime / 10) % 360;
+        return `hsl(${hue}, 100%, 60%)`;
     }
 
     async gameOver() {
@@ -5754,9 +6592,6 @@ class DotsSurvivor {
                         </div>
                         <div style="font-size:1.3rem;color:#00ffff;margin-bottom:0.5rem;">
                             Account Level ${prog.level}
-                        </div>
-                        <div style="color:#44ff88;font-size:1rem;margin-bottom:0.5rem;">
-                            +${prog.tokensEarned} 🪙 Tokens Earned!
                         </div>
                     `;
                 } else {
@@ -5989,191 +6824,29 @@ class DotsSurvivor {
     render() {
         const ctx = this.ctx;
 
-        // Ocean background transition for Cthulhu
-        if (this.oceanBackground && this.oceanBackground.transitioning) {
-            // Lerp toward target color
-            const current = this.oceanBackground.currentColor;
-            const target = this.oceanBackground.targetColor;
-            const speed = this.oceanBackground.transitionSpeed;
-
-            // Parse hex colors
-            const cR = parseInt(current.slice(1, 3), 16);
-            const cG = parseInt(current.slice(3, 5), 16);
-            const cB = parseInt(current.slice(5, 7), 16);
-            const tR = parseInt(target.slice(1, 3), 16);
-            const tG = parseInt(target.slice(3, 5), 16);
-            const tB = parseInt(target.slice(5, 7), 16);
-
-            // Lerp
-            const nR = Math.round(cR + (tR - cR) * speed);
-            const nG = Math.round(cG + (tG - cG) * speed);
-            const nB = Math.round(cB + (tB - cB) * speed);
-
-            this.oceanBackground.currentColor = `#${nR.toString(16).padStart(2,'0')}${nG.toString(16).padStart(2,'0')}${nB.toString(16).padStart(2,'0')}`;
-
-            // Check if close enough to stop
-            if (Math.abs(cR - tR) <= 1 && Math.abs(cG - tG) <= 1 && Math.abs(cB - tB) <= 1) {
-                this.oceanBackground.currentColor = target;
-                this.oceanBackground.transitioning = false;
-            }
-        }
-
-        // Use ocean background color if set, otherwise default
-        const bgColor = (this.oceanBackground && this.oceanBackground.currentColor !== '#000000') ? this.oceanBackground.currentColor : '#0a0a0f';
-        ctx.fillStyle = bgColor;
+        // Default background
+        ctx.fillStyle = '#0a0a0f';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Draw arena floor image during Cthulhu warning phase
-        if (this.oceanBackground && this.oceanBackground.useArenaImage && this.arenaFloorImage && this.arenaFloorImage.complete) {
-            ctx.globalAlpha = 0.7;  // Slightly transparent
-            // Tile the image across the screen
-            const img = this.arenaFloorImage;
-            const pattern = ctx.createPattern(img, 'repeat');
-            if (pattern) {
-                ctx.fillStyle = pattern;
-                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            }
-            ctx.globalAlpha = 1.0;
-        }
 
         // Apply camera zoom (centered on player) and screen shake
         ctx.save();
         const scale = this.cameraScale || 1;
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
-        
+
         // Screen shake offset
         let shakeX = 0, shakeY = 0;
         if (this.screenShake.intensity > 0) {
             shakeX = (Math.random() - 0.5) * this.screenShake.intensity * 2;
             shakeY = (Math.random() - 0.5) * this.screenShake.intensity * 2;
         }
-        
+
         ctx.translate(centerX + shakeX, centerY + shakeY);
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
 
         this.drawGrid();
         this.drawMapBorders();
-
-        // Draw Cthulhu warning effects (swimming creatures, water ripples)
-        if (this.cthulhuWarning || (this.oceanBackground && this.oceanBackground.currentColor !== '#000000')) {
-            // Water ripples
-            if (this.waterRipples) {
-                this.waterRipples.forEach(r => {
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(0, 180, 255, ${r.alpha})`;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    ctx.restore();
-                });
-            }
-
-            // Swimming creatures
-            if (this.swimmingCreatures) {
-                this.swimmingCreatures.forEach(c => {
-                    ctx.save();
-                    ctx.globalAlpha = c.alpha;
-                    ctx.font = `${c.size}px Arial`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    // Add wobble effect
-                    const wobbleX = Math.sin(c.wobble) * 5;
-                    const wobbleY = Math.cos(c.wobble * 0.7) * 3;
-                    ctx.fillText(c.type, c.x + wobbleX, c.y + wobbleY);
-                    ctx.restore();
-                });
-            }
-        }
-
-        // Draw water tornadoes (Ocean Set bonus)
-        if (this.waterTornadoes && this.waterTornadoes.length > 0) {
-            this.waterTornadoes.forEach(t => {
-                ctx.save();
-                ctx.translate(t.x, t.y);
-                ctx.rotate(t.rotation);
-
-                // Tornado spiral effect
-                for (let i = 0; i < 5; i++) {
-                    const angle = (i / 5) * Math.PI * 2;
-                    const dist = t.radius * (0.3 + i * 0.15);
-                    const alpha = 0.3 + (i * 0.1);
-
-                    ctx.beginPath();
-                    ctx.arc(Math.cos(angle) * dist * 0.5, Math.sin(angle) * dist * 0.5, t.radius * (0.8 - i * 0.1), 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(0, 200, 255, ${alpha})`;
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-                }
-
-                // Center swirl
-                ctx.beginPath();
-                ctx.arc(0, 0, t.radius * 0.3, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0, 220, 255, 0.5)';
-                ctx.fill();
-
-                // Pull radius indicator
-                ctx.beginPath();
-                ctx.arc(0, 0, t.pullRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(0, 150, 200, 0.2)';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([10, 5]);
-                ctx.stroke();
-
-                ctx.restore();
-            });
-        }
-
-        // Draw water holes (Cthulhu fight hazards)
-        if (this.waterHoles && this.waterHoles.length > 0) {
-            this.waterHoles.forEach(hole => {
-                const sx = this.player.x + (hole.wx - this.worldX);
-                const sy = this.player.y + (hole.wy - this.worldY);
-
-                ctx.save();
-
-                // Outer glow
-                const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, hole.radius * 1.2);
-                gradient.addColorStop(0, 'rgba(0, 100, 200, 0.8)');
-                gradient.addColorStop(0.5, 'rgba(0, 60, 150, 0.6)');
-                gradient.addColorStop(1, 'rgba(0, 30, 100, 0)');
-                ctx.beginPath();
-                ctx.arc(sx, sy, hole.radius * 1.2, 0, Math.PI * 2);
-                ctx.fillStyle = gradient;
-                ctx.fill();
-
-                // Main water hole
-                ctx.beginPath();
-                ctx.arc(sx, sy, hole.radius, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0, 80, 180, 0.7)';
-                ctx.fill();
-
-                // Ripple effect
-                const rippleSize = hole.radius * (0.8 + Math.sin(hole.wobble) * 0.2);
-                ctx.beginPath();
-                ctx.arc(sx, sy, rippleSize, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(100, 180, 255, 0.5)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // Inner darker center
-                ctx.beginPath();
-                ctx.arc(sx, sy, hole.radius * 0.4, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0, 40, 100, 0.8)';
-                ctx.fill();
-
-                // Warning icon
-                ctx.font = '20px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.fillText('💧', sx, sy);
-
-                ctx.restore();
-            });
-        }
 
         // Draw events
         this.drawEvents(ctx);
@@ -6266,8 +6939,8 @@ class DotsSurvivor {
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
 
-            // Skip default circle for Consumer and Cthulhu - they have custom rendering
-            if (!e.isConsumer && !e.isCthulhu) {
+            // Skip default circle for Consumer - it has custom rendering
+            if (!e.isConsumer) {
                 // Check for custom sprite
                 const spriteType = e.isBoss ? (e.type === 'general' ? 'general' : 'boss') : e.type;
                 const sprite = SPRITE_CACHE[spriteType];
@@ -6298,96 +6971,6 @@ class DotsSurvivor {
                         ctx.fillText(e.icon, sx, sy);
                     }
                 }
-            }
-
-            // CTHULHU - Lord of the Sea custom rendering
-            if (e.isCthulhu) {
-                ctx.save();
-                ctx.translate(sx, sy);
-
-                // Try to use Cthulhu sprite first
-                const cthulhuSprite = SPRITE_CACHE['cthulhu'];
-                if (cthulhuSprite) {
-                    // Hit flash effect
-                    if (e.hitFlash > 0) {
-                        ctx.globalAlpha = 0.7;
-                        ctx.filter = 'brightness(3)';
-                    }
-                    const size = e.radius * 3;
-                    ctx.drawImage(cthulhuSprite, -size/2, -size/2, size, size);
-                } else {
-                    // Fallback rendering - dark tentacle creature
-                    // Outer glow
-                    const glowGrad = ctx.createRadialGradient(0, 0, e.radius * 0.5, 0, 0, e.radius * 1.5);
-                    glowGrad.addColorStop(0, 'rgba(0, 100, 80, 0.8)');
-                    glowGrad.addColorStop(0.5, 'rgba(0, 60, 60, 0.5)');
-                    glowGrad.addColorStop(1, 'rgba(0, 40, 50, 0)');
-                    ctx.beginPath();
-                    ctx.arc(0, 0, e.radius * 1.5, 0, Math.PI * 2);
-                    ctx.fillStyle = glowGrad;
-                    ctx.fill();
-
-                    // Tentacles
-                    e.tentaclePhase = (e.tentaclePhase || 0) + 0.02;
-                    for (let i = 0; i < 8; i++) {
-                        const angle = (i / 8) * Math.PI * 2 + e.tentaclePhase;
-                        const tentLen = e.radius * (1.2 + Math.sin(e.tentaclePhase + i) * 0.3);
-                        ctx.beginPath();
-                        ctx.moveTo(0, 0);
-                        ctx.quadraticCurveTo(
-                            Math.cos(angle + 0.3) * tentLen * 0.5,
-                            Math.sin(angle + 0.3) * tentLen * 0.5,
-                            Math.cos(angle) * tentLen,
-                            Math.sin(angle) * tentLen
-                        );
-                        ctx.strokeStyle = e.hitFlash > 0 ? '#fff' : '#006644';
-                        ctx.lineWidth = 8;
-                        ctx.lineCap = 'round';
-                        ctx.stroke();
-                    }
-
-                    // Main body
-                    ctx.beginPath();
-                    ctx.arc(0, 0, e.radius * 0.7, 0, Math.PI * 2);
-                    const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 0.7);
-                    bodyGrad.addColorStop(0, e.hitFlash > 0 ? '#fff' : '#005544');
-                    bodyGrad.addColorStop(1, e.hitFlash > 0 ? '#fff' : '#002222');
-                    ctx.fillStyle = bodyGrad;
-                    ctx.fill();
-
-                    // Eyes
-                    ctx.fillStyle = '#ff0044';
-                    ctx.beginPath();
-                    ctx.arc(-e.radius * 0.25, -e.radius * 0.1, e.radius * 0.12, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(e.radius * 0.25, -e.radius * 0.1, e.radius * 0.12, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                ctx.restore();
-
-                // Cthulhu name and HP bar
-                ctx.font = 'bold 18px Inter';
-                ctx.fillStyle = '#00ffaa';
-                ctx.textAlign = 'center';
-                ctx.fillText('🐙 ' + e.name + ' 🐙', sx, sy - e.radius - 50);
-
-                // HP bar
-                const bw = e.radius * 3;
-                ctx.fillStyle = '#222';
-                ctx.fillRect(sx - bw / 2, sy - e.radius - 35, bw, 14);
-                const hpGrad = ctx.createLinearGradient(sx - bw / 2, 0, sx + bw / 2, 0);
-                hpGrad.addColorStop(0, '#00ffaa');
-                hpGrad.addColorStop(0.5, '#00ddff');
-                hpGrad.addColorStop(1, '#0088ff');
-                ctx.fillStyle = hpGrad;
-                ctx.fillRect(sx - bw / 2 + 2, sy - e.radius - 33, (bw - 4) * (e.health / e.maxHealth), 10);
-
-                // HP text
-                ctx.font = '10px Inter';
-                ctx.fillStyle = '#fff';
-                ctx.fillText(`${Math.floor(e.health)} / ${e.maxHealth}`, sx, sy - e.radius - 25);
             }
 
             if (e.isConsumer) {
@@ -6597,6 +7180,7 @@ class DotsSurvivor {
         });
 
         // Elemental Skulls
+        const hasGlowingSkullsEffect = this.hasEffect('glowing_skulls');
         this.skulls.forEach(s => {
             const sx = this.player.x + Math.cos(s.angle) * s.radius;
             const sy = this.player.y + Math.sin(s.angle) * s.radius;
@@ -6606,20 +7190,39 @@ class DotsSurvivor {
             if (skullSprite) {
                 ctx.save();
                 ctx.translate(sx, sy);
-                // Add glow effect based on element
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = s.color;
+                // Add glow effect based on element (enhanced with cosmetic)
+                ctx.shadowBlur = hasGlowingSkullsEffect ? 30 : 15;
+                ctx.shadowColor = hasGlowingSkullsEffect ? '#ff0000' : s.color;
                 const size = s.size * 2;
                 ctx.drawImage(skullSprite, -size / 2, -size / 2, size, size);
+                // Extra eye glow effect for glowing skulls cosmetic
+                if (hasGlowingSkullsEffect) {
+                    ctx.beginPath();
+                    ctx.arc(-3, -2, 3, 0, Math.PI * 2);
+                    ctx.arc(3, -2, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff0000';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.fill();
+                }
                 ctx.shadowBlur = 0;
                 ctx.restore();
             } else {
                 // Fallback to circle with skull emoji
                 ctx.beginPath(); ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
-                ctx.fillStyle = s.color; ctx.shadowBlur = 10; ctx.shadowColor = s.color; ctx.fill(); ctx.shadowBlur = 0;
+                ctx.fillStyle = s.color; ctx.shadowBlur = hasGlowingSkullsEffect ? 25 : 10; ctx.shadowColor = hasGlowingSkullsEffect ? '#ff0000' : s.color; ctx.fill(); ctx.shadowBlur = 0;
                 ctx.font = `${s.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#fff';
                 ctx.fillText('💀', sx, sy);
+                // Glowing eyes for fallback
+                if (hasGlowingSkullsEffect) {
+                    ctx.font = `${Math.floor(s.size * 0.3)}px Arial`;
+                    ctx.fillStyle = '#ff0000';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.fillText('👁️👁️', sx, sy - 2);
+                    ctx.shadowBlur = 0;
+                }
             }
         });
         // Minions (Wolf Pack) - Using single sprite files
@@ -6688,6 +7291,214 @@ class DotsSurvivor {
             ctx.fillStyle = imp.color; ctx.shadowBlur = 10; ctx.shadowColor = '#ff4400'; ctx.fill(); ctx.shadowBlur = 0;
             ctx.font = '12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🔥', imp.x, imp.y);
         });
+
+        // Shadow Monsters (Beast Tamer)
+        if (this.shadowMonsters) {
+            this.shadowMonsters.forEach(m => {
+                ctx.globalAlpha = m.alpha || 0.7;
+                ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+                ctx.fillStyle = m.color; ctx.shadowBlur = 15; ctx.shadowColor = '#6600aa'; ctx.fill(); ctx.shadowBlur = 0;
+                ctx.font = `${m.radius + 6}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(m.icon, m.x, m.y);
+                ctx.globalAlpha = 1;
+
+                // Health bar
+                const barWidth = m.radius * 2.5;
+                const barHeight = 3;
+                const barY = m.y - m.radius - 8;
+                const healthPercent = m.health / m.maxHealth;
+                ctx.fillStyle = '#333'; ctx.fillRect(m.x - barWidth / 2, barY, barWidth, barHeight);
+                ctx.fillStyle = '#6600aa'; ctx.fillRect(m.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+            });
+        }
+
+        // Raised Corpses (Necromancer)
+        if (this.raisedCorpses) {
+            this.raisedCorpses.forEach(c => {
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath(); ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+                ctx.fillStyle = c.color; ctx.shadowBlur = 10; ctx.shadowColor = '#00cc66'; ctx.fill(); ctx.shadowBlur = 0;
+                ctx.font = `${c.radius + 4}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(c.icon, c.x, c.y);
+                ctx.globalAlpha = 1;
+
+                // Health bar
+                const barWidth = c.radius * 2;
+                const barHeight = 3;
+                const barY = c.y - c.radius - 6;
+                const healthPercent = c.health / c.maxHealth;
+                ctx.fillStyle = '#333'; ctx.fillRect(c.x - barWidth / 2, barY, barWidth, barHeight);
+                ctx.fillStyle = '#00cc66'; ctx.fillRect(c.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+            });
+        }
+
+        // Death Aura (Necromancer) - render as a subtle green ring around player
+        if (this.deathAura) {
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, this.deathAura.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 204, 102, 0.4)';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 10; ctx.shadowColor = '#00cc66';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        // Shadow Sentinels (Shadow Master) - 🦇 flying around player
+        if (this.shadowSentinels) {
+            this.shadowSentinels.forEach(s => {
+                ctx.globalAlpha = 0.85;
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.fillStyle = s.color; ctx.shadowBlur = 12; ctx.shadowColor = '#8844cc'; ctx.fill(); ctx.shadowBlur = 0;
+                ctx.font = `${s.radius + 6}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(s.icon, s.x, s.y);
+                ctx.globalAlpha = 1;
+
+                // Health bar
+                const barWidth = s.radius * 2;
+                const barHeight = 2;
+                const barY = s.y - s.radius - 5;
+                const healthPercent = s.health / s.maxHealth;
+                ctx.fillStyle = '#333'; ctx.fillRect(s.x - barWidth / 2, barY, barWidth, barHeight);
+                ctx.fillStyle = '#8844cc'; ctx.fillRect(s.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+            });
+        }
+
+        // Fire Blast (Fire Mage Q ability) - Expanding orange ring
+        if (this.fireBlast) {
+            const fb = this.fireBlast;
+            ctx.beginPath();
+            ctx.arc(fb.x, fb.y, fb.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 136, 0, 0.8)';
+            ctx.lineWidth = 8;
+            ctx.shadowBlur = 20; ctx.shadowColor = '#ff4400';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Inner glow
+            ctx.beginPath();
+            ctx.arc(fb.x, fb.y, fb.radius * 0.95, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 200, 100, 0.4)';
+            ctx.lineWidth = 15;
+            ctx.stroke();
+        }
+
+        // Fire Amp Zone (Fire Mage E ability) - Orange ground circle
+        if (this.fireAmpActive && this.fireAmpZone) {
+            const faz = this.fireAmpZone;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(faz.x, faz.y, faz.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff6600'; ctx.shadowBlur = 15; ctx.shadowColor = '#ff4400'; ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+
+            // Border ring
+            ctx.beginPath();
+            ctx.arc(faz.x, faz.y, faz.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 100, 0, 0.7)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        // Bone Pits (Necromancer Q ability) - Bone-colored slow zones
+        if (this.bonePits) {
+            this.bonePits.forEach(pit => {
+                ctx.globalAlpha = 0.4 * (pit.timer / 5);
+                ctx.beginPath();
+                ctx.arc(pit.x, pit.y, pit.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#888866'; ctx.shadowBlur = 8; ctx.shadowColor = '#aaaaaa'; ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+
+                // Bone particles inside
+                ctx.font = '10px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#ccccaa';
+                for (let i = 0; i < 5; i++) {
+                    const boneX = pit.x + Math.cos(i * 1.25 + pit.timer) * pit.radius * 0.5;
+                    const boneY = pit.y + Math.sin(i * 1.25 + pit.timer) * pit.radius * 0.5;
+                    ctx.fillText('🦴', boneX, boneY);
+                }
+            });
+        }
+
+        // Death Drain Beam (Necromancer) - Red/green beam chaining to enemies
+        if (this.hasDeathDrain && this.deathDrainTargets && this.deathDrainTargets.length > 0) {
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+
+            let lastPoint = { x: this.player.x, y: this.player.y };
+            const evolved = this.deathDrainEvolved || this.augments?.includes('drain_heals');
+
+            this.deathDrainTargets.forEach((e, idx) => {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+
+                // Create gradient for evolved beam (red to green)
+                const gradient = ctx.createLinearGradient(lastPoint.x, lastPoint.y, sx, sy);
+                if (evolved) {
+                    gradient.addColorStop(0, '#ff3333');
+                    gradient.addColorStop(1, '#33ff66');
+                } else {
+                    gradient.addColorStop(0, '#ff3333');
+                    gradient.addColorStop(1, '#cc0000');
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(lastPoint.x, lastPoint.y);
+                ctx.lineTo(sx, sy);
+                ctx.strokeStyle = gradient;
+                ctx.shadowBlur = 10; ctx.shadowColor = evolved ? '#00ff66' : '#ff0000';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                lastPoint = { x: sx, y: sy };
+            });
+        }
+
+        // Whip Attack Visual (Shadow Master)
+        if (this.activeWhip && this.activeWhip.timer > 0) {
+            const w = this.activeWhip;
+            ctx.save();
+            ctx.translate(w.x, w.y);
+            ctx.rotate(w.angle);
+
+            // Draw arc sweep
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, w.range, -w.arc / 2, w.arc / 2);
+            ctx.closePath();
+
+            const alpha = Math.min(1, w.timer * 3);
+            ctx.globalAlpha = alpha * 0.4;
+            ctx.fillStyle = '#6600aa';
+            ctx.shadowBlur = 15; ctx.shadowColor = '#9933ff';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = '#bb88ff';
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = alpha;
+            ctx.stroke();
+
+            ctx.restore();
+
+            this.activeWhip.timer -= 0.016;
+        }
+
+        // Invisibility Effect (Shadow Master) - Player transparency
+        // This is handled in player rendering section
+
+        // Soul Shield Effect (Necromancer E ability)
+        if (this.soulShieldActive) {
+            // Green shield around player
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, this.player.radius + 15, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 12; ctx.shadowColor = '#00ff66';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
         // Particles
         this.particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * (p.lifetime * 2), 0, Math.PI * 2); ctx.globalAlpha = p.lifetime * 2; ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1; });
         
@@ -6883,6 +7694,161 @@ class DotsSurvivor {
             ctx.restore();
         }
 
+        // Cosmetic Trail Particles (render behind player) - Animated Canvas drawing
+        if (this.trailParticles && this.trailParticles.length > 0) {
+            this.trailParticles.forEach(tp => {
+                const alpha = (tp.lifetime / tp.maxLife) * 0.8 * (tp.flicker || 1) * (tp.twinkle || 1);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(tp.x, tp.y);
+                ctx.rotate(tp.rotation || 0);
+                ctx.scale(tp.scale || 1, tp.scale || 1);
+
+                switch (tp.trailType) {
+                    case 'fire_trail':
+                        // Flickering flame - gradient circle with inner glow
+                        // Fire Mage tier scaling: more intense glow at higher tiers
+                        const tier = tp.fireMageTier || 0;
+                        const glowIntensity = tier > 0 ? 10 + tier * 5 : 0; // 0-40 glow
+
+                        if (glowIntensity > 0) {
+                            ctx.shadowBlur = glowIntensity;
+                            ctx.shadowColor = '#ff6600';
+                        }
+
+                        const fireGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, tp.size);
+                        // Higher tier = brighter core
+                        const coreColor = tier >= 4 ? '#ffffff' : '#ffff00';
+                        fireGrad.addColorStop(0, coreColor);
+                        fireGrad.addColorStop(0.2, '#ffff00');
+                        fireGrad.addColorStop(0.4, '#ff8800');
+                        fireGrad.addColorStop(0.7, '#ff4400');
+                        fireGrad.addColorStop(1, 'rgba(255,0,0,0)');
+                        ctx.fillStyle = fireGrad;
+                        ctx.beginPath();
+                        // Flame shape - stretched ellipse
+                        ctx.ellipse(0, 0, tp.size * 0.6, tp.size, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Extra ember ring for high tier Fire Mage
+                        if (tier >= 3) {
+                            ctx.beginPath();
+                            ctx.arc(0, 0, tp.size * 1.2, 0, Math.PI * 2);
+                            ctx.strokeStyle = `rgba(255, 150, 0, ${0.2 + tier * 0.05})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+
+                        ctx.shadowBlur = 0;
+                        break;
+
+                    case 'ice_trail':
+                        // Rotating crystal - hexagon shape
+                        ctx.fillStyle = tp.color;
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#00ffff';
+                        ctx.beginPath();
+                        for (let i = 0; i < 6; i++) {
+                            const angle = (i / 6) * Math.PI * 2;
+                            const px = Math.cos(angle) * tp.size;
+                            const py = Math.sin(angle) * tp.size;
+                            if (i === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        // Inner shine
+                        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                        ctx.beginPath();
+                        ctx.arc(0, -tp.size * 0.3, tp.size * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+
+                    case 'shadow_trail':
+                        // Dark swirling wisp - multiple overlapping circles
+                        const shadowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, tp.size * 1.5);
+                        shadowGrad.addColorStop(0, 'rgba(100,0,170,0.8)');
+                        shadowGrad.addColorStop(0.5, 'rgba(50,0,100,0.4)');
+                        shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                        ctx.fillStyle = shadowGrad;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, tp.size * 1.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Inner dark core
+                        ctx.fillStyle = 'rgba(20,0,40,0.6)';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, tp.size * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+
+                    case 'sparkle_trail':
+                        // Twinkling star - 4-pointed star shape
+                        ctx.fillStyle = tp.color;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = tp.color;
+                        ctx.beginPath();
+                        for (let i = 0; i < 8; i++) {
+                            const angle = (i / 8) * Math.PI * 2;
+                            const radius = i % 2 === 0 ? tp.size : tp.size * 0.3;
+                            const px = Math.cos(angle) * radius;
+                            const py = Math.sin(angle) * radius;
+                            if (i === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+
+                    case 'heart_trail':
+                        // Pulsing heart shape
+                        ctx.fillStyle = tp.color;
+                        ctx.shadowBlur = 8;
+                        ctx.shadowColor = '#ff66aa';
+                        ctx.beginPath();
+                        const hs = tp.size * 0.6;
+                        ctx.moveTo(0, hs * 0.3);
+                        ctx.bezierCurveTo(-hs, -hs * 0.5, -hs * 0.5, -hs, 0, -hs * 0.5);
+                        ctx.bezierCurveTo(hs * 0.5, -hs, hs, -hs * 0.5, 0, hs * 0.3);
+                        ctx.fill();
+                        break;
+
+                    case 'lightning_trail':
+                        // Electric arc - jagged line
+                        ctx.strokeStyle = tp.color;
+                        ctx.lineWidth = 2;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#ffff00';
+                        ctx.beginPath();
+                        ctx.moveTo(-tp.size, 0);
+                        const segments = 4;
+                        for (let i = 1; i <= segments; i++) {
+                            const px = -tp.size + (tp.size * 2 / segments) * i;
+                            const py = (Math.random() - 0.5) * tp.size * 2;
+                            ctx.lineTo(px, py);
+                        }
+                        ctx.stroke();
+                        // Glow center
+                        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, tp.size * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+
+                    default:
+                        // Fallback - simple glowing circle
+                        ctx.fillStyle = tp.color;
+                        ctx.shadowBlur = 8;
+                        ctx.shadowColor = tp.color;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, tp.size, 0, Math.PI * 2);
+                        ctx.fill();
+                }
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            });
+        }
+
         // Player
         this.drawPlayer();
         // Shield indicator
@@ -6933,7 +7899,12 @@ class DotsSurvivor {
             }
 
             ctx.strokeText(displayValue, d.x, d.y);
-            ctx.fillStyle = d.color;
+            // Rainbow damage numbers cosmetic effect
+            if (this.hasEffect('rainbow_damage') && typeof d.value === 'number') {
+                ctx.fillStyle = this.getRainbowColor();
+            } else {
+                ctx.fillStyle = d.color;
+            }
             ctx.fillText(displayValue, d.x, d.y);
 
             // Reset effects
@@ -6950,6 +7921,8 @@ class DotsSurvivor {
         this.drawItems();
         // Abilities UI (bottom right)
         this.drawAbilities();
+        // Character abilities UI (bottom left) - Q and E
+        this.drawCharacterAbilities();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
 
@@ -7124,46 +8097,6 @@ class DotsSurvivor {
             ctx.textAlign = 'center';
             ctx.fillText('HELLFIRE ACTIVE', x + 60, y + 62);
         }
-
-        // Ocean Set display (below Demon Set)
-        const oceanY = y + 75;
-        const hasAnyOcean = this.oceanSet && (this.oceanSet.crown || this.oceanSet.trident || this.oceanSet.scales);
-        if (hasAnyOcean || this.cthulhuSpawned || this.cthulhuWarning) {
-            ctx.fillStyle = 'rgba(0,40,60,0.5)';
-            ctx.fillRect(x, oceanY, 120, 50);
-            ctx.strokeStyle = '#006688';
-            ctx.strokeRect(x, oceanY, 120, 50);
-
-            OCEAN_SET_PIECES.forEach((p, i) => {
-                const has = this.oceanSet && this.oceanSet[p.id];
-                const px = x + 10 + i * 35;
-                ctx.font = '20px Arial';
-                ctx.textAlign = 'center';
-                if (has) {
-                    ctx.fillStyle = '#fff';
-                    ctx.fillText(p.icon, px + 15, oceanY + 32);
-                    ctx.strokeStyle = '#00ffaa';
-                    ctx.strokeRect(px, oceanY + 5, 30, 40);
-                    // Glow
-                    ctx.shadowBlur = 10; ctx.shadowColor = '#00ffaa';
-                    ctx.strokeRect(px, oceanY + 5, 30, 40);
-                    ctx.shadowBlur = 0;
-                } else {
-                    ctx.fillStyle = '#335';
-                    ctx.fillText(p.icon, px + 15, oceanY + 32);
-                    ctx.strokeStyle = '#224';
-                    ctx.strokeRect(px, oceanY + 5, 30, 40);
-                }
-            });
-
-            // Set Bonus text
-            if (this.oceanSetBonusActive) {
-                ctx.font = 'bold 10px Inter';
-                ctx.fillStyle = '#00ffaa';
-                ctx.textAlign = 'center';
-                ctx.fillText('OCEAN KING ACTIVE', x + 60, oceanY + 62);
-            }
-        }
     }
 
     drawGrid() {
@@ -7266,6 +8199,43 @@ class DotsSurvivor {
     drawPlayer() {
         const ctx = this.ctx, p = this.player;
         const healthPercent = p.health / p.maxHealth;
+        const level = p.level || 1;
+
+        // ============================================
+        // FIRE MAGE AURA SYSTEM (Scales with level)
+        // Intensity tiers: 1-4, 5-9, 10-14, 15-19, 20-24, 25-29, 30+
+        // ============================================
+        if (this.selectedClass?.id === 'fire_mage') {
+            this.drawFireMageAura(ctx, p.x, p.y, level);
+        }
+
+        // Cosmetic Skin Glow Effect (for non-Fire Mage or additional effects)
+        const skinColor = this.getCosmeticSkinColor();
+        if (skinColor && skinColor !== 'rainbow' && this.selectedClass?.id !== 'fire_mage') {
+            ctx.save();
+            const pulse = Math.sin(this.gameTime * 3) * 0.2 + 0.4;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius + 25, 0, Math.PI * 2);
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = skinColor;
+            ctx.fillStyle = `${skinColor}${Math.floor(pulse * 60).toString(16).padStart(2, '0')}`;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        } else if (skinColor === 'rainbow') {
+            // Rainbow skin - cycling colors
+            ctx.save();
+            const pulse = Math.sin(this.gameTime * 3) * 0.2 + 0.4;
+            const hue = (this.gameTime / 20) % 360;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius + 25, 0, Math.PI * 2);
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+            ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${pulse})`;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
 
         // Low health danger pulse (GAME JUICE)
         if (healthPercent < 0.25) {
@@ -7280,8 +8250,12 @@ class DotsSurvivor {
 
         if (p.invincibleTime > 0 && Math.floor(p.invincibleTime * 10) % 2 === 0) ctx.globalAlpha = 0.5;
 
+        // Shadow Master: Invisibility effect (very transparent)
+        if (this.isInvisible) {
+            ctx.globalAlpha = 0.2;
+        }
+
         // Determine which level sprite to use based on player level
-        const level = p.level || 1;
         let levelSpriteKey;
         if (level >= 30) levelSpriteKey = 'player_level30';
         else if (level >= 25) levelSpriteKey = 'player_level25';
@@ -7308,6 +8282,178 @@ class DotsSurvivor {
             ctx.font = '14px Arial'; ctx.fillText(this.selectedClass.icon, p.x - 7, p.y + 5);
         }
         ctx.globalAlpha = 1;
+    }
+
+    // ============================================
+    // FIRE MAGE AURA - Level-Scaling Fire Effects
+    // ============================================
+    drawFireMageAura(ctx, x, y, level) {
+        // Calculate intensity tier (0-6 based on level)
+        // Level 1-4 = tier 0, 5-9 = tier 1, 10-14 = tier 2, etc.
+        const tier = Math.min(6, Math.floor(level / 5));
+        const intensity = (tier + 1) / 7; // 0.14 to 1.0
+
+        const time = this.gameTime;
+        const baseRadius = this.player.radius;
+
+        ctx.save();
+
+        // === LAYER 1: Inner Heat Glow (always present) ===
+        const innerGlow = ctx.createRadialGradient(x, y, 0, x, y, baseRadius * (1.5 + tier * 0.3));
+        innerGlow.addColorStop(0, `rgba(255, 200, 50, ${0.3 + intensity * 0.3})`);
+        innerGlow.addColorStop(0.5, `rgba(255, 100, 0, ${0.2 + intensity * 0.2})`);
+        innerGlow.addColorStop(1, 'rgba(255, 50, 0, 0)');
+        ctx.fillStyle = innerGlow;
+        ctx.beginPath();
+        ctx.arc(x, y, baseRadius * (1.5 + tier * 0.3), 0, Math.PI * 2);
+        ctx.fill();
+
+        // === LAYER 2: Pulsing Fire Ring (tier 1+) ===
+        if (tier >= 1) {
+            const ringPulse = Math.sin(time * 4) * 0.15 + 0.85;
+            const ringRadius = baseRadius * (1.8 + tier * 0.2) * ringPulse;
+
+            ctx.strokeStyle = `rgba(255, 120, 0, ${0.4 + intensity * 0.4})`;
+            ctx.lineWidth = 2 + tier * 0.5;
+            ctx.shadowBlur = 10 + tier * 3;
+            ctx.shadowColor = '#ff6600';
+            ctx.beginPath();
+            ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        // === LAYER 3: Orbiting Flame Particles (tier 2+) ===
+        if (tier >= 2) {
+            const flameCount = 3 + tier; // 5-9 flames at max
+            for (let i = 0; i < flameCount; i++) {
+                const angle = (i / flameCount) * Math.PI * 2 + time * (1.5 + tier * 0.2);
+                const orbitRadius = baseRadius * (2 + tier * 0.15);
+                const fx = x + Math.cos(angle) * orbitRadius;
+                const fy = y + Math.sin(angle) * orbitRadius;
+
+                // Flame particle
+                const flameSize = 4 + tier * 1.5 + Math.sin(time * 8 + i) * 2;
+                const flameGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, flameSize);
+                flameGrad.addColorStop(0, '#ffff00');
+                flameGrad.addColorStop(0.3, '#ff8800');
+                flameGrad.addColorStop(0.7, '#ff4400');
+                flameGrad.addColorStop(1, 'rgba(255,0,0,0)');
+
+                ctx.fillStyle = flameGrad;
+                ctx.beginPath();
+                ctx.arc(fx, fy, flameSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // === LAYER 4: Rising Ember Particles (tier 3+) ===
+        if (tier >= 3) {
+            const emberCount = 2 + tier;
+            for (let i = 0; i < emberCount; i++) {
+                const seed = i * 137.5; // Golden angle for distribution
+                const emberTime = (time * 0.5 + seed) % 2;
+                const emberX = x + Math.sin(seed) * baseRadius * 0.8;
+                const emberY = y - emberTime * 40 - 10;
+                const emberAlpha = 1 - emberTime / 2;
+                const emberSize = 2 + Math.sin(time * 10 + i) * 1;
+
+                ctx.fillStyle = `rgba(255, ${150 + Math.random() * 100}, 0, ${emberAlpha * intensity})`;
+                ctx.beginPath();
+                ctx.arc(emberX + Math.sin(time * 5 + i) * 5, emberY, emberSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // === LAYER 5: Outer Fire Corona (tier 4+) ===
+        if (tier >= 4) {
+            const coronaRadius = baseRadius * (2.5 + tier * 0.2);
+            const spikes = 8 + tier * 2;
+
+            ctx.beginPath();
+            for (let i = 0; i < spikes; i++) {
+                const angle = (i / spikes) * Math.PI * 2 + time * 0.5;
+                const spikeLength = coronaRadius + Math.sin(time * 6 + i * 2) * 8;
+                const innerR = coronaRadius * 0.7;
+
+                if (i === 0) {
+                    ctx.moveTo(x + Math.cos(angle) * spikeLength, y + Math.sin(angle) * spikeLength);
+                } else {
+                    ctx.lineTo(x + Math.cos(angle) * spikeLength, y + Math.sin(angle) * spikeLength);
+                }
+
+                const midAngle = angle + Math.PI / spikes;
+                ctx.lineTo(x + Math.cos(midAngle) * innerR, y + Math.sin(midAngle) * innerR);
+            }
+            ctx.closePath();
+
+            const coronaGrad = ctx.createRadialGradient(x, y, coronaRadius * 0.5, x, y, coronaRadius * 1.2);
+            coronaGrad.addColorStop(0, 'rgba(255, 150, 0, 0)');
+            coronaGrad.addColorStop(0.5, `rgba(255, 100, 0, ${0.2 * intensity})`);
+            coronaGrad.addColorStop(1, 'rgba(255, 50, 0, 0)');
+            ctx.fillStyle = coronaGrad;
+            ctx.fill();
+        }
+
+        // === LAYER 6: Heat Distortion Effect (tier 5+) ===
+        if (tier >= 5) {
+            // Wavy heat lines rising
+            ctx.strokeStyle = `rgba(255, 200, 100, ${0.15 * intensity})`;
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 3; i++) {
+                const waveX = x - 15 + i * 15;
+                ctx.beginPath();
+                ctx.moveTo(waveX, y);
+                for (let j = 0; j < 5; j++) {
+                    const wy = y - j * 10 - 20;
+                    const wx = waveX + Math.sin(time * 8 + j + i) * 5;
+                    ctx.lineTo(wx, wy);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // === LAYER 7: Maximum Power Aura (tier 6 / level 30+) ===
+        if (tier >= 6) {
+            // Intense outer blaze
+            const blazeRadius = baseRadius * 3.5;
+            ctx.shadowBlur = 40;
+            ctx.shadowColor = '#ff4400';
+
+            const blazeGrad = ctx.createRadialGradient(x, y, baseRadius, x, y, blazeRadius);
+            blazeGrad.addColorStop(0, 'rgba(255, 200, 0, 0.3)');
+            blazeGrad.addColorStop(0.4, 'rgba(255, 100, 0, 0.2)');
+            blazeGrad.addColorStop(0.7, 'rgba(255, 50, 0, 0.1)');
+            blazeGrad.addColorStop(1, 'rgba(200, 0, 0, 0)');
+
+            ctx.fillStyle = blazeGrad;
+            ctx.beginPath();
+            ctx.arc(x, y, blazeRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Extra orbiting fire orbs
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2 - time * 2;
+                const orbRadius = baseRadius * 3;
+                const ox = x + Math.cos(angle) * orbRadius;
+                const oy = y + Math.sin(angle) * orbRadius;
+
+                const orbGrad = ctx.createRadialGradient(ox, oy, 0, ox, oy, 10);
+                orbGrad.addColorStop(0, '#ffffff');
+                orbGrad.addColorStop(0.3, '#ffff00');
+                orbGrad.addColorStop(0.6, '#ff6600');
+                orbGrad.addColorStop(1, 'rgba(255,0,0,0)');
+
+                ctx.fillStyle = orbGrad;
+                ctx.beginPath();
+                ctx.arc(ox, oy, 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.restore();
     }
 
     drawHealthBar() {
@@ -7534,6 +8680,100 @@ class DotsSurvivor {
             ctx.textBaseline = 'bottom';
             ctx.fillText('ABILITIES', this.canvas.width - margin, y - 5);
         }
+    }
+
+    // Draw Character-specific Abilities (Q and E)
+    drawCharacterAbilities() {
+        if (!this.characterAbilities || !this.selectedClass) return;
+
+        const ctx = this.ctx;
+        const compact = this.canvas.width < 768;
+        const abilitySize = compact ? 40 : 50;
+        const padding = compact ? 6 : 10;
+        const margin = 15;
+
+        // Position bottom left (opposite of items)
+        let x = margin;
+        let y = this.canvas.height - margin - abilitySize;
+
+        const classId = this.selectedClass.id;
+        let qAbility, eAbility;
+
+        // Get ability info based on class
+        if (classId === 'fire_mage') {
+            qAbility = { name: 'Fire Blast', icon: '💥', key: 'Q', color: '#ff4400' };
+            eAbility = { name: 'Fire Amp', icon: '🔥', key: 'E', color: '#ff6600' };
+        } else if (classId === 'shadow_master') {
+            qAbility = { name: 'Shadow Cloak', icon: '👤', key: 'Q', color: '#6600aa' };
+            eAbility = { name: 'Shadow Step', icon: '💨', key: 'E', color: '#9944ff' };
+        } else if (classId === 'necromancer') {
+            qAbility = { name: 'Bone Pit', icon: '🦴', key: 'Q', color: '#888866' };
+            eAbility = { name: 'Soul Shield', icon: '🛡️', key: 'E', color: '#00cc66' };
+        } else {
+            return; // No character abilities for this class
+        }
+
+        // Draw Q ability
+        this.drawAbilitySlot(ctx, x, y, abilitySize, qAbility, this.characterAbilities.q, compact);
+        x += abilitySize + padding;
+
+        // Draw E ability
+        this.drawAbilitySlot(ctx, x, y, abilitySize, eAbility, this.characterAbilities.e, compact);
+    }
+
+    drawAbilitySlot(ctx, x, y, size, abilityInfo, abilityState, compact) {
+        const isReady = abilityState.ready;
+        const cooldownPercent = isReady ? 0 : abilityState.cooldown / abilityState.maxCooldown;
+
+        // Background
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.beginPath();
+        ctx.roundRect(x, y, size, size, 8);
+        ctx.fill();
+
+        // Border - glow when ready
+        if (isReady) {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = abilityInfo.color;
+        }
+        ctx.strokeStyle = isReady ? abilityInfo.color : '#555';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Icon
+        ctx.font = `${compact ? 18 : 22}px Inter`;
+        ctx.fillStyle = isReady ? '#fff' : '#666';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = isReady ? 1 : 0.5;
+        ctx.fillText(abilityInfo.icon, x + size / 2, y + size / 2 - 3);
+        ctx.globalAlpha = 1;
+
+        // Cooldown overlay
+        if (!isReady) {
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.beginPath();
+            ctx.moveTo(x + size / 2, y + size / 2);
+            ctx.arc(x + size / 2, y + size / 2, size / 2 - 4,
+                -Math.PI / 2, -Math.PI / 2 + cooldownPercent * Math.PI * 2);
+            ctx.lineTo(x + size / 2, y + size / 2);
+            ctx.fill();
+
+            // Cooldown number
+            ctx.font = `bold ${compact ? 11 : 13}px Inter`;
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${Math.ceil(abilityState.cooldown)}`, x + size / 2, y + size / 2);
+        }
+
+        // Key hint at bottom
+        ctx.font = `bold ${compact ? 9 : 11}px Inter`;
+        ctx.fillStyle = isReady ? abilityInfo.color : '#666';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(abilityInfo.key, x + size / 2, y + size - 2);
     }
 
     drawJoystick() {
