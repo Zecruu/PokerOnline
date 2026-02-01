@@ -804,7 +804,7 @@ class DotsSurvivor {
 
         // Combat
         this.projectiles = [];
-        this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 350, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
+        this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 1000, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
         this.skulls = []; // Elemental skulls (replaced orbitals and stars)
         this.skullElements = ['fire', 'dark', 'lightning', 'slow'];
         this.skullElementIndex = 0;
@@ -1770,7 +1770,7 @@ class DotsSurvivor {
         this.player.level = 1;
         this.pendingUpgrades = 3;
 
-        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 350, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
+        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 1000, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
