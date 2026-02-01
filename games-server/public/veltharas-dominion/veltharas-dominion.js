@@ -4170,8 +4170,8 @@ class DotsSurvivor {
             const sxMoved = this.player.x + (e.wx - this.worldX);
             const syMoved = this.player.y + (e.wy - this.worldY);
 
-            // Apply time warp perk
-            const speedMult = this.timewarp ? 0.7 : 1;
+            // Apply time warp perk (multiply with existing speedMult from bone pit, etc.)
+            if (this.timewarp) speedMult *= 0.7;
 
             // Update attack cooldown
             if (e.attackCooldown > 0) {
