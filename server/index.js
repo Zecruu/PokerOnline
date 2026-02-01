@@ -1443,6 +1443,35 @@ app.post('/api/admin/unban/:userId', authenticateAdmin, async (req, res) => {
     }
 });
 
+// Change user role (admin only)
+app.post('/api/admin/role/:userId', authenticateAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { isAdmin } = req.body;
+
+        // Prevent self-demotion
+        if (userId === req.userId.toString() && !isAdmin) {
+            return res.status(400).json({ error: 'Cannot demote yourself' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const oldRole = user.isAdmin ? 'Admin' : 'User';
+        const newRole = isAdmin ? 'Admin' : 'User';
+
+        user.isAdmin = isAdmin;
+        await user.save();
+
+        const action = isAdmin ? 'promoted to Admin' : 'demoted to User';
+        res.json({ success: true, message: `${user.username} has been ${action}` });
+        console.log(`👑 Role changed: ${user.username} (${oldRole} → ${newRole}) by ${req.username}`);
+    } catch (error) {
+        console.error('Admin role change error:', error);
+        res.status(500).json({ error: 'Failed to change role' });
+    }
+});
+
 // Get admin stats
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     try {

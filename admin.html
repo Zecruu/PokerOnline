@@ -88,7 +88,7 @@
         </div>
         <div class="table-container">
             <table>
-                <thead><tr><th>Username</th><th>Email</th><th>Registered</th><th>Last Login</th><th>Stats</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Username</th><th>Email</th><th>Registered</th><th>Last Login</th><th>Stats</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody id="usersTable"></tbody>
             </table>
         </div>
@@ -163,17 +163,30 @@
             const tbody = document.getElementById('usersTable');
             tbody.innerHTML = users.map(u => `
                 <tr>
-                    <td><strong>${u.username}</strong> ${u.isAdmin ? '<span class="badge badge-admin">ADMIN</span>' : ''}</td>
+                    <td><strong>${u.username}</strong></td>
                     <td>${u.email}</td>
                     <td>${new Date(u.createdAt).toLocaleDateString()}</td>
                     <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
                     <td>Wave ${u.stats?.highestWave || 0} | ${u.stats?.highestKills || 0} kills</td>
+                    <td>
+                        <select class="role-select" onchange="changeRole('${u.id}', this.value)" style="
+                            background: ${u.isAdmin ? '#9333ea' : '#333'};
+                            color: #fff;
+                            border: 1px solid ${u.isAdmin ? '#a855f7' : '#555'};
+                            padding: 5px 10px;
+                            border-radius: 5px;
+                            cursor: pointer;
+                            font-size: 12px;
+                        ">
+                            <option value="user" ${!u.isAdmin ? 'selected' : ''}>👤 User</option>
+                            <option value="admin" ${u.isAdmin ? 'selected' : ''}>👑 Admin</option>
+                        </select>
+                    </td>
                     <td>${u.isBanned ? `<span class="badge badge-banned">BANNED</span><br><small>${u.banReason || ''}</small>` : '✅ Active'}</td>
                     <td>
-                        ${!u.isAdmin ? (u.isBanned
+                        ${u.isBanned
                             ? `<button class="btn btn-success btn-small" onclick="unbanUser('${u.id}')">Unban</button>`
-                            : `<button class="btn btn-danger btn-small" onclick="openBanModal('${u.id}', '${u.username}')">Ban</button>`)
-                        : '-'}
+                            : `<button class="btn btn-danger btn-small" onclick="openBanModal('${u.id}', '${u.username}')">Ban</button>`}
                     </td>
                 </tr>
             `).join('');
@@ -212,6 +225,33 @@
             if (!confirm('Unban this user?')) return;
             await fetch(`/api/admin/unban/${userId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
             loadUsers(currentPage); loadStats();
+        }
+
+        async function changeRole(userId, role) {
+            const isAdmin = role === 'admin';
+            const action = isAdmin ? 'promote to Admin' : 'demote to User';
+            if (!confirm(`Are you sure you want to ${action}?`)) {
+                loadUsers(currentPage); // Reset dropdown if cancelled
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/role/${userId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isAdmin })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    alert(data.error || 'Failed to change role');
+                    loadUsers(currentPage);
+                    return;
+                }
+                alert(`✅ ${data.message}`);
+                loadUsers(currentPage);
+            } catch (e) {
+                alert('Failed to change role');
+                loadUsers(currentPage);
+            }
         }
     </script>
 </body>
