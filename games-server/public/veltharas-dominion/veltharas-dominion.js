@@ -106,6 +106,11 @@ const ABILITY_SPRITES = {
     nuclearBlast: 'a8ed4028-237c-4ba6-b084-c92b9176c417.jpg'
 };
 
+// Mythic Augment Sprites
+const MYTHIC_SPRITES = {
+    demonic_fire_mythic: 'demonic-fire-mythic.png'
+};
+
 // Beam of Despair color progression (changes every 1000 kills)
 const BEAM_DESPAIR_COLORS = [
     '#ffffff',  // Level 1: White
@@ -275,6 +280,10 @@ function initSprites() {
     for (const [type, path] of Object.entries(ABILITY_SPRITES)) {
         loadSprite('ability_' + type, path, true);
     }
+    // Load Mythic Augment sprites
+    for (const [type, path] of Object.entries(MYTHIC_SPRITES)) {
+        loadSprite('mythic_' + type, path, true);
+    }
 }
 
 // Call init when DOM is ready
@@ -311,7 +320,7 @@ const SURVIVOR_CLASS = {
 
 // 🔥 FIRE MAGE - Elemental destruction specialist
 // Skills: Fireballs, Aura Ring, Elemental Orbs
-// Abilities: Fire Blast (Q), Fire Amp (E)
+// PASSIVE: +15% fire damage
 const FIRE_MAGE_CLASS = {
     id: 'fire_mage',
     name: 'Fire Mage',
@@ -332,22 +341,27 @@ const FIRE_MAGE_CLASS = {
         auraRing: { name: 'Aura Ring', icon: '🔵', desc: 'Burning ring damages nearby enemies', level: 1 },
         elementalOrbs: { name: 'Elemental Orbs', icon: '🔮', desc: 'Orbiting orbs that cycle elements', level: 1 }
     },
-    abilities: {
-        fireBlast: { name: 'Fire Blast', icon: '💥', key: 'Q', desc: 'Expanding circle deals fire damage (800px)', cooldown: 12, level: 1 },
-        fireAmp: { name: 'Fire Amp', icon: '⬆️', key: 'E', desc: 'Zone that boosts fireball & aura damage', cooldown: 15, level: 1 }
+    // CLASS PASSIVE - Replaces abilities
+    passive: {
+        name: 'Pyromaniac',
+        icon: '🔥',
+        desc: '+15% fire damage (fireballs, aura, orbs)',
+        effect: (g) => { g.fireDamageBonus = 0.15; }
     },
-    // Augments for leveling up
+    // Legacy abilities - REMOVED (kept for reference)
+    abilities: {},
+    // Augments for leveling up - SCALED 5x (halved from 10x)
     augments: [
         // Common
         { id: 'fm_speed', name: 'Swift Flames', icon: '💨', desc: '+10% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.1, getDesc: (g) => `Speed: ${g.player.speed} → ${Math.floor(g.player.speed * 1.1)}` },
-        { id: 'fm_hp', name: 'Flame Shield', icon: '🛡️', desc: '+50 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 50}` },
+        { id: 'fm_hp', name: 'Flame Shield', icon: '🛡️', desc: '+250 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 250}` },
         // Rare
         { id: 'fm_orb', name: 'Elemental Orb', icon: '🔮', desc: '+1 orbiting orb (max 6)', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Orbs: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
         { id: 'fm_firerate', name: 'Rapid Fire', icon: '🔥', desc: '+15% fire rate', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate *= 0.85, getDesc: (g) => `Fire Rate: +15%` },
         // Epic (Skill Upgrades)
-        { id: 'fm_aura_expand', name: 'Inferno Expansion', icon: '🔵', desc: 'Aura Ring +25 radius, +15 damage', rarity: 'epic', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { if(g.auraFire) { g.auraFire.radius += 25; g.auraFire.damage += 15; } }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 25}` : 'Aura not active' },
+        { id: 'fm_aura_expand', name: 'Inferno Expansion', icon: '🔵', desc: 'Aura Ring +12 radius, +75 damage', rarity: 'epic', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { if(g.auraFire) { g.auraFire.radius += 12; g.auraFire.damage += 75; } }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 12}` : 'Aura not active' },
         { id: 'fm_fireball_size', name: 'Meteor Strike', icon: '☄️', desc: 'Fireballs +40% size, +20% damage', rarity: 'epic', isSkillUpgrade: true, skill: 'fireball', effect: (g) => { g.weapons.bullet.size = Math.floor(g.weapons.bullet.size * 1.4); g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.2); }, getDesc: (g) => `Size +40%, Damage +20%` },
-        { id: 'fm_blast_radius', name: 'Supernova', icon: '💥', desc: 'Fire Blast radius +200px, damage +25%', rarity: 'epic', isAbilityUpgrade: true, ability: 'fireBlast', effect: (g) => { g.fireBlastRadius = (g.fireBlastRadius || 800) + 200; g.fireBlastDamage = (g.fireBlastDamage || 1) * 1.25; }, getDesc: (g) => `Radius: ${g.fireBlastRadius || 800} → ${(g.fireBlastRadius || 800) + 200}` },
+        { id: 'fm_blast_radius', name: 'Supernova', icon: '💥', desc: 'Fire Blast radius +100px, damage +25%', rarity: 'epic', isAbilityUpgrade: true, ability: 'fireBlast', effect: (g) => { g.fireBlastRadius = (g.fireBlastRadius || 800) + 100; g.fireBlastDamage = (g.fireBlastDamage || 1) * 1.25; }, getDesc: (g) => `Radius: ${g.fireBlastRadius || 800} → ${(g.fireBlastRadius || 800) + 100}` },
         // Legendary (Major Skill/Ability Upgrades)
         { id: 'fm_orb_frenzy', name: 'Orb Frenzy', icon: '🌀', desc: 'Orbs spin 2x faster, +50% damage', rarity: 'legendary', isSkillUpgrade: true, skill: 'elementalOrbs', effect: (g) => { g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => `Orb Speed & Damage doubled` },
         { id: 'fm_burn_spread', name: 'Wildfire', icon: '🌋', desc: 'Burning enemies spread fire to nearby enemies', rarity: 'legendary', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => g.augments.push('burn_spread'), getDesc: (g) => g.augments.includes('burn_spread') ? 'Active ✓' : 'Activate' },
@@ -357,7 +371,7 @@ const FIRE_MAGE_CLASS = {
 
 // 🌑 SHADOW MASTER - Shadow creature summoner with whip attack
 // Skills: Whip Attack, Shadow Monsters, Shadow Sentinels
-// Abilities: Shadow Cloak (Q), Shadow Step (E)
+// PASSIVE: +20% minion damage
 const SHADOW_MASTER_CLASS = {
     id: 'shadow_master',
     name: 'Shadow Master',
@@ -376,14 +390,19 @@ const SHADOW_MASTER_CLASS = {
         shadowMonsters: { name: 'Shadow Monsters', icon: '👻', desc: 'Summon shadows to fight for you', level: 1 },
         shadowSentinels: { name: 'Shadow Sentinels', icon: '🦇', desc: 'Stationary guardians that attack nearby enemies', level: 1 }
     },
-    abilities: {
-        shadowCloak: { name: 'Shadow Cloak', icon: '👤', key: 'Q', desc: 'Invisible 3s, enemies freeze', cooldown: 18, level: 1 },
-        shadowStep: { name: 'Shadow Step', icon: '💨', key: 'E', desc: 'Dash 200px + 1s invisibility', cooldown: 8, level: 1 }
+    // CLASS PASSIVE - Replaces abilities
+    passive: {
+        name: 'Shadow Lord',
+        icon: '🌑',
+        desc: '+20% minion damage (monsters, sentinels, wolves)',
+        effect: (g) => { g.minionDamageBonus = 0.20; }
     },
+    // Legacy abilities - REMOVED
+    abilities: {},
     augments: [
-        // Common
+        // Common - SCALED 5x (halved from 10x)
         { id: 'sm_speed', name: 'Shadow Speed', icon: '💨', desc: '+12% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.12, getDesc: (g) => `Speed +12%` },
-        { id: 'sm_hp', name: 'Dark Resilience', icon: '🛡️', desc: '+40 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 40; g.player.health += 40; }, getDesc: (g) => `HP +40` },
+        { id: 'sm_hp', name: 'Dark Resilience', icon: '🛡️', desc: '+200 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; }, getDesc: (g) => `HP +200` },
         // Rare
         { id: 'sm_monster', name: 'Shadow Summon', icon: '👻', desc: '+1 shadow monster (max 5)', rarity: 'rare', effect: (g) => { if((g.shadowMonsters?.length || 0) < 5) g.shadowMonsters.push(g.createShadowMonster()); }, getDesc: (g) => `Monsters: ${g.shadowMonsters?.length || 0} → ${Math.min(5, (g.shadowMonsters?.length || 0) + 1)}` },
         { id: 'sm_sentinel', name: 'Sentinel Guard', icon: '🦇', desc: '+1 shadow sentinel (max 6)', rarity: 'rare', effect: (g) => { if((g.shadowSentinels?.length || 0) < 6) g.shadowSentinels.push(g.createShadowSentinel()); }, getDesc: (g) => `Sentinels: ${g.shadowSentinels?.length || 0} → ${Math.min(6, (g.shadowSentinels?.length || 0) + 1)}` },
@@ -391,16 +410,16 @@ const SHADOW_MASTER_CLASS = {
         { id: 'sm_whip_range', name: 'Extended Lash', icon: '🔗', desc: 'Whip +35% range, hits +2 enemies', rarity: 'epic', isSkillUpgrade: true, skill: 'whipAttack', effect: (g) => { g.whipRange = (g.whipRange || 120) * 1.35; g.whipTargets = (g.whipTargets || 3) + 2; }, getDesc: (g) => `Range +35%, Targets +2` },
         { id: 'sm_monster_frenzy', name: 'Shadow Frenzy', icon: '👻', desc: 'Monsters attack 50% faster, +30% damage', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.shadowAttackSpeed = (g.shadowAttackSpeed || 1) * 1.5; g.shadowDamageBonus = (g.shadowDamageBonus || 1) * 1.3; }, getDesc: (g) => `Attack +50%, Damage +30%` },
         { id: 'sm_cloak_extend', name: 'Deeper Shadows', icon: '👤', desc: 'Shadow Cloak +2s duration', rarity: 'epic', isAbilityUpgrade: true, ability: 'shadowCloak', effect: (g) => g.shadowCloakDuration = (g.shadowCloakDuration || 3) + 2, getDesc: (g) => `Duration: ${g.shadowCloakDuration || 3}s → ${(g.shadowCloakDuration || 3) + 2}s` },
-        // Legendary
+        // Legendary - SCALED 5x (halved from 10x)
         { id: 'sm_dark_pact', name: 'Dark Pact', icon: '💀', desc: 'Shadow monsters heal you for 8% damage dealt', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.augments.push('dark_pact'); g.darkPactHeal = 0.08; }, getDesc: (g) => g.augments.includes('dark_pact') ? 'Active ✓' : 'Activate' },
-        { id: 'sm_sentinel_explode', name: 'Shadow Burst', icon: '💥', desc: 'Sentinels explode on death dealing 150 damage', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowSentinels', effect: (g) => g.augments.push('sentinel_explode'), getDesc: (g) => g.augments.includes('sentinel_explode') ? 'Active ✓' : 'Activate' },
-        { id: 'sm_step_damage', name: 'Phantom Strike', icon: '💨', desc: 'Shadow Step deals 100 damage to passed enemies', rarity: 'legendary', isAbilityUpgrade: true, ability: 'shadowStep', effect: (g) => g.shadowStepDamage = 100, getDesc: (g) => `Step Damage: 100` },
+        { id: 'sm_sentinel_explode', name: 'Shadow Burst', icon: '💥', desc: 'Sentinels explode on death dealing 750 damage', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowSentinels', effect: (g) => g.augments.push('sentinel_explode'), getDesc: (g) => g.augments.includes('sentinel_explode') ? 'Active ✓' : 'Activate' },
+        { id: 'sm_step_damage', name: 'Phantom Strike', icon: '💨', desc: 'Shadow Step deals 500 damage to passed enemies', rarity: 'legendary', isAbilityUpgrade: true, ability: 'shadowStep', effect: (g) => g.shadowStepDamage = 500, getDesc: (g) => `Step Damage: 500` },
     ]
 };
 
 // ☠️ NECROMANCER - Master of death, raises the fallen
 // Skills: Floating Skulls (main attack), Raise Dead, Death Drain
-// Abilities: Bone Pit (Q), Soul Shield (E)
+// PASSIVE: +25% raised corpse health, +5% raise chance
 const NECROMANCER_CLASS = {
     id: 'necromancer',
     name: 'Necromancer',
@@ -421,14 +440,19 @@ const NECROMANCER_CLASS = {
         raiseDead: { name: 'Raise Dead', icon: '🧟', desc: 'Killed enemies may rise to fight for you', level: 1 },
         deathDrain: { name: 'Death Drain', icon: '🩸', desc: 'Red beam chains to enemies, draining life', level: 1 }
     },
-    abilities: {
-        bonePit: { name: 'Bone Pit', icon: '🦴', key: 'Q', desc: 'Pit of bones slows enemies (5s)', cooldown: 14, level: 1 },
-        soulShield: { name: 'Soul Shield', icon: '👻', key: 'E', desc: 'Corpses absorb damage for you (4s)', cooldown: 20, level: 1 }
+    // CLASS PASSIVE - Replaces abilities
+    passive: {
+        name: 'Death Lord',
+        icon: '☠️',
+        desc: '+25% corpse health, +5% raise chance',
+        effect: (g) => { g.corpseHealthBonus = 0.25; g.raiseChance = (g.raiseChance || 0.15) + 0.05; }
     },
+    // Legacy abilities - REMOVED
+    abilities: {},
     augments: [
-        // Common
+        // Common - SCALED 5x (halved from 10x)
         { id: 'nc_speed', name: 'Death March', icon: '💨', desc: '+8% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.08, getDesc: (g) => `Speed +8%` },
-        { id: 'nc_hp', name: 'Undying Will', icon: '🛡️', desc: '+60 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 60; g.player.health += 60; }, getDesc: (g) => `HP +60` },
+        { id: 'nc_hp', name: 'Undying Will', icon: '🛡️', desc: '+300 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 300; g.player.health += 300; }, getDesc: (g) => `HP +300` },
         // Rare
         { id: 'nc_skull', name: 'Soul Collector', icon: '💀', desc: '+1 floating skull (max 6)', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Skulls: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
         { id: 'nc_corpse_limit', name: 'Army of Dead', icon: '🧟', desc: '+3 max raised corpses', rarity: 'rare', effect: (g) => g.maxRaisedCorpses = (g.maxRaisedCorpses || 5) + 3, getDesc: (g) => `Max Corpses: ${g.maxRaisedCorpses || 5} → ${(g.maxRaisedCorpses || 5) + 3}` },
@@ -436,8 +460,8 @@ const NECROMANCER_CLASS = {
         { id: 'nc_raise_chance', name: 'Mass Resurrection', icon: '🧟', desc: '+10% raise chance, corpses last +5s', rarity: 'epic', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.raiseChance = (g.raiseChance || 0.15) + 0.1; g.corpseLifetime = (g.corpseLifetime || 20) + 5; }, getDesc: (g) => `Raise: ${Math.floor((g.raiseChance || 0.15) * 100)}% → ${Math.floor(((g.raiseChance || 0.15) + 0.1) * 100)}%` },
         { id: 'nc_drain_chain', name: 'Chain Drain', icon: '🩸', desc: 'Death Drain chains to +2 enemies', rarity: 'epic', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => g.deathDrainChains = (g.deathDrainChains || 1) + 2, getDesc: (g) => `Chains: ${g.deathDrainChains || 1} → ${(g.deathDrainChains || 1) + 2}` },
         { id: 'nc_pit_radius', name: 'Mass Grave', icon: '🦴', desc: 'Bone Pit +50% radius', rarity: 'epic', isAbilityUpgrade: true, ability: 'bonePit', effect: (g) => g.bonePitRadius = (g.bonePitRadius || 100) * 1.5, getDesc: (g) => `Radius: ${g.bonePitRadius || 100} → ${Math.floor((g.bonePitRadius || 100) * 1.5)}` },
-        // Legendary
-        { id: 'nc_corpse_explode', name: 'Corpse Explosion', icon: '💥', desc: 'Raised corpses explode on death (250 dmg)', rarity: 'legendary', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.augments.push('corpse_explode'); g.corpseExplosionDamage = 250; }, getDesc: (g) => g.augments.includes('corpse_explode') ? 'Active ✓' : 'Activate' },
+        // Legendary - SCALED 5x (halved from 10x)
+        { id: 'nc_corpse_explode', name: 'Corpse Explosion', icon: '💥', desc: 'Raised corpses explode on death (1250 dmg)', rarity: 'legendary', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.augments.push('corpse_explode'); g.corpseExplosionDamage = 1250; }, getDesc: (g) => g.augments.includes('corpse_explode') ? 'Active ✓' : 'Activate' },
         { id: 'nc_drain_evolve', name: 'Life Siphon', icon: '💚', desc: 'Death Drain heals you, beam turns green', rarity: 'legendary', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => { g.augments.push('drain_heals'); g.deathDrainEvolved = true; }, getDesc: (g) => g.augments.includes('drain_heals') ? 'Active ✓' : 'Activate' },
         { id: 'nc_soul_harvest', name: 'Soul Harvest', icon: '🔮', desc: '+1% max HP per 10 kills (permanent)', rarity: 'legendary', isSkillUpgrade: true, skill: 'floatingSkulls', effect: (g) => g.augments.push('soul_harvest'), getDesc: (g) => g.augments.includes('soul_harvest') ? 'Active ✓' : 'Activate' },
     ]
@@ -472,11 +496,174 @@ const COSMETIC_STORE = {
     ]
 };
 
-// Diamond Augments (All combined)
+// ============================================
+// RUNE SYSTEM - Replaces old augment system
+// Tiers: Common (Bronze), Silver, Purple (Epic), Legendary, Mythic
+// Player scales through RUNES, not class augments
+// ============================================
+
+// COMMON RUNES (Bronze) - Basic stat boosts
+const COMMON_RUNES = [
+    { id: 'rune_vitality', name: 'Rune of Vitality', icon: '❤️', desc: '+50 Max HP', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 50}` },
+    { id: 'rune_might', name: 'Rune of Might', icon: '⚔️', desc: '+10 Damage', rarity: 'common', tier: 'bronze', effect: (g) => { g.weapons.bullet.damage += 10; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 10}` },
+    { id: 'rune_swiftness', name: 'Rune of Swiftness', icon: '💨', desc: '+5 Speed', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.speed += 5; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 5}` },
+    { id: 'rune_recovery', name: 'Rune of Recovery', icon: '💚', desc: '+1 HP per 5 seconds', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 1}` },
+    { id: 'rune_precision', name: 'Rune of Precision', icon: '🎯', desc: '+2% Crit Chance', rarity: 'common', tier: 'bronze', effect: (g) => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.02; }, getDesc: (g) => `Crit: +${Math.round((g.critChanceBonus || 0) * 100)}% → +${Math.round(((g.critChanceBonus || 0) + 0.02) * 100)}%` },
+    { id: 'rune_endurance', name: 'Rune of Endurance', icon: '🛡️', desc: '+25 HP, +3 Speed', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.maxHealth += 25; g.player.health += 25; g.player.speed += 3; }, getDesc: (g) => `HP +25, Speed +3` },
+];
+
+// SILVER RUNES - Better stat boosts
+const SILVER_RUNES = [
+    { id: 'rune_greater_vitality', name: 'Greater Vitality', icon: '❤️‍🔥', desc: '+100 Max HP', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 100}` },
+    { id: 'rune_greater_might', name: 'Greater Might', icon: '🗡️', desc: '+20 Damage', rarity: 'silver', tier: 'silver', effect: (g) => { g.weapons.bullet.damage += 20; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
+    { id: 'rune_greater_swiftness', name: 'Greater Swiftness', icon: '🌪️', desc: '+10 Speed', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.speed += 10; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 10}` },
+    { id: 'rune_greater_recovery', name: 'Greater Recovery', icon: '💖', desc: '+2 HP per 5 seconds', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 2}` },
+    { id: 'rune_ferocity', name: 'Rune of Ferocity', icon: '🔥', desc: '+5% Fire Rate', rarity: 'silver', tier: 'silver', effect: (g) => { g.weapons.bullet.fireRate *= 0.95; }, getDesc: (g) => `Fire Rate +5%` },
+    { id: 'rune_fortitude', name: 'Rune of Fortitude', icon: '🏰', desc: '+75 HP, +5 Damage', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.maxHealth += 75; g.player.health += 75; g.weapons.bullet.damage += 5; }, getDesc: (g) => `HP +75, Damage +5` },
+    { id: 'rune_agility', name: 'Rune of Agility', icon: '⚡', desc: '+8 Speed, +3% Crit', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.speed += 8; g.critChanceBonus = (g.critChanceBonus || 0) + 0.03; }, getDesc: (g) => `Speed +8, Crit +3%` },
+];
+
+// PURPLE RUNES (Epic) - Strong stat boosts
+const PURPLE_RUNES = [
+    { id: 'rune_superior_vitality', name: 'Superior Vitality', icon: '💗', desc: '+200 Max HP', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 200}` },
+    { id: 'rune_superior_might', name: 'Superior Might', icon: '⚔️', desc: '+40 Damage', rarity: 'epic', tier: 'purple', effect: (g) => { g.weapons.bullet.damage += 40; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 40}` },
+    { id: 'rune_superior_swiftness', name: 'Superior Swiftness', icon: '🌀', desc: '+20 Speed', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.speed += 20; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 20}` },
+    { id: 'rune_superior_recovery', name: 'Superior Recovery', icon: '✨', desc: '+4 HP per 5 seconds', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 4; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 4}` },
+    { id: 'rune_devastation', name: 'Rune of Devastation', icon: '💥', desc: '+30 Damage, +10% Fire Rate', rarity: 'epic', tier: 'purple', effect: (g) => { g.weapons.bullet.damage += 30; g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Damage +30, Fire Rate +10%` },
+    { id: 'rune_juggernaut', name: 'Rune of Juggernaut', icon: '🦾', desc: '+150 HP, +15 Damage, +5 Speed', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; g.weapons.bullet.damage += 15; g.player.speed += 5; }, getDesc: (g) => `HP +150, Damage +15, Speed +5` },
+    { id: 'rune_assassin', name: 'Rune of Assassin', icon: '🗡️', desc: '+25% Crit Damage, +5% Crit Chance', rarity: 'epic', tier: 'purple', effect: (g) => { g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25; g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; }, getDesc: (g) => `Crit Damage +25%, Crit Chance +5%` },
+];
+
+// LEGENDARY RUNES - Unique passives with stat combos
+const LEGENDARY_RUNES = [
+    { id: 'rune_berserker', name: 'Berserker\'s Fury', icon: '😤', desc: '+300 HP, +50 Damage. PASSIVE: Deal +1% damage for each 1% HP missing', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 300; g.player.health += 300; g.weapons.bullet.damage += 50; g.augments.push('berserker_fury'); }, getDesc: (g) => g.augments.includes('berserker_fury') ? 'Active ✓' : '+300 HP, +50 Damage, Berserker Passive' },
+    { id: 'rune_titan', name: 'Titan\'s Resolve', icon: '🗿', desc: '+500 HP, +25 Damage. PASSIVE: Take 15% less damage from all sources', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 500; g.player.health += 500; g.weapons.bullet.damage += 25; g.damageReduction = (g.damageReduction || 0) + 0.15; }, getDesc: (g) => `HP +500, Damage +25, -15% Damage Taken` },
+    { id: 'rune_executioner', name: 'Executioner\'s Call', icon: '⚰️', desc: '+60 Damage, +50% Crit Damage. PASSIVE: Enemies below 20% HP take 2x damage', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.weapons.bullet.damage += 60; g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.5; g.augments.push('executioner'); }, getDesc: (g) => g.augments.includes('executioner') ? 'Active ✓' : '+60 Damage, +50% Crit, Execute Passive' },
+    { id: 'rune_phoenix', name: 'Phoenix\'s Blessing', icon: '🔥', desc: '+250 HP, +6 HP5. PASSIVE: Revive once with 50% HP (180s cooldown)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; g.player.hpRegen = (g.player.hpRegen || 0) + 6; g.phoenixRevive = true; g.phoenixCooldown = 0; }, getDesc: (g) => g.phoenixRevive ? 'Active ✓' : '+250 HP, +6 HP5, Revive Passive' },
+    { id: 'rune_tempest', name: 'Tempest\'s Wrath', icon: '⛈️', desc: '+40 Damage, +15 Speed. PASSIVE: Every 5th hit triggers chain lightning (3 targets)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.weapons.bullet.damage += 40; g.player.speed += 15; g.augments.push('tempest_chain'); g.tempestCounter = 0; }, getDesc: (g) => g.augments.includes('tempest_chain') ? 'Active ✓' : '+40 Damage, +15 Speed, Chain Lightning' },
+    { id: 'rune_vampire', name: 'Vampire\'s Embrace', icon: '🧛', desc: '+200 HP, +35 Damage. PASSIVE: Heal 3% of damage dealt (reduced in combat)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 35; g.vampireHeal = 0.03; }, getDesc: (g) => `HP +200, Damage +35, 3% Lifesteal` },
+    { id: 'rune_doubler', name: 'Rune of Doubling', icon: '✖️', desc: '+100 HP, +20 Damage. PASSIVE: All item stacks count as DOUBLE', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; g.weapons.bullet.damage += 20; g.stackDoubler = true; }, getDesc: (g) => g.stackDoubler ? 'Active ✓ (Stacks 2x)' : '+100 HP, +20 Damage, Double Stacks' },
+    { id: 'rune_momentum', name: 'Momentum\'s Edge', icon: '🏃', desc: '+30 Speed, +30 Damage. PASSIVE: Gain +1% damage per second moving (max 50%)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.speed += 30; g.weapons.bullet.damage += 30; g.augments.push('momentum'); g.momentumBonus = 0; }, getDesc: (g) => g.augments.includes('momentum') ? `Active ✓ (+${Math.floor((g.momentumBonus || 0) * 100)}% dmg)` : '+30 Speed, +30 Damage, Momentum Passive' },
+];
+
+// MYTHIC RUNES - Game-changing powers (kept from old system but renamed)
+const MYTHIC_RUNES = [
+    {
+        id: 'mythic_inferno',
+        name: 'Infernal Dominion',
+        icon: '👹',
+        rarity: 'mythic',
+        tier: 'mythic',
+        desc: '+1000 HP, 100 DPS Aura, Nova every 8s (5000 dmg), +25 HP on kill',
+        hasSprite: true,
+        spriteKey: 'demonic_fire_mythic',
+        effect: (g) => {
+            g.player.maxHealth += 1000; g.player.health += 1000;
+            g.augments.push('mythic_inferno');
+            g.demonicAura = { radius: 150, damage: 100 };
+            g.demonicNova = { cooldown: 8, timer: 0, damage: 5000, radius: 300 };
+            g.demonicHealOnKill = 25;
+        },
+        getDesc: (g) => g.augments.includes('mythic_inferno') ? '🔥 INFERNAL ACTIVE 🔥' : '+1000 HP, Aura, Nova, Heal on Kill'
+    },
+    {
+        id: 'mythic_void',
+        name: 'Void Sovereign',
+        icon: '🕳️',
+        rarity: 'mythic',
+        tier: 'mythic',
+        desc: '+500 HP. Every 5s pull enemies to you for 2000 damage. +50% damage to pulled enemies.',
+        effect: (g) => {
+            g.player.maxHealth += 500; g.player.health += 500;
+            g.augments.push('mythic_void');
+            g.voidPull = { cooldown: 5, timer: 0, damage: 2000, radius: 400 };
+            g.voidDamageBonus = 0.5;
+        },
+        getDesc: (g) => g.augments.includes('mythic_void') ? '🕳️ VOID ACTIVE 🕳️' : '+500 HP, Void Pull, +50% to pulled'
+    },
+    {
+        id: 'mythic_thunder',
+        name: 'Thunder God\'s Wrath',
+        icon: '⚡',
+        rarity: 'mythic',
+        tier: 'mythic',
+        desc: '+300 HP. Attacks chain lightning to 3 enemies (500 dmg). +100% crit damage.',
+        effect: (g) => {
+            g.player.maxHealth += 300; g.player.health += 300;
+            g.augments.push('mythic_thunder');
+            g.thunderChain = { targets: 3, damage: 500, range: 200 };
+            g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 1;
+        },
+        getDesc: (g) => g.augments.includes('mythic_thunder') ? '⚡ THUNDER ACTIVE ⚡' : '+300 HP, Chain Lightning, +100% Crit'
+    },
+    {
+        id: 'mythic_blood',
+        name: 'Blood Lord\'s Reign',
+        icon: '🩸',
+        rarity: 'mythic',
+        tier: 'mythic',
+        desc: '+750 HP. Deal +3% of your max HP as bonus damage. 5% lifesteal. +2000 Blood Shield.',
+        effect: (g) => {
+            g.player.maxHealth += 750; g.player.health += 750;
+            g.augments.push('mythic_blood');
+            g.bloodLordDamage = 0.03;
+            g.vampireHeal = (g.vampireHeal || 0) + 0.05;
+            g.bloodShieldEnabled = true;
+            g.bloodShieldMaxBase = (g.bloodShieldMaxBase || 0) + 2000;
+        },
+        getDesc: (g) => g.augments.includes('mythic_blood') ? '🩸 BLOOD LORD ACTIVE 🩸' : '+750 HP, %HP Damage, Lifesteal, Shield'
+    },
+    {
+        id: 'mythic_celestial',
+        name: 'Celestial Guardian',
+        icon: '✨',
+        rarity: 'mythic',
+        tier: 'mythic',
+        desc: '+2000 HP. Immune to damage for 0.5s after being hit (2s CD). One-time full HP revive.',
+        effect: (g) => {
+            g.player.maxHealth += 2000; g.player.health += 2000;
+            g.augments.push('mythic_celestial');
+            g.celestialImmunity = { duration: 0.5, cooldown: 2, timer: 0, active: false };
+            g.celestialRevive = true;
+        },
+        getDesc: (g) => g.augments.includes('mythic_celestial') ? '✨ CELESTIAL ACTIVE ✨' : '+2000 HP, Immunity, Revive'
+    },
+    {
+        id: 'mythic_omega',
+        name: 'Omega Destroyer',
+        icon: '💀',
+        rarity: 'mythic',
+        tier: 'mythic',
+        desc: '+500% projectile damage, -50% fire rate. Projectiles explode. +3 projectiles.',
+        effect: (g) => {
+            g.player.maxHealth += 500; g.player.health += 500;
+            g.augments.push('mythic_omega');
+            g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 6);
+            g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 2);
+            g.weapons.bullet.count = (g.weapons.bullet.count || 1) + 3;
+            g.omegaExplosions = true;
+        },
+        getDesc: (g) => g.augments.includes('mythic_omega') ? '💀 OMEGA ACTIVE 💀' : '+500% dmg, -50% rate, explosions'
+    }
+];
+
+// All runes combined for easy access
+const ALL_RUNES = {
+    common: COMMON_RUNES,
+    silver: SILVER_RUNES,
+    purple: PURPLE_RUNES,
+    legendary: LEGENDARY_RUNES,
+    mythic: MYTHIC_RUNES
+};
+
+// Legacy Diamond Augments - kept for backward compatibility but redirects to runes
 const DIAMOND_AUGMENTS = [
+    // Wolf Pack Path - SHADOW MASTER ONLY
+    { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🔥', desc: 'Wolves attack 50% faster and deal +25% damage', classReq: 'shadow_master', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
+    { id: 'pack_tactics', name: 'Pack Tactics', icon: '🌙', desc: 'You gain +5% damage for every active wolf', classReq: 'shadow_master', effect: (g) => g.augments.push('pack_tactics'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
+    { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', classReq: 'shadow_master', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
     // Soldier Path
     { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke'), getDesc: (g) => g.augments.includes('tactical_nuke') ? 'Active ✓' : 'Not Active' },
-    // Nerfed per user request: only ~10% faster fire rate, no accuracy penalty
     { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
     { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm'), getDesc: (g) => g.augments.includes('bullet_storm') ? 'Active ✓' : 'Not Active' },
     { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +15% damage to Bosses and Tanks (+5% per stack)', effect: (g) => { if (!g.augments.includes('titan_killer')) g.augments.push('titan_killer'); g.titanKillerBonus = (g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15); }, getDesc: (g) => `Boss/Tank Dmg: +${Math.round((g.titanKillerBonus || 0) * 100)}% → +${Math.round(((g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15)) * 100)}%` },
@@ -484,39 +671,170 @@ const DIAMOND_AUGMENTS = [
     { id: 'wind_push', name: 'Gale Force', icon: '💨', desc: 'Every 7 seconds, unleash a wind slash that pushes all enemies back (bigger enemies resist more)', effect: (g) => { g.augments.push('wind_push'); g.windPushTimer = 0; g.windPushCooldown = 7; }, getDesc: (g) => g.augments.includes('wind_push') ? 'Active ✓' : 'Not Active' },
     { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop'), getDesc: (g) => g.augments.includes('time_stop') ? 'Active ✓' : 'Not Active' },
     { id: 'skull_frenzy', name: 'Skull Frenzy', icon: '💀', desc: 'Skulls spin 2x faster and deal +50% damage', effect: (g) => { g.augments.push('skull_frenzy'); g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => g.augments.includes('skull_frenzy') ? 'Active ✓' : 'Not Active' },
-    { id: 'skull_army', name: 'Skull Army', icon: '☠️', desc: '+3 elemental skulls (max 6), overflow = +30 damage each', effect: (g) => { for(let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 30); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}` : `Skull Damage: +90`; } },
-    // Wolf Pack Path - Note: dire_wolves removed, wolf augments are Shadow Master skill upgrades
-    { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🔥', desc: 'Wolves attack 50% faster and deal +25% damage', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
-    { id: 'pack_tactics', name: 'Pack Tactics', icon: '🌙', desc: 'You gain +5% damage for every active wolf', effect: (g) => g.augments.push('pack_tactics'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
-    { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
-    // New Hybrid Paths
+    { id: 'skull_army', name: 'Skull Army', icon: '☠️', desc: '+3 elemental skulls (max 6), overflow = +150 damage each', effect: (g) => { for(let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 150); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}` : `Skull Damage: +450`; } },
+    // Wolf Pack Path augments moved to top with classReq: 'shadow_master'
+    // Hybrid Paths
     { id: 'tech_wizard', name: 'Soul Harvest', icon: '🔮', desc: 'Projectiles spawn Skulls on kill (10% chance, max 6)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
     // Demon Set Augments
     { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
     { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
-    // Aura augment
-    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take burn damage.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 25, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
+    // Aura augment - SCALED 5x (halved from 10x)
+    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take 40 burn damage/s.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 40, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
+];
+
+// ============================================
+// MYTHIC AUGMENTS - Ultra rare, game-changing powers (~5% chance to appear)
+// These are the "high roll" augments that make runs feel special
+// ============================================
+const MYTHIC_AUGMENTS = [
+    {
+        id: 'demonic_inferno',
+        name: 'Demonic Inferno',
+        icon: '👹',
+        rarity: 'mythic',
+        hasSprite: true,
+        spriteKey: 'demonic_fire_mythic',
+        desc: 'Unleash hellfire. +1000 max HP. Gain Inferno Aura (100 DPS). Every 8s, summon a Hellfire Nova dealing 5000 damage. Kills heal 25 HP.',
+        effect: (g) => {
+            g.augments.push('demonic_inferno');
+            // Massive HP boost
+            g.player.maxHealth += 1000;
+            g.player.health += 1000;
+            // Powerful inferno aura (100 DPS)
+            g.demonicInferno = true;
+            g.demonicInfernoRadius = 150;
+            g.demonicInfernoDPS = 100;
+            // Hellfire Nova every 8 seconds
+            g.hellfireNovaTimer = 0;
+            g.hellfireNovaCooldown = 8;
+            g.hellfireNovaDamage = 5000;
+            g.hellfireNovaRadius = 300;
+            // Heal on kill
+            g.demonicHealOnKill = 25;
+        },
+        getDesc: (g) => g.augments.includes('demonic_inferno') ? '🔥 HELLFIRE ACTIVE 🔥' : '+1000 HP, 100 DPS Aura, 5000 Nova/8s'
+    },
+    {
+        id: 'void_sovereign',
+        name: 'Void Sovereign',
+        icon: '🕳️',
+        rarity: 'mythic',
+        desc: 'Become one with the void. +500 HP. Every 5s, pull all enemies toward you and deal 2000 damage. +50% damage to pulled enemies for 3s.',
+        effect: (g) => {
+            g.augments.push('void_sovereign');
+            g.player.maxHealth += 500;
+            g.player.health += 500;
+            g.voidSovereign = true;
+            g.voidPullTimer = 0;
+            g.voidPullCooldown = 5;
+            g.voidPullDamage = 2000;
+            g.voidPullRadius = 400;
+            g.voidVulnerableDuration = 3;
+        },
+        getDesc: (g) => g.augments.includes('void_sovereign') ? '🌀 VOID ACTIVE 🌀' : '+500 HP, 2000 dmg pull/5s'
+    },
+    {
+        id: 'thunder_god',
+        name: 'Thunder God',
+        icon: '⚡',
+        rarity: 'mythic',
+        desc: 'Channel divine lightning. +300 HP. Every projectile chains lightning to 3 nearby enemies for 500 damage. +100% crit damage.',
+        effect: (g) => {
+            g.augments.push('thunder_god');
+            g.player.maxHealth += 300;
+            g.player.health += 300;
+            g.thunderGod = true;
+            g.lightningChainCount = 3;
+            g.lightningChainDamage = 500;
+            g.critDamageBonus = (g.critDamageBonus || 1) + 1; // +100% crit damage
+        },
+        getDesc: (g) => g.augments.includes('thunder_god') ? '⚡ THUNDER ACTIVE ⚡' : '+300 HP, chain lightning, +100% crit'
+    },
+    {
+        id: 'blood_lord',
+        name: 'Blood Lord',
+        icon: '🩸',
+        rarity: 'mythic',
+        desc: 'Master of blood magic. +750 HP. Deal 3% of your max HP as bonus damage. Heal 5% of all damage dealt. Blood Shield max +2000.',
+        effect: (g) => {
+            g.augments.push('blood_lord');
+            g.player.maxHealth += 750;
+            g.player.health += 750;
+            g.bloodLord = true;
+            g.bloodLordBonusDamage = 0.03; // 3% max HP as bonus damage
+            g.bloodLordLifesteal = 0.05; // 5% of damage dealt heals
+            g.bloodShieldMaxBase = (g.bloodShieldMaxBase || 0) + 2000;
+        },
+        getDesc: (g) => g.augments.includes('blood_lord') ? '🩸 BLOOD LORD ACTIVE 🩸' : '+750 HP, 3% HP dmg, 5% lifesteal'
+    },
+    {
+        id: 'celestial_guardian',
+        name: 'Celestial Guardian',
+        icon: '✨',
+        rarity: 'mythic',
+        desc: 'Divine protection. +2000 max HP. Immune to damage for 0.5s after taking a hit (5s cooldown). Revive with 100% HP once.',
+        effect: (g) => {
+            g.augments.push('celestial_guardian');
+            g.player.maxHealth += 2000;
+            g.player.health += 2000;
+            g.celestialGuardian = true;
+            g.celestialImmuneCooldown = 0;
+            g.celestialImmuneActive = false;
+            g.celestialRevive = true; // One-time revive with full HP
+        },
+        getDesc: (g) => g.augments.includes('celestial_guardian') ? '✨ DIVINE PROTECTION ✨' : '+2000 HP, damage immunity, full revive'
+    },
+    {
+        id: 'omega_destroyer',
+        name: 'Omega Destroyer',
+        icon: '💀',
+        rarity: 'mythic',
+        desc: 'Pure destruction. +500% projectile damage. -50% fire rate. Projectiles explode for 1500 damage in 100px radius. +3 projectiles.',
+        effect: (g) => {
+            g.augments.push('omega_destroyer');
+            g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 6); // +500%
+            g.weapons.bullet.fireRate *= 2; // -50% fire rate (slower)
+            g.omegaDestroyer = true;
+            g.omegaExplosionDamage = 1500;
+            g.omegaExplosionRadius = 100;
+            g.weapons.bullet.count += 3;
+        },
+        getDesc: (g) => g.augments.includes('omega_destroyer') ? '💀 OMEGA ACTIVE 💀' : '+500% dmg, -50% rate, explosions'
+    }
 ];
 
 // STACKING ITEMS SYSTEM - Items drop once and stack with kills/damage
 const STACKING_ITEMS = {
     // Each item has: base effect, stack scaling, max stacks, evolution
     // stackType: 'kill' = stacks on kills, 'damage' = stacks on damage dealt
+    // INFINITE SCALING: critBlade and heartVitality scale infinitely
+    // CAPPED: bootsSwiftness and bloodSoaker have max stacks
     critBlade: {
         name: 'Crit Blade',
         icon: '🗡️',
-        desc: '+0.0125% crit chance per stack. Stacks on damage dealt.',
+        desc: '♾️ INFINITE: +0.001% crit damage per stack. Stacks on damage dealt.',
         evolvedName: 'Death Blade',
         evolvedIcon: '⚔️',
-        evolvedDesc: '+25% crit, crits deal 3x damage',
-        maxStacks: 50000,
+        evolvedDesc: '♾️ +0.002% crit damage per stack. Crits deal 3x base damage.',
+        maxStacks: Infinity,  // INFINITE SCALING
         stackType: 'damage',
+        infiniteScaling: true,
         hasSprite: true,
         spriteBase: 'crit_blade_base',
         spriteEvolved: 'crit_blade_evolved',
-        effect: (g, stacks) => { g.stackingCritBonus = stacks * 0.000005; },
-        evolvedEffect: (g) => { g.stackingCritBonus = 0.25; g.weapons.bullet.critMultiplier = 3; }
+        effect: (g, stacks) => {
+            // Apply stack doubler if active
+            const effectiveStacks = g.stackDoubler ? stacks * 2 : stacks;
+            // +0.001% crit damage per stack = scales forever
+            g.stackingCritDamageBonus = effectiveStacks * 0.00001;
+        },
+        evolvedEffect: (g) => {
+            // Keep infinite scaling but boost the rate
+            g.critBladeEvolved = true;
+            g.weapons.bullet.critMultiplier = 3; // Base 3x crit damage
+        },
+        evolveThreshold: 50000  // Evolve at 50k damage for evolved boost
     },
     // beamDespair removed - now Necromancer's base attack
     ringXp: {
@@ -526,42 +844,41 @@ const STACKING_ITEMS = {
         evolvedName: 'Crown of Wisdom',
         evolvedIcon: '👑',
         evolvedDesc: '+150% XP gain, enemies drop double XP orbs',
-        maxStacks: 3000,  // Evolves at 3k kills
+        maxStacks: 3000,  // Evolves at 3k kills (capped)
         stackType: 'kill',
+        infiniteScaling: false,
         hasSprite: true,
         spriteBase: 'ring_xp_base',
         spriteEvolved: 'ring_xp_evolved',
         effect: (g, stacks) => {
-            // +0.05% XP per stack = 0.0005 multiplier per stack
-            // At 3000 stacks = +150% XP
-            g.stackingXpBonus = stacks * 0.0005;
+            const effectiveStacks = g.stackDoubler ? stacks * 2 : stacks;
+            g.stackingXpBonus = effectiveStacks * 0.0005;
         },
         evolvedEffect: (g) => {
-            g.stackingXpBonus = 1.5;  // +150% XP
-            g.doubleXpOrbs = true;    // Enemies drop double XP orbs
+            g.stackingXpBonus = 1.5;
+            g.doubleXpOrbs = true;
         }
     },
     bootsSwiftness: {
         name: 'Boots of Swiftness',
         icon: '👟',
-        desc: '+0.01% move speed per stack. Stacks by distance traveled.',
+        desc: '🔒 CAPPED: +0.01% move speed per stack (max +50%). Stacks by distance.',
         evolvedName: 'Wings of Mercury',
         evolvedIcon: '🪽',
         evolvedDesc: '+50% move speed, dash ability on double-tap',
-        maxStacks: 50000,  // 50000 units traveled = ~50km in game units
+        maxStacks: 50000,  // CAPPED at 50k - speed shouldn't scale infinitely
         stackType: 'distance',
+        infiniteScaling: false,
         hasSprite: true,
         spriteBase: 'boots_swiftness_base',
         spriteEvolved: 'boots_swiftness_evolved',
         effect: (g, stacks) => {
-            // +0.01% speed per stack = +0.0001 multiplier per stack
-            // At 50000 stacks = +50% speed
-            g.stackingSpeedBonus = stacks * 0.00001;
+            // Capped at 50% speed bonus
+            g.stackingSpeedBonus = Math.min(stacks * 0.00001, 0.5);
         },
         evolvedEffect: (g) => {
-            g.stackingSpeedBonus = 0.5;  // +50% move speed
-            g.hasDash = true;  // Unlock dash ability
-            // Unlock Dash ability in abilities system
+            g.stackingSpeedBonus = 0.5;
+            g.hasDash = true;
             if (g.abilities && g.abilities.dash) {
                 g.abilities.dash.unlocked = true;
             }
@@ -570,18 +887,20 @@ const STACKING_ITEMS = {
     heartVitality: {
         name: 'Heart of Vitality',
         icon: '❤️',
-        desc: '+1 max HP per stack (max 1000), +0.02 HP5 per stack. Stacks on kills.',
+        desc: '♾️ INFINITE: +1 max HP per stack. Stacks on kills.',
         evolvedName: 'Immortal Heart',
         evolvedIcon: '💖',
-        evolvedDesc: '+1000 max HP, heal 0.5% max HP per 5 seconds',
-        maxStacks: 5000,  // 5k kills to evolve
+        evolvedDesc: '♾️ +2 max HP per stack. Heal 0.5% max HP per 5 seconds.',
+        maxStacks: Infinity,  // INFINITE SCALING
         stackType: 'kill',
+        infiniteScaling: true,
         hasSprite: true,
         spriteBase: 'heart_vitality_base',
         spriteEvolved: 'heart_vitality_evolved',
         effect: (g, stacks) => {
-            // +1 max HP per stack, capped at 1000
-            const hpBonus = Math.min(stacks, 1000);
+            const effectiveStacks = g.stackDoubler ? stacks * 2 : stacks;
+            // +1 max HP per stack, no cap
+            const hpBonus = effectiveStacks;
             const prevHpBonus = g.heartVitalityHpBonus || 0;
             const hpDiff = hpBonus - prevHpBonus;
             if (hpDiff > 0) {
@@ -589,48 +908,107 @@ const STACKING_ITEMS = {
                 g.player.health += hpDiff;
             }
             g.heartVitalityHpBonus = hpBonus;
-            // +0.02 HP5 per stack = 0.02 HP per 5 seconds per stack
-            g.stackingHp5Bonus = stacks * 0.02;
         },
         evolvedEffect: (g) => {
-            // Ensure max HP bonus is at cap
-            const hpBonus = 1000;
-            const prevHpBonus = g.heartVitalityHpBonus || 0;
-            const hpDiff = hpBonus - prevHpBonus;
-            if (hpDiff > 0) {
-                g.player.maxHealth += hpDiff;
-                g.player.health += hpDiff;
-            }
-            g.heartVitalityHpBonus = hpBonus;
-            g.heartVitalityEvolved = true;  // Flag for % based healing
-        }
+            // Keep infinite scaling but boost the rate
+            g.heartVitalityEvolved = true;  // +2 HP per stack after evolution
+        },
+        evolveThreshold: 1000  // Evolve at 1k kills for evolved boost
     },
     bloodSoaker: {
         name: 'Blood Soaker',
         icon: '🩸',
-        desc: '0.5% + 0.00048% lifesteal per stack. Stacks on damage dealt.',
+        desc: '🔒 CAPPED: Build blood shield from damage dealt (max 1500 shield).',
         evolvedName: 'Vampiric Essence',
         evolvedIcon: '🧛',
-        evolvedDesc: '15% lifesteal, heal burst on kill',
-        maxStacks: 30000,  // 30k damage to evolve
+        evolvedDesc: 'Shield explodes on break, damaging enemies. Heal 10% of explosion.',
+        maxStacks: 150000,  // CAPPED - blood shield max is limited
         stackType: 'damage',
+        infiniteScaling: false,
         hasSprite: true,
         spriteBase: 'blood_soaker_base',
         spriteEvolved: 'blood_soaker_evolved',
         effect: (g, stacks) => {
-            // Base 0.5% + scaling to reach 15% at 30k
-            // (15% - 0.5%) / 30000 = 0.000483% per stack
-            g.stackingLifesteal = 0.005 + (stacks * 0.00000483);
+            g.bloodShieldEnabled = true;
+            // Capped at 1000 max shield
+            g.bloodShieldMaxBase = Math.min(250 + Math.floor(stacks * 0.005), 1000);
+            g.bloodShieldRate = 0.01;
         },
         evolvedEffect: (g) => {
-            g.stackingLifesteal = 0.15;  // 15% lifesteal
-            g.healBurstOnKill = true;  // Heal burst on kill
+            g.bloodShieldEnabled = true;
+            g.bloodShieldEvolved = true;
+            g.bloodShieldMaxBase = 1500; // Max shield capped at 1500
+            g.bloodShieldRate = 0.02;
         }
     }
 };
 
 // Legacy ITEMS for backward compatibility (redirects to stacking system)
 const ITEMS = STACKING_ITEMS;
+
+// ============================================
+// STARTER ITEMS - Low stat-stick items for early game
+// NO LIFESTEAL - These are meant to be weak starting bonuses
+// Stacking items can still drop later for bigger scaling
+// ============================================
+const STARTER_ITEMS = {
+    rustyBlade: {
+        name: 'Rusty Blade',
+        icon: '🗡️',
+        desc: '+5 Damage',
+        color: '#8b4513',
+        effect: (g) => { g.weapons.bullet.damage += 5; }
+    },
+    tornCloak: {
+        name: 'Torn Cloak',
+        icon: '🧥',
+        desc: '+25 Max HP',
+        color: '#4a4a4a',
+        effect: (g) => { g.player.maxHealth += 25; g.player.health += 25; }
+    },
+    wornBoots: {
+        name: 'Worn Boots',
+        icon: '👢',
+        desc: '+8 Movement Speed',
+        color: '#654321',
+        effect: (g) => { g.player.speed += 8; }
+    },
+    crackedAmulet: {
+        name: 'Cracked Amulet',
+        icon: '📿',
+        desc: '+1 HP per 5 seconds',
+        color: '#4682b4',
+        effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; }
+    },
+    dullRing: {
+        name: 'Dull Ring',
+        icon: '💍',
+        desc: '+2% Crit Chance',
+        color: '#c0c0c0',
+        effect: (g) => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.02; }
+    },
+    patchedArmor: {
+        name: 'Patched Armor',
+        icon: '🛡️',
+        desc: '+15 HP, +3 Damage',
+        color: '#708090',
+        effect: (g) => { g.player.maxHealth += 15; g.player.health += 15; g.weapons.bullet.damage += 3; }
+    },
+    tarnishedCoin: {
+        name: 'Tarnished Coin',
+        icon: '🪙',
+        desc: '+10% XP Gain',
+        color: '#daa520',
+        effect: (g) => { g.xpMultiplier = (g.xpMultiplier || 1) * 1.1; }
+    },
+    brokenWand: {
+        name: 'Broken Wand',
+        icon: '🪄',
+        desc: '+3% Fire Rate',
+        color: '#9932cc',
+        effect: (g) => { g.weapons.bullet.fireRate *= 0.97; }
+    }
+};
 
 // Build Set Bonuses - activated when all 3 pieces are collected
 const BUILD_SETS = {
@@ -682,13 +1060,14 @@ const BUILD_SETS = {
 };
 
 // Game balance settings (balanced around medium difficulty)
+// SCALED 5x base with INCREASED scaling for late-game power spikes
 const GAME_SETTINGS = {
     enemyHealthMult: 0.35,       // Lower base health for easier early game (waves 1-14)
     enemyDamageMult: 1.0,
     enemySpeedMult: 1.3,         // FASTER enemies for more exciting gameplay
     spawnRateMult: 0.7,          // FASTER spawns (lower = more frequent)
-    scalingPerWave: 0.08,        // Slightly lower early scaling for smoother progression
-    scalingPerWaveLate: 0.60,    // Heavy scaling after wave 10 (difficulty ramps up)
+    scalingPerWave: 0.12,        // INCREASED from 0.08 - 12% per wave for bigger numbers later
+    scalingPerWaveLate: 0.90,    // INCREASED from 0.60 - 90% per wave after wave 10
     lateGameWave: 10,            // When late game scaling kicks in
     playerHealthMult: 1.0,
     xpMult: 1.2,                 // More XP for faster leveling
@@ -696,32 +1075,33 @@ const GAME_SETTINGS = {
 };
 
 // Dynamic Difficulty Tiers (based on wave number)
-// Waves 1-20: EASY, Waves 21-40: NORMAL, Waves 41-60: HARD, Waves 60+: INFERNAL
+// Waves 1-5: EASY, Waves 6-10: NORMAL, Waves 11-15: HARD, Waves 16-20: INFERNAL
 const DIFFICULTY_TIERS = {
-    EASY: { name: 'Easy', icon: '🌱', color: '#44ff44', healthMult: 0.75, damageMult: 0.75, maxWave: 20 },
-    NORMAL: { name: 'Normal', icon: '⚔️', color: '#ffaa00', healthMult: 1.0, damageMult: 1.0, maxWave: 40 },
-    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.5, damageMult: 1.5, maxWave: 60 },
-    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 2.5, damageMult: 2.5, maxWave: Infinity }
+    EASY: { name: 'Easy', icon: '🌱', color: '#44ff44', healthMult: 0.75, damageMult: 0.75, maxWave: 5 },
+    NORMAL: { name: 'Normal', icon: '⚔️', color: '#ffaa00', healthMult: 1.0, damageMult: 1.0, maxWave: 10 },
+    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.5, damageMult: 1.5, maxWave: 15 },
+    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 2.5, damageMult: 2.5, maxWave: 20 }
 };
 
 // Get difficulty tier based on wave number
 function getDifficultyTier(wave) {
-    if (wave <= 20) return DIFFICULTY_TIERS.EASY;
-    if (wave <= 40) return DIFFICULTY_TIERS.NORMAL;
-    if (wave <= 60) return DIFFICULTY_TIERS.HARD;
+    if (wave <= 5) return DIFFICULTY_TIERS.EASY;
+    if (wave <= 10) return DIFFICULTY_TIERS.NORMAL;
+    if (wave <= 15) return DIFFICULTY_TIERS.HARD;
     return DIFFICULTY_TIERS.INFERNAL;
 }
 
 // Legendary Perks (from control points)
+// SCALED 5x for balanced early game with better late scaling
 const LEGENDARY_PERKS = [
-    { id: 'vampiric', name: 'Vampiric Touch', icon: '🧛', desc: 'Heal 2 HP per enemy killed' },
+    { id: 'vampiric', name: 'Vampiric Touch', icon: '🧛', desc: 'Heal 10 HP per enemy killed' },
     { id: 'doubleshot', name: 'Double Trouble', icon: '👯', desc: 'Fire 2x projectiles' },
     { id: 'nuclear', name: 'Nuclear Core', icon: '☢️', desc: '+50% damage, enemies explode on death' },
     { id: 'timewarp', name: 'Time Warp', icon: '⏰', desc: 'Enemies move 30% slower' },
-    { id: 'goldenheart', name: 'Golden Heart', icon: '💛', desc: '+100 max HP, +3 HP regen/s' },
+    { id: 'goldenheart', name: 'Golden Heart', icon: '💛', desc: '+500 max HP, +15 HP regen/s' },
     { id: 'berserk', name: 'Berserker', icon: '😤', desc: '+100% damage when below 30% HP' },
     { id: 'guardian', name: 'Guardian Angel', icon: '👼', desc: 'Revive once with 50% HP' },
-    { id: 'inferno', name: 'Inferno Aura', icon: '🔥', desc: 'Burn nearby enemies for 5 DPS' },
+    { id: 'inferno', name: 'Inferno Aura', icon: '🔥', desc: 'Burn nearby enemies for 25 DPS' },
     { id: 'frozen', name: 'Frozen Heart', icon: '❄️', desc: 'Chance to freeze enemies on hit' }
 ];
 
@@ -759,12 +1139,12 @@ class DotsSurvivor {
         // Class
         this.selectedClass = null;
 
-        // Player
-        this.player = { x: 0, y: 0, radius: 15, speed: 220, maxHealth: 100, health: 100, xp: 0, xpToLevel: 50, level: 1, kills: 0, invincibleTime: 0, color: '#00ffaa' };
+        // Player - SCALED UP 10x for big satisfying numbers
+        this.player = { x: 0, y: 0, radius: 15, speed: 220, maxHealth: 500, health: 500, xp: 0, xpToLevel: 50, level: 1, kills: 0, invincibleTime: 0, color: '#00ffaa' };
 
-        // Combat
+        // Combat - SCALED 5x (halved from 10x for better early game)
         this.projectiles = [];
-        this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 600, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
+        this.weapons = { bullet: { damage: 75, speed: 450, fireRate: 600, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
         this.skulls = []; // Elemental skulls (replaced orbitals and stars)
         this.skullElements = ['fire', 'dark', 'lightning', 'slow'];
         this.skullElementIndex = 0;
@@ -794,18 +1174,18 @@ class DotsSurvivor {
         this.joystick = { active: false, startX: 0, startY: 0, dx: 0, dy: 0 };
         this.isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        // Base upgrades with descriptions
+        // Base upgrades with descriptions - SCALED 5x (halved from 10x)
         this.baseUpgrades = [
-            { id: 'speed', name: 'Swift Feet', icon: '👟', desc: 'Move 30 units faster', rarity: 'common', effect: (g) => g.player.speed += 30, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 30}` },
-            { id: 'health', name: 'Vitality', icon: '❤️', desc: 'Increases max HP by 30', rarity: 'common', effect: (g) => { g.player.maxHealth += 30; g.player.health += 30; }, getDesc: (g) => `Max HP: ${g.player.maxHealth} → ${g.player.maxHealth + 30}` },
-            { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +5 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 5, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 5}` },
+            { id: 'speed', name: 'Swift Feet', icon: '👟', desc: 'Move 15 units faster', rarity: 'common', effect: (g) => g.player.speed += 15, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 15}` },
+            { id: 'health', name: 'Vitality', icon: '❤️', desc: 'Increases max HP by 150', rarity: 'common', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; }, getDesc: (g) => `Max HP: ${g.player.maxHealth} → ${g.player.maxHealth + 150}` },
+            { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +25 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 25, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 25}` },
             { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 10% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.9), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy & +3% range', rarity: 'rare', effect: (g) => { g.weapons.bullet.pierce++; g.projectileRangeBonus = (g.projectileRangeBonus || 1) * 1.03; }, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}, Range: +3%` },
-            { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
+            { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +25 range', rarity: 'common', effect: (g) => g.magnetRadius += 25, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 25}` },
             { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
-            { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 50}, Speed: ${g.player.speed}→${g.player.speed + 25}` },
-            { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
+            { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +250 HP and +12 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; g.player.speed += 12; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 250}, Speed: ${g.player.speed}→${g.player.speed + 12}` },
+            { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +100 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 100, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 100}` },
             // Note: skull_upgrade, skull_shower, summon_wolf are now class-specific augments
         ];
 
@@ -1126,12 +1506,15 @@ class DotsSurvivor {
             if ((e.key === 'Escape' || key === 'p') && this.gameRunning) {
                 this.togglePause();
             }
-            // Character ability activation - Q and E keys
-            if (key === 'q' && this.gameRunning && !this.gamePaused) {
-                this.activateCharacterAbility('q');
+            // CLASS ABILITIES REMOVED - Classes now have passives instead
+            // Q and E keys are no longer used for character abilities
+
+            // Item ability activation - 1 and 2 keys
+            if (key === '1' && this.gameRunning && !this.gamePaused) {
+                this.activateAbility('dash');
             }
-            if (key === 'e' && this.gameRunning && !this.gamePaused) {
-                this.activateCharacterAbility('e');
+            if (key === '2' && this.gameRunning && !this.gamePaused) {
+                this.activateAbility('nuclearBlast');
             }
         });
         window.addEventListener('keyup', (e) => {
@@ -1522,9 +1905,86 @@ class DotsSurvivor {
     }
 
     setupTouch() {
-        this.canvas.addEventListener('touchstart', (e) => { if (!this.gameRunning || this.gamePaused) return; e.preventDefault(); const t = e.touches[0]; if (t.clientY > window.innerHeight / 2) { this.joystick.active = true; this.joystick.startX = t.clientX; this.joystick.startY = t.clientY; } }, { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => { if (!this.joystick.active) return; e.preventDefault(); const t = e.touches[0]; const dx = t.clientX - this.joystick.startX, dy = t.clientY - this.joystick.startY; const d = Math.sqrt(dx * dx + dy * dy); if (d > 0) { const c = Math.min(d, 60); this.joystick.dx = (dx / d) * (c / 60); this.joystick.dy = (dy / d) * (c / 60); } }, { passive: false });
-        this.canvas.addEventListener('touchend', () => { this.joystick.active = false; this.joystick.dx = 0; this.joystick.dy = 0; });
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (!this.gameRunning || this.gamePaused) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const touchX = t.clientX - rect.left;
+            const touchY = t.clientY - rect.top;
+
+            // Check if tap is on character abilities (bottom left)
+            const compact = this.canvas.width < 768;
+            const abilitySize = compact ? 40 : 50;
+            const padding = compact ? 6 : 10;
+            const margin = 15;
+            const charAbilityY = this.canvas.height - margin - abilitySize;
+
+            // Q ability area (first slot, bottom left)
+            const qX = margin;
+            if (touchX >= qX && touchX <= qX + abilitySize &&
+                touchY >= charAbilityY && touchY <= charAbilityY + abilitySize) {
+                this.activateCharacterAbility('q');
+                return;
+            }
+
+            // E ability area (second slot)
+            const eX = margin + abilitySize + padding;
+            if (touchX >= eX && touchX <= eX + abilitySize &&
+                touchY >= charAbilityY && touchY <= charAbilityY + abilitySize) {
+                this.activateCharacterAbility('e');
+                return;
+            }
+
+            // Check if tap is on item abilities (bottom right)
+            const itemAbilitySize = compact ? 45 : 55;
+            const itemPadding = compact ? 8 : 12;
+            const itemMargin = compact ? 10 : 15;
+            const itemAbilityY = this.canvas.height - itemMargin - itemAbilitySize;
+
+            // Nuclear Blast (rightmost)
+            const nuclearX = this.canvas.width - itemMargin - itemAbilitySize;
+            if (touchX >= nuclearX && touchX <= nuclearX + itemAbilitySize &&
+                touchY >= itemAbilityY && touchY <= itemAbilityY + itemAbilitySize) {
+                this.activateAbility('nuclearBlast');
+                return;
+            }
+
+            // Dash (second from right)
+            const dashX = nuclearX - itemPadding - itemAbilitySize;
+            if (touchX >= dashX && touchX <= dashX + itemAbilitySize &&
+                touchY >= itemAbilityY && touchY <= itemAbilityY + itemAbilitySize) {
+                this.activateAbility('dash');
+                return;
+            }
+
+            // Otherwise, start joystick if in bottom half
+            if (t.clientY > window.innerHeight / 2) {
+                this.joystick.active = true;
+                this.joystick.startX = t.clientX;
+                this.joystick.startY = t.clientY;
+            }
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (!this.joystick.active) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            const dx = t.clientX - this.joystick.startX;
+            const dy = t.clientY - this.joystick.startY;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 0) {
+                const c = Math.min(d, 60);
+                this.joystick.dx = (dx / d) * (c / 60);
+                this.joystick.dy = (dy / d) * (c / 60);
+            }
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchend', () => {
+            this.joystick.active = false;
+            this.joystick.dx = 0;
+            this.joystick.dy = 0;
+        });
     }
 
     showBoostSelect() {
@@ -1543,17 +2003,36 @@ class DotsSurvivor {
         const content = menu.querySelector('.menu-content');
 
         // Build character cards HTML
+        // Disabled classes: shadow_master, necromancer (Coming Soon)
+        const DISABLED_CLASSES = ['shadow_master', 'necromancer'];
+
         const characterCardsHTML = PLAYABLE_CLASSES.map((charClass, index) => {
+            const isDisabled = DISABLED_CLASSES.includes(charClass.id);
             const skillsHTML = Object.values(charClass.skills).map(s =>
                 `<div style="display:flex;align-items:center;gap:0.3rem;font-size:0.7rem;color:#ccc;"><span>${s.icon}</span><span>${s.name}</span></div>`
             ).join('');
 
-            const abilitiesHTML = Object.values(charClass.abilities).map(a =>
-                `<div style="display:flex;align-items:center;gap:0.3rem;font-size:0.65rem;color:#aaa;"><span style="background:#333;padding:1px 4px;border-radius:3px;font-size:0.6rem;">${a.key}</span><span>${a.icon} ${a.name}</span></div>`
-            ).join('');
+            // Show class passive instead of abilities
+            const passiveHTML = charClass.passive ?
+                `<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.7rem;color:#fbbf24;background:rgba(251,191,36,0.15);padding:0.4rem 0.6rem;border-radius:6px;border:1px solid rgba(251,191,36,0.3);">
+                    <span style="font-size:1rem;">${charClass.passive.icon}</span>
+                    <div>
+                        <div style="font-weight:700;">${charClass.passive.name}</div>
+                        <div style="font-size:0.6rem;color:#ccc;">${charClass.passive.desc}</div>
+                    </div>
+                </div>` : '';
+
+            // Coming Soon overlay for disabled classes
+            const comingSoonOverlay = isDisabled ? `
+                <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;">
+                    <div style="font-size:2rem;margin-bottom:0.5rem;">🔒</div>
+                    <div style="color:#fbbf24;font-weight:700;font-size:1.1rem;text-transform:uppercase;">Coming Soon</div>
+                </div>
+            ` : '';
 
             return `
-                <div class="char-card" data-class-index="${index}" style="background:${charClass.color}22;border:3px solid ${charClass.color};border-radius:16px;padding:1.2rem;width:220px;cursor:pointer;text-align:center;transition:all 0.3s;position:relative;">
+                <div class="char-card ${isDisabled ? 'disabled' : ''}" data-class-index="${index}" data-disabled="${isDisabled}" style="background:${charClass.color}22;border:3px solid ${isDisabled ? '#444' : charClass.color};border-radius:16px;padding:1.2rem;width:220px;cursor:${isDisabled ? 'not-allowed' : 'pointer'};text-align:center;transition:all 0.3s;position:relative;opacity:${isDisabled ? '0.6' : '1'};">
+                    ${comingSoonOverlay}
                     <div style="font-size:3rem;margin-bottom:0.3rem;">${charClass.icon}</div>
                     <div style="font-weight:700;color:${charClass.color};font-size:1.3rem;margin:0.3rem 0;">${charClass.name}</div>
                     <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.8rem;line-height:1.3;">${charClass.desc}</div>
@@ -1564,8 +2043,8 @@ class DotsSurvivor {
                     </div>
 
                     <div style="text-align:left;margin-top:0.6rem;">
-                        <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:0.3rem;">✨ Abilities</div>
-                        ${abilitiesHTML}
+                        <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:0.3rem;">⭐ Class Passive</div>
+                        ${passiveHTML}
                     </div>
                 </div>
             `;
@@ -1587,15 +2066,20 @@ class DotsSurvivor {
         // Add hover effects and click handlers
         const cards = content.querySelectorAll('.char-card');
         cards.forEach(card => {
+            const isDisabled = card.dataset.disabled === 'true';
+
             card.addEventListener('mouseenter', () => {
+                if (isDisabled) return;
                 card.style.transform = 'scale(1.05)';
                 card.style.boxShadow = '0 0 30px rgba(255,255,255,0.2)';
             });
             card.addEventListener('mouseleave', () => {
+                if (isDisabled) return;
                 card.style.transform = 'scale(1)';
                 card.style.boxShadow = 'none';
             });
             card.addEventListener('click', () => {
+                if (isDisabled) return; // Don't allow clicking disabled classes
                 const classIndex = parseInt(card.dataset.classIndex);
                 const selectedClass = PLAYABLE_CLASSES[classIndex];
                 this.showStarterItemSelect(selectedClass);
@@ -1610,16 +2094,10 @@ class DotsSurvivor {
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
 
-        // Get all stacking items for selection with their sprite paths
-        const items = Object.keys(STACKING_ITEMS).map(key => {
-            const item = STACKING_ITEMS[key];
-            let spritePath = null;
-            if (key === 'critBlade') spritePath = getSpritePath(CRIT_BLADE_SPRITES.base);
-            else if (key === 'ringXp') spritePath = getSpritePath(RING_XP_SPRITES.base);
-            else if (key === 'bootsSwiftness') spritePath = getSpritePath(BOOTS_SWIFTNESS_SPRITES.base);
-            else if (key === 'heartVitality') spritePath = getSpritePath(HEART_VITALITY_SPRITES.base);
-            else if (key === 'bloodSoaker') spritePath = getSpritePath(BLOOD_SOAKER_SPRITES.base);
-            return { key, spritePath, ...item };
+        // Use STARTER_ITEMS for low stat-stick items (no OP stacking items)
+        const items = Object.keys(STARTER_ITEMS).map(key => {
+            const item = STARTER_ITEMS[key];
+            return { key, ...item };
         });
 
         content.innerHTML = `
@@ -1628,17 +2106,13 @@ class DotsSurvivor {
                 <span style="color:${characterClass.color};font-size:1.2rem;font-weight:700;">${characterClass.name}</span>
             </div>
             <h1 style="color:#fbbf24;font-size:1.6rem;margin-bottom:0.5rem;">🎁 CHOOSE STARTER ITEM</h1>
-            <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Pick an item to start your run with!</p>
-            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:700px;margin:0 auto;">
+            <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Pick a small bonus to start your run!</p>
+            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;max-width:800px;margin:0 auto;">
                 ${items.map(item => `
-                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(255,255,255,0.05);border:2px solid #444;border-radius:12px;padding:1rem;cursor:pointer;text-align:center;transition:all 0.2s;min-height:160px;">
-                        ${item.spritePath ?
-                            `<img src="${item.spritePath}" style="width:60px;height:60px;border-radius:10px;border:2px solid #fbbf24;margin-bottom:0.5rem;" onerror="this.outerHTML='<div style=font-size:2.5rem;margin-bottom:0.5rem;>${item.icon}</div>'">` :
-                            `<div style="font-size:2.5rem;margin-bottom:0.5rem;">${item.icon}</div>`
-                        }
-                        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin:0.3rem 0;">${item.name}</div>
-                        <div style="font-size:0.65rem;color:#aaa;line-height:1.4;padding:0 0.3rem;">${item.desc}</div>
-                        <div style="font-size:0.6rem;color:#fbbf24;margin-top:0.4rem;">⭐ ${item.evolvedName}</div>
+                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(255,255,255,0.05);border:2px solid ${item.color || '#444'};border-radius:12px;padding:0.8rem;cursor:pointer;text-align:center;transition:all 0.2s;min-height:100px;">
+                        <div style="font-size:2rem;margin-bottom:0.3rem;">${item.icon}</div>
+                        <div style="font-weight:700;color:#fff;font-size:0.85rem;margin:0.2rem 0;">${item.name}</div>
+                        <div style="font-size:0.7rem;color:#aaa;line-height:1.3;">${item.desc}</div>
                     </div>
                 `).join('')}
             </div>
@@ -1650,16 +2124,21 @@ class DotsSurvivor {
         const cards = content.querySelectorAll('.starter-item-card');
         cards.forEach(card => {
             card.addEventListener('mouseenter', () => {
+                const item = STARTER_ITEMS[card.dataset.item];
                 card.style.borderColor = '#fbbf24';
                 card.style.background = 'rgba(251,191,36,0.1)';
+                card.style.transform = 'scale(1.05)';
             });
             card.addEventListener('mouseleave', () => {
-                card.style.borderColor = '#444';
+                const item = STARTER_ITEMS[card.dataset.item];
+                card.style.borderColor = item?.color || '#444';
                 card.style.background = 'rgba(255,255,255,0.05)';
+                card.style.transform = 'scale(1)';
             });
             card.addEventListener('click', () => {
                 const itemKey = card.dataset.item;
                 this.selectedStarterItem = itemKey;
+                this.selectedStarterItemType = 'starter'; // Mark as starter item, not stacking
                 this.startGame();
             });
         });
@@ -1741,7 +2220,7 @@ class DotsSurvivor {
         // Stacking Items System
         this.stackingItems = {}; // { itemKey: { stacks: 0, evolved: false } }
         this.droppedItems = []; // Track which items have already dropped (drop once only)
-        this.lastItemPickupTime = -180000; // Allow first item to drop immediately (3 min = 180000ms)
+        this.lastItemDropTime = -180000; // Allow first item to drop immediately (3 min = 180000ms)
         this.stackingDamageBonus = 0;
         this.stackingXpBonus = 0;
         this.stackingHpBonus = 0;
@@ -1751,6 +2230,20 @@ class DotsSurvivor {
         this.stackingPoisonDps = 0;
         this.stackingMagnetBonus = 0;
         this.stackingRegen = 0;
+
+        // Reroll System - 1 free reroll per augment selection
+        this.augmentRerollsLeft = 1;
+
+        // Blood Shield (Blood Soaker item)
+        this.bloodShieldEnabled = false;
+        this.bloodShieldEvolved = false;
+        this.bloodShield = 0;           // Current shield amount
+        this.bloodShieldMax = 0;        // Max shield (calculated from bloodShieldMaxBase)
+        this.bloodShieldMaxBase = 0;    // Base max shield (set by item effect)
+        this.bloodShieldRate = 0;       // % of damage dealt that becomes shield
+        this.bloodShieldCooldown = 0;   // Cooldown timer after shield breaks (30 seconds)
+        this.bloodShieldCooldownMax = 30; // 30 second rebuild cooldown
+
         this.wave = 1; this.waveTimer = 0; this.gameTime = 0;
 
         // INTENSE spawn rate (faster spawns)
@@ -1826,22 +2319,22 @@ class DotsSurvivor {
         this.killStreakTimer = 0;
         this.auraFire = null; // Fire aura augment
 
-        // ABILITIES SYSTEM - Active abilities with cooldowns
+        // ABILITIES SYSTEM - Active abilities with cooldowns (Item abilities use 1 and 2 keys)
         this.abilities = {
             dash: {
                 unlocked: false,
                 cooldown: 10,        // 10 second cooldown
                 currentCooldown: 0,
                 distance: 100,       // Blinks 100px
-                key: 'q'             // Q key to activate
+                key: '1'             // 1 key to activate
             },
             nuclearBlast: {
                 unlocked: false,
                 cooldown: 60,        // 60 second cooldown
                 currentCooldown: 0,
-                damage: 500,         // Base damage
+                damage: 2500,        // SCALED 5x - Base damage
                 range: 800,          // Max range 800px
-                key: 'e'             // E key to activate
+                key: '2'             // 2 key to activate
             }
         };
         this.nuclearBlastWave = null; // Active nuclear blast effect
@@ -1867,7 +2360,7 @@ class DotsSurvivor {
         this.demonSetBonusActive = false;
         this.imps = [];
         this.impSpawnTimer = 0;
-        this.impStats = { damage: 300, maxImps: 5, spawnInterval: 10, burnDuration: 5 };
+        this.impStats = { damage: 1500, maxImps: 5, spawnInterval: 10, burnDuration: 5 }; // SCALED 5x
 
         if (this.selectedClass.bonuses.wolfCount) {
             this.maxWolves = this.selectedClass.bonuses.wolfCount;
@@ -1898,9 +2391,9 @@ class DotsSurvivor {
             }
         }
 
-        // ========== FIRE MAGE ==========
+        // ========== FIRE MAGE ========== SCALED 5x (halved from 10x)
         if (this.selectedClass.bonuses.hasAuraFire) {
-            this.auraFire = { radius: 120, damage: 25, burnDuration: 3 };
+            this.auraFire = { radius: 120, damage: 40, burnDuration: 3 };  // 40 dps = 120 dmg over 3s (swarm has 100 HP)
             this.augments.push('aura_fire');
         }
         if (this.selectedClass.bonuses.hasFireballs) {
@@ -1956,7 +2449,7 @@ class DotsSurvivor {
             this.hasDeathDrain = true;
             this.deathDrainChains = 1;
             this.deathDrainEvolved = false;
-            this.deathDrainDamage = 15;
+            this.deathDrainDamage = 75; // SCALED 5x (halved from 10x)
         }
         if (this.selectedClass.bonuses.noProjectiles) {
             this.noProjectiles = true;
@@ -2024,28 +2517,45 @@ class DotsSurvivor {
             for (let i = 0; i < this.maxWolves; i++) this.addMinion('wolf');
         }
 
-        // Apply starter item if selected
-        if (this.selectedStarterItem && STACKING_ITEMS[this.selectedStarterItem]) {
+        // Apply class passive effect
+        if (this.selectedClass.passive && this.selectedClass.passive.effect) {
+            this.selectedClass.passive.effect(this);
+            console.log(`[CLASS PASSIVE] Applied: ${this.selectedClass.passive.name}`);
+        }
+
+        // Apply starter item if selected (STARTER_ITEMS are simple stat bonuses)
+        if (this.selectedStarterItem) {
             const itemKey = this.selectedStarterItem;
-            const item = STACKING_ITEMS[itemKey];
 
-            // Initialize the item with 1 stack
-            this.stackingItems[itemKey] = { stacks: 1, evolved: false };
-            this.droppedItems.push(itemKey); // Mark as already dropped
-
-            // Apply the item's initial effect
-            if (item.effect) {
-                item.effect(this, 1);
+            // Check if it's a STARTER_ITEM (simple stat bonus) or STACKING_ITEM (legacy)
+            if (STARTER_ITEMS[itemKey]) {
+                const item = STARTER_ITEMS[itemKey];
+                // Apply the simple stat effect
+                if (item.effect) {
+                    item.effect(this);
+                }
+                // Show pickup message
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 40,
+                    value: `🎁 ${item.name}`, lifetime: 2, color: item.color || '#fbbf24', scale: 1.3
+                });
+            } else if (STACKING_ITEMS[itemKey]) {
+                // Legacy support for stacking items as starter (shouldn't happen normally)
+                const item = STACKING_ITEMS[itemKey];
+                this.stackingItems[itemKey] = { stacks: 1, evolved: false };
+                this.droppedItems.push(itemKey);
+                if (item.effect) {
+                    item.effect(this, 1);
+                }
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 40,
+                    value: `🎁 ${item.name}`, lifetime: 2, color: '#fbbf24', scale: 1.3
+                });
             }
-
-            // Show pickup message
-            this.damageNumbers.push({
-                x: this.player.x, y: this.player.y - 40,
-                value: `🎁 ${item.name}`, lifetime: 2, color: '#fbbf24', scale: 1.3
-            });
 
             // Clear the selection for next game
             this.selectedStarterItem = null;
+            this.selectedStarterItemType = null;
         }
 
         // Start Game Loop
@@ -2129,10 +2639,10 @@ class DotsSurvivor {
             spriteSize: 300,       // Sprite render size (grows when consuming)
             baseSpriteSize: 300,
             speed: 18, // Slightly slower - menacing crawl
-            health: 35000,         // Much tankier - increased from 15000
-            maxHealth: 35000,
-            baseHealth: 35000,
-            damage: 60, // High contact damage
+            health: 175000,        // SCALED 5x (halved from 10x)
+            maxHealth: 175000,
+            baseHealth: 175000,
+            damage: 300, // SCALED 5x - High contact damage
             xp: 3000,
             color: '#8800ff',
             hitFlash: 0,
@@ -2475,7 +2985,7 @@ class DotsSurvivor {
     }
 
     createSkull() {
-        // Create an elemental skull that orbits the player
+        // Create an elemental skull that orbits the player - SCALED 5x (halved from 10x)
         const elements = ['fire', 'dark', 'lightning', 'slow'];
         const element = elements[this.skulls.length % 4]; // Cycle through elements
         const colors = { fire: '#ff4400', dark: '#6600aa', lightning: '#ffff00', slow: '#00ccff' };
@@ -2483,7 +2993,7 @@ class DotsSurvivor {
             angle: Math.random() * Math.PI * 2,
             radius: 70 + this.skulls.length * 12,
             speed: 2.5 + Math.random() * 0.5,
-            damage: 20,
+            damage: 100,
             size: 18,
             element: element,
             color: colors[element]
@@ -2503,8 +3013,8 @@ class DotsSurvivor {
         const baseAngle = (existingWolves * (Math.PI * 2 / 3)) + (Math.random() * 0.5 - 0.25); // Spread by 120 degrees + small random offset
         const spawnDistance = 80 + (existingWolves * 30); // Each wolf spawns further out
 
-        // Wolf Stats - Scale with level and augments (wolves are TANKY)
-        const levelMult = 1 + (this.player.level * 0.15); // 15% scaling per level
+        // Wolf Stats - Scale with level and augments (wolves are TANKY) - SCALED 5x with 20% level scaling
+        const levelMult = 1 + (this.player.level * 0.20); // INCREASED to 20% scaling per level
         const sizeBonus = this.wolfSizeBonus || 1;
         const damageBonus = this.wolfDamageBonus || 1;
 
@@ -2513,9 +3023,9 @@ class DotsSurvivor {
             y: this.player.y + Math.sin(baseAngle) * spawnDistance,
             radius: Math.floor(14 * sizeBonus),
             speed: 250,
-            damage: Math.floor(35 * levelMult * damageBonus),
-            health: Math.floor(3000 * levelMult * sizeBonus), // Buffed from 1200 to 3000 (2.5x tankier)
-            maxHealth: Math.floor(3000 * levelMult * sizeBonus),
+            damage: Math.floor(175 * levelMult * damageBonus),
+            health: Math.floor(15000 * levelMult * sizeBonus),
+            maxHealth: Math.floor(15000 * levelMult * sizeBonus),
             color: '#8b7355',
             icon: '🐺',
             attackCooldown: 0,
@@ -2523,13 +3033,13 @@ class DotsSurvivor {
         };
     }
 
-    // Beast Tamer: Create shadow monster minion
+    // Beast Tamer: Create shadow monster minion - SCALED 5x with 18% level scaling
     createShadowMonster() {
         const existingMonsters = this.shadowMonsters?.length || 0;
         const baseAngle = (existingMonsters * (Math.PI * 2 / 5)) + (Math.random() * 0.3 - 0.15);
         const spawnDistance = 100 + (existingMonsters * 25);
 
-        const levelMult = 1 + (this.player.level * 0.12);
+        const levelMult = 1 + (this.player.level * 0.18); // INCREASED to 18% scaling per level
         const damageBonus = this.shadowDamageBonus || 1;
 
         return {
@@ -2537,9 +3047,9 @@ class DotsSurvivor {
             y: this.player.y + Math.sin(baseAngle) * spawnDistance,
             radius: 16,
             speed: 280,
-            damage: Math.floor(45 * levelMult * damageBonus),
-            health: Math.floor(800 * levelMult),
-            maxHealth: Math.floor(800 * levelMult),
+            damage: Math.floor(225 * levelMult * damageBonus),
+            health: Math.floor(4000 * levelMult),
+            maxHealth: Math.floor(4000 * levelMult),
             color: '#6600aa',
             icon: '👻',
             attackCooldown: 0,
@@ -2555,17 +3065,18 @@ class DotsSurvivor {
         const baseAngle = (existingSentinels * (Math.PI * 2 / 6)) + (Math.random() * 0.2 - 0.1);
         const orbitRadius = 90 + (existingSentinels * 15);
 
-        const levelMult = 1 + (this.player.level * 0.1);
+        const levelMult = 1 + (this.player.level * 0.15); // INCREASED to 15% scaling per level
 
+        // SCALED 5x (halved from 10x)
         return {
             angle: baseAngle,
             orbitRadius: orbitRadius,
             x: this.player.x + Math.cos(baseAngle) * orbitRadius,
             y: this.player.y + Math.sin(baseAngle) * orbitRadius,
             radius: 12,
-            damage: Math.floor(30 * levelMult),
-            health: Math.floor(400 * levelMult),
-            maxHealth: Math.floor(400 * levelMult),
+            damage: Math.floor(150 * levelMult),
+            health: Math.floor(2000 * levelMult),
+            maxHealth: Math.floor(2000 * levelMult),
             color: '#8844cc',
             icon: '🦇',
             attackCooldown: 0,
@@ -2927,6 +3438,7 @@ class DotsSurvivor {
 
         this.updatePlayer(effectiveDt);
         this.updateShield(effectiveDt);
+        this.updateBloodShield(effectiveDt);
         this.updateRegen(effectiveDt);
         this.updateChronoField(effectiveDt);
         this.updateElementalCycle(effectiveDt);
@@ -2951,6 +3463,7 @@ class DotsSurvivor {
         this.updateFireBlast(effectiveDt);       // Fire Mage fire blast ability
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
+        this.updateMythicAugments(effectiveDt);  // Mythic augment effects
         this.updateAbilities(effectiveDt);
         this.updateBeamDespair(effectiveDt);
         this.updateWindPush(effectiveDt);
@@ -3050,6 +3563,162 @@ class DotsSurvivor {
                     const sx = this.player.x + (e.wx - this.worldX);
                     const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#ff6600', 1);
+                }
+            }
+        }
+    }
+
+    // ============ MYTHIC AUGMENTS UPDATE ============
+    updateMythicAugments(dt) {
+        // DEMONIC INFERNO - Aura damage + Hellfire Nova
+        if (this.demonicInferno) {
+            // Inferno Aura - deals DPS to nearby enemies
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+                if (dist < (this.demonicInfernoRadius || 150) + e.radius) {
+                    // Deal continuous fire damage
+                    const damage = (this.demonicInfernoDPS || 100) * dt;
+                    e.health -= damage;
+                    e.hitFlash = 0.1;
+
+                    // Visual effect
+                    if (Math.random() < 0.15) {
+                        this.spawnParticles(sx, sy, '#ff3300', 2);
+                    }
+
+                    if (e.health <= 0 && !e.dead) {
+                        e.dead = true;
+                        this.killEnemy(e);
+                    }
+                }
+            }
+
+            // Hellfire Nova - periodic explosion
+            this.hellfireNovaTimer = (this.hellfireNovaTimer || 0) + dt;
+            if (this.hellfireNovaTimer >= (this.hellfireNovaCooldown || 8)) {
+                this.hellfireNovaTimer = 0;
+
+                // Trigger Hellfire Nova explosion
+                const novaRadius = this.hellfireNovaRadius || 300;
+                const novaDamage = this.hellfireNovaDamage || 5000;
+
+                // Visual explosion effect
+                this.damageNumbers.push({
+                    x: this.player.x,
+                    y: this.player.y - 60,
+                    value: '🔥 HELLFIRE NOVA! 🔥',
+                    lifetime: 1.5,
+                    color: '#ff3300',
+                    scale: 2
+                });
+                this.triggerScreenShake(12, 0.3);
+
+                // Damage all enemies in radius
+                for (const e of this.enemies) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+                    if (dist < novaRadius + e.radius) {
+                        e.health -= novaDamage;
+                        e.hitFlash = 0.5;
+
+                        this.damageNumbers.push({
+                            x: sx, y: sy - 20,
+                            value: Math.floor(novaDamage),
+                            lifetime: 1,
+                            color: '#ff6600',
+                            scale: 1.3
+                        });
+                        this.spawnParticles(sx, sy, '#ff6600', 8);
+
+                        if (e.health <= 0 && !e.dead) {
+                            e.dead = true;
+                            this.killEnemy(e);
+                        }
+                    }
+                }
+
+                // Nova visual ring (stored for rendering)
+                this.hellfireNovaVisual = { radius: 0, maxRadius: novaRadius, alpha: 1 };
+            }
+
+            // Update nova visual
+            if (this.hellfireNovaVisual) {
+                this.hellfireNovaVisual.radius += 800 * dt; // Expand fast
+                this.hellfireNovaVisual.alpha -= dt * 2;
+                if (this.hellfireNovaVisual.alpha <= 0) {
+                    this.hellfireNovaVisual = null;
+                }
+            }
+        }
+
+        // VOID SOVEREIGN - Periodic pull and damage
+        if (this.voidSovereign) {
+            this.voidPullTimer = (this.voidPullTimer || 0) + dt;
+            if (this.voidPullTimer >= (this.voidPullCooldown || 5)) {
+                this.voidPullTimer = 0;
+
+                const pullRadius = this.voidPullRadius || 400;
+                const pullDamage = this.voidPullDamage || 2000;
+
+                this.damageNumbers.push({
+                    x: this.player.x,
+                    y: this.player.y - 60,
+                    value: '🌀 VOID PULL! 🌀',
+                    lifetime: 1.5,
+                    color: '#8800ff',
+                    scale: 2
+                });
+
+                for (const e of this.enemies) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+                    if (dist < pullRadius + e.radius) {
+                        // Pull enemy toward player
+                        const pullStrength = 150; // Pull 150px toward player
+                        const angle = Math.atan2(this.worldY - e.wy, this.worldX - e.wx);
+                        e.wx += Math.cos(angle) * pullStrength;
+                        e.wy += Math.sin(angle) * pullStrength;
+
+                        // Deal damage
+                        e.health -= pullDamage;
+                        e.hitFlash = 0.5;
+                        e.voidVulnerable = this.voidVulnerableDuration || 3; // Mark as vulnerable
+
+                        this.damageNumbers.push({ x: sx, y: sy - 20, value: Math.floor(pullDamage), lifetime: 1, color: '#8800ff', scale: 1.2 });
+                        this.spawnParticles(sx, sy, '#8800ff', 5);
+
+                        if (e.health <= 0 && !e.dead) {
+                            e.dead = true;
+                            this.killEnemy(e);
+                        }
+                    }
+                }
+            }
+
+            // Update void vulnerable timers
+            for (const e of this.enemies) {
+                if (e.voidVulnerable && e.voidVulnerable > 0) {
+                    e.voidVulnerable -= dt;
+                }
+            }
+        }
+
+        // CELESTIAL GUARDIAN - Damage immunity cooldown
+        if (this.celestialGuardian) {
+            if (this.celestialImmuneCooldown > 0) {
+                this.celestialImmuneCooldown -= dt;
+            }
+            if (this.celestialImmuneActive) {
+                this.celestialImmuneTimer = (this.celestialImmuneTimer || 0.5) - dt;
+                if (this.celestialImmuneTimer <= 0) {
+                    this.celestialImmuneActive = false;
                 }
             }
         }
@@ -3623,12 +4292,13 @@ class DotsSurvivor {
 
 
     applyPerk(perk) {
+        // SCALED UP 10x for big satisfying numbers
         switch (perk.id) {
             case 'vampiric': this.vampiric = true; break;
             case 'doubleshot': this.weapons.bullet.count *= 2; break;
             case 'nuclear': this.weapons.bullet.damage = Math.floor(this.weapons.bullet.damage * 1.5); this.nuclear = true; break;
             case 'timewarp': this.timewarp = true; break;
-            case 'goldenheart': this.player.maxHealth += 100; this.player.health += 100; this.player.hpRegen += 3; break;
+            case 'goldenheart': this.player.maxHealth += 500; this.player.health += 500; this.player.hpRegen += 15; break;
             case 'magnetking': this.magnetRadius += 200; this.autoCollect = true; break;
             case 'berserk': this.berserk = true; break;
             case 'guardian': this.guardian = true; break;
@@ -3775,6 +4445,76 @@ class DotsSurvivor {
         }
     }
 
+    // Blood Shield cooldown update
+    updateBloodShield(dt) {
+        if (!this.bloodShieldEnabled) return;
+
+        // Update cooldown
+        if (this.bloodShieldCooldown > 0) {
+            this.bloodShieldCooldown -= dt;
+            if (this.bloodShieldCooldown <= 0) {
+                this.bloodShieldCooldown = 0;
+                // Show ready message
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 50,
+                    value: '🩸 Shield Ready!',
+                    lifetime: 1.5,
+                    color: '#cc2244'
+                });
+            }
+        }
+    }
+
+    // Evolved Blood Shield explosion when shield breaks
+    triggerBloodShieldExplosion() {
+        const explosionRadius = 200;
+        const baseDamage = 100;
+        let totalDamage = 0;
+
+        // Damage nearby enemies
+        for (const e of this.enemies) {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+            if (dist < explosionRadius) {
+                const damage = Math.floor(baseDamage * (1 - dist / explosionRadius));
+                e.health -= damage;
+                e.hitFlash = 1;
+                totalDamage += damage;
+                this.damageNumbers.push({ x: sx, y: sy - 15, value: damage, lifetime: 0.8, color: '#cc2244', scale: 1.1 });
+                this.spawnParticles(sx, sy, '#cc2244', 4);
+            }
+        }
+
+        // Heal player for 10% of damage dealt
+        if (totalDamage > 0) {
+            const healAmount = Math.floor(totalDamage * 0.1);
+            if (healAmount > 0 && this.player.health < this.player.maxHealth) {
+                this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 60,
+                    value: `🧛 +${healAmount}`,
+                    lifetime: 1.2,
+                    color: '#ff4488'
+                });
+            }
+        }
+
+        // Visual effect - red explosion
+        this.spawnParticles(this.player.x, this.player.y, '#cc2244', 20);
+        this.triggerScreenShake(8, 0.3);
+
+        // Show explosion message
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 80,
+            value: '🩸 BLOOD BURST!',
+            lifetime: 1.5,
+            color: '#cc2244',
+            scale: 1.5
+        });
+    }
+
     spawnEnemies() {
         // Check for spawn pause (after Consumer dies)
         if (this.spawnPauseTimer > 0) return;
@@ -3895,24 +4635,24 @@ class DotsSurvivor {
         }
 
         const data = {
+            // SCALED 5x (halved from 10x) - better early game balance with increased scaling
             // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
-            // Speeds increased to compensate for further spawn distance
-            swarm: { radius: 14, speed: 115, health: 20, damage: 10, xp: 2, color: '#ff66aa', icon: '' },
-            basic: { radius: 12, speed: 100, health: 30, damage: 15, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 16, speed: 160, health: 40, damage: 10, xp: 5, color: '#00ffff', icon: '💨' }, // Bigger radius (16 vs 10), slowed from 200
-            tank: { radius: 28, speed: 60, health: 350, damage: 31, xp: 25, color: '#8844ff', icon: '' },
-            splitter: { radius: 20, speed: 85, health: 150, damage: 19, xp: 15, color: '#44ddff', icon: '💧', splits: true },
-            bomber: { radius: 16, speed: 105, health: 75, damage: 13, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
-            mini: { radius: 6, speed: 140, health: 25, damage: 8, xp: 3, color: '#44ddff', icon: '' },
+            swarm: { radius: 14, speed: 115, health: 100, damage: 50, xp: 2, color: '#ff66aa', icon: '' },
+            basic: { radius: 12, speed: 100, health: 150, damage: 75, xp: 6, color: '#ff4466', icon: '' },
+            runner: { radius: 16, speed: 160, health: 200, damage: 50, xp: 5, color: '#00ffff', icon: '💨' },
+            tank: { radius: 28, speed: 60, health: 1750, damage: 155, xp: 25, color: '#8844ff', icon: '' },
+            splitter: { radius: 20, speed: 85, health: 750, damage: 95, xp: 15, color: '#44ddff', icon: '💧', splits: true },
+            bomber: { radius: 16, speed: 105, health: 375, damage: 65, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
+            mini: { radius: 6, speed: 140, health: 125, damage: 40, xp: 3, color: '#44ddff', icon: '' },
             // New enemy types
-            sticky: { radius: 12, speed: 120, health: 50, damage: 6, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
-            ice: { radius: 32, speed: 55, health: 200, damage: 25, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
-            poison: { radius: 14, speed: 90, health: 80, damage: 12, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
+            sticky: { radius: 12, speed: 120, health: 250, damage: 30, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
+            ice: { radius: 32, speed: 55, health: 1000, damage: 125, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
+            poison: { radius: 14, speed: 90, health: 400, damage: 60, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
             // Wave 5+ enemy types
-            goblin: { radius: 14, speed: 95, health: 40, damage: 5, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true }, // Passive XP stealer
-            necromancer: { radius: 18, speed: 40, health: 120, damage: 8, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true }, // Spawns sprites
-            necro_sprite: { radius: 8, speed: 130, health: 15, damage: 6, xp: 0, color: '#aa44ff', icon: '👻' }, // Necromancer's minions - no XP
-            miniconsumer: { radius: 20, speed: 50, health: 300, damage: 20, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true } // Grows with enemy deaths
+            goblin: { radius: 14, speed: 95, health: 200, damage: 25, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
+            necromancer: { radius: 18, speed: 40, health: 600, damage: 40, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
+            necro_sprite: { radius: 8, speed: 130, health: 75, damage: 30, xp: 0, color: '#aa44ff', icon: '👻' },
+            miniconsumer: { radius: 20, speed: 50, health: 1500, damage: 100, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -4155,11 +4895,35 @@ class DotsSurvivor {
                     this.spawnParticles(corpse.x, corpse.y, '#00cc66', 5);
                     this.playSound('hit');
                 } else {
-                    this.player.health -= e.damage;
-                    this.player.invincibleTime = 0.5;
-                    this.combatTimer = 0; // Reset combat timer - healing reduced for 3s
-                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -e.damage, lifetime: 1, color: '#ff4444', isText: true });
-                    this.playSound('hit');
+                    let remainingDamage = e.damage;
+
+                    // Blood Shield absorbs damage first
+                    if (this.bloodShield > 0) {
+                        const absorbed = Math.min(this.bloodShield, remainingDamage);
+                        this.bloodShield -= absorbed;
+                        remainingDamage -= absorbed;
+                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 40, value: `🩸 -${absorbed}`, lifetime: 0.8, color: '#cc2244', isText: true });
+                        this.spawnParticles(this.player.x, this.player.y, '#cc2244', 5);
+
+                        // Shield broken - evolved effect
+                        if (this.bloodShield <= 0 && this.bloodShieldEvolved) {
+                            this.triggerBloodShieldExplosion();
+                        }
+
+                        // Start cooldown if shield is depleted
+                        if (this.bloodShield <= 0) {
+                            this.bloodShieldCooldown = this.bloodShieldCooldownMax;
+                        }
+                    }
+
+                    // Apply remaining damage to health
+                    if (remainingDamage > 0) {
+                        this.player.health -= remainingDamage;
+                        this.player.invincibleTime = 0.5;
+                        this.combatTimer = 0; // Reset combat timer - healing reduced for 3s
+                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -remainingDamage, lifetime: 1, color: '#ff4444', isText: true });
+                        this.playSound('hit');
+                    }
 
                     // Thorn Armor: reflect damage back to enemy
                     if (this.thornDamage > 0) {
@@ -4181,9 +4945,9 @@ class DotsSurvivor {
                 }
             }
 
-            // Inferno aura damage
+            // Inferno aura damage - SCALED 5x (halved from 10x)
             if (this.inferno && pd < 100) {
-                e.health -= 5 * dt;
+                e.health -= 25 * dt;
             }
 
             // Imp Burn (True Damage)
@@ -4222,14 +4986,15 @@ class DotsSurvivor {
         if (this.raisedCorpses && !e.isBoss && !e.isRaised) {
             const raiseChance = this.raiseChance || 0.15;
             if (Math.random() < raiseChance && this.raisedCorpses.length < (this.maxRaisedCorpses || 5)) {
-                const levelMult = 1 + (this.player.level * 0.08);
+                const levelMult = 1 + (this.player.level * 0.12); // INCREASED to 12% scaling per level
+                // SCALED 5x (halved from 10x)
                 this.raisedCorpses.push({
                     x: sx, y: sy,
                     radius: Math.max(10, e.radius * 0.8),
                     speed: 180,
-                    damage: Math.floor(30 * levelMult),
-                    health: Math.floor(200 * levelMult),
-                    maxHealth: Math.floor(200 * levelMult),
+                    damage: Math.floor(150 * levelMult),
+                    health: Math.floor(1000 * levelMult),
+                    maxHealth: Math.floor(1000 * levelMult),
                     color: '#00cc66',
                     icon: '💀',
                     attackCooldown: 0,
@@ -4254,22 +5019,22 @@ class DotsSurvivor {
         // Aura Fire kill tracking and upgrades
         // Aura Fire no longer auto-levels - only upgrades via "Inferno Expansion" augment
 
+        // ============ MYTHIC AUGMENT ON-KILL EFFECTS ============
+        // Demonic Inferno: Heal on kill
+        if (this.demonicHealOnKill && this.demonicHealOnKill > 0) {
+            const healAmount = this.demonicHealOnKill;
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+            // Show heal number occasionally (not every kill to reduce spam)
+            if (Math.random() < 0.2) {
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `+${healAmount}`, lifetime: 0.5, color: '#ff6600', scale: 0.8 });
+            }
+        }
+
+        // Blood Lord: Lifesteal (5% of damage dealt heals)
+        // Note: This is handled in damage dealing functions
+
         // Stacking items - add kills
         this.updateStackingItems('kill', e.isBoss ? 5 : 1);
-
-        // Blood Soaker evolved - heal burst on kill
-        if (this.healBurstOnKill && this.player.health < this.player.maxHealth) {
-            const healAmount = e.isBoss ? 50 : 10; // Bigger heal on boss kills
-            this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
-            this.damageNumbers.push({
-                x: this.player.x, y: this.player.y - 35,
-                value: `🧛 +${healAmount}`,
-                lifetime: 0.6,
-                color: '#cc00ff'
-            });
-            // Blood particles on player
-            this.spawnParticles(this.player.x, this.player.y, '#cc00ff', 3);
-        }
 
         // GAME JUICE: Kill streak and effects
         this.killStreak++;
@@ -4354,9 +5119,9 @@ class DotsSurvivor {
             this.triggerScreenShake(3, 0.1);
         }
 
-        // Vampiric perk (from augments) - reduced by 75% while in combat
+        // Vampiric perk (from augments) - SCALED 5x (halved from 10x), reduced by 75% while in combat
         if (this.vampiric) {
-            let healAmt = 2;
+            let healAmt = 10;
             if (this.isInCombat()) healAmt = Math.floor(healAmt * (1 - this.combatHealingPenalty));
             if (healAmt > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmt);
         }
@@ -4390,7 +5155,7 @@ class DotsSurvivor {
                 const osy = this.player.y + (other.wy - this.worldY);
                 const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
                 if (od < 60) {
-                    other.health -= 30;
+                    other.health -= 300; // SCALED UP 10x
                     other.hitFlash = 1;
                 }
             }
@@ -4577,9 +5342,9 @@ class DotsSurvivor {
     }
 
     dropItem(wx, wy) {
-        // Check 3-minute cooldown since last item pickup (180000ms = 3 minutes)
+        // Check 3-minute cooldown since last item DROP (180000ms = 3 minutes)
         const itemCooldown = 180000;
-        if (this.gameTime - this.lastItemPickupTime < itemCooldown) return;
+        if (this.gameTime - this.lastItemDropTime < itemCooldown) return;
 
         // Only drop items that haven't been collected yet
         const allKeys = Object.keys(STACKING_ITEMS);
@@ -4589,6 +5354,9 @@ class DotsSurvivor {
 
         const itemKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
         this.pickups.push({ wx, wy, xp: 0, radius: 15, color: '#fbbf24', isItem: true, itemKey });
+
+        // Update last drop time to prevent multiple items dropping at once
+        this.lastItemDropTime = this.gameTime;
     }
 
     updateSkulls(dt) {
@@ -4776,7 +5544,7 @@ class DotsSurvivor {
 
                     nearest.e.health -= this.impStats.damage; // True damage checks? Armor? No armor mainly.
                     nearest.e.hitFlash = 1;
-                    this.damageNumbers.push({ x: nearest.sx, y: nearest.sy - 20, value: this.impStats.damage, color: '#ff4400', scale: 1.2 });
+                    this.damageNumbers.push({ x: nearest.sx, y: nearest.sy - 20, value: this.impStats.damage, lifetime: 0.5, color: '#ff4400', scale: 1.2 });
 
                     // Apply Burn (True Damage)
                     nearest.e.impBurn = {
@@ -4843,7 +5611,7 @@ class DotsSurvivor {
                     const damage = Math.floor(m.damage * damageBonus);
                     target.health -= damage;
                     target.hitFlash = 1;
-                    this.damageNumbers.push({ x: moveTarget.x, y: moveTarget.y - 15, value: damage, color: '#6600aa', scale: 1 });
+                    this.damageNumbers.push({ x: moveTarget.x, y: moveTarget.y - 15, value: damage, lifetime: 0.5, color: '#6600aa', scale: 1 });
                     this.spawnParticles(moveTarget.x, moveTarget.y, '#6600aa', 5);
                     m.attackCooldown = 0.8 / attackSpeedMult;
 
@@ -4874,17 +5642,18 @@ class DotsSurvivor {
 
             corpse.lifetime -= dt;
             if (corpse.lifetime <= 0 || corpse.health <= 0) {
-                // Corpse Explosion augment
+                // Corpse Explosion augment - SCALED 5x (uses corpseExplosionDamage or default 1250)
                 if (this.augments.includes('corpse_explode')) {
+                    const explosionDmg = this.corpseExplosionDamage || 1250;
                     this.spawnParticles(corpse.x, corpse.y, '#00cc66', 20);
                     for (const e of this.enemies) {
                         const sx = this.player.x + (e.wx - this.worldX);
                         const sy = this.player.y + (e.wy - this.worldY);
                         const d = Math.sqrt((corpse.x - sx) ** 2 + (corpse.y - sy) ** 2);
                         if (d < 80) {
-                            e.health -= 200;
+                            e.health -= explosionDmg;
                             e.hitFlash = 1;
-                            this.damageNumbers.push({ x: sx, y: sy - 15, value: 200, color: '#00cc66', scale: 1.2 });
+                            this.damageNumbers.push({ x: sx, y: sy - 15, value: explosionDmg, color: '#00cc66', scale: 1.2 });
                         }
                     }
                 }
@@ -4954,7 +5723,7 @@ class DotsSurvivor {
             const s = this.shadowSentinels[i];
 
             if (s.health <= 0) {
-                // Sentinel explode augment
+                // Sentinel explode augment - SCALED 5x (750 damage as per augment desc)
                 if (this.augments.includes('sentinel_explode')) {
                     this.spawnParticles(s.x, s.y, '#8844cc', 15);
                     for (const e of this.enemies) {
@@ -4962,7 +5731,7 @@ class DotsSurvivor {
                         const sy = this.player.y + (e.wy - this.worldY);
                         const d = Math.sqrt((s.x - sx) ** 2 + (s.y - sy) ** 2);
                         if (d < 60) {
-                            e.health -= 150;
+                            e.health -= 750;
                             e.hitFlash = 1;
                         }
                     }
@@ -4985,7 +5754,7 @@ class DotsSurvivor {
                     if (d < s.attackRange) {
                         e.health -= s.damage;
                         e.hitFlash = 0.5;
-                        this.damageNumbers.push({ x: sx, y: sy - 10, value: s.damage, color: '#8844cc', scale: 0.8 });
+                        this.damageNumbers.push({ x: sx, y: sy - 10, value: s.damage, lifetime: 0.5, color: '#8844cc', scale: 0.8 });
                         this.spawnParticles(sx, sy, '#8844cc', 3);
                         s.attackCooldown = 1.0;
                         break;
@@ -5169,7 +5938,7 @@ class DotsSurvivor {
                 e.health -= fb.damage;
                 e.hitFlash = 1;
                 e.hitByFireBlast = true;
-                this.damageNumbers.push({ x: sx, y: sy - 15, value: fb.damage, color: '#ff4400', scale: 1.2 });
+                this.damageNumbers.push({ x: sx, y: sy - 15, value: fb.damage, lifetime: 0.5, color: '#ff4400', scale: 1.2 });
                 this.spawnParticles(sx, sy, '#ff4400', 5);
             }
         }
@@ -5195,13 +5964,13 @@ class DotsSurvivor {
         // ========== FIRE MAGE ABILITIES ==========
         if (classId === 'fire_mage') {
             if (abilityKey === 'q') {
-                // Fire Blast: Expanding damage circle
+                // Fire Blast: Expanding damage circle - SCALED 5x
                 this.fireBlast = {
                     x: this.player.x,
                     y: this.player.y,
                     radius: 0,
                     maxRadius: this.fireBlastRadius || 800,
-                    damage: Math.floor(50 * this.fireBlastDamage),
+                    damage: Math.floor(250 * this.fireBlastDamage),
                     timer: 0,
                     expandSpeed: 800  // pixels per second
                 };
@@ -5514,7 +6283,7 @@ class DotsSurvivor {
 
             e.health -= damage;
             e.hitFlash = 1;
-            this.damageNumbers.push({ x: hit.sx, y: hit.sy - 15, value: damage, color: '#6600aa', scale: 1.1 });
+            this.damageNumbers.push({ x: hit.sx, y: hit.sy - 15, value: damage, lifetime: 0.5, color: '#6600aa', scale: 1.1 });
             this.spawnParticles(hit.sx, hit.sy, '#6600aa', 4);
             hitCount++;
         }
@@ -5613,21 +6382,21 @@ class DotsSurvivor {
                     // Track damage for stacking items
                     this.updateStackingItems('damage', damage);
 
-                    // Blood Soaker lifesteal
-                    if (this.stackingLifesteal && this.stackingLifesteal > 0) {
-                        // Use ceil to ensure at least 1 HP is healed per hit
-                        const healAmount = Math.max(1, Math.ceil(damage * this.stackingLifesteal));
-                        if (this.player.health < this.player.maxHealth) {
-                            this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
-                            // Show lifesteal heal (less frequently to avoid spam)
-                            if (Math.random() < 0.15) {
-                                this.damageNumbers.push({
-                                    x: this.player.x, y: this.player.y - 30,
-                                    value: `🩸 +${healAmount}`,
-                                    lifetime: 0.5,
-                                    color: '#ff4466'
-                                });
-                            }
+                    // Blood Soaker - add to blood shield
+                    if (this.bloodShieldEnabled && this.bloodShieldRate > 0 && this.bloodShieldCooldown <= 0) {
+                        const shieldGain = Math.max(1, Math.ceil(damage * this.bloodShieldRate));
+                        const maxShield = this.bloodShieldMaxBase || 100;
+                        this.bloodShieldMax = maxShield;
+                        const oldShield = this.bloodShield;
+                        this.bloodShield = Math.min(maxShield, this.bloodShield + shieldGain);
+                        // Show shield gain (less frequently to avoid spam)
+                        if (this.bloodShield > oldShield && Math.random() < 0.1) {
+                            this.damageNumbers.push({
+                                x: this.player.x, y: this.player.y - 30,
+                                value: `🩸 +${shieldGain}`,
+                                lifetime: 0.5,
+                                color: '#cc2244'
+                            });
                         }
                     }
 
@@ -5743,7 +6512,6 @@ class DotsSurvivor {
             // Initialize with 1 stack so all items get their initial bonus
             this.stackingItems[key] = { stacks: 1, evolved: false };
             this.droppedItems.push(key);
-            this.lastItemPickupTime = this.gameTime; // Track pickup time for cooldown
 
             // Apply initial effect immediately with 1 stack
             if (item.effect) {
@@ -5975,90 +6743,122 @@ class DotsSurvivor {
     }
 
     showLevelUpMenu() {
-        // Show upgrade selection menu - player picks from 3 RANDOM upgrades
+        // ============================================
+        // RUNE SYSTEM - Player scales through Runes
+        // Tiers: Common (50%), Silver (30%), Purple (15%), Legendary (4%), Mythic (1%)
+        // ============================================
         this.playSound('levelup');
         this.playLevelupSound();
         this.gamePaused = true;
 
-        // Get all available upgrades (new classes may not have upgrades array)
-        const all = [...this.baseUpgrades, ...(this.selectedClass.upgrades || [])];
-
-        // Early waves (1-10): Only damage and HP related upgrades
-        const earlyWaveIds = ['damage', 'health', 'firerate', 'critdmg', 'devastation', 'armor'];
-        let available;
-        if (this.wave <= 10) {
-            available = all.filter(u => earlyWaveIds.includes(u.id));
-        } else {
-            available = all;
-        }
-
-        // Filter out maxed skull/wolf upgrades - only show damage upgrades when maxed
-        const skullsMaxed = this.skulls.length >= 6;
-        const wolvesMaxed = (this.maxWolves || 0) >= 3;
-        if (skullsMaxed) {
-            available = available.filter(u => u.id !== 'skull_upgrade' && u.id !== 'skull_shower');
-        }
-        if (wolvesMaxed) {
-            available = available.filter(u => u.id !== 'summon_wolf');
-        }
-
         // Build the upgrade menu
         const container = document.getElementById('upgrade-choices');
         if (!container) {
-            // Fallback if no container - use old random system
-            const choices = this.getRandomUpgrades(3);
-            const randomUpgrade = choices[Math.floor(Math.random() * choices.length)];
-            randomUpgrade.effect(this);
+            // Fallback - auto-select a common rune
+            const randomRune = COMMON_RUNES[Math.floor(Math.random() * COMMON_RUNES.length)];
+            randomRune.effect(this);
             this.gamePaused = false;
             return;
         }
 
         container.innerHTML = '';
 
-        // Pick 3 RANDOM upgrades from available pool (weighted by rarity)
-        const choices = [];
-        const pool = [...available];
-        const weights = { common: 50, rare: 30, epic: 15, legendary: 5 };
+        // Rune tier selection with weighted probabilities
+        // Common: 50%, Silver: 30%, Purple: 15%, Legendary: 4%, Mythic: 1%
+        const selectRuneTier = () => {
+            const roll = Math.random() * 100;
+            if (roll < 1) return 'mythic';        // 1% chance
+            if (roll < 5) return 'legendary';     // 4% chance
+            if (roll < 20) return 'purple';       // 15% chance
+            if (roll < 50) return 'silver';       // 30% chance
+            return 'common';                       // 50% chance
+        };
 
-        while (choices.length < 3 && pool.length > 0) {
-            const weightedPool = [];
-            pool.forEach((u, idx) => {
-                const w = weights[u.rarity] || 50;
-                for (let i = 0; i < w; i++) weightedPool.push(idx);
-            });
-            const idx = weightedPool[Math.floor(Math.random() * weightedPool.length)];
-            choices.push(pool.splice(idx, 1)[0]);
+        // Pick 3 random runes (each with independent tier roll)
+        const choices = [];
+        const usedIds = new Set();
+
+        for (let i = 0; i < 3; i++) {
+            const tier = selectRuneTier();
+            let runePool;
+            switch (tier) {
+                case 'mythic': runePool = MYTHIC_RUNES.filter(r => !this.augments.includes(r.id) && !usedIds.has(r.id)); break;
+                case 'legendary': runePool = LEGENDARY_RUNES.filter(r => !usedIds.has(r.id)); break;
+                case 'purple': runePool = PURPLE_RUNES.filter(r => !usedIds.has(r.id)); break;
+                case 'silver': runePool = SILVER_RUNES.filter(r => !usedIds.has(r.id)); break;
+                default: runePool = COMMON_RUNES.filter(r => !usedIds.has(r.id)); break;
+            }
+
+            // Fallback to common if pool is empty
+            if (runePool.length === 0) {
+                runePool = COMMON_RUNES.filter(r => !usedIds.has(r.id));
+            }
+            if (runePool.length === 0) {
+                runePool = [...COMMON_RUNES]; // Allow duplicates if all used
+            }
+
+            const rune = runePool[Math.floor(Math.random() * runePool.length)];
+            usedIds.add(rune.id);
+            choices.push(rune);
         }
 
-        choices.forEach(upgrade => {
+        // Rune tier colors and styling
+        const tierStyles = {
+            common: { border: '#cd7f32', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'COMMON', labelBg: '#cd7f32', glow: 'rgba(205,127,50,0.3)' },
+            bronze: { border: '#cd7f32', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'COMMON', labelBg: '#cd7f32', glow: 'rgba(205,127,50,0.3)' },
+            silver: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'SILVER', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)' },
+            purple: { border: '#9966ff', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EPIC', labelBg: '#9966ff', glow: 'rgba(153,102,255,0.4)' },
+            epic: { border: '#9966ff', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EPIC', labelBg: '#9966ff', glow: 'rgba(153,102,255,0.4)' },
+            legendary: { border: '#fbbf24', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'LEGENDARY', labelBg: 'linear-gradient(90deg,#fbbf24,#f59e0b)', glow: 'rgba(251,191,36,0.5)' },
+            mythic: { border: '#ff6600', bg: 'linear-gradient(135deg, #1a0a00, #2a1000)', label: '🔥 MYTHIC 🔥', labelBg: 'linear-gradient(90deg,#ff6600,#ff0000,#ff6600)', glow: 'rgba(255,102,0,0.6)' }
+        };
+
+        choices.forEach(rune => {
+            const tier = rune.tier || rune.rarity || 'common';
+            const style = tierStyles[tier] || tierStyles.common;
+            const isMythic = tier === 'mythic';
+            const isLegendary = tier === 'legendary';
+
             const card = document.createElement('div');
-            card.className = `upgrade-card ${upgrade.rarity || 'common'}`;
+            card.className = `upgrade-card ${tier}`;
+            card.style.borderColor = style.border;
+            card.style.boxShadow = `0 0 20px ${style.glow}`;
+            card.style.background = style.bg;
+            if (isMythic) card.style.animation = 'mythicPulse 2s ease-in-out infinite';
+            if (isLegendary) card.style.animation = 'legendaryShine 3s ease-in-out infinite';
+
             card.innerHTML = `
-                <div class="upgrade-icon">${upgrade.icon}</div>
-                <div class="upgrade-name" style="color: #fff;">${upgrade.name}</div>
-                <div class="upgrade-desc" style="color: #ddd;">${upgrade.desc}</div>
-                <div class="upgrade-stats" style="color: #aaa;">${upgrade.getDesc ? upgrade.getDesc(this) : ''}</div>
+                <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
+                <div class="upgrade-icon" style="font-size:2.5rem;">${rune.icon}</div>
+                <div class="upgrade-name" style="color:${style.border};font-weight:bold;">${rune.name}</div>
+                <div class="upgrade-desc" style="color:#ddd;font-size:0.85em;">${rune.desc}</div>
+                <div class="upgrade-stats" style="color:#aaa;font-size:0.8em;">${rune.getDesc ? rune.getDesc(this) : ''}</div>
             `;
+
             card.onclick = () => {
-                upgrade.effect(this);
+                rune.effect(this);
                 document.getElementById('levelup-menu').classList.add('hidden');
                 this.upgradeMenuShowing = false;
                 this.gamePaused = false;
 
-                // Show what they picked
+                // Show what they picked with tier-appropriate color
+                const tierColors = { common: '#cd7f32', bronze: '#cd7f32', silver: '#c0c0c0', purple: '#9966ff', epic: '#9966ff', legendary: '#fbbf24', mythic: '#ff6600' };
                 this.damageNumbers.push({
                     x: this.canvas.width / 2,
                     y: this.canvas.height / 2 - 50,
-                    value: `⬆️ ${upgrade.icon} ${upgrade.name}`,
-                    lifetime: 2,
-                    color: upgrade.rarity === 'legendary' ? '#fbbf24' : upgrade.rarity === 'epic' ? '#a855f7' : upgrade.rarity === 'rare' ? '#4da6ff' : '#b8b8b8',
-                    scale: 1.5
+                    value: isMythic ? `🔥 MYTHIC: ${rune.name} 🔥` : `✨ ${rune.icon} ${rune.name}`,
+                    lifetime: isMythic ? 4 : 2,
+                    color: tierColors[tier] || '#b8b8b8',
+                    scale: isMythic ? 2 : isLegendary ? 1.8 : 1.5
                 });
+
+                if (isMythic) {
+                    this.triggerScreenShake(15, 0.5);
+                }
 
                 // Handle multiple pending upgrades
                 if (this.pendingUpgrades > 0) {
                     this.pendingUpgrades--;
-                    // Next upgrade will be shown by the game loop when upgradeMenuShowing is false
                 }
             };
             container.appendChild(card);
@@ -6067,7 +6867,7 @@ class DotsSurvivor {
         document.getElementById('levelup-menu').classList.remove('hidden');
     }
 
-    showAugmentMenu(choices = null, onComplete = null) {
+    showAugmentMenu(choices = null, onComplete = null, isReroll = false) {
         // If first arg is function, it's onComplete (legacy support or if no choices passed)
         if (typeof choices === 'function') {
             onComplete = choices;
@@ -6075,62 +6875,152 @@ class DotsSurvivor {
         }
 
         this.gamePaused = true;
-        this.playSound('levelup');
+        if (!isReroll) {
+            this.playSound('levelup');
+            // Reset rerolls for new augment selection
+            this.augmentRerollsLeft = 1;
+        }
+
+        // Store onComplete for reroll use
+        this.currentAugmentOnComplete = onComplete;
 
         if (!choices) {
-            // Internal selection logic (only Diamond Augments by default)
-            // Use the flattened DIAMOND_AUGMENTS
-            const available = DIAMOND_AUGMENTS.filter(a => {
+            // Check for MYTHIC augment chance (~8% chance for one Mythic to appear)
+            const mythicChance = 0.08;
+            const hasMythic = Math.random() < mythicChance;
+
+            // Get available Diamond augments (filter by classReq for wolf augments)
+            const availableDiamond = DIAMOND_AUGMENTS.filter(a => {
                 if (this.augments.includes(a.id)) return false;
                 if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
+                // Filter wolf augments - only show for Shadow Master
+                if (a.classReq && a.classReq !== this.selectedClass?.id) return false;
                 return true;
             });
 
-            if (available.length === 0) {
-                // No augments available?
+            // Get available Mythic augments
+            const availableMythic = MYTHIC_AUGMENTS.filter(a => !this.augments.includes(a.id));
+
+            if (availableDiamond.length === 0 && availableMythic.length === 0) {
                 this.gamePaused = false;
                 if (onComplete) onComplete();
                 return;
             }
 
-            // Pick 3 RANDOM diamond augments
             choices = [];
-            const pool = [...available];
-            while (choices.length < 3 && pool.length > 0) {
-                const idx = Math.floor(Math.random() * pool.length);
-                choices.push(pool.splice(idx, 1)[0]);
+
+            // If we rolled a Mythic and have one available, add it first
+            if (hasMythic && availableMythic.length > 0) {
+                const mythicIdx = Math.floor(Math.random() * availableMythic.length);
+                choices.push({ ...availableMythic[mythicIdx], isMythic: true });
+            }
+
+            // Fill remaining slots with Diamond augments
+            const diamondPool = [...availableDiamond];
+            while (choices.length < 3 && diamondPool.length > 0) {
+                const idx = Math.floor(Math.random() * diamondPool.length);
+                choices.push({ ...diamondPool.splice(idx, 1)[0], isMythic: false });
             }
         }
 
         const container = document.getElementById('augment-choices');
         container.innerHTML = '';
+
         choices.forEach(u => {
-            // Use getDesc if available for upgrade descriptions
             const desc = u.getDesc ? u.getDesc(this) : u.desc;
             const card = document.createElement('div');
-            card.className = `upgrade-card legendary`;
-            card.style.borderColor = '#00ffff';
-            card.style.boxShadow = '0 0 15px rgba(0,255,255,0.2)';
-            card.innerHTML = `
-                <div class="upgrade-rarity" style="background:#00ffff;color:#000;">DIAMOND</div>
-                <div class="upgrade-icon">${u.icon}</div>
-                <div class="upgrade-details-container">
-                    <div class="upgrade-name" style="color:#ffffff;">${u.name}</div>
-                    <div class="upgrade-desc" style="color:#ffffff;">${u.desc}</div>
-                    <div class="upgrade-stats" style="color:#cccccc;font-size:0.8em;margin-top:4px;">${desc}</div>
-                </div>
-            `;
+            const isMythic = u.isMythic || u.rarity === 'mythic';
+
+            if (isMythic) {
+                // MYTHIC STYLING - Special golden/red gradient with animation
+                card.className = `upgrade-card mythic`;
+                card.style.borderColor = '#ff6600';
+                card.style.boxShadow = '0 0 30px rgba(255,102,0,0.5), 0 0 60px rgba(255,0,0,0.3)';
+                card.style.background = 'linear-gradient(135deg, #1a0a00, #2a1000, #1a0a00)';
+                card.style.animation = 'mythicPulse 2s ease-in-out infinite';
+
+                // Check if this augment has a sprite
+                let iconHtml = `<div class="upgrade-icon" style="font-size:3rem;">${u.icon}</div>`;
+                if (u.hasSprite && u.spriteKey && MYTHIC_SPRITES[u.spriteKey]) {
+                    iconHtml = `<img src="${getSpritePath(MYTHIC_SPRITES[u.spriteKey])}" style="width:80px;height:80px;border-radius:12px;border:3px solid #ff6600;margin-bottom:0.5rem;" onerror="this.outerHTML='<div class=upgrade-icon style=font-size:3rem;>${u.icon}</div>'">`;
+                }
+
+                card.innerHTML = `
+                    <div class="upgrade-rarity" style="background:linear-gradient(90deg,#ff6600,#ff0000,#ff6600);color:#fff;font-weight:900;text-shadow:0 0 10px #ff0000;animation:mythicText 1s ease-in-out infinite;">🔥 MYTHIC 🔥</div>
+                    ${iconHtml}
+                    <div class="upgrade-details-container">
+                        <div class="upgrade-name" style="color:#ff6600;font-size:1.2em;text-shadow:0 0 10px #ff6600;">${u.name}</div>
+                        <div class="upgrade-desc" style="color:#ffcc88;font-size:0.9em;">${u.desc}</div>
+                        <div class="upgrade-stats" style="color:#ff8844;font-size:0.8em;margin-top:4px;">${desc}</div>
+                    </div>
+                `;
+            } else {
+                // DIAMOND STYLING (unchanged)
+                card.className = `upgrade-card legendary`;
+                card.style.borderColor = '#00ffff';
+                card.style.boxShadow = '0 0 15px rgba(0,255,255,0.2)';
+                card.innerHTML = `
+                    <div class="upgrade-rarity" style="background:#00ffff;color:#000;">DIAMOND</div>
+                    <div class="upgrade-icon">${u.icon}</div>
+                    <div class="upgrade-details-container">
+                        <div class="upgrade-name" style="color:#ffffff;">${u.name}</div>
+                        <div class="upgrade-desc" style="color:#ffffff;">${u.desc}</div>
+                        <div class="upgrade-stats" style="color:#cccccc;font-size:0.8em;margin-top:4px;">${desc}</div>
+                    </div>
+                `;
+            }
+
             card.addEventListener('click', () => {
                 u.effect(this);
                 document.getElementById('augment-menu').classList.add('hidden');
                 this.gamePaused = false;
-                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: `💎 ${u.name}!`, lifetime: 3, color: '#00ffff' });
-                // updateAugmentDisplay removed - not needed
-                if (onComplete) onComplete();
+
+                if (isMythic) {
+                    // Special Mythic announcement
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 120, value: `🔥 MYTHIC UNLOCKED! 🔥`, lifetime: 4, color: '#ff6600', scale: 2 });
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: u.name, lifetime: 3, color: '#ff0000', scale: 1.5 });
+                    this.triggerScreenShake(15, 0.5);
+                } else {
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: `💎 ${u.name}!`, lifetime: 3, color: '#00ffff' });
+                }
+
+                if (this.currentAugmentOnComplete) this.currentAugmentOnComplete();
             });
             container.appendChild(card);
         });
+
+        // Update reroll button
+        const rerollBtn = document.getElementById('augment-reroll-btn');
+        if (rerollBtn) {
+            if (this.augmentRerollsLeft > 0) {
+                rerollBtn.textContent = `🎲 REROLL (${this.augmentRerollsLeft} Free)`;
+                rerollBtn.style.opacity = '1';
+                rerollBtn.style.cursor = 'pointer';
+                rerollBtn.disabled = false;
+
+                // Remove old listeners and add new one
+                const newBtn = rerollBtn.cloneNode(true);
+                rerollBtn.parentNode.replaceChild(newBtn, rerollBtn);
+                newBtn.addEventListener('click', () => this.rerollAugments());
+            } else {
+                rerollBtn.textContent = '🎲 No Rerolls Left';
+                rerollBtn.style.opacity = '0.5';
+                rerollBtn.style.cursor = 'not-allowed';
+                rerollBtn.disabled = true;
+            }
+        }
+
         document.getElementById('augment-menu').classList.remove('hidden');
+    }
+
+    rerollAugments() {
+        if (this.augmentRerollsLeft <= 0) return;
+
+        this.augmentRerollsLeft--;
+        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 50, value: '🎲 REROLLED!', lifetime: 1.5, color: '#9966ff', scale: 1.2 });
+
+        // Show new augment choices (pass null to generate new ones, preserve onComplete, mark as reroll)
+        this.showAugmentMenu(null, this.currentAugmentOnComplete, true);
     }
 
     getRandomUpgrades(count) {
@@ -7315,46 +8205,7 @@ class DotsSurvivor {
             });
         }
 
-        // Aura Fire Circle (augment) - Rotating sprite ring
-        if (this.auraFire) {
-            ctx.save();
-            const auraRadius = this.auraFire.radius;
-            const ringSprite = SPRITE_CACHE['ringoffire'];
-
-            if (ringSprite) {
-                // Draw rotating ring of fire sprite
-                ctx.translate(this.player.x, this.player.y);
-
-                // Slow rotation based on game time
-                const rotation = this.gameTime / 500;
-                ctx.rotate(rotation);
-
-                // Size the sprite to match the aura radius (sprite covers diameter)
-                const spriteSize = auraRadius * 2.2; // Slightly larger for visual impact
-
-                // Add glow effect
-                ctx.shadowBlur = 15 + this.auraFire.level * 3;
-                ctx.shadowColor = `rgba(255, 100, 0, 0.8)`;
-
-                // Draw the ring sprite centered
-                ctx.drawImage(ringSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-
-                ctx.shadowBlur = 0;
-            } else {
-                // Fallback to circle rendering if sprite not loaded
-                const intensity = 0.6 + Math.sin(this.gameTime / 100) * 0.2;
-                ctx.shadowBlur = 15 + this.auraFire.level * 3;
-                ctx.shadowColor = `rgba(255, ${100 - this.auraFire.level * 10}, 0, ${intensity})`;
-                ctx.beginPath();
-                ctx.arc(this.player.x, this.player.y, auraRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(255, ${150 - this.auraFire.level * 15}, 0, ${intensity})`;
-                ctx.lineWidth = 3 + this.auraFire.level;
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-            }
-
-            ctx.restore();
-        }
+        // Aura Fire Circle - visual removed (damage effect still active, just no ugly ring)
 
         // Nuclear Blast Wave Effect
         if (this.nuclearBlastWave) {
@@ -7482,6 +8333,35 @@ class DotsSurvivor {
         this.drawPlayer();
         // Shield indicator
         if (this.shieldActive) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, this.player.radius + 12, 0, Math.PI * 2); ctx.strokeStyle = '#00aaff'; ctx.lineWidth = 3; ctx.stroke(); }
+        // Blood Shield indicator (red bubble)
+        if (this.bloodShield > 0 && this.bloodShieldEnabled) {
+            const shieldPercent = this.bloodShield / (this.bloodShieldMax || 100);
+            const shieldRadius = this.player.radius + 8 + (shieldPercent * 10); // 8-18px outside player
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, shieldRadius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(204, 34, 68, ${0.15 + shieldPercent * 0.2})`; // Semi-transparent red fill
+            ctx.fill();
+            ctx.strokeStyle = `rgba(204, 34, 68, ${0.6 + shieldPercent * 0.4})`; // Red stroke
+            ctx.lineWidth = 2 + shieldPercent * 2;
+            ctx.stroke();
+            // Pulsing glow effect when full
+            if (shieldPercent >= 0.9) {
+                ctx.beginPath();
+                ctx.arc(this.player.x, this.player.y, shieldRadius + 3, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 68, 100, ${0.3 + Math.sin(Date.now() / 200) * 0.2})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+        // Blood Shield cooldown indicator (faded circle when on cooldown)
+        if (this.bloodShieldCooldown > 0 && this.bloodShieldEnabled) {
+            const cooldownPercent = this.bloodShieldCooldown / this.bloodShieldCooldownMax;
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, this.player.radius + 10, -Math.PI / 2, -Math.PI / 2 + (1 - cooldownPercent) * Math.PI * 2);
+            ctx.strokeStyle = 'rgba(204, 34, 68, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
         // Inferno aura
         if (this.inferno) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 100, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,100,0,0.3)'; ctx.lineWidth = 2; ctx.stroke(); }
 
@@ -7831,12 +8711,12 @@ class DotsSurvivor {
         const level = p.level || 1;
 
         // ============================================
-        // FIRE MAGE AURA SYSTEM (Scales with level)
-        // Intensity tiers: 1-4, 5-9, 10-14, 15-19, 20-24, 25-29, 30+
+        // FIRE MAGE AURA SYSTEM - REMOVED (user found it ugly)
+        // The orange gradient fire effect has been disabled
         // ============================================
-        if (this.selectedClass?.id === 'fire_mage') {
-            this.drawFireMageAura(ctx, p.x, p.y, level);
-        }
+        // if (this.selectedClass?.id === 'fire_mage') {
+        //     this.drawFireMageAura(ctx, p.x, p.y, level);
+        // }
 
         // Cosmetic Skin Glow Effect (for non-Fire Mage or additional effects)
         const skinColor = this.getCosmeticSkinColor();

@@ -883,6 +883,248 @@ body {
     }
 }
 
+/* ============ MYTHIC AUGMENT ANIMATIONS ============ */
+@keyframes mythicPulse {
+    0%, 100% {
+        box-shadow: 0 0 30px rgba(255, 102, 0, 0.5), 0 0 60px rgba(255, 0, 0, 0.3);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 50px rgba(255, 102, 0, 0.8), 0 0 100px rgba(255, 0, 0, 0.5), 0 0 150px rgba(255, 68, 0, 0.3);
+        transform: scale(1.02);
+    }
+}
+
+@keyframes mythicText {
+    0%, 100% {
+        text-shadow: 0 0 10px #ff0000, 0 0 20px #ff6600;
+        opacity: 1;
+    }
+    50% {
+        text-shadow: 0 0 20px #ff0000, 0 0 40px #ff6600, 0 0 60px #ffaa00;
+        opacity: 0.9;
+    }
+}
+
+@keyframes mythicBorder {
+    0%, 100% {
+        border-color: #ff6600;
+    }
+    25% {
+        border-color: #ff0000;
+    }
+    50% {
+        border-color: #ffaa00;
+    }
+    75% {
+        border-color: #ff3300;
+    }
+}
+
+.upgrade-card.mythic {
+    animation: mythicPulse 2s ease-in-out infinite, mythicBorder 3s linear infinite;
+    background: linear-gradient(135deg, #1a0a00, #2a1000, #1a0a00) !important;
+    border: 3px solid #ff6600 !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.upgrade-card.mythic:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 60px rgba(255, 102, 0, 0.9), 0 0 120px rgba(255, 0, 0, 0.6) !important;
+}
+
+/* Mythic shimmer overlay */
+.upgrade-card.mythic::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 200%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,200,100,0.2), transparent);
+    animation: mythicShimmer 3s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes mythicShimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* ============ LEGENDARY RUNE ANIMATIONS ============ */
+@keyframes legendaryShine {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(251, 191, 36, 0.2);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 35px rgba(251, 191, 36, 0.6), 0 0 70px rgba(251, 191, 36, 0.3);
+        transform: scale(1.01);
+    }
+}
+
+@keyframes legendaryGlow {
+    0%, 100% { border-color: #fbbf24; }
+    50% { border-color: #f59e0b; }
+}
+
+.upgrade-card.legendary {
+    animation: legendaryShine 3s ease-in-out infinite, legendaryGlow 2s linear infinite;
+    background: linear-gradient(135deg, #2a1a00, #3d2800, #2a1a00) !important;
+    border: 3px solid #fbbf24 !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.upgrade-card.legendary:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 40px rgba(251, 191, 36, 0.8) !important;
+}
+
+.upgrade-card.legendary::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 200%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(251,191,36,0.15), transparent);
+    animation: legendaryShimmer 4s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes legendaryShimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* ============ PURPLE/EPIC RUNE ANIMATIONS ============ */
+@keyframes epicPulse {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(153, 102, 255, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(153, 102, 255, 0.5);
+    }
+}
+
+.upgrade-card.purple,
+.upgrade-card.epic {
+    animation: epicPulse 2.5s ease-in-out infinite;
+    background: linear-gradient(135deg, #1a0a2e, #2d1744) !important;
+    border: 3px solid #9966ff !important;
+}
+
+.upgrade-card.purple:hover,
+.upgrade-card.epic:hover {
+    transform: scale(1.04);
+    box-shadow: 0 0 30px rgba(153, 102, 255, 0.6) !important;
+}
+
+/* ============ SILVER RUNE STYLES ============ */
+@keyframes silverShine {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(192, 192, 192, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 18px rgba(192, 192, 192, 0.5);
+    }
+}
+
+.upgrade-card.silver {
+    animation: silverShine 3s ease-in-out infinite;
+    background: linear-gradient(135deg, #1a1a2e, #2d2d44) !important;
+    border: 3px solid #c0c0c0 !important;
+}
+
+.upgrade-card.silver:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 25px rgba(192, 192, 192, 0.5) !important;
+}
+
+/* ============ BRONZE/COMMON RUNE STYLES ============ */
+.upgrade-card.common,
+.upgrade-card.bronze {
+    background: linear-gradient(135deg, #2a1810, #3d2817) !important;
+    border: 3px solid #cd7f32 !important;
+}
+
+.upgrade-card.common:hover,
+.upgrade-card.bronze:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px rgba(205, 127, 50, 0.4) !important;
+}
+
+/* ============ RUNE RARITY BADGES ============ */
+.upgrade-rarity {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: inline-block;
+}
+
+.upgrade-card.mythic .upgrade-rarity {
+    background: linear-gradient(90deg, #ff6600, #ff0000, #ff6600);
+    color: #fff;
+    animation: mythicText 2s ease-in-out infinite;
+    text-shadow: 0 0 10px rgba(255,102,0,0.8);
+}
+
+.upgrade-card.legendary .upgrade-rarity {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+    color: #000;
+    text-shadow: 0 0 5px rgba(251,191,36,0.5);
+}
+
+.upgrade-card.purple .upgrade-rarity,
+.upgrade-card.epic .upgrade-rarity {
+    background: #9966ff;
+    color: #fff;
+}
+
+.upgrade-card.silver .upgrade-rarity {
+    background: #c0c0c0;
+    color: #000;
+}
+
+.upgrade-card.common .upgrade-rarity,
+.upgrade-card.bronze .upgrade-rarity {
+    background: #cd7f32;
+    color: #000;
+}
+
+/* ============ CARD ENTRANCE ANIMATIONS ============ */
+@keyframes cardEntranceCommon {
+    from { opacity: 0; transform: translateY(30px) scale(0.9); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cardEntranceLegendary {
+    0% { opacity: 0; transform: translateY(50px) scale(0.8); }
+    50% { opacity: 1; transform: translateY(-10px) scale(1.05); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cardEntranceMythic {
+    0% { opacity: 0; transform: translateY(80px) scale(0.7) rotate(-5deg); }
+    40% { opacity: 1; transform: translateY(-20px) scale(1.1) rotate(2deg); }
+    70% { transform: translateY(5px) scale(1.02) rotate(-1deg); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+
+.upgrade-card {
+    animation: cardEntranceCommon 0.4s ease-out forwards;
+}
+
+.upgrade-card.legendary {
+    animation: cardEntranceLegendary 0.6s ease-out forwards, legendaryShine 3s ease-in-out infinite 0.6s, legendaryGlow 2s linear infinite 0.6s;
+}
+
+.upgrade-card.mythic {
+    animation: cardEntranceMythic 0.8s ease-out forwards, mythicPulse 2s ease-in-out infinite 0.8s, mythicBorder 3s linear infinite 0.8s;
+}
+
 .auth-header {
     text-align: center;
     margin-bottom: 2rem;

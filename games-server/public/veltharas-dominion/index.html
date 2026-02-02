@@ -141,8 +141,8 @@
             <button id="leaderboard-btn" class="menu-btn secondary" style="margin-top:0.5rem;">🏆 LEADERBOARDS</button>
             <button id="settings-btn" class="menu-btn secondary" style="margin-top:0.5rem;">⚙️ SETTINGS</button>
             <button id="help-btn" class="menu-btn secondary" style="margin-top:0.5rem;">❓ GAME INFO</button>
-            <a href="/" class="menu-btn secondary" style="margin-top:0.5rem;">🏠 EXIT TO HUB</a>
-            <p class="game-version">v0.2.0</p>
+            <a href="https://www.zecrugames.com" class="menu-btn secondary" style="margin-top:0.5rem;">🏠 EXIT TO HUB</a>
+            <p class="game-version">v0.3.0</p>
 
             <div class="controls-info">
                 <p>🎮 WASD or Arrow Keys to move</p>
@@ -195,6 +195,43 @@
                         <input type="checkbox" id="slowmo-toggle" checked>
                         <span class="toggle-slider"></span>
                     </label>
+                </div>
+            </div>
+
+            <div class="settings-section" style="border-top:1px solid #333;padding-top:1rem;">
+                <h3 style="color:#fff;margin-bottom:1rem;">⌨️ Keybinds</h3>
+
+                <div style="color:#888;font-size:0.85rem;margin-bottom:1rem;">
+                    <strong style="color:#ccc;">Movement</strong>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-top:0.3rem;">
+                        <span>Up: <span style="color:#00ffaa;">W / ↑</span></span>
+                        <span>Down: <span style="color:#00ffaa;">S / ↓</span></span>
+                        <span>Left: <span style="color:#00ffaa;">A / ←</span></span>
+                        <span>Right: <span style="color:#00ffaa;">D / →</span></span>
+                    </div>
+                </div>
+
+                <div style="color:#888;font-size:0.85rem;margin-bottom:1rem;">
+                    <strong style="color:#ccc;">Character Abilities</strong>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-top:0.3rem;">
+                        <span>Ability 1: <span style="color:#ff6600;">Q</span></span>
+                        <span>Ability 2: <span style="color:#ff6600;">E</span></span>
+                    </div>
+                </div>
+
+                <div style="color:#888;font-size:0.85rem;margin-bottom:1rem;">
+                    <strong style="color:#ccc;">Item Abilities</strong>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-top:0.3rem;">
+                        <span>Dash: <span style="color:#00ccff;">1</span></span>
+                        <span>Nuclear Blast: <span style="color:#aa00ff;">2</span></span>
+                    </div>
+                </div>
+
+                <div style="color:#888;font-size:0.85rem;">
+                    <strong style="color:#ccc;">Other</strong>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-top:0.3rem;">
+                        <span>Pause: <span style="color:#00ffaa;">ESC / P</span></span>
+                    </div>
                 </div>
             </div>
 
@@ -382,6 +419,9 @@
             <div id="augment-choices" class="upgrade-choices">
                 <!-- Choices injected by JS -->
             </div>
+            <button id="augment-reroll-btn" style="margin-top: 16px; padding: 12px 24px; font-size: 1rem; background: linear-gradient(135deg, #4a1a6e, #2a0a4e); color: #e0b0ff; border: 2px solid #9966ff; border-radius: 8px; cursor: pointer; font-family: inherit; transition: all 0.2s; text-shadow: 0 0 10px #9966ff;">
+                🎲 REROLL (1 Free)
+            </button>
         </div>
     </div>
 
