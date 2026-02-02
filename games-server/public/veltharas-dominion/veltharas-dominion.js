@@ -492,8 +492,7 @@ const DIAMOND_AUGMENTS = [
     { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop'), getDesc: (g) => g.augments.includes('time_stop') ? 'Active ✓' : 'Not Active' },
     { id: 'skull_frenzy', name: 'Skull Frenzy', icon: '💀', desc: 'Skulls spin 2x faster and deal +50% damage', effect: (g) => { g.augments.push('skull_frenzy'); g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => g.augments.includes('skull_frenzy') ? 'Active ✓' : 'Not Active' },
     { id: 'skull_army', name: 'Skull Army', icon: '☠️', desc: '+3 elemental skulls (max 6), overflow = +30 damage each', effect: (g) => { for(let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 30); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}` : `Skull Damage: +90`; } },
-    // Wolf Pack Path
-    { id: 'dire_wolves', name: 'Dire Wolves', icon: '🐺', desc: 'Wolves 50% larger/tankier, +damage if at max (3)', effect: (g) => { g.wolfSizeBonus = (g.wolfSizeBonus || 1) * 1.5; if ((g.maxWolves || 0) < 3) { const toAdd = Math.min(3, 3 - (g.maxWolves || 0)); g.maxWolves = (g.maxWolves || 0) + toAdd; for(let i = 0; i < toAdd; i++) g.addMinion('wolf'); } else { g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.5; } }, getDesc: (g) => (g.maxWolves || 0) < 3 ? `Max Wolves: ${g.maxWolves || 0} → 3` : `Wolf Damage: +50%` },
+    // Wolf Pack Path - Note: dire_wolves removed, wolf augments are Shadow Master skill upgrades
     { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🔥', desc: 'Wolves attack 50% faster and deal +25% damage', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
     { id: 'pack_tactics', name: 'Pack Tactics', icon: '🌙', desc: 'You gain +5% damage for every active wolf', effect: (g) => g.augments.push('pack_tactics'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
     { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
@@ -504,7 +503,7 @@ const DIAMOND_AUGMENTS = [
     { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
     { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
     // Aura augment
-    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take burn damage.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 80, damage: 25, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
+    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take burn damage.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 25, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
 ];
 
 // STACKING ITEMS SYSTEM - Items drop once and stack with kills/damage
@@ -772,7 +771,7 @@ class DotsSurvivor {
 
         // Combat
         this.projectiles = [];
-        this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 1000, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
+        this.weapons = { bullet: { damage: 15, speed: 450, fireRate: 600, lastFired: 0, count: 1, size: 6, pierce: 1, color: '#00ffaa' } };
         this.skulls = []; // Elemental skulls (replaced orbitals and stars)
         this.skullElements = ['fire', 'dark', 'lightning', 'slow'];
         this.skullElementIndex = 0;
@@ -1735,7 +1734,7 @@ class DotsSurvivor {
         this.player.level = 1;
         this.pendingUpgrades = 3;
 
-        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 1000, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
+        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 600, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
@@ -1908,7 +1907,7 @@ class DotsSurvivor {
 
         // ========== FIRE MAGE ==========
         if (this.selectedClass.bonuses.hasAuraFire) {
-            this.auraFire = { radius: 80, damage: 25, burnDuration: 3 };
+            this.auraFire = { radius: 120, damage: 25, burnDuration: 3 };
             this.augments.push('aura_fire');
         }
         if (this.selectedClass.bonuses.hasFireballs) {
@@ -6279,21 +6278,24 @@ class DotsSurvivor {
     loadEquippedCosmetics() {
         this.equippedCosmetics = { skins: null, trails: null, effects: null };
         this.trailParticles = []; // For rendering trail effects
-        this.lastTrailPos = { x: 0, y: 0 };
+        this.lastTrailPos = { x: this.player?.x || 0, y: this.player?.y || 0 };
 
         if (typeof authManager !== 'undefined') {
             const equipped = authManager.getEquippedCosmetics();
+            console.log('🎨 Loading equipped cosmetics from authManager:', equipped);
             if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
             if (equipped.trails) this.equippedCosmetics.trails = equipped.trails;
             if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
         } else {
             try {
                 const equipped = JSON.parse(localStorage.getItem('equipped_cosmetics') || '{}');
+                console.log('🎨 Loading equipped cosmetics from localStorage:', equipped);
                 if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
                 if (equipped.trails) this.equippedCosmetics.trails = equipped.trails;
                 if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
             } catch (e) { /* ignore */ }
         }
+        console.log('🎨 Final equipped cosmetics:', this.equippedCosmetics);
     }
 
     // Get cosmetic skin color for player glow
@@ -6368,8 +6370,10 @@ class DotsSurvivor {
         }
 
         // Add new trail particles if player moved
-        const dx = this.player.x - (this.lastTrailPos?.x || this.player.x);
-        const dy = this.player.y - (this.lastTrailPos?.y || this.player.y);
+        const lastX = this.lastTrailPos?.x ?? this.player.x;
+        const lastY = this.lastTrailPos?.y ?? this.player.y;
+        const dx = this.player.x - lastX;
+        const dy = this.player.y - lastY;
         const moved = Math.sqrt(dx * dx + dy * dy) > 3;
 
         // Fire Mage level-scaling for fire trail
