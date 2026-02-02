@@ -322,7 +322,8 @@ const FIRE_MAGE_CLASS = {
     bonuses: {
         hasFireballs: true,    // Skill 1: Fireballs (projectiles)
         hasAuraFire: true,     // Skill 2: Aura Ring
-        skullCount: 2,         // Skill 3: Elemental Orbs (starts with 2)
+        hasElementalOrbs: true, // Skill 3: Elemental Orbs
+        elementalOrbCount: 2,   // Starts with 2 orbs
         damage: 1.1,           // +10% base damage
         fireRate: 1
     },
@@ -525,40 +526,7 @@ const STACKING_ITEMS = {
         effect: (g, stacks) => { g.stackingCritBonus = stacks * 0.000005; },
         evolvedEffect: (g) => { g.stackingCritBonus = 0.25; g.weapons.bullet.critMultiplier = 3; }
     },
-    beamDespair: {
-        name: 'Beam of Despair',
-        icon: '💫',
-        desc: 'Chains +1 enemy per 1k kills. Color changes with level.',
-        evolvedName: 'Ray of Annihilation',
-        evolvedIcon: '🌟',
-        evolvedDesc: 'Rainbow beam, 10 chains, devastating damage',
-        maxStacks: 10000,  // 10 levels, evolves at 10k kills
-        stackType: 'kill',
-        hasSprite: true,
-        spriteBase: 'beam_despair_base',
-        spriteEvolved: 'beam_despair_evolved',
-        effect: (g, stacks) => {
-            // Level up every 1000 kills
-            const level = Math.floor(stacks / 1000) + 1;
-            const chains = level;
-            const damage = 17 + (level - 1) * 6;  // 17 base (+15%), +6 per level (+15%)
-            const colorIndex = Math.min(level - 1, BEAM_DESPAIR_COLORS.length - 1);
-            const color = BEAM_DESPAIR_COLORS[colorIndex];
-
-            if (!g.beamDespair) {
-                g.beamDespair = { damage: damage, chains: chains, range: 300, level: level, color: color };
-            } else {
-                g.beamDespair.damage = damage;
-                g.beamDespair.chains = chains;
-                g.beamDespair.level = level;
-                g.beamDespair.color = color;
-            }
-        },
-        evolvedEffect: (g) => {
-            // Max power beam - rainbow effect (+15% = 69 damage)
-            g.beamDespair = { damage: 69, chains: 10, range: 400, level: 10, color: '#ff00ff', evolved: true };
-        }
-    },
+    // beamDespair removed - now Necromancer's base attack
     ringXp: {
         name: 'Ring of XP',
         icon: '💍',
@@ -843,12 +811,10 @@ class DotsSurvivor {
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy & +3% range', rarity: 'rare', effect: (g) => { g.weapons.bullet.pierce++; g.projectileRangeBonus = (g.projectileRangeBonus || 1) * 1.03; }, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}, Range: +3%` },
             { id: 'magnet', name: 'Magnet', icon: '🧲', desc: 'Attract pickups from +50 range', rarity: 'common', effect: (g) => g.magnetRadius += 50, getDesc: (g) => `Magnet Range: ${g.magnetRadius} → ${g.magnetRadius + 50}` },
-            { id: 'skull_upgrade', name: 'Soul Collector', icon: '💀', desc: 'Adds a skull (max 6), then +15 damage', rarity: 'rare', effect: (g) => { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); }, getDesc: (g) => g.skulls.length < 6 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + 1}` : `Skull Damage: ${g.skulls[0]?.damage || 20} → ${(g.skulls[0]?.damage || 20) + 15}` },
             { id: 'critdmg', name: 'Lethal Strike', icon: '🩸', desc: '+50% Crit Damage', rarity: 'epic', effect: (g) => g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2.0) + 0.5, getDesc: (g) => `Crit Damage: ${Math.floor((g.weapons.bullet.critMultiplier || 2.0) * 100)}% → ${Math.floor(((g.weapons.bullet.critMultiplier || 2.0) + 0.5) * 100)}%` },
             { id: 'armor', name: 'Armor', icon: '🛡️', desc: 'Gain +50 HP and +25 speed', rarity: 'epic', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; g.player.speed += 25; }, getDesc: (g) => `HP: ${g.player.maxHealth}→${g.player.maxHealth + 50}, Speed: ${g.player.speed}→${g.player.speed + 25}` },
-            { id: 'skull_shower', name: 'Skull Storm', icon: '☠️', desc: 'Adds 3 skulls (max 6), overflow = +15 damage each', rarity: 'epic', effect: (g) => { for (let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 15); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); const overflow = 3 - toAdd; return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}${overflow > 0 ? `, +${overflow * 15} dmg` : ''}` : `Skull Damage: +45`; } },
             { id: 'devastation', name: 'Devastation', icon: '☠️', desc: 'Massive +20 damage boost', rarity: 'legendary', effect: (g) => g.weapons.bullet.damage += 20, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
-            { id: 'summon_wolf', name: 'Call of the Pack', icon: '🐺', desc: '+1 wolf companion (max 3)', rarity: 'rare', effect: (g) => { if ((g.maxWolves || 0) < 3) { g.maxWolves = (g.maxWolves || 0) + 1; g.addMinion('wolf'); } }, getDesc: (g) => `Wolves: ${g.minions.length}/${g.maxWolves || 0}` },
+            // Note: skull_upgrade, skull_shower, summon_wolf are now class-specific augments
         ];
 
         this.initSettings();
@@ -1656,8 +1622,7 @@ class DotsSurvivor {
         const items = Object.keys(STACKING_ITEMS).map(key => {
             const item = STACKING_ITEMS[key];
             let spritePath = null;
-            if (key === 'beamDespair') spritePath = getSpritePath(BEAM_DESPAIR_SPRITES.base);
-            else if (key === 'critBlade') spritePath = getSpritePath(CRIT_BLADE_SPRITES.base);
+            if (key === 'critBlade') spritePath = getSpritePath(CRIT_BLADE_SPRITES.base);
             else if (key === 'ringXp') spritePath = getSpritePath(RING_XP_SPRITES.base);
             else if (key === 'bootsSwiftness') spritePath = getSpritePath(BOOTS_SWIFTNESS_SPRITES.base);
             else if (key === 'heartVitality') spritePath = getSpritePath(HEART_VITALITY_SPRITES.base);
