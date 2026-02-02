@@ -461,14 +461,7 @@ const COSMETIC_STORE = {
         { id: 'skin_rainbow', name: 'Prismatic', icon: '🌈', desc: 'Color-shifting rainbow', price: 799, color: 'rainbow', effect: 'rainbow_form' },
         { id: 'skin_skull', name: 'Death Knight', icon: '💀', desc: 'Skeletal warrior form', price: 549, color: '#aaaaaa', effect: 'skull_form' },
     ],
-    trails: [
-        { id: 'trail_fire', name: 'Fire Trail', icon: '🔥', desc: 'Leave flames behind you', price: 299, color: '#ff4400', effect: 'fire_trail' },
-        { id: 'trail_ice', name: 'Ice Trail', icon: '❄️', desc: 'Leave frost crystals', price: 299, color: '#00ccff', effect: 'ice_trail' },
-        { id: 'trail_shadow', name: 'Shadow Trail', icon: '🌑', desc: 'Dark shadow wisps', price: 349, color: '#6600aa', effect: 'shadow_trail' },
-        { id: 'trail_sparkle', name: 'Sparkle Trail', icon: '✨', desc: 'Glittering particles', price: 249, color: '#ffd700', effect: 'sparkle_trail' },
-        { id: 'trail_hearts', name: 'Heart Trail', icon: '💕', desc: 'Floating hearts', price: 199, color: '#ff66aa', effect: 'heart_trail' },
-        { id: 'trail_lightning', name: 'Lightning Trail', icon: '⚡', desc: 'Electric sparks', price: 399, color: '#ffff00', effect: 'lightning_trail' },
-    ],
+    // trails removed - no longer a cosmetic category
     effects: [
         { id: 'effect_explosion', name: 'Epic Explosions', icon: '💥', desc: 'Bigger kill explosions', price: 399, effect: 'big_explosions' },
         { id: 'effect_screenshake', name: 'Extra Shake', icon: '📳', desc: 'More screen shake on hits', price: 149, effect: 'extra_shake' },
@@ -2967,7 +2960,7 @@ class DotsSurvivor {
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
         this.updateParticles(effectiveDt);
-        this.updateTrailParticles(effectiveDt); // Cosmetic trails
+        // Trail cosmetics removed
         this.updateDamageNumbers(effectiveDt);
         this.updateGameJuice(dt); // Always real-time for juice effects
         this.updateGreenMucusEffect(effectiveDt); // Mini Consumer death effect
@@ -4483,7 +4476,7 @@ class DotsSurvivor {
                         wy: e.wy + Math.sin(angle) * dist,
                         type: 'xp',
                         value: xpPerOrb,
-                        radius: 10,
+                        radius: 5,
                         color: '#44aa44'
                     });
                 }
@@ -4553,7 +4546,7 @@ class DotsSurvivor {
         }
 
         const xpGain = Math.floor(e.xp * this.xpMultiplier);
-        this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 8, color: '#d4e600', isItem: false }); // Yellow-green XP
+        this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 5, color: '#d4e600', isItem: false }); // Yellow-green XP (smaller)
         this.spawnParticles(sx, sy, e.color, 10);
 
         // Regular enemy item drops (base 1% chance, increased by luckyCharm)
@@ -6276,26 +6269,19 @@ class DotsSurvivor {
 
     // Load equipped cosmetics at game start
     loadEquippedCosmetics() {
-        this.equippedCosmetics = { skins: null, trails: null, effects: null };
-        this.trailParticles = []; // For rendering trail effects
-        this.lastTrailPos = { x: this.player?.x || 0, y: this.player?.y || 0 };
+        this.equippedCosmetics = { skins: null, effects: null };
 
         if (typeof authManager !== 'undefined') {
             const equipped = authManager.getEquippedCosmetics();
-            console.log('🎨 Loading equipped cosmetics from authManager:', equipped);
             if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
-            if (equipped.trails) this.equippedCosmetics.trails = equipped.trails;
             if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
         } else {
             try {
                 const equipped = JSON.parse(localStorage.getItem('equipped_cosmetics') || '{}');
-                console.log('🎨 Loading equipped cosmetics from localStorage:', equipped);
                 if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
-                if (equipped.trails) this.equippedCosmetics.trails = equipped.trails;
                 if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
             } catch (e) { /* ignore */ }
         }
-        console.log('🎨 Final equipped cosmetics:', this.equippedCosmetics);
     }
 
     // Get cosmetic skin color for player glow
@@ -6307,151 +6293,7 @@ class DotsSurvivor {
         return skin ? skin.color : null;
     }
 
-    // Update trail particles (called in update loop)
-    updateTrailParticles(dt) {
-        if (!this.equippedCosmetics?.trails || !this.trailParticles) return;
-
-        const trailId = this.equippedCosmetics.trails;
-
-        // Update existing particles with physics based on trail type
-        for (let i = this.trailParticles.length - 1; i >= 0; i--) {
-            const p = this.trailParticles[i];
-            p.lifetime -= dt;
-            p.age += dt;
-
-            // Apply trail-specific physics
-            switch (p.trailType) {
-                case 'fire_trail':
-                    // Fire Mage scaling: faster rise, more flicker at higher tiers
-                    const tierMult = 1 + (p.fireMageTier || 0) * 0.15; // 1x to 1.9x
-                    p.y -= 30 * tierMult * dt; // Rise upward (faster at higher tiers)
-                    p.x += Math.sin(p.age * 10 + p.seed) * 15 * tierMult * dt; // Flicker side to side
-                    // Slower shrink at higher tiers (particles last longer visually)
-                    p.size *= 0.97 + (p.fireMageTier || 0) * 0.003;
-                    break;
-                case 'ice_trail':
-                    p.rotation += p.rotSpeed * dt; // Rotate
-                    p.y += 5 * dt; // Slight fall
-                    p.size *= 0.98;
-                    break;
-                case 'shadow_trail':
-                    p.x += Math.sin(p.age * 5 + p.seed) * 20 * dt; // Swirl
-                    p.y += Math.cos(p.age * 5 + p.seed) * 20 * dt;
-                    p.size *= 0.96;
-                    break;
-                case 'sparkle_trail':
-                    p.twinkle = Math.sin(p.age * 15 + p.seed) * 0.5 + 0.5; // Twinkle
-                    p.rotation += p.rotSpeed * dt;
-                    p.y -= 10 * dt; // Float up
-                    break;
-                case 'heart_trail':
-                    p.y -= 25 * dt; // Float up
-                    p.x += Math.sin(p.age * 3) * 10 * dt; // Gentle sway
-                    p.scale = 1 + Math.sin(p.age * 8) * 0.2; // Pulse
-                    break;
-                case 'lightning_trail':
-                    // Lightning flickers and branches
-                    if (Math.random() < 0.1 && p.branches < 2 && p.lifetime > 0.2) {
-                        p.branches++;
-                        // Add a branch particle
-                        this.trailParticles.push(this.createTrailParticle(
-                            p.x + (Math.random() - 0.5) * 20,
-                            p.y + (Math.random() - 0.5) * 20,
-                            'lightning_trail', p.color, true
-                        ));
-                    }
-                    p.flicker = Math.random() > 0.3 ? 1 : 0.3;
-                    break;
-            }
-
-            if (p.lifetime <= 0) {
-                this.trailParticles.splice(i, 1);
-            }
-        }
-
-        // Add new trail particles if player moved
-        const lastX = this.lastTrailPos?.x ?? this.player.x;
-        const lastY = this.lastTrailPos?.y ?? this.player.y;
-        const dx = this.player.x - lastX;
-        const dy = this.player.y - lastY;
-        const moved = Math.sqrt(dx * dx + dy * dy) > 3;
-
-        // Fire Mage level-scaling for fire trail
-        const isFireMage = this.selectedClass?.id === 'fire_mage';
-        const level = this.player.level || 1;
-        const fireTier = Math.min(6, Math.floor(level / 5)); // 0-6 based on level
-
-        // Increase particle limit for Fire Mage at higher levels
-        const particleLimit = isFireMage ? 80 + fireTier * 20 : 80;
-
-        if (moved && this.trailParticles.length < particleLimit) {
-            const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
-            if (store) {
-                const trail = store.trails.find(t => t.id === trailId);
-                if (trail) {
-                    // Fire Mage fire trail: More particles at higher levels
-                    let count;
-                    if (isFireMage && trail.effect === 'fire_trail') {
-                        count = 2 + fireTier; // 2-8 particles based on tier
-                    } else {
-                        count = trail.effect === 'fire_trail' ? 3 : trail.effect === 'sparkle_trail' ? 2 : 1;
-                    }
-
-                    for (let i = 0; i < count; i++) {
-                        // Wider spawn area for Fire Mage at higher tiers
-                        const spreadMult = isFireMage ? 1 + fireTier * 0.15 : 1;
-                        this.trailParticles.push(this.createTrailParticle(
-                            this.player.x + (Math.random() - 0.5) * 15 * spreadMult,
-                            this.player.y + (Math.random() - 0.5) * 15 * spreadMult,
-                            trail.effect, trail.color, false, isFireMage ? fireTier : 0
-                        ));
-                    }
-                }
-            }
-        }
-        this.lastTrailPos = { x: this.player.x, y: this.player.y };
-    }
-
-    // Create a trail particle with type-specific properties
-    // fireMageTier: 0-6 for Fire Mage level scaling (0 for other classes/trails)
-    createTrailParticle(x, y, trailType, color, isBranch = false, fireMageTier = 0) {
-        // Fire Mage scaling: longer life and larger size at higher tiers
-        const tierBonus = fireMageTier * 0.1; // 0 to 0.6 bonus
-        const baseLife = isBranch ? 0.3 : (0.8 + tierBonus);
-
-        // Size scaling for fire trail with Fire Mage
-        let size;
-        if (trailType === 'fire_trail') {
-            const baseSize = 8 + Math.random() * 6;
-            size = baseSize * (1 + fireMageTier * 0.15); // 1x to 1.9x at tier 6
-        } else if (trailType === 'lightning_trail') {
-            size = 3 + Math.random() * 2;
-        } else if (trailType === 'heart_trail') {
-            size = 10 + Math.random() * 4;
-        } else {
-            size = 6 + Math.random() * 4;
-        }
-
-        return {
-            x, y,
-            lifetime: baseLife + Math.random() * 0.3,
-            maxLife: baseLife + 0.3,
-            age: 0,
-            color,
-            trailType,
-            size,
-            seed: Math.random() * Math.PI * 2,
-            rotation: Math.random() * Math.PI * 2,
-            rotSpeed: (Math.random() - 0.5) * 10,
-            scale: 1,
-            twinkle: 1,
-            flicker: 1,
-            branches: isBranch ? 2 : 0, // Prevent infinite branching
-            vx: (Math.random() - 0.5) * 20,
-            vy: (Math.random() - 0.5) * 20,
-            fireMageTier // Store tier for rendering intensity
-        };
-    }
+    // Trail cosmetics removed
 
     // Check if effect cosmetic is active
     hasEffect(effectName) {
@@ -7634,160 +7476,7 @@ class DotsSurvivor {
             ctx.restore();
         }
 
-        // Cosmetic Trail Particles (render behind player) - Animated Canvas drawing
-        if (this.trailParticles && this.trailParticles.length > 0) {
-            this.trailParticles.forEach(tp => {
-                const alpha = (tp.lifetime / tp.maxLife) * 0.8 * (tp.flicker || 1) * (tp.twinkle || 1);
-                ctx.save();
-                ctx.globalAlpha = alpha;
-                ctx.translate(tp.x, tp.y);
-                ctx.rotate(tp.rotation || 0);
-                ctx.scale(tp.scale || 1, tp.scale || 1);
-
-                switch (tp.trailType) {
-                    case 'fire_trail':
-                        // Flickering flame - gradient circle with inner glow
-                        // Fire Mage tier scaling: more intense glow at higher tiers
-                        const tier = tp.fireMageTier || 0;
-                        const glowIntensity = tier > 0 ? 10 + tier * 5 : 0; // 0-40 glow
-
-                        if (glowIntensity > 0) {
-                            ctx.shadowBlur = glowIntensity;
-                            ctx.shadowColor = '#ff6600';
-                        }
-
-                        const fireGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, tp.size);
-                        // Higher tier = brighter core
-                        const coreColor = tier >= 4 ? '#ffffff' : '#ffff00';
-                        fireGrad.addColorStop(0, coreColor);
-                        fireGrad.addColorStop(0.2, '#ffff00');
-                        fireGrad.addColorStop(0.4, '#ff8800');
-                        fireGrad.addColorStop(0.7, '#ff4400');
-                        fireGrad.addColorStop(1, 'rgba(255,0,0,0)');
-                        ctx.fillStyle = fireGrad;
-                        ctx.beginPath();
-                        // Flame shape - stretched ellipse
-                        ctx.ellipse(0, 0, tp.size * 0.6, tp.size, 0, 0, Math.PI * 2);
-                        ctx.fill();
-
-                        // Extra ember ring for high tier Fire Mage
-                        if (tier >= 3) {
-                            ctx.beginPath();
-                            ctx.arc(0, 0, tp.size * 1.2, 0, Math.PI * 2);
-                            ctx.strokeStyle = `rgba(255, 150, 0, ${0.2 + tier * 0.05})`;
-                            ctx.lineWidth = 1;
-                            ctx.stroke();
-                        }
-
-                        ctx.shadowBlur = 0;
-                        break;
-
-                    case 'ice_trail':
-                        // Rotating crystal - hexagon shape
-                        ctx.fillStyle = tp.color;
-                        ctx.shadowBlur = 10;
-                        ctx.shadowColor = '#00ffff';
-                        ctx.beginPath();
-                        for (let i = 0; i < 6; i++) {
-                            const angle = (i / 6) * Math.PI * 2;
-                            const px = Math.cos(angle) * tp.size;
-                            const py = Math.sin(angle) * tp.size;
-                            if (i === 0) ctx.moveTo(px, py);
-                            else ctx.lineTo(px, py);
-                        }
-                        ctx.closePath();
-                        ctx.fill();
-                        // Inner shine
-                        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                        ctx.beginPath();
-                        ctx.arc(0, -tp.size * 0.3, tp.size * 0.3, 0, Math.PI * 2);
-                        ctx.fill();
-                        break;
-
-                    case 'shadow_trail':
-                        // Dark swirling wisp - multiple overlapping circles
-                        const shadowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, tp.size * 1.5);
-                        shadowGrad.addColorStop(0, 'rgba(100,0,170,0.8)');
-                        shadowGrad.addColorStop(0.5, 'rgba(50,0,100,0.4)');
-                        shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
-                        ctx.fillStyle = shadowGrad;
-                        ctx.beginPath();
-                        ctx.arc(0, 0, tp.size * 1.5, 0, Math.PI * 2);
-                        ctx.fill();
-                        // Inner dark core
-                        ctx.fillStyle = 'rgba(20,0,40,0.6)';
-                        ctx.beginPath();
-                        ctx.arc(0, 0, tp.size * 0.5, 0, Math.PI * 2);
-                        ctx.fill();
-                        break;
-
-                    case 'sparkle_trail':
-                        // Twinkling star - 4-pointed star shape
-                        ctx.fillStyle = tp.color;
-                        ctx.shadowBlur = 15;
-                        ctx.shadowColor = tp.color;
-                        ctx.beginPath();
-                        for (let i = 0; i < 8; i++) {
-                            const angle = (i / 8) * Math.PI * 2;
-                            const radius = i % 2 === 0 ? tp.size : tp.size * 0.3;
-                            const px = Math.cos(angle) * radius;
-                            const py = Math.sin(angle) * radius;
-                            if (i === 0) ctx.moveTo(px, py);
-                            else ctx.lineTo(px, py);
-                        }
-                        ctx.closePath();
-                        ctx.fill();
-                        break;
-
-                    case 'heart_trail':
-                        // Pulsing heart shape
-                        ctx.fillStyle = tp.color;
-                        ctx.shadowBlur = 8;
-                        ctx.shadowColor = '#ff66aa';
-                        ctx.beginPath();
-                        const hs = tp.size * 0.6;
-                        ctx.moveTo(0, hs * 0.3);
-                        ctx.bezierCurveTo(-hs, -hs * 0.5, -hs * 0.5, -hs, 0, -hs * 0.5);
-                        ctx.bezierCurveTo(hs * 0.5, -hs, hs, -hs * 0.5, 0, hs * 0.3);
-                        ctx.fill();
-                        break;
-
-                    case 'lightning_trail':
-                        // Electric arc - jagged line
-                        ctx.strokeStyle = tp.color;
-                        ctx.lineWidth = 2;
-                        ctx.shadowBlur = 15;
-                        ctx.shadowColor = '#ffff00';
-                        ctx.beginPath();
-                        ctx.moveTo(-tp.size, 0);
-                        const segments = 4;
-                        for (let i = 1; i <= segments; i++) {
-                            const px = -tp.size + (tp.size * 2 / segments) * i;
-                            const py = (Math.random() - 0.5) * tp.size * 2;
-                            ctx.lineTo(px, py);
-                        }
-                        ctx.stroke();
-                        // Glow center
-                        ctx.fillStyle = 'rgba(255,255,255,0.8)';
-                        ctx.beginPath();
-                        ctx.arc(0, 0, tp.size * 0.3, 0, Math.PI * 2);
-                        ctx.fill();
-                        break;
-
-                    default:
-                        // Fallback - simple glowing circle
-                        ctx.fillStyle = tp.color;
-                        ctx.shadowBlur = 8;
-                        ctx.shadowColor = tp.color;
-                        ctx.beginPath();
-                        ctx.arc(0, 0, tp.size, 0, Math.PI * 2);
-                        ctx.fill();
-                }
-
-                ctx.shadowBlur = 0;
-                ctx.restore();
-            });
-        }
+        // Trail cosmetics removed
 
         // Player
         this.drawPlayer();
