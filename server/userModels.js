@@ -24,9 +24,18 @@ const UserSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     lastLogin: { type: Date, default: Date.now },
     isAdmin: { type: Boolean, default: false },
+    isTester: { type: Boolean, default: false }, // Testers get free games but no admin access
     isBanned: { type: Boolean, default: false },
     banReason: { type: String, default: '' },
     bannedAt: { type: Date },
+
+    // Game library (owned games)
+    library: [{
+        gameId: { type: String, required: true },
+        purchasedAt: { type: Date, default: Date.now },
+        price: { type: Number, default: 0 }, // Price paid in cents (0 = free/gifted)
+        stripePaymentId: { type: String } // Stripe payment intent ID
+    }],
 
     // Remember Me tokens (device/browser persistence)
     rememberTokens: [{

@@ -13,6 +13,8 @@ class AuthManager {
     }
 
     async init() {
+        // Check for purchase callback from Stripe
+        this.handlePurchaseCallback();
         // PRIORITY 1: Check if user is logged in via the game hub
         // If hub has user_data and auth_token, trust it and skip login entirely
         const hubToken = localStorage.getItem('auth_token');
@@ -350,7 +352,7 @@ class AuthManager {
         if (window.game) window.game.playMenuMusic();
     }
 
-    showStartMenu() {
+    async showStartMenu() {
         document.getElementById('auth-menu').classList.add('hidden');
         document.getElementById('register-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
@@ -366,6 +368,15 @@ class AuthManager {
                 <button onclick="authManager.logout()" style="background:none;border:none;color:#ff6666;cursor:pointer;font-size:0.8rem;">Logout</button>
             `;
 
+            // Check game ownership
+            const ownsGame = await this.checkGameOwnership();
+
+            if (!ownsGame) {
+                // Show paywall
+                this.showPaywall();
+                return;
+            }
+
             // Check for saved game
             if (this.user.savedGame?.exists) {
                 document.getElementById('saved-game-notice').classList.remove('hidden');
@@ -375,9 +386,142 @@ class AuthManager {
                 document.getElementById('start-btn').classList.remove('hidden');
             }
         } else {
+            // Guests can't play - must login/register
             userInfoEl.innerHTML = `<span style="color:#888;">Playing as Guest</span>`;
-            document.getElementById('saved-game-notice').classList.add('hidden');
-            document.getElementById('start-btn').classList.remove('hidden');
+            this.showPaywall(true); // isGuest = true
+        }
+    }
+
+    // Check if user owns this game
+    async checkGameOwnership() {
+        // Admin and Tester get free access
+        if (this.user?.isAdmin || this.user?.isTester) {
+            return true;
+        }
+
+        // Check library from user data first (faster)
+        if (this.user?.library?.some(g => g.gameId === 'veltharas-dominion')) {
+            return true;
+        }
+
+        // Double-check with server
+        try {
+            const res = await this.apiGet('/api/games/check-ownership/veltharas-dominion');
+            return res.ownsGame === true;
+        } catch (e) {
+            // If server check fails, allow playing based on cached library
+            console.log('Ownership check failed, using cached data');
+            return this.user?.library?.some(g => g.gameId === 'veltharas-dominion') || false;
+        }
+    }
+
+    // Show paywall for users who don't own the game
+    showPaywall(isGuest = false) {
+        // Hide normal start menu content
+        document.getElementById('saved-game-notice')?.classList.add('hidden');
+        document.getElementById('start-btn')?.classList.add('hidden');
+
+        // Remove existing paywall if any
+        document.getElementById('paywall-notice')?.remove();
+
+        const paywallHTML = `
+            <div id="paywall-notice" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #fbbf24;border-radius:16px;padding:2rem;margin:1rem 0;text-align:center;">
+                <h2 style="color:#fbbf24;margin:0 0 1rem 0;font-size:1.5rem;">🔐 Unlock Full Game</h2>
+                <p style="color:#ccc;margin:0 0 1rem 0;font-size:1.1rem;">
+                    <strong style="color:#fbbf24;">Velthara's Dominion</strong> is a premium game
+                </p>
+                <p style="color:#fff;font-size:2rem;margin:1rem 0;font-weight:bold;">
+                    $5.00 <span style="font-size:0.9rem;color:#888;font-weight:normal;">one-time purchase</span>
+                </p>
+                <p style="color:#888;font-size:0.9rem;margin:0 0 1.5rem 0;">
+                    Includes all current content and future updates!
+                </p>
+                ${isGuest ? `
+                    <p style="color:#ff6666;margin-bottom:1rem;">⚠️ You must create an account to purchase</p>
+                    <button onclick="authManager.showAuthMenu()" class="menu-btn primary" style="margin-bottom:0.5rem;background:linear-gradient(135deg,#00ffaa,#00cc88);">
+                        🔑 LOGIN / REGISTER
+                    </button>
+                ` : `
+                    <button onclick="authManager.purchaseGame()" class="menu-btn primary" style="margin-bottom:0.5rem;background:linear-gradient(135deg,#fbbf24,#f59e0b);">
+                        💳 BUY NOW - $5.00
+                    </button>
+                `}
+                <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #333;">
+                    <p style="color:#666;font-size:0.8rem;margin:0;">
+                        ✨ Secure payment via Stripe<br>
+                        🔒 Instant access after purchase
+                    </p>
+                </div>
+            </div>
+        `;
+
+        // Insert after user info
+        const startMenu = document.querySelector('#start-menu .menu-content');
+        const subtitle = startMenu.querySelector('.alpha-tag');
+        subtitle.insertAdjacentHTML('afterend', paywallHTML);
+    }
+
+    // Initiate game purchase via Stripe
+    async purchaseGame() {
+        if (!this.user || !this.token) {
+            this.showAuthMenu();
+            return;
+        }
+
+        try {
+            const res = await this.apiPost('/api/games/purchase/veltharas-dominion', {});
+
+            if (res.checkoutUrl) {
+                // Redirect to Stripe checkout
+                window.location.href = res.checkoutUrl;
+            } else if (res.error) {
+                alert(res.error);
+            }
+        } catch (e) {
+            alert(e.message || 'Purchase failed. Please try again.');
+        }
+    }
+
+    // Handle Stripe purchase callback
+    handlePurchaseCallback() {
+        const params = new URLSearchParams(window.location.search);
+
+        if (params.get('purchase_success') === '1') {
+            // Clear URL params
+            window.history.replaceState({}, '', window.location.pathname);
+
+            // Show success message after a short delay (let page load)
+            setTimeout(() => {
+                this.showPurchaseSuccess();
+            }, 500);
+        } else if (params.get('purchase_cancelled') === '1') {
+            // Clear URL params
+            window.history.replaceState({}, '', window.location.pathname);
+
+            // Show cancellation message
+            setTimeout(() => {
+                alert('Purchase cancelled. You can try again anytime!');
+            }, 500);
+        }
+    }
+
+    // Show purchase success modal
+    showPurchaseSuccess() {
+        // Refresh user data to get updated library
+        if (this.token) {
+            this.apiGet('/api/auth/me').then(res => {
+                this.user = res;
+                localStorage.setItem('user_data', JSON.stringify(res));
+
+                // Show success and reload menu
+                alert('🎉 Purchase successful! Welcome to Velthara\'s Dominion!');
+                this.showStartMenu();
+            }).catch(() => {
+                alert('🎉 Purchase successful! Please refresh the page to access the game.');
+                window.location.reload();
+            });
+        } else {
+            alert('🎉 Purchase successful! Please login to access your game.');
         }
     }
 

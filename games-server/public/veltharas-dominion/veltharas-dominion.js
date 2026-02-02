@@ -41,7 +41,8 @@ const WOLF_SPRITES = {
 };
 
 const FIREBALL_SPRITE = 'Fireball.png';
-const RINGOFFIRE_SPRITE = 'RingOfFire.png';
+const RINGOFFIRE_SPRITE = 'ring_of_fire.png';
+const DEVIL_RINGOFFIRE_SPRITE = 'devil_ring_of_fire.png';
 
 // Elemental Skull Sprites (for orbiting skull augment)
 const SKULL_SPRITES = {
@@ -108,7 +109,8 @@ const ABILITY_SPRITES = {
 
 // Mythic Augment Sprites
 const MYTHIC_SPRITES = {
-    demonic_fire_mythic: 'demonic-fire-mythic.png'
+    demonic_fire_mythic: 'demonic-fire-mythic.png',
+    devil_ring_of_fire: 'devil_ring_of_fire.png'
 };
 
 // Beam of Despair color progression (changes every 1000 kills)
@@ -240,6 +242,7 @@ function initSprites() {
     if (FIREBALL_SPRITE) loadSprite('fireball', FIREBALL_SPRITE, true);
     // Load ring of fire sprite (for aura fire augment)
     if (RINGOFFIRE_SPRITE) loadSprite('ringoffire', RINGOFFIRE_SPRITE, true);
+    if (DEVIL_RINGOFFIRE_SPRITE) loadSprite('devil_ringoffire', DEVIL_RINGOFFIRE_SPRITE, true);
     // Load elemental skull sprites
     for (const [element, path] of Object.entries(SKULL_SPRITES)) {
         loadSprite('skull_' + element, path, true);
@@ -544,6 +547,7 @@ const LEGENDARY_RUNES = [
     { id: 'rune_vampire', name: 'Vampire\'s Embrace', icon: '🧛', desc: '+200 HP, +35 Damage. PASSIVE: Heal 3% of damage dealt (reduced in combat)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 35; g.vampireHeal = 0.03; }, getDesc: (g) => `HP +200, Damage +35, 3% Lifesteal` },
     { id: 'rune_doubler', name: 'Rune of Doubling', icon: '✖️', desc: '+100 HP, +20 Damage. PASSIVE: All item stacks count as DOUBLE', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; g.weapons.bullet.damage += 20; g.stackDoubler = true; }, getDesc: (g) => g.stackDoubler ? 'Active ✓ (Stacks 2x)' : '+100 HP, +20 Damage, Double Stacks' },
     { id: 'rune_momentum', name: 'Momentum\'s Edge', icon: '🏃', desc: '+30 Speed, +30 Damage. PASSIVE: Gain +1% damage per second moving (max 50%)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.speed += 30; g.weapons.bullet.damage += 30; g.augments.push('momentum'); g.momentumBonus = 0; }, getDesc: (g) => g.augments.includes('momentum') ? `Active ✓ (+${Math.floor((g.momentumBonus || 0) * 100)}% dmg)` : '+30 Speed, +30 Damage, Momentum Passive' },
+    { id: 'rune_ring_mastery', name: 'Ring of Fire Mastery', icon: '🔥', desc: '+200 HP, +40 Damage. PASSIVE: Ring of Fire radius +100, damage +80 DPS, burn enemies for 5s', rarity: 'legendary', tier: 'legendary', classReq: 'fire_mage', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 40; if (!g.playerRingOfFire) { g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; } g.playerRingOfFire.radius += 100; g.playerRingOfFire.damage += 80; g.playerRingOfFire.burnDuration = 5; g.augments.push('ring_mastery'); }, getDesc: (g) => g.augments.includes('ring_mastery') ? 'Active ✓' : '+200 HP, +40 Damage, Ring Upgrade' },
 ];
 
 // MYTHIC RUNES - Game-changing powers (kept from old system but renamed)
@@ -659,9 +663,16 @@ const ALL_RUNES = {
 // Legacy Diamond Augments - kept for backward compatibility but redirects to runes
 const DIAMOND_AUGMENTS = [
     // Wolf Pack Path - SHADOW MASTER ONLY
-    { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🔥', desc: 'Wolves attack 50% faster and deal +25% damage', classReq: 'shadow_master', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
+    { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🐺', desc: 'Wolves attack 50% faster and deal +25% damage', classReq: 'shadow_master', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
     { id: 'pack_tactics', name: 'Pack Tactics', icon: '🌙', desc: 'You gain +5% damage for every active wolf', classReq: 'shadow_master', effect: (g) => g.augments.push('pack_tactics'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
     { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', classReq: 'shadow_master', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
+    // Fire Mage Path - FIRE MAGE ONLY
+    { id: 'pyroclasm', name: 'Pyroclasm', icon: '💥', desc: 'Fireballs explode on impact dealing 50% damage in small area', classReq: 'fire_mage', effect: (g) => { g.augments.push('pyroclasm'); g.fireballExplosion = true; g.fireballExplosionRadius = 60; g.fireballExplosionDamage = 0.5; }, getDesc: (g) => g.augments.includes('pyroclasm') ? 'Active ✓' : 'Not Active' },
+    { id: 'inferno_mastery', name: 'Inferno Mastery', icon: '🔥', desc: '+30% fire damage, burn duration +2s', classReq: 'fire_mage', effect: (g) => { g.augments.push('inferno_mastery'); g.fireDamageBonus = (g.fireDamageBonus || 1) * 1.3; if (g.auraFire) g.auraFire.burnDuration += 2; }, getDesc: (g) => g.augments.includes('inferno_mastery') ? 'Active ✓' : 'Not Active' },
+    { id: 'flame_cascade', name: 'Flame Cascade', icon: '🌋', desc: 'Every 3rd fireball splits into 3 on impact', classReq: 'fire_mage', effect: (g) => { g.augments.push('flame_cascade'); g.flameCascadeCounter = 0; }, getDesc: (g) => g.augments.includes('flame_cascade') ? 'Active ✓' : 'Not Active' },
+    { id: 'molten_core', name: 'Molten Core', icon: '🌡️', desc: 'Burn damage stacks up to 5 times on same enemy', classReq: 'fire_mage', effect: (g) => { g.augments.push('molten_core'); g.burnStackLimit = 5; }, getDesc: (g) => g.augments.includes('molten_core') ? 'Active ✓' : 'Not Active' },
+    { id: 'ring_of_fire_1', name: 'Ring of Fire I', icon: '⭕', desc: 'Gain a rotating fire ring that damages enemies (50 DPS, 100px radius)', classReq: 'fire_mage', effect: (g) => { g.augments.push('ring_of_fire_1'); g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Not Active' },
+    { id: 'ring_of_fire_2', name: 'Ring of Fire II', icon: '⭕', desc: 'Upgrade Ring of Fire: +30 DPS, +50px radius, +0.5 rotation speed', classReq: 'fire_mage', req: 'ring_of_fire_1', effect: (g) => { g.augments.push('ring_of_fire_2'); if (g.playerRingOfFire) { g.playerRingOfFire.damage += 30; g.playerRingOfFire.radius += 50; g.playerRingOfFire.rotationSpeed += 0.5; } }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Requires Ring of Fire I' },
     // Soldier Path
     { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke'), getDesc: (g) => g.augments.includes('tactical_nuke') ? 'Active ✓' : 'Not Active' },
     { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
@@ -801,6 +812,38 @@ const MYTHIC_AUGMENTS = [
             g.weapons.bullet.count += 3;
         },
         getDesc: (g) => g.augments.includes('omega_destroyer') ? '💀 OMEGA ACTIVE 💀' : '+500% dmg, -50% rate, explosions'
+    },
+    {
+        id: 'devil_ring_of_fire',
+        name: 'Devil Ring of Fire',
+        icon: '😈',
+        rarity: 'mythic',
+        classReq: 'fire_mage',
+        hasSprite: true,
+        spriteKey: 'devil_ring_of_fire',
+        desc: 'DEMONIC INFERNO. +500 HP, +100 Damage. Triple fire ring (3 rotating rings). 200 DPS each, 200px radius. Burns enemies for 10s. Every 10s, all rings explode for 3000 damage.',
+        effect: (g) => {
+            g.augments.push('devil_ring_of_fire');
+            g.player.maxHealth += 500;
+            g.player.health += 500;
+            g.weapons.bullet.damage += 100;
+            // Triple Devil Ring of Fire
+            g.devilRingOfFire = {
+                rings: 3,
+                radius: 200,
+                damage: 200,
+                rotation: 0,
+                rotationSpeed: 3,
+                burnDuration: 10,
+                explosionTimer: 0,
+                explosionCooldown: 10,
+                explosionDamage: 3000,
+                explosionRadius: 350
+            };
+            // Disable regular ring of fire if active
+            g.playerRingOfFire = null;
+        },
+        getDesc: (g) => g.augments.includes('devil_ring_of_fire') ? '😈 DEVIL RING ACTIVE 😈' : '+500 HP, +100 Damage, 3 Fire Rings'
     }
 ];
 
@@ -1065,7 +1108,7 @@ const GAME_SETTINGS = {
     enemyHealthMult: 0.35,       // Lower base health for easier early game (waves 1-14)
     enemyDamageMult: 1.0,
     enemySpeedMult: 1.3,         // FASTER enemies for more exciting gameplay
-    spawnRateMult: 0.7,          // FASTER spawns (lower = more frequent)
+    spawnRateMult: 0.5,          // MUCH FASTER spawns (lower = more frequent) - was 0.7
     scalingPerWave: 0.12,        // INCREASED from 0.08 - 12% per wave for bigger numbers later
     scalingPerWaveLate: 0.90,    // INCREASED from 0.60 - 90% per wave after wave 10
     lateGameWave: 10,            // When late game scaling kicks in
@@ -3102,7 +3145,7 @@ class DotsSurvivor {
             if (this.waveTimer >= this.waveDuration) {
                 this.wave++;
                 this.waveTimer = 0;
-                this.enemySpawnRate = Math.max(200, this.enemySpawnRate - 80);
+                this.enemySpawnRate = Math.max(100, this.enemySpawnRate - 100); // Faster spawn reduction, lower minimum
 
                 // Spawn soul collectors every 5 waves
                 if (this.wave % 5 === 0 || this.wave - this.lastSoulCollectorWave >= 5) {
@@ -3463,6 +3506,8 @@ class DotsSurvivor {
         this.updateFireBlast(effectiveDt);       // Fire Mage fire blast ability
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
+        this.updatePlayerRingOfFire(effectiveDt);  // Ring of Fire augment
+        this.updateDevilRingOfFire(effectiveDt);   // Devil Ring of Fire mythic
         this.updateMythicAugments(effectiveDt);  // Mythic augment effects
         this.updateAbilities(effectiveDt);
         this.updateBeamDespair(effectiveDt);
@@ -3563,6 +3608,124 @@ class DotsSurvivor {
                     const sx = this.player.x + (e.wx - this.worldX);
                     const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#ff6600', 1);
+                }
+            }
+        }
+    }
+
+    // ============ PLAYER RING OF FIRE (AUGMENT) ============
+    updatePlayerRingOfFire(dt) {
+        if (!this.playerRingOfFire) return;
+
+        // Update rotation
+        this.playerRingOfFire.rotation += this.playerRingOfFire.rotationSpeed * dt;
+
+        // Damage enemies within ring radius
+        for (const e of this.enemies) {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+            // Enemy is within ring area
+            if (dist < this.playerRingOfFire.radius + e.radius) {
+                // Apply burn if not already burning from ring
+                if (!e.ringBurn) {
+                    e.ringBurn = { timer: this.playerRingOfFire.burnDuration || 3, dps: this.playerRingOfFire.damage };
+                    e.hitFlash = 0.3;
+                    this.spawnParticles(sx, sy, '#ff6600', 4);
+                }
+            }
+        }
+
+        // Process ring burns
+        for (const e of this.enemies) {
+            if (e.ringBurn && e.ringBurn.timer > 0) {
+                e.ringBurn.timer -= dt;
+                const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+                const fireDmgBonus = this.fireDamageBonus || 1;
+                e.health -= e.ringBurn.dps * dt * ampBoost * fireDmgBonus;
+
+                if (Math.random() < 0.15) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.spawnParticles(sx, sy, '#ff4400', 2);
+                }
+            }
+        }
+    }
+
+    // ============ DEVIL RING OF FIRE (MYTHIC) ============
+    updateDevilRingOfFire(dt) {
+        if (!this.devilRingOfFire) return;
+
+        // Update rotation
+        this.devilRingOfFire.rotation += this.devilRingOfFire.rotationSpeed * dt;
+
+        // Update explosion timer
+        this.devilRingOfFire.explosionTimer += dt;
+
+        // Check for explosion
+        if (this.devilRingOfFire.explosionTimer >= this.devilRingOfFire.explosionCooldown) {
+            this.devilRingOfFire.explosionTimer = 0;
+
+            // Explode all rings - damage all enemies in explosion radius
+            for (const e of this.enemies) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+                if (dist < this.devilRingOfFire.explosionRadius) {
+                    const fireDmgBonus = this.fireDamageBonus || 1;
+                    e.health -= this.devilRingOfFire.explosionDamage * fireDmgBonus;
+                    e.hitFlash = 1.0;
+                    this.spawnParticles(sx, sy, '#ff0000', 10);
+                }
+            }
+
+            // Visual explosion effect
+            this.damageNumbers.push({
+                x: this.player.x,
+                y: this.player.y - 50,
+                value: '😈 DEVIL EXPLOSION! 😈',
+                lifetime: 1.5,
+                color: '#ff0000'
+            });
+
+            // Screen shake for explosion
+            this.screenShake = { intensity: 15, duration: 0.3 };
+        }
+
+        // Damage enemies within ring radius (all 3 rings share same radius)
+        for (const e of this.enemies) {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+            if (dist < this.devilRingOfFire.radius + e.radius) {
+                // Apply burn if not already burning from devil ring
+                if (!e.devilRingBurn) {
+                    e.devilRingBurn = {
+                        timer: this.devilRingOfFire.burnDuration,
+                        dps: this.devilRingOfFire.damage * this.devilRingOfFire.rings // 3 rings = 3x damage
+                    };
+                    e.hitFlash = 0.5;
+                    this.spawnParticles(sx, sy, '#ff0000', 6);
+                }
+            }
+        }
+
+        // Process devil ring burns
+        for (const e of this.enemies) {
+            if (e.devilRingBurn && e.devilRingBurn.timer > 0) {
+                e.devilRingBurn.timer -= dt;
+                const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+                const fireDmgBonus = this.fireDamageBonus || 1;
+                e.health -= e.devilRingBurn.dps * dt * ampBoost * fireDmgBonus;
+
+                if (Math.random() < 0.2) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.spawnParticles(sx, sy, '#ff0000', 3);
                 }
             }
         }
@@ -4262,6 +4425,8 @@ class DotsSurvivor {
         let available = this.diamondAugments.filter(a => {
             if (this.augments.includes(a.id)) return false;
             if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
+            // Filter by class requirement (wolf augments only for Shadow Master)
+            if (a.classReq && a.classReq !== this.selectedClass?.id) return false;
             return true;
         });
 
@@ -4635,24 +4800,25 @@ class DotsSurvivor {
         }
 
         const data = {
-            // SCALED 5x (halved from 10x) - better early game balance with increased scaling
+            // BALANCED for early game - lower base damage, scales with wave/difficulty
             // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
-            swarm: { radius: 14, speed: 115, health: 100, damage: 50, xp: 2, color: '#ff66aa', icon: '' },
-            basic: { radius: 12, speed: 100, health: 150, damage: 75, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 16, speed: 160, health: 200, damage: 50, xp: 5, color: '#00ffff', icon: '💨' },
-            tank: { radius: 28, speed: 60, health: 1750, damage: 155, xp: 25, color: '#8844ff', icon: '' },
-            splitter: { radius: 20, speed: 85, health: 750, damage: 95, xp: 15, color: '#44ddff', icon: '💧', splits: true },
-            bomber: { radius: 16, speed: 105, health: 375, damage: 65, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
-            mini: { radius: 6, speed: 140, health: 125, damage: 40, xp: 3, color: '#44ddff', icon: '' },
+            // All damage values +10 for better early game challenge
+            swarm: { radius: 14, speed: 115, health: 100, damage: 25, xp: 2, color: '#ff66aa', icon: '' },
+            basic: { radius: 12, speed: 100, health: 150, damage: 35, xp: 6, color: '#ff4466', icon: '' },
+            runner: { radius: 16, speed: 160, health: 200, damage: 25, xp: 5, color: '#00ffff', icon: '💨' },
+            tank: { radius: 28, speed: 60, health: 1750, damage: 60, xp: 25, color: '#8844ff', icon: '' },
+            splitter: { radius: 20, speed: 85, health: 750, damage: 40, xp: 15, color: '#44ddff', icon: '💧', splits: true },
+            bomber: { radius: 16, speed: 105, health: 375, damage: 30, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
+            mini: { radius: 6, speed: 140, health: 125, damage: 22, xp: 3, color: '#44ddff', icon: '' },
             // New enemy types
-            sticky: { radius: 12, speed: 120, health: 250, damage: 30, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
-            ice: { radius: 32, speed: 55, health: 1000, damage: 125, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
-            poison: { radius: 14, speed: 90, health: 400, damage: 60, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
+            sticky: { radius: 12, speed: 120, health: 250, damage: 20, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
+            ice: { radius: 32, speed: 55, health: 1000, damage: 50, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
+            poison: { radius: 14, speed: 90, health: 400, damage: 30, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
             // Wave 5+ enemy types
-            goblin: { radius: 14, speed: 95, health: 200, damage: 25, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
-            necromancer: { radius: 18, speed: 40, health: 600, damage: 40, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
-            necro_sprite: { radius: 8, speed: 130, health: 75, damage: 30, xp: 0, color: '#aa44ff', icon: '👻' },
-            miniconsumer: { radius: 20, speed: 50, health: 1500, damage: 100, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true }
+            goblin: { radius: 14, speed: 95, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
+            necromancer: { radius: 18, speed: 40, health: 600, damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
+            necro_sprite: { radius: 8, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
+            miniconsumer: { radius: 20, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -7299,9 +7465,6 @@ class DotsSurvivor {
                     <div style="color:#888;font-size:0.75rem;margin-top:0.25rem;">
                         to Level ${prog.level + 1}
                     </div>
-                    <div style="color:#ffd700;font-size:1rem;margin-top:0.75rem;font-weight:bold;">
-                        🪙 ${prog.tokens} Tokens
-                    </div>
                 `;
 
                 progressionDisplay.innerHTML = progressionHTML;
@@ -8365,6 +8528,104 @@ class DotsSurvivor {
         // Inferno aura
         if (this.inferno) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 100, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,100,0,0.3)'; ctx.lineWidth = 2; ctx.stroke(); }
 
+        // ============ PLAYER RING OF FIRE (AUGMENT) ============
+        if (this.playerRingOfFire) {
+            ctx.save();
+            const ring = this.playerRingOfFire;
+            const ringSprite = SPRITE_CACHE['ringoffire'];
+
+            // Draw rotating ring
+            ctx.translate(this.player.x, this.player.y);
+            ctx.rotate(ring.rotation);
+
+            if (ringSprite) {
+                // Draw sprite-based ring
+                const spriteSize = ring.radius * 2.5; // Scale sprite to ring size
+                ctx.drawImage(ringSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+            } else {
+                // Fallback: draw circle
+                ctx.beginPath();
+                ctx.arc(0, 0, ring.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ff4400';
+                ctx.lineWidth = 8;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ff6600';
+                ctx.stroke();
+            }
+
+            // Add fire particles around ring edge
+            if (Math.random() < 0.3) {
+                const angle = Math.random() * Math.PI * 2;
+                const px = Math.cos(angle) * ring.radius;
+                const py = Math.sin(angle) * ring.radius;
+                ctx.beginPath();
+                ctx.arc(px, py, 3 + Math.random() * 5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, ${Math.floor(100 + Math.random() * 100)}, 0, ${0.5 + Math.random() * 0.5})`;
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // ============ DEVIL RING OF FIRE (MYTHIC) ============
+        if (this.devilRingOfFire) {
+            ctx.save();
+            const devil = this.devilRingOfFire;
+            const devilSprite = SPRITE_CACHE['devil_ringoffire'];
+
+            ctx.translate(this.player.x, this.player.y);
+
+            // Draw 3 rotating rings at different angles
+            for (let i = 0; i < devil.rings; i++) {
+                ctx.save();
+                const ringOffset = (Math.PI * 2 / devil.rings) * i;
+                ctx.rotate(devil.rotation + ringOffset);
+
+                if (devilSprite) {
+                    const spriteSize = devil.radius * 2.5;
+                    ctx.drawImage(devilSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+                } else {
+                    // Fallback: draw demonic circle
+                    ctx.beginPath();
+                    ctx.arc(0, 0, devil.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 10;
+                    ctx.shadowBlur = 30;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            // Add demonic particles
+            if (Math.random() < 0.5) {
+                for (let i = 0; i < 3; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const px = Math.cos(angle) * devil.radius;
+                    const py = Math.sin(angle) * devil.radius;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 4 + Math.random() * 6, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 0, ${Math.floor(Math.random() * 100)}, ${0.6 + Math.random() * 0.4})`;
+                    ctx.fill();
+                }
+            }
+
+            // Explosion warning indicator
+            const explosionProgress = devil.explosionTimer / devil.explosionCooldown;
+            if (explosionProgress > 0.7) {
+                ctx.beginPath();
+                ctx.arc(0, 0, devil.explosionRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 0, 0, ${(explosionProgress - 0.7) * 3})`;
+                ctx.lineWidth = 3;
+                ctx.setLineDash([10, 10]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            ctx.restore();
+        }
+
         // Restore transform before drawing UI
         ctx.restore();
 
@@ -8428,10 +8689,10 @@ class DotsSurvivor {
         this.drawHealthBar();
         // Items display
         this.drawItems();
-        // Abilities UI (bottom right)
+        // Abilities UI (bottom right) - Item abilities only (1, 2 keys)
         this.drawAbilities();
-        // Character abilities UI (bottom left) - Q and E
-        this.drawCharacterAbilities();
+        // Character abilities UI REMOVED - class abilities replaced with passives
+        // this.drawCharacterAbilities();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
 

@@ -916,6 +916,9 @@ app.post('/api/auth/register', async (req, res) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
+                isAdmin: user.isAdmin || false,
+                isTester: user.isTester || false,
+                library: user.library || [],
                 savedGame: user.savedGame,
                 stats: user.dotsSurvivorStats
             }
@@ -995,12 +998,15 @@ app.post('/api/auth/login', async (req, res) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
+                isAdmin: user.isAdmin || false,
+                isTester: user.isTester || false,
+                library: user.library || [],
                 savedGame: user.savedGame,
                 stats: user.dotsSurvivorStats
             }
         });
 
-        console.log(`✅ User logged in: ${user.username}${rememberMe ? ' (remembered)' : ''}`);
+        console.log(`✅ User logged in: ${user.username}${rememberMe ? ' (remembered)' : ''}${user.isAdmin ? ' [ADMIN]' : ''}${user.isTester ? ' [TESTER]' : ''}`);
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Login failed' });
@@ -1067,12 +1073,15 @@ app.post('/api/auth/remember', async (req, res) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
+                isAdmin: user.isAdmin || false,
+                isTester: user.isTester || false,
+                library: user.library || [],
                 savedGame: user.savedGame,
                 stats: user.dotsSurvivorStats
             }
         });
 
-        console.log(`✅ User auto-logged in via remember token: ${user.username}`);
+        console.log(`✅ User auto-logged in via remember token: ${user.username}${user.isAdmin ? ' [ADMIN]' : ''}${user.isTester ? ' [TESTER]' : ''}`);
     } catch (error) {
         console.error('Remember login error:', error);
         res.status(500).json({ error: 'Auto-login failed' });
@@ -1090,6 +1099,8 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
             username: user.username,
             email: user.email,
             isAdmin: user.isAdmin || false,
+            isTester: user.isTester || false,
+            library: user.library || [],
             savedGame: user.savedGame,
             stats: user.dotsSurvivorStats
         });
@@ -1373,11 +1384,13 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
                 createdAt: u.createdAt,
                 lastLogin: u.lastLogin,
                 isAdmin: u.isAdmin,
+                isTester: u.isTester,
                 isBanned: u.isBanned,
                 banReason: u.banReason,
                 bannedAt: u.bannedAt,
                 stats: u.dotsSurvivorStats,
-                hasSavedGame: u.savedGame?.exists || false
+                hasSavedGame: u.savedGame?.exists || false,
+                library: u.library || []
             })),
             total,
             page,
@@ -1447,24 +1460,27 @@ app.post('/api/admin/unban/:userId', authenticateAdmin, async (req, res) => {
 app.post('/api/admin/role/:userId', authenticateAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
-        const { isAdmin } = req.body;
+        const { isAdmin, isTester } = req.body;
 
         // Prevent self-demotion
-        if (userId === req.userId.toString() && !isAdmin) {
+        if (userId === req.userId.toString() && isAdmin === false) {
             return res.status(400).json({ error: 'Cannot demote yourself' });
         }
 
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        const oldRole = user.isAdmin ? 'Admin' : 'User';
-        const newRole = isAdmin ? 'Admin' : 'User';
+        const oldRole = user.isAdmin ? 'Admin' : (user.isTester ? 'Tester' : 'User');
 
-        user.isAdmin = isAdmin;
+        // Update roles based on what was passed
+        if (typeof isAdmin === 'boolean') user.isAdmin = isAdmin;
+        if (typeof isTester === 'boolean') user.isTester = isTester;
+
+        const newRole = user.isAdmin ? 'Admin' : (user.isTester ? 'Tester' : 'User');
+
         await user.save();
 
-        const action = isAdmin ? 'promoted to Admin' : 'demoted to User';
-        res.json({ success: true, message: `${user.username} has been ${action}` });
+        res.json({ success: true, message: `${user.username} role changed: ${oldRole} → ${newRole}` });
         console.log(`👑 Role changed: ${user.username} (${oldRole} → ${newRole}) by ${req.username}`);
     } catch (error) {
         console.error('Admin role change error:', error);
@@ -1488,6 +1504,202 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to get stats' });
+    }
+});
+
+// ================== GAME LIBRARY & PURCHASES ==================
+
+// Game pricing configuration
+const GAME_PRICES = {
+    'veltharas-dominion': { price: 500, name: "Velthara's Dominion" } // 500 cents = $5
+};
+
+// Check if user owns a game
+app.get('/api/games/check-ownership/:gameId', authenticateToken, async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Admins and testers get all games free
+        if (user.isAdmin || user.isTester) {
+            return res.json({
+                ownsGame: true,
+                reason: user.isAdmin ? 'admin' : 'tester',
+                gameId
+            });
+        }
+
+        // Check if game is in library
+        const owned = user.library?.some(g => g.gameId === gameId);
+        res.json({
+            ownsGame: owned,
+            reason: owned ? 'purchased' : 'not_owned',
+            gameId,
+            price: GAME_PRICES[gameId]?.price || 0
+        });
+    } catch (error) {
+        console.error('Check ownership error:', error);
+        res.status(500).json({ error: 'Failed to check ownership' });
+    }
+});
+
+// Get user's game library
+app.get('/api/games/library', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Admins and testers get all games
+        if (user.isAdmin || user.isTester) {
+            const allGames = Object.keys(GAME_PRICES).map(gameId => ({
+                gameId,
+                name: GAME_PRICES[gameId].name,
+                purchasedAt: user.createdAt,
+                price: 0,
+                reason: user.isAdmin ? 'admin' : 'tester'
+            }));
+            return res.json({ library: allGames });
+        }
+
+        res.json({ library: user.library || [] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get library' });
+    }
+});
+
+// Add game to user's library (admin only - for gifting)
+app.post('/api/admin/gift-game/:userId', authenticateAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { gameId } = req.body;
+
+        if (!GAME_PRICES[gameId]) {
+            return res.status(400).json({ error: 'Invalid game ID' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Check if already owns
+        if (user.library?.some(g => g.gameId === gameId)) {
+            return res.status(400).json({ error: 'User already owns this game' });
+        }
+
+        if (!user.library) user.library = [];
+        user.library.push({
+            gameId,
+            purchasedAt: new Date(),
+            price: 0, // Gifted
+            stripePaymentId: 'GIFT'
+        });
+        await user.save();
+
+        res.json({ success: true, message: `${GAME_PRICES[gameId].name} gifted to ${user.username}` });
+        console.log(`🎁 Game gifted: ${gameId} to ${user.username} by ${req.username}`);
+    } catch (error) {
+        console.error('Gift game error:', error);
+        res.status(500).json({ error: 'Failed to gift game' });
+    }
+});
+
+// Create Stripe checkout session for game purchase
+app.post('/api/games/purchase/:gameId', authenticateToken, async (req, res) => {
+    try {
+        const { gameId } = req.params;
+
+        if (!GAME_PRICES[gameId]) {
+            return res.status(400).json({ error: 'Invalid game ID' });
+        }
+
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Check if already owns
+        if (user.isAdmin || user.isTester || user.library?.some(g => g.gameId === gameId)) {
+            return res.status(400).json({ error: 'You already own this game' });
+        }
+
+        // Check if Stripe is configured
+        if (!process.env.STRIPE_SECRET_KEY) {
+            return res.status(503).json({
+                error: 'Payments not configured yet. Contact admin.',
+                stripeEnabled: false
+            });
+        }
+
+        // Initialize Stripe
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        const gameInfo = GAME_PRICES[gameId];
+
+        // Create checkout session
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: gameInfo.name,
+                        description: `Full access to ${gameInfo.name}`,
+                    },
+                    unit_amount: gameInfo.price,
+                },
+                quantity: 1,
+            }],
+            mode: 'payment',
+            success_url: `${req.protocol}://${req.get('host')}/veltharas-dominion/?purchase_success=1`,
+            cancel_url: `${req.protocol}://${req.get('host')}/veltharas-dominion/?purchase_cancelled=1`,
+            metadata: {
+                gameId,
+                userId: user._id.toString(),
+                username: user.username
+            }
+        });
+
+        res.json({ checkoutUrl: session.url, sessionId: session.id });
+        console.log(`💳 Checkout created for ${gameId} by ${user.username}`);
+    } catch (error) {
+        console.error('Game purchase error:', error);
+        res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
+
+// Stripe webhook to confirm game purchase
+app.post('/api/games/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+        return res.status(503).json({ error: 'Stripe not configured' });
+    }
+
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const sig = req.headers['stripe-signature'];
+
+    try {
+        const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            const { gameId, userId } = session.metadata;
+
+            if (gameId && userId) {
+                const user = await User.findById(userId);
+                if (user && !user.library?.some(g => g.gameId === gameId)) {
+                    if (!user.library) user.library = [];
+                    user.library.push({
+                        gameId,
+                        purchasedAt: new Date(),
+                        price: session.amount_total,
+                        stripePaymentId: session.payment_intent
+                    });
+                    await user.save();
+                    console.log(`✅ Game purchased: ${gameId} by ${user.username} ($${session.amount_total / 100})`);
+                }
+            }
+        }
+
+        res.json({ received: true });
+    } catch (error) {
+        console.error('Webhook error:', error);
+        res.status(400).json({ error: 'Webhook error' });
     }
 });
 

@@ -82,61 +82,7 @@ app.get('/health', (req, res) => {
 
 // Root redirect to game list or main game
 app.get('/', (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>ZecruGames - Games</title>
-            <style>
-                body { 
-                    font-family: 'Inter', sans-serif; 
-                    background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 100%);
-                    color: white; 
-                    min-height: 100vh;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 0;
-                }
-                h1 { color: #00ffaa; margin-bottom: 2rem; }
-                .games { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; }
-                .game-card {
-                    background: rgba(0,0,0,0.5);
-                    border: 2px solid #00ffaa;
-                    border-radius: 12px;
-                    padding: 2rem;
-                    text-align: center;
-                    text-decoration: none;
-                    color: white;
-                    transition: all 0.3s;
-                }
-                .game-card:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 10px 30px rgba(0,255,170,0.3);
-                }
-                .game-card h2 { color: #00ffaa; margin: 0 0 0.5rem 0; }
-                .game-card p { color: #888; margin: 0; }
-            </style>
-        </head>
-        <body>
-            <h1>🎮 ZecruGames</h1>
-            <div class="games">
-                <a href="/veltharas-dominion/" class="game-card">
-                    <h2>⚔️ Velthara's Dominion</h2>
-                    <p>Wave-based survival</p>
-                </a>
-                <a href="/poker/" class="game-card">
-                    <h2>🃏 Poker</h2>
-                    <p>Texas Hold'em</p>
-                </a>
-            </div>
-            <p style="margin-top: 2rem; color: #666;">
-                <a href="https://www.zecrugames.com" style="color: #00ffaa;">← Back to Hub</a>
-            </p>
-        </body>
-        </html>
-    `);
+    res.redirect('https://www.zecrugames.com');
 });
 
 // ============================================
