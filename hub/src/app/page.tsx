@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/navbar";
 import { GameCard } from "@/components/game-card";
+import { useCart } from "@/context/cart-context";
 
 const GAMES: Array<{
   id: string;
@@ -11,16 +15,18 @@ const GAMES: Array<{
   badge: string;
   badgeColor: "gold" | "green";
   isFree: boolean;
+  price?: number;
 }> = [
   {
-    id: "velthara-dominion",
+    id: "veltharas-dominion",
     title: "Velthara's Dominion",
     description: "Survive endless waves of enemies! Collect XP, level up, and choose powerful upgrades. How long can you last?",
     thumbnail: "https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg",
     href: "https://games.zecrugames.com/veltharas-dominion/",
     badge: "FEATURED",
     badgeColor: "green",
-    isFree: true,
+    isFree: false,
+    price: 5,
   },
   {
     id: "poker",
@@ -35,6 +41,47 @@ const GAMES: Array<{
 ];
 
 export default function Home() {
+  const [ownsVelthara, setOwnsVelthara] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { addToCart, isInCart } = useCart();
+
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    setIsLoggedIn(!!token);
+
+    const userData = localStorage.getItem("user_data");
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        if (user.isAdmin || user.isTester) {
+          setOwnsVelthara(true);
+          return;
+        }
+        const owned = (user.library || []).some(
+          (g: { gameId: string }) => g.gameId === "veltharas-dominion"
+        );
+        setOwnsVelthara(owned);
+      } catch (e) {
+        console.error("Failed to parse user data");
+      }
+    }
+  }, []);
+
+  const handleAddToCart = () => {
+    if (!isLoggedIn) {
+      window.location.href = "/login";
+      return;
+    }
+
+    addToCart({
+      id: "veltharas-dominion",
+      title: "Velthara's Dominion",
+      price: 5,
+      thumbnail: "https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg",
+    });
+  };
+
+  const inCart = isInCart("veltharas-dominion");
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -83,12 +130,26 @@ export default function Home() {
               </p>
 
               <div className="flex gap-4 flex-wrap">
-                <Link
-                  href="https://games.zecrugames.com/veltharas-dominion/"
-                  className="btn-glass btn-glass-primary text-base sm:text-lg px-8 sm:px-10 py-4"
-                >
-                  <span className="mr-2">▶</span> Play Now — Free
-                </Link>
+                {ownsVelthara ? (
+                  <Link
+                    href="https://games.zecrugames.com/veltharas-dominion/"
+                    className="btn-glass btn-glass-primary text-base sm:text-lg px-8 sm:px-10 py-4"
+                  >
+                    <span className="mr-2">▶</span> Play Now
+                  </Link>
+                ) : inCart ? (
+                  <div className="btn-glass text-base sm:text-lg px-8 sm:px-10 py-4 bg-white/10 text-white/70 cursor-default">
+                    ✓ Added to Cart
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleAddToCart}
+                    className="btn-glass text-base sm:text-lg px-8 sm:px-10 py-4 hover:scale-[1.02] transition-transform"
+                    style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', color: '#000' }}
+                  >
+                    {isLoggedIn ? "🛒 Add to Cart — $5" : "🔑 Login to Purchase"}
+                  </button>
+                )}
                 <Link
                   href="/store/"
                   className="btn-glass btn-glass-secondary text-base sm:text-lg px-6 sm:px-8 py-4"
@@ -114,7 +175,11 @@ export default function Home() {
                   {/* Overlay info */}
                   <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
                     <div>
-                      <span className="badge badge-free text-xs">FREE TO PLAY</span>
+                      {ownsVelthara ? (
+                        <span className="badge badge-owned text-xs">OWNED</span>
+                      ) : (
+                        <span className="badge badge-premium text-xs">PREMIUM</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-white/80 text-sm">
                       <span className="flex items-center gap-1">

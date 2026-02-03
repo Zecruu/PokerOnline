@@ -23,7 +23,8 @@ const ALL_GAMES = [
     href: "https://games.zecrugames.com/veltharas-dominion/",
     badge: "FEATURED",
     badgeColor: "green" as const,
-    isFree: true,
+    isFree: false,
+    price: 5,
   },
 ];
 
@@ -32,18 +33,34 @@ export default function LibraryPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
+  const [ownedGames, setOwnedGames] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     setIsLoggedIn(!!token);
-    
+
     // Load favorites/wishlist from localStorage for now
     setFavorites(JSON.parse(localStorage.getItem("favorites") || "[]"));
     setWishlist(JSON.parse(localStorage.getItem("wishlist") || "[]"));
+
+    // Load user data to check owned games and admin status
+    const userData = localStorage.getItem("user_data");
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        setIsAdmin(user.isAdmin || user.isTester || false);
+        // Get owned game IDs from library
+        const owned = (user.library || []).map((g: { gameId: string }) => g.gameId);
+        setOwnedGames(owned);
+      } catch (e) {
+        console.error("Failed to parse user data");
+      }
+    }
   }, []);
 
-  // All free games are automatically in library
-  const libraryGames = ALL_GAMES.filter(g => g.isFree);
+  // Library includes: free games + owned paid games + all games for admin/tester
+  const libraryGames = ALL_GAMES.filter(g => g.isFree || isAdmin || ownedGames.includes(g.id));
   const favoriteGames = ALL_GAMES.filter(g => favorites.includes(g.id));
   const wishlistGames = ALL_GAMES.filter(g => wishlist.includes(g.id));
 

@@ -225,6 +225,21 @@ body {
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
+.badge-premium {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.95) 0%, rgba(245, 158, 11, 0.95) 100%);
+  color: #000;
+  border: none;
+  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.4);
+  font-weight: 800;
+}
+
+.badge-owned {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
 /* Glow Effects */
 .glow-primary {
   box-shadow: 0 0 40px rgba(0, 212, 170, 0.15);

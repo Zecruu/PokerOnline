@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { AuthModal } from "./auth-modal";
+import { useCart } from "@/context/cart-context";
 
 export function Navbar() {
   const [showAuth, setShowAuth] = useState(false);
@@ -11,6 +12,7 @@ export function Navbar() {
   const [username, setUsername] = useState("");
   const [scrolled, setScrolled] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { itemCount, openCart } = useCart();
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -99,8 +101,24 @@ export function Navbar() {
           <NavLink href="/library">Library</NavLink>
         </div>
 
-        {/* Right side - Auth Section */}
+        {/* Right side - Cart + Auth Section */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Cart Button */}
+          <button
+            onClick={openCart}
+            className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+            aria-label="Open cart"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-[rgb(251,191,36)] text-black text-xs font-bold rounded-full flex items-center justify-center">
+                {itemCount}
+              </span>
+            )}
+          </button>
+
           {isLoggedIn ? (
             <>
               <Link

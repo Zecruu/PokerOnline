@@ -24,7 +24,8 @@ const ALL_GAMES = [
     href: "https://games.zecrugames.com/veltharas-dominion/",
     badge: "FEATURED",
     badgeColor: "green" as const,
-    isFree: true,
+    isFree: false,
+    price: 5,
     category: "action",
   },
 ];

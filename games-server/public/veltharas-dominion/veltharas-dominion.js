@@ -4686,17 +4686,39 @@ class DotsSurvivor {
 
         const now = performance.now();
 
-        // DYNAMIC MINIMUM: Start at 10, +1 per wave, max 30 (or 40 after wave 10)
+        // EARLY GAME SPAWN RATE REDUCTION (waves 1-5 are slower)
+        // This gives players time to learn the game and build up
+        let spawnRateMultiplier = 1.0;
+        if (this.wave <= 2) {
+            spawnRateMultiplier = 2.5; // 2.5x slower spawns waves 1-2
+        } else if (this.wave <= 4) {
+            spawnRateMultiplier = 1.8; // 1.8x slower spawns waves 3-4
+        } else if (this.wave <= 6) {
+            spawnRateMultiplier = 1.3; // 1.3x slower spawns waves 5-6
+        }
+        const effectiveSpawnRate = this.enemySpawnRate * spawnRateMultiplier;
+
+        // DYNAMIC MINIMUM: Start lower, +1 per wave, max 30 (or 40 after wave 10)
         // Early game is manageable, late game gets overwhelming
         // BOSS GRACE PERIOD: Reduce minimum enemies when boss just spawned
-        let MIN_ENEMIES = this.wave >= 10 ? Math.max(40, 10 + this.wave - 1) : Math.min(30, 10 + this.wave - 1);
+        // EARLY GAME: Fewer minimum enemies
+        let MIN_ENEMIES;
+        if (this.wave <= 2) {
+            MIN_ENEMIES = 5 + this.wave; // 6-7 enemies for waves 1-2
+        } else if (this.wave <= 5) {
+            MIN_ENEMIES = 8 + this.wave; // 11-13 enemies for waves 3-5
+        } else if (this.wave >= 10) {
+            MIN_ENEMIES = Math.max(40, 10 + this.wave - 1);
+        } else {
+            MIN_ENEMIES = Math.min(30, 10 + this.wave - 1);
+        }
         if (this.bossGracePeriod > 0) {
             MIN_ENEMIES = Math.floor(MIN_ENEMIES * 0.3); // Only 30% of normal during grace period
         }
         const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
 
         // Only check spawn rate if we're not in emergency spawn mode
-        if (!needsEmergencySpawn && now - this.lastEnemySpawn < this.enemySpawnRate) return;
+        if (!needsEmergencySpawn && now - this.lastEnemySpawn < effectiveSpawnRate) return;
         this.lastEnemySpawn = now;
 
         // Swarm is default from wave 1 - they rapidly spawn and try to surround player
@@ -6603,10 +6625,104 @@ class DotsSurvivor {
                         }
                     }
 
+                    // ============ FLAME CASCADE: Every 3rd fireball splits into 3 ============
+                    if (this.augments.includes('flame_cascade') && this.hasFireballs && !p.isSplitProjectile) {
+                        this.flameCascadeCounter = (this.flameCascadeCounter || 0) + 1;
+                        if (this.flameCascadeCounter >= 3) {
+                            this.flameCascadeCounter = 0;
+                            // Spawn 3 split fireballs in a spread pattern
+                            const baseAngle = Math.atan2(p.vy, p.vx);
+                            const spreadAngles = [-0.5, 0, 0.5]; // ~30 degree spread
+                            for (const angleOffset of spreadAngles) {
+                                const angle = baseAngle + angleOffset;
+                                const splitProjectile = {
+                                    x: sx, y: sy,
+                                    vx: Math.cos(angle) * this.weapons.bullet.speed,
+                                    vy: Math.sin(angle) * this.weapons.bullet.speed,
+                                    damage: Math.floor(p.damage * 0.5), // 50% damage
+                                    radius: p.radius * 0.8,
+                                    pierce: 1,
+                                    hitEnemies: [e], // Don't hit the same enemy
+                                    isSplitProjectile: true // Prevent infinite splits
+                                };
+                                this.projectiles.push(splitProjectile);
+                            }
+                            // Visual effect
+                            this.spawnParticles(sx, sy, '#ff6600', 10);
+                            this.damageNumbers.push({ x: sx, y: sy - 20, value: '🌋 CASCADE!', lifetime: 0.8, color: '#ff4400', scale: 0.9 });
+                        }
+                    }
+
+                    // ============ THUNDER GOD: Chain lightning to nearby enemies ============
+                    if ((this.thunderGod || this.thunderChain) && !p.isChainLightning) {
+                        const chainTargets = this.lightningChainCount || this.thunderChain?.targets || 3;
+                        const chainDamage = this.lightningChainDamage || this.thunderChain?.damage || 500;
+                        const chainRange = this.thunderChain?.range || 200;
+
+                        // Find nearby enemies to chain to
+                        const chainedEnemies = [e];
+                        let lastPoint = { x: sx, y: sy };
+
+                        // Store lightning chain points for rendering
+                        const lightningPoints = [{ x: sx, y: sy }];
+
+                        for (let c = 0; c < chainTargets; c++) {
+                            let nearest = null, nearestDist = Infinity;
+                            for (const other of this.enemies) {
+                                if (chainedEnemies.includes(other) || other.dead) continue;
+                                const osx = this.player.x + (other.wx - this.worldX);
+                                const osy = this.player.y + (other.wy - this.worldY);
+                                const dist = Math.sqrt((lastPoint.x - osx) ** 2 + (lastPoint.y - osy) ** 2);
+                                if (dist < chainRange && dist < nearestDist) {
+                                    nearestDist = dist;
+                                    nearest = { enemy: other, sx: osx, sy: osy };
+                                }
+                            }
+
+                            if (nearest) {
+                                chainedEnemies.push(nearest.enemy);
+                                nearest.enemy.health -= chainDamage;
+                                nearest.enemy.hitFlash = 0.5;
+                                lightningPoints.push({ x: nearest.sx, y: nearest.sy });
+                                lastPoint = { x: nearest.sx, y: nearest.sy };
+
+                                // Show chain damage
+                                this.addDamageNumber(nearest.sx, nearest.sy, chainDamage, '#ffff00', { enemyId: nearest.enemy.id });
+                                this.spawnParticles(nearest.sx, nearest.sy, '#ffff00', 5);
+
+                                // Check if enemy died from chain
+                                if (nearest.enemy.health <= 0 && !nearest.enemy.dead) {
+                                    nearest.enemy.dead = true;
+                                    this.killEnemy(nearest.enemy);
+                                }
+                            }
+                        }
+
+                        // Store lightning chain for visual rendering
+                        if (lightningPoints.length > 1) {
+                            this.lightningChains = this.lightningChains || [];
+                            this.lightningChains.push({
+                                points: lightningPoints,
+                                lifetime: 0.3,
+                                color: '#ffff00'
+                            });
+                        }
+                    }
+
                     if (p.hitEnemies.length >= p.pierce) { this.projectiles.splice(i, 1); break; }
                 }
             }
 
+        }
+
+        // Update lightning chain visuals
+        if (this.lightningChains) {
+            for (let i = this.lightningChains.length - 1; i >= 0; i--) {
+                this.lightningChains[i].lifetime -= dt;
+                if (this.lightningChains[i].lifetime <= 0) {
+                    this.lightningChains.splice(i, 1);
+                }
+            }
         }
     }
 
@@ -7774,6 +7890,59 @@ class DotsSurvivor {
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
             }
         });
+
+        // ============ LIGHTNING CHAIN VISUAL RENDERING ============
+        if (this.lightningChains && this.lightningChains.length > 0) {
+            ctx.save();
+            for (const chain of this.lightningChains) {
+                const alpha = chain.lifetime / 0.3; // Fade out over lifetime
+                ctx.globalAlpha = alpha;
+                ctx.strokeStyle = chain.color || '#ffff00';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 15;
+
+                // Draw jagged lightning bolt between points
+                ctx.beginPath();
+                for (let i = 0; i < chain.points.length - 1; i++) {
+                    const p1 = chain.points[i];
+                    const p2 = chain.points[i + 1];
+
+                    // Draw main bolt with jagged segments
+                    ctx.moveTo(p1.x, p1.y);
+
+                    // Create jagged lightning effect with random offsets
+                    const segments = 4;
+                    const dx = (p2.x - p1.x) / segments;
+                    const dy = (p2.y - p1.y) / segments;
+
+                    for (let s = 1; s <= segments; s++) {
+                        const offsetX = s < segments ? (Math.random() - 0.5) * 20 : 0;
+                        const offsetY = s < segments ? (Math.random() - 0.5) * 20 : 0;
+                        ctx.lineTo(p1.x + dx * s + offsetX, p1.y + dy * s + offsetY);
+                    }
+
+                    // Draw glow circle at impact point
+                    ctx.arc(p2.x, p2.y, 8, 0, Math.PI * 2);
+                }
+                ctx.stroke();
+
+                // Draw bright core
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                for (let i = 0; i < chain.points.length - 1; i++) {
+                    const p1 = chain.points[i];
+                    const p2 = chain.points[i + 1];
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
         // Enemies
         this.enemies.forEach(e => {
             const sx = this.player.x + (e.wx - this.worldX);
