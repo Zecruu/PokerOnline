@@ -1907,13 +1907,13 @@ const BUILD_SETS = {
 // Game balance settings (balanced around medium difficulty)
 // SCALED 5x base with INCREASED scaling for late-game power spikes
 const GAME_SETTINGS = {
-    enemyHealthMult: 0.35,       // Lower base health for easier early game (waves 1-14)
+    enemyHealthMult: 0.35,       // Lower base health for easier early game
     enemyDamageMult: 1.0,
     enemySpeedMult: 1.2,         // REBALANCED: 1.3 -> 1.2
-    spawnRateMult: 0.6,          // REBALANCED: 0.5 -> 0.6 (slightly slower spawns)
-    scalingPerWave: 0.09,        // REBALANCED: 0.12 -> 0.09 (9% per wave for waves 1-9)
-    scalingPerWaveLate: 0.70,    // REBALANCED: 0.90 -> 0.70 (70% per wave after wave 10)
-    lateGameWave: 10,            // When late game scaling kicks in
+    // spawnRateMult is now dynamic - see getSpawnRateMultByWave()
+    scalingPerWaveEarly: 0.05,   // +5% per wave for waves 1-9
+    scalingPerWaveMid: 0.16,     // +16% per wave for waves 10-15
+    scalingPerWaveLate: 0.24,    // +24% per wave for waves 16+
     playerHealthMult: 1.0,
     xpMult: 1.2,                 // More XP for faster leveling
     playerSpeedMult: 1.15        // Faster player movement
@@ -1922,10 +1922,10 @@ const GAME_SETTINGS = {
 // Dynamic Difficulty Tiers (based on wave number)
 // Waves 1-5: EASY, Waves 6-10: NORMAL, Waves 11-15: HARD, Waves 16-20: INFERNAL
 const DIFFICULTY_TIERS = {
-    EASY: { name: 'Easy', icon: '🌱', color: '#44ff44', healthMult: 0.75, damageMult: 0.75, maxWave: 5 },
-    NORMAL: { name: 'Normal', icon: '⚔️', color: '#ffaa00', healthMult: 1.0, damageMult: 1.0, maxWave: 10 },
-    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.5, damageMult: 1.5, maxWave: 15 },
-    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 2.5, damageMult: 2.5, maxWave: 20 }
+    EASY: { name: 'Easy', icon: '🌱', color: '#44ff44', healthMult: 0.60, damageMult: 0.55, maxWave: 5 },
+    NORMAL: { name: 'Normal', icon: '⚔️', color: '#ffaa00', healthMult: 0.90, damageMult: 0.90, maxWave: 10 },
+    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.25, damageMult: 1.20, maxWave: 15 },
+    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 1.85, damageMult: 1.80, maxWave: 20 }
 };
 
 // Get difficulty tier based on wave number
@@ -1934,6 +1934,238 @@ function getDifficultyTier(wave) {
     if (wave <= 10) return DIFFICULTY_TIERS.NORMAL;
     if (wave <= 15) return DIFFICULTY_TIERS.HARD;
     return DIFFICULTY_TIERS.INFERNAL;
+}
+
+// Get spawn rate multiplier by wave (lower = more frequent spawns)
+// Base spawn rate = 500ms * this multiplier
+function getSpawnRateMultByWave(wave) {
+    if (wave <= 3) return 1.10;   // Waves 1-3: slower spawns
+    if (wave <= 6) return 0.95;   // Waves 4-6: slightly faster
+    if (wave <= 9) return 0.80;   // Waves 7-9: faster
+    if (wave <= 12) return 0.62;  // Waves 10-12: much faster
+    if (wave <= 15) return 0.52;  // Waves 13-15: very fast
+    return 0.45;                  // Waves 16+: maximum spawn rate
+}
+
+// Get max alive enemy cap by wave
+function getMaxAliveByWave(wave) {
+    if (wave <= 3) return 28;     // Waves 1-3: low cap
+    if (wave <= 6) return 44;     // Waves 4-6: medium cap
+    if (wave <= 9) return 62;     // Waves 7-9: higher cap
+    if (wave <= 12) return 95;    // Waves 10-12: high cap
+    if (wave <= 15) return 125;   // Waves 13-15: very high cap
+    return 165;                   // Waves 16+: maximum cap
+}
+
+// Get wave scaling multiplier (stepped curve for HP and damage)
+function getWaveScalingMult(wave) {
+    if (wave <= 9) {
+        // Waves 1-9: +5% per wave
+        return 1 + (wave - 1) * GAME_SETTINGS.scalingPerWaveEarly;
+    } else if (wave <= 15) {
+        // Waves 10-15: +5% for waves 1-9, then +16% per wave
+        const earlyScaling = 9 * GAME_SETTINGS.scalingPerWaveEarly; // 9 waves * 5% = 45%
+        const midWaves = wave - 9;
+        return 1 + earlyScaling + midWaves * GAME_SETTINGS.scalingPerWaveMid;
+    } else {
+        // Waves 16+: +5% for 1-9, +16% for 10-15, then +24% per wave
+        const earlyScaling = 9 * GAME_SETTINGS.scalingPerWaveEarly; // 45%
+        const midScaling = 6 * GAME_SETTINGS.scalingPerWaveMid;     // 6 waves * 16% = 96%
+        const lateWaves = wave - 15;
+        return 1 + earlyScaling + midScaling + lateWaves * GAME_SETTINGS.scalingPerWaveLate;
+    }
+}
+
+// Get enemy types allowed for the current wave (with gating)
+// Returns array of enemy types with proper weighting
+function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
+    // Waves 1-2: Only Swarm and Basic
+    const types = ['swarm', 'swarm', 'swarm', 'swarm'];
+    if (wave >= 2) types.push('swarm', 'swarm', 'basic');
+
+    // Waves 3-4: Add Runner (low weight)
+    if (wave >= 3 && wave <= 4) {
+        types.push('runner'); // Low weight - only 1 entry
+    }
+
+    // Waves 5-6: Add either Tank OR Splitter (never both), Runner gets more weight
+    if (wave >= 5 && wave <= 6) {
+        types.push('runner', 'runner'); // Runner gets more weight now
+        // tankOrSplitterChoice should be 'tank' or 'splitter' for this wave
+        if (tankOrSplitterChoice === 'tank') {
+            types.push('tank');
+        } else {
+            types.push('splitter');
+        }
+    }
+
+    // Waves 7-9: Add Sticky (low weight), Tank and Splitter both available, Bomber LOCKED
+    if (wave >= 7 && wave <= 9) {
+        types.push('runner', 'runner', 'swarm');
+        types.push('tank', 'splitter');
+        types.push('sticky'); // Low weight
+        types.push('goblin'); // Goblin available
+        types.push('necromancer'); // Necromancer available
+        types.push('poison'); // Poison available
+        if (wave >= 8) types.push('ice'); // Ice at wave 8+
+        // Note: Bomber is LOCKED until wave 10
+    }
+
+    // Wave 10+: Full pool unlocked, Bomber enabled
+    if (wave >= 10) {
+        types.push('runner', 'runner', 'swarm');
+        types.push('tank', 'splitter', 'swarm');
+        types.push('sticky', 'sticky');
+        types.push('goblin');
+        types.push('necromancer');
+        types.push('poison', 'poison');
+        types.push('ice', 'swarm');
+        types.push('miniconsumer');
+
+        // Bomber: reduced weight until wave 12, then normal weight
+        if (wave >= 10 && wave < 12) {
+            types.push('bomber'); // Low weight until wave 12
+        } else if (wave >= 12) {
+            types.push('bomber', 'bomber'); // Normal weight at wave 12+
+        }
+    }
+
+    return types;
+}
+
+// ============================================
+// SPAWN SYSTEM TESTS
+// Run in browser console: window.runSpawnSystemTests()
+// ============================================
+function runSpawnSystemTests() {
+    const results = [];
+    let passed = 0;
+    let failed = 0;
+
+    function assert(condition, message) {
+        if (condition) {
+            passed++;
+            results.push(`✅ PASS: ${message}`);
+        } else {
+            failed++;
+            results.push(`❌ FAIL: ${message}`);
+        }
+    }
+
+    // Test 1: maxAlive cap values are correct
+    assert(getMaxAliveByWave(1) === 28, 'Wave 1 maxAlive should be 28');
+    assert(getMaxAliveByWave(3) === 28, 'Wave 3 maxAlive should be 28');
+    assert(getMaxAliveByWave(4) === 44, 'Wave 4 maxAlive should be 44');
+    assert(getMaxAliveByWave(6) === 44, 'Wave 6 maxAlive should be 44');
+    assert(getMaxAliveByWave(7) === 62, 'Wave 7 maxAlive should be 62');
+    assert(getMaxAliveByWave(9) === 62, 'Wave 9 maxAlive should be 62');
+    assert(getMaxAliveByWave(10) === 95, 'Wave 10 maxAlive should be 95');
+    assert(getMaxAliveByWave(12) === 95, 'Wave 12 maxAlive should be 95');
+    assert(getMaxAliveByWave(13) === 125, 'Wave 13 maxAlive should be 125');
+    assert(getMaxAliveByWave(15) === 125, 'Wave 15 maxAlive should be 125');
+    assert(getMaxAliveByWave(16) === 165, 'Wave 16 maxAlive should be 165');
+    assert(getMaxAliveByWave(20) === 165, 'Wave 20 maxAlive should be 165');
+
+    // Test 2: spawnRateMult values are correct
+    assert(getSpawnRateMultByWave(1) === 1.10, 'Wave 1 spawnRateMult should be 1.10');
+    assert(getSpawnRateMultByWave(3) === 1.10, 'Wave 3 spawnRateMult should be 1.10');
+    assert(getSpawnRateMultByWave(4) === 0.95, 'Wave 4 spawnRateMult should be 0.95');
+    assert(getSpawnRateMultByWave(6) === 0.95, 'Wave 6 spawnRateMult should be 0.95');
+    assert(getSpawnRateMultByWave(7) === 0.80, 'Wave 7 spawnRateMult should be 0.80');
+    assert(getSpawnRateMultByWave(9) === 0.80, 'Wave 9 spawnRateMult should be 0.80');
+    assert(getSpawnRateMultByWave(10) === 0.62, 'Wave 10 spawnRateMult should be 0.62');
+    assert(getSpawnRateMultByWave(12) === 0.62, 'Wave 12 spawnRateMult should be 0.62');
+    assert(getSpawnRateMultByWave(13) === 0.52, 'Wave 13 spawnRateMult should be 0.52');
+    assert(getSpawnRateMultByWave(15) === 0.52, 'Wave 15 spawnRateMult should be 0.52');
+    assert(getSpawnRateMultByWave(16) === 0.45, 'Wave 16 spawnRateMult should be 0.45');
+    assert(getSpawnRateMultByWave(20) === 0.45, 'Wave 20 spawnRateMult should be 0.45');
+
+    // Test 3: Wave 10 ramp applies - scaling increases significantly
+    const scaling9 = getWaveScalingMult(9);
+    const scaling10 = getWaveScalingMult(10);
+    const scaling15 = getWaveScalingMult(15);
+    const scaling16 = getWaveScalingMult(16);
+    assert(scaling10 > scaling9, `Wave 10 scaling (${scaling10.toFixed(2)}) should be > wave 9 (${scaling9.toFixed(2)})`);
+    assert((scaling10 - scaling9) > 0.10, `Wave 10 ramp should increase scaling by >10% (actual: ${((scaling10 - scaling9) * 100).toFixed(1)}%)`);
+    assert(scaling16 > scaling15, `Wave 16 scaling (${scaling16.toFixed(2)}) should be > wave 15 (${scaling15.toFixed(2)})`);
+    assert((scaling16 - scaling15) > 0.20, `Wave 16 ramp should increase scaling by >20% (actual: ${((scaling16 - scaling15) * 100).toFixed(1)}%)`);
+
+    // Test 4: Enemy composition gating - restricted types don't appear early
+    const wave1Types = getEnemyTypesForWave(1, 'tank');
+    const wave2Types = getEnemyTypesForWave(2, 'tank');
+    assert(!wave1Types.includes('runner'), 'Wave 1 should NOT have runner');
+    assert(!wave1Types.includes('tank'), 'Wave 1 should NOT have tank');
+    assert(!wave1Types.includes('splitter'), 'Wave 1 should NOT have splitter');
+    assert(!wave1Types.includes('bomber'), 'Wave 1 should NOT have bomber');
+    assert(!wave2Types.includes('bomber'), 'Wave 2 should NOT have bomber');
+    assert(wave1Types.includes('swarm'), 'Wave 1 should have swarm');
+    assert(wave2Types.includes('basic'), 'Wave 2 should have basic');
+
+    // Test 5: Runner appears at waves 3-4 with low weight
+    const wave3Types = getEnemyTypesForWave(3, 'tank');
+    const wave4Types = getEnemyTypesForWave(4, 'tank');
+    assert(wave3Types.includes('runner'), 'Wave 3 should have runner');
+    assert(wave4Types.includes('runner'), 'Wave 4 should have runner');
+    const wave3RunnerCount = wave3Types.filter(t => t === 'runner').length;
+    const wave3SwarmCount = wave3Types.filter(t => t === 'swarm').length;
+    assert(wave3RunnerCount < wave3SwarmCount, `Wave 3 runner weight (${wave3RunnerCount}) should be < swarm (${wave3SwarmCount})`);
+
+    // Test 6: Waves 5-6 have either Tank OR Splitter (not both based on choice)
+    const wave5Tank = getEnemyTypesForWave(5, 'tank');
+    const wave5Splitter = getEnemyTypesForWave(5, 'splitter');
+    assert(wave5Tank.includes('tank') && !wave5Tank.includes('splitter'), 'Wave 5 with tank choice should have tank but NOT splitter');
+    assert(wave5Splitter.includes('splitter') && !wave5Splitter.includes('tank'), 'Wave 5 with splitter choice should have splitter but NOT tank');
+
+    // Test 7: Bomber is locked until wave 10
+    const wave7Types = getEnemyTypesForWave(7, 'tank');
+    const wave9Types = getEnemyTypesForWave(9, 'tank');
+    const wave10Types = getEnemyTypesForWave(10, 'tank');
+    assert(!wave7Types.includes('bomber'), 'Wave 7 should NOT have bomber (locked)');
+    assert(!wave9Types.includes('bomber'), 'Wave 9 should NOT have bomber (locked)');
+    assert(wave10Types.includes('bomber'), 'Wave 10 should have bomber (unlocked)');
+
+    // Test 8: Sticky appears at waves 7-9 with low weight
+    assert(wave7Types.includes('sticky'), 'Wave 7 should have sticky');
+    const wave7StickyCount = wave7Types.filter(t => t === 'sticky').length;
+    assert(wave7StickyCount <= 2, `Wave 7 sticky weight (${wave7StickyCount}) should be low`);
+
+    // Test 9: Full pool unlocked at wave 10+
+    assert(wave10Types.includes('tank'), 'Wave 10 should have tank');
+    assert(wave10Types.includes('splitter'), 'Wave 10 should have splitter');
+    assert(wave10Types.includes('sticky'), 'Wave 10 should have sticky');
+    assert(wave10Types.includes('poison'), 'Wave 10 should have poison');
+    assert(wave10Types.includes('ice'), 'Wave 10 should have ice');
+    assert(wave10Types.includes('miniconsumer'), 'Wave 10 should have miniconsumer');
+
+    // Test 10: Difficulty tier multipliers are correct
+    const easy = getDifficultyTier(3);
+    const normal = getDifficultyTier(8);
+    const hard = getDifficultyTier(13);
+    const infernal = getDifficultyTier(18);
+    assert(easy.healthMult === 0.60, `Easy healthMult should be 0.60, got ${easy.healthMult}`);
+    assert(easy.damageMult === 0.55, `Easy damageMult should be 0.55, got ${easy.damageMult}`);
+    assert(normal.healthMult === 0.90, `Normal healthMult should be 0.90, got ${normal.healthMult}`);
+    assert(normal.damageMult === 0.90, `Normal damageMult should be 0.90, got ${normal.damageMult}`);
+    assert(hard.healthMult === 1.25, `Hard healthMult should be 1.25, got ${hard.healthMult}`);
+    assert(hard.damageMult === 1.20, `Hard damageMult should be 1.20, got ${hard.damageMult}`);
+    assert(infernal.healthMult === 1.85, `Infernal healthMult should be 1.85, got ${infernal.healthMult}`);
+    assert(infernal.damageMult === 1.80, `Infernal damageMult should be 1.80, got ${infernal.damageMult}`);
+
+    // Print results
+    console.log('\n========================================');
+    console.log('SPAWN SYSTEM TESTS');
+    console.log('========================================\n');
+    results.forEach(r => console.log(r));
+    console.log('\n========================================');
+    console.log(`TOTAL: ${passed} passed, ${failed} failed`);
+    console.log('========================================\n');
+
+    return { passed, failed, results };
+}
+
+// Expose test function globally
+if (typeof window !== 'undefined') {
+    window.runSpawnSystemTests = runSpawnSystemTests;
 }
 
 // Legendary Perks (from control points)
@@ -3121,12 +3353,13 @@ class DotsSurvivor {
 
         this.wave = 1; this.waveTimer = 0; this.gameTime = 0;
 
-        // INTENSE spawn rate (faster spawns)
-        this.baseSpawnRate = Math.floor(500 * GAME_SETTINGS.spawnRateMult);
-        // Necromancer gets even more enemies
-        if (this.selectedClass.bonuses.spawnsMoreEnemies) this.baseSpawnRate = Math.floor(this.baseSpawnRate * 0.6);
-        this.enemySpawnRate = this.baseSpawnRate;
+        // Spawn rate is now dynamically calculated per wave using getSpawnRateMultByWave()
+        // Base rate of 500ms * wave multiplier, Necromancer gets 40% faster spawns
+        this.baseSpawnRate = 500;
+        this.necromancerSpawnMult = this.selectedClass.bonuses.spawnsMoreEnemies ? 0.6 : 1.0;
         this.spawnPauseTimer = 0; // Pauses spawns after Consumer dies
+        // Tank or Splitter choice for waves 5-6 (randomly chosen once per wave)
+        this.tankOrSplitterChoice = Math.random() < 0.5 ? 'tank' : 'splitter';
 
         this.magnetRadius = 100; this.xpMultiplier = GAME_SETTINGS.xpMult;
         this.shieldActive = false; this.shieldTimer = 0; this.shieldCooldown = 60;
@@ -3998,7 +4231,8 @@ class DotsSurvivor {
             if (this.waveTimer >= this.waveDuration) {
                 this.wave++;
                 this.waveTimer = 0;
-                this.enemySpawnRate = Math.max(100, this.enemySpawnRate - 100); // Faster spawn reduction, lower minimum
+                // Re-roll Tank or Splitter choice for waves 5-6 (new choice each wave)
+                this.tankOrSplitterChoice = Math.random() < 0.5 ? 'tank' : 'splitter';
 
                 // =============================================
                 // STARTER ITEM EVOLUTION AT WAVE 10
@@ -5790,52 +6024,31 @@ class DotsSurvivor {
 
         const now = performance.now();
 
-        // EARLY GAME SPAWN RATE REDUCTION (waves 1-5 are slower)
-        // This gives players time to learn the game and build up
-        let spawnRateMultiplier = 1.0;
-        if (this.wave <= 2) {
-            spawnRateMultiplier = 2.5; // 2.5x slower spawns waves 1-2
-        } else if (this.wave <= 4) {
-            spawnRateMultiplier = 1.8; // 1.8x slower spawns waves 3-4
-        } else if (this.wave <= 6) {
-            spawnRateMultiplier = 1.3; // 1.3x slower spawns waves 5-6
+        // ============ MAX ALIVE CAP CHECK ============
+        // If we're at or above the max alive cap for this wave, don't spawn
+        const maxAlive = getMaxAliveByWave(this.wave);
+        // Count non-boss enemies only for cap (bosses don't count toward cap)
+        const currentAlive = this.enemies.filter(e => !e.isBoss).length;
+        if (currentAlive >= maxAlive) {
+            return; // Delay spawns until under cap
         }
-        const effectiveSpawnRate = this.enemySpawnRate * spawnRateMultiplier;
 
-        // DYNAMIC MINIMUM: Start lower, +1 per wave, max 30 (or 40 after wave 10)
-        // Early game is manageable, late game gets overwhelming
-        // BOSS GRACE PERIOD: Reduce minimum enemies when boss just spawned
-        // EARLY GAME: Fewer minimum enemies
-        let MIN_ENEMIES;
-        if (this.wave <= 2) {
-            MIN_ENEMIES = 5 + this.wave; // 6-7 enemies for waves 1-2
-        } else if (this.wave <= 5) {
-            MIN_ENEMIES = 8 + this.wave; // 11-13 enemies for waves 3-5
-        } else if (this.wave >= 10) {
-            MIN_ENEMIES = Math.max(40, 10 + this.wave - 1);
-        } else {
-            MIN_ENEMIES = Math.min(30, 10 + this.wave - 1);
-        }
-        if (this.bossGracePeriod > 0) {
-            MIN_ENEMIES = Math.floor(MIN_ENEMIES * 0.3); // Only 30% of normal during grace period
-        }
-        const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
+        // ============ SPAWN RATE CALCULATION ============
+        // Use wave-based spawn rate multiplier
+        const spawnRateMult = getSpawnRateMultByWave(this.wave);
+        const effectiveSpawnRate = this.baseSpawnRate * spawnRateMult * this.necromancerSpawnMult;
 
-        // Only check spawn rate if we're not in emergency spawn mode
-        if (!needsEmergencySpawn && now - this.lastEnemySpawn < effectiveSpawnRate) return;
+        // Reduce spawn rate during boss grace period
+        const graceMultiplier = this.bossGracePeriod > 0 ? 2.0 : 1.0;
+        const finalSpawnRate = effectiveSpawnRate * graceMultiplier;
+
+        // Check if enough time has passed since last spawn
+        if (now - this.lastEnemySpawn < finalSpawnRate) return;
         this.lastEnemySpawn = now;
 
-        // Swarm is default from wave 1 - they rapidly spawn and try to surround player
-        const types = ['swarm', 'swarm', 'swarm', 'swarm'];
-        if (this.wave >= 2) types.push('swarm', 'swarm', 'basic');
-        if (this.wave >= 3) types.push('runner', 'runner', 'swarm');
-        if (this.wave >= 4) types.push('tank', 'splitter', 'swarm');
-        if (this.wave >= 5) types.push('bomber', 'splitter', 'swarm', 'goblin'); // Goblin at wave 5
-        // Add sticky, ice, and poison enemies to spawn pool
-        if (this.wave >= 6) types.push('sticky', 'sticky', 'swarm', 'necromancer'); // Necromancer at wave 6
-        if (this.wave >= 7) types.push('poison', 'poison'); // Poison enemies at wave 7+
-        if (this.wave >= 8) types.push('ice', 'swarm');
-        if (this.wave >= 10) types.push('miniconsumer'); // Mini Consumer at wave 10
+        // ============ ENEMY TYPE SELECTION (Wave Gating) ============
+        // Use the helper function for wave-gated enemy types
+        const types = getEnemyTypesForWave(this.wave, this.tankOrSplitterChoice);
 
         // Pick enemy type first to determine spawn distance
         const type = types[Math.floor(Math.random() * types.length)];
@@ -5914,16 +6127,9 @@ class DotsSurvivor {
         // Dynamic difficulty tier based on wave number
         const difficultyTier = getDifficultyTier(this.wave);
 
-        // Wave-based scaling (gradual increase within each tier)
-        let waveMult;
-        if (this.wave < GAME_SETTINGS.lateGameWave) {
-            waveMult = 1 + (this.wave - 1) * GAME_SETTINGS.scalingPerWave;
-        } else {
-            // Early waves scaling + late game scaling for waves beyond 10
-            const earlyScaling = (GAME_SETTINGS.lateGameWave - 1) * GAME_SETTINGS.scalingPerWave;
-            const lateWaves = this.wave - GAME_SETTINGS.lateGameWave;
-            waveMult = 1 + earlyScaling + lateWaves * GAME_SETTINGS.scalingPerWaveLate;
-        }
+        // Wave-based scaling using stepped curve:
+        // Waves 1-9: +5% per wave, Waves 10-15: +16% per wave, Waves 16+: +24% per wave
+        const waveMult = getWaveScalingMult(this.wave);
 
         const data = {
             // BALANCED for early game - lower base damage, scales with wave/difficulty
@@ -5996,15 +6202,9 @@ class DotsSurvivor {
         // Dynamic difficulty tier based on wave number
         const difficultyTier = getDifficultyTier(this.wave);
 
-        // Scaling: early game is easier, late game (wave 10+) scales harder
-        let waveMult;
-        if (this.wave < GAME_SETTINGS.lateGameWave) {
-            waveMult = 1 + this.wave * GAME_SETTINGS.scalingPerWave;
-        } else {
-            const earlyScaling = GAME_SETTINGS.lateGameWave * GAME_SETTINGS.scalingPerWave;
-            const lateWaves = this.wave - GAME_SETTINGS.lateGameWave;
-            waveMult = 1 + earlyScaling + lateWaves * GAME_SETTINGS.scalingPerWaveLate;
-        }
+        // Wave-based scaling using stepped curve:
+        // Waves 1-9: +5% per wave, Waves 10-15: +16% per wave, Waves 16+: +24% per wave
+        const waveMult = getWaveScalingMult(this.wave);
 
         let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
         let face = '😈';
@@ -8130,10 +8330,7 @@ class DotsSurvivor {
             this.player.xp -= this.player.xpToLevel;
             this.player.level++;
 
-            // Spawn rate scaling (Aggressive)
-            if (this.player.level % 2 === 0) {
-                this.enemySpawnRate = Math.max(50, Math.floor(this.enemySpawnRate * 0.9));
-            }
+            // Spawn rate is now controlled by wave (getSpawnRateMultByWave), not by level
 
             // XP Curve Adjustment
             if (this.player.level < 20) {
