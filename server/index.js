@@ -1553,7 +1553,8 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 
 // Game pricing configuration
 const GAME_PRICES = {
-    'veltharas-dominion': { price: 500, name: "Velthara's Dominion" } // 500 cents = $5
+    'veltharas-dominion': { price: 500, name: "Velthara's Dominion" }, // 500 cents = $5
+    'stripe-test': { price: 1, name: "Stripe Test Game" } // 1 cent = $0.01
 };
 
 // Check if user owns a game

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Test Game - Zecru Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0f0f19 0%, #1a1a2e 100%);
+            color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        .container { max-width: 600px; }
+        h1 { color: #00ffaa; font-size: 3rem; margin-bottom: 1rem; text-shadow: 0 0 20px rgba(0,255,170,0.5); }
+        .success { 
+            color: #10b981; 
+            font-weight: bold; 
+            font-size: 1.8rem; 
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid #10b981;
+            border-radius: 12px;
+        }
+        p { color: #ccc; font-size: 1.1rem; line-height: 1.8; margin: 1rem 0; }
+        .checklist { text-align: left; margin: 2rem auto; max-width: 400px; }
+        .checklist li { margin: 0.8rem 0; font-size: 1.1rem; }
+        .btn {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #000;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4); }
+        #status { margin-top: 1rem; font-size: 0.9rem; color: #888; }
+        #purchase-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 2rem;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="purchase-overlay" class="hidden">
+        <div style="max-width: 500px; text-align: center;">
+            <h1 style="color: #ff6b6b;">🔒 Game Not Owned</h1>
+            <p style="margin: 2rem 0;">You need to purchase this test game to verify Stripe works.</p>
+            <a href="https://www.zecrugames.com/store" class="btn">🛒 Buy Now — $0.01</a>
+            <a href="https://www.zecrugames.com" class="btn" style="background: #333; color: #fff; margin-left: 1rem;">← Back</a>
+        </div>
+    </div>
+
+    <div class="container" id="main-content">
+        <h1>🧪 Stripe Test Game</h1>
+        <div class="success">✅ Stripe Integration Working!</div>
+        <p>Congratulations! This confirms that:</p>
+        <ul class="checklist">
+            <li>✅ Stripe checkout completed successfully</li>
+            <li>✅ Game was added to your library</li>
+            <li>✅ Ownership verification is working</li>
+            <li>✅ You can access purchased games</li>
+        </ul>
+        <p style="margin-top: 2rem; color: #888;">
+            If you can see this page, everything is working correctly!
+        </p>
+        <div id="status">Verifying ownership...</div>
+        <a href="https://www.zecrugames.com/library" class="btn">← Back to Library</a>
+    </div>
+
+    <script>
+        const API_BASE = 'https://www.zecrugames.com';
+        
+        async function checkOwnership() {
+            const token = localStorage.getItem('auth_token');
+            const statusEl = document.getElementById('status');
+            
+            if (!token) {
+                statusEl.innerHTML = '<span style="color:#ff6b6b;">Not logged in</span>';
+                document.getElementById('purchase-overlay').classList.remove('hidden');
+                document.getElementById('main-content').classList.add('hidden');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/games/check-ownership/stripe-test`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.ownsGame) {
+                    statusEl.innerHTML = `<span style="color:#10b981;">✅ Owned (${data.reason})</span>`;
+                } else {
+                    statusEl.innerHTML = '<span style="color:#ff6b6b;">Not owned</span>';
+                    document.getElementById('purchase-overlay').classList.remove('hidden');
+                    document.getElementById('main-content').classList.add('hidden');
+                }
+            } catch (e) {
+                statusEl.innerHTML = '<span style="color:#ff8844;">Failed to verify</span>';
+                console.error('Ownership check failed:', e);
+            }
+        }
+        
+        checkOwnership();
+    </script>
+</body>
+</html>
+

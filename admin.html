@@ -106,11 +106,29 @@
         </div>
     </div>
 
+    <div id="giftModal" class="modal">
+        <div class="modal-content">
+            <h3>🎁 Gift Game to: <span id="giftUsername"></span></h3>
+            <div class="form-group">
+                <label>Select Game</label>
+                <select id="giftGameSelect" style="width:100%;padding:10px;background:#222;color:#fff;border:1px solid #444;border-radius:5px;">
+                    <option value="veltharas-dominion">🎮 Velthara's Dominion ($5)</option>
+                    <option value="stripe-test">🧪 Stripe Test Game ($0.01)</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" style="background:#333" onclick="closeGiftModal()">Cancel</button>
+                <button class="btn" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="confirmGift()">🎁 Gift Game</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let token = localStorage.getItem('adminToken');
         let currentPage = 1;
         let searchQuery = '';
         let banUserId = null;
+        let giftUserId = null;
 
         if (token) { checkAuth(); } else { document.getElementById('login').style.display = 'block'; }
 
@@ -183,7 +201,8 @@
                         </select>
                     </td>
                     <td>${u.isBanned ? `<span class="badge badge-banned">BANNED</span><br><small>${u.banReason || ''}</small>` : '✅ Active'}</td>
-                    <td>
+                    <td style="display:flex;gap:5px;flex-wrap:wrap;">
+                        <button class="btn btn-small" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="openGiftModal('${u.id}', '${u.username}')">🎁 Gift</button>
                         ${u.isBanned
                             ? `<button class="btn btn-success btn-small" onclick="unbanUser('${u.id}')">Unban</button>`
                             : `<button class="btn btn-danger btn-small" onclick="openBanModal('${u.id}', '${u.username}')">Ban</button>`}
@@ -251,6 +270,45 @@
             } catch (e) {
                 alert('Failed to change role');
                 loadUsers(currentPage);
+            }
+        }
+
+        function openGiftModal(userId, username) {
+            giftUserId = userId;
+            document.getElementById('giftUsername').textContent = username;
+            document.getElementById('giftModal').style.display = 'flex';
+        }
+
+        function closeGiftModal() {
+            giftUserId = null;
+            document.getElementById('giftModal').style.display = 'none';
+        }
+
+        async function confirmGift() {
+            const gameId = document.getElementById('giftGameSelect').value;
+            if (!giftUserId || !gameId) return;
+
+            try {
+                const res = await fetch(`/api/admin/gift-game/${giftUserId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ gameId })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    alert(data.error || 'Failed to gift game');
+                    return;
+                }
+
+                alert(`✅ ${data.message}`);
+                closeGiftModal();
+                loadUsers(currentPage);
+            } catch (e) {
+                alert('Failed to gift game');
             }
         }
     </script>
