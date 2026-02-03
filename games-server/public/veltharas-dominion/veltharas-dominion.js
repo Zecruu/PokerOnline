@@ -215,6 +215,7 @@ function loadSprite(type, path, skipProcessing = false) {
     if (SPRITE_CACHE[type]) return SPRITE_CACHE[type];
 
     const img = new Image();
+    img.crossOrigin = "anonymous"; // Enable CORS for CloudFront/S3 images
     img.src = getSpritePath(path);
     img.onload = () => {
         // Skip processing for sprites that already have transparency
@@ -3766,10 +3767,7 @@ class DotsSurvivor {
                         this.spawnParticles(sx, sy, '#ff3300', 2);
                     }
 
-                    if (e.health <= 0 && !e.dead) {
-                        e.dead = true;
-                        this.killEnemy(e);
-                    }
+                    // Death is handled by updateEnemies loop
                 }
             }
 
@@ -3812,10 +3810,7 @@ class DotsSurvivor {
                         });
                         this.spawnParticles(sx, sy, '#ff6600', 8);
 
-                        if (e.health <= 0 && !e.dead) {
-                            e.dead = true;
-                            this.killEnemy(e);
-                        }
+                        // Death is handled by updateEnemies loop
                     }
                 }
 
@@ -3871,10 +3866,7 @@ class DotsSurvivor {
                         this.damageNumbers.push({ x: sx, y: sy - 20, value: Math.floor(pullDamage), lifetime: 1, color: '#8800ff', scale: 1.2 });
                         this.spawnParticles(sx, sy, '#8800ff', 5);
 
-                        if (e.health <= 0 && !e.dead) {
-                            e.dead = true;
-                            this.killEnemy(e);
-                        }
+                        // Death is handled by updateEnemies loop
                     }
                 }
             }
@@ -3940,10 +3932,7 @@ class DotsSurvivor {
                     this.damageNumbers.push({ x: sx, y: sy - 20, value: `☢️${Math.floor(damage)}`, lifetime: 1, color: '#aa00ff', scale: 1.2 });
                     this.spawnParticles(sx, sy, '#aa00ff', 5);
 
-                    if (e.health <= 0 && !e.dead) {
-                        e.dead = true;
-                        this.killEnemy(e);
-                    }
+                    // Death is handled by updateEnemies loop
                 }
             }
 
@@ -6704,11 +6693,7 @@ class DotsSurvivor {
                                 this.addDamageNumber(nearest.sx, nearest.sy, chainDamage, '#ffff00', { enemyId: nearest.enemy.id });
                                 this.spawnParticles(nearest.sx, nearest.sy, '#ffff00', 5);
 
-                                // Check if enemy died from chain
-                                if (nearest.enemy.health <= 0 && !nearest.enemy.dead) {
-                                    nearest.enemy.dead = true;
-                                    this.killEnemy(nearest.enemy);
-                                }
+                                // Death is handled by updateEnemies loop
                             }
                         }
 
