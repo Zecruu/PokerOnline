@@ -1651,68 +1651,209 @@ const STACKING_ITEMS = {
 const ITEMS = STACKING_ITEMS;
 
 // ============================================
-// STARTER ITEMS - Low stat-stick items for early game
-// NO LIFESTEAL - These are meant to be weak starting bonuses
-// Stacking items can still drop later for bigger scaling
+// STARTER ITEMS SYSTEM (NEW)
+// - Player picks ONE starter item at game start (wave 1)
+// - Starter item automatically evolves at Wave 10
+// - Starter items are CLASS-LOCKED
+// - Starter items do NOT count as Sigils and do NOT interact with Dominion Sets
+// - Starter items do NOT scale (no per-kill, per-damage, per-wave scaling beyond Wave 10 evolution)
 // ============================================
 const STARTER_ITEMS = {
-    rustyBlade: {
-        name: 'Rusty Blade',
-        icon: '🗡️',
-        desc: '+5 Damage',
-        color: '#8b4513',
-        effect: (g) => { g.weapons.bullet.damage += 5; }
+    // =========================================
+    // FIRE MAGE STARTER ITEMS
+    // =========================================
+    fm_cinderbrand_focus: {
+        id: 'fm_cinderbrand_focus',
+        classLock: 'fire_mage',
+        name: 'Cinderbrand Focus',
+        evolvedName: 'Infernal Cinderbrand',
+        icon: 'starters/cinderbrand_focus.jpg',
+        evolvedIcon: 'starters/infernal_cinderbrand.jpg',
+        color: '#ff4400',
+        evolveWave: 10,
+        base: {
+            desc: '+10 Damage, +8% Fire Rate',
+            modifiers: { flatDamageBonus: 10, fireRateMult: 0.08 },
+            passives: []
+        },
+        evolved: {
+            desc: '+18 Damage, +15% Fire Rate',
+            modifiers: { flatDamageBonus: 18, fireRateMult: 0.15 },
+            passives: [{ type: 'damageVsBurningMult', value: 0.20, desc: 'Fire attacks deal +20% damage to burning enemies' }]
+        }
     },
-    tornCloak: {
-        name: 'Torn Cloak',
-        icon: '🧥',
-        desc: '+25 Max HP',
-        color: '#4a4a4a',
-        effect: (g) => { g.player.maxHealth += 25; g.player.health += 25; }
+    fm_emberstep_sandals: {
+        id: 'fm_emberstep_sandals',
+        classLock: 'fire_mage',
+        name: 'Emberstep Sandals',
+        evolvedName: 'Ashen Emberstep',
+        icon: 'starters/emberstep_sandals.jpg',
+        evolvedIcon: 'starters/ashen_emberstep.jpg',
+        color: '#ff6600',
+        evolveWave: 10,
+        base: {
+            desc: '+12% Move Speed, +10% Projectile Speed',
+            modifiers: { moveSpeedMult: 0.12, projectileSpeedMult: 0.10 },
+            passives: []
+        },
+        evolved: {
+            desc: '+18% Move Speed, +15% Projectile Speed',
+            modifiers: { moveSpeedMult: 0.18, projectileSpeedMult: 0.15 },
+            passives: [{
+                type: 'momentumFireRateBuff',
+                requiredMoveSeconds: 2.0,
+                buffFireRateMult: 0.10,
+                buffDurationSeconds: 1.5,
+                internalCooldownSeconds: 0.0,
+                desc: 'After moving for 2s, gain +10% fire rate for 1.5s'
+            }]
+        }
     },
-    wornBoots: {
-        name: 'Worn Boots',
-        icon: '👢',
-        desc: '+8 Movement Speed',
-        color: '#654321',
-        effect: (g) => { g.player.speed += 8; }
+    fm_kindled_aegis: {
+        id: 'fm_kindled_aegis',
+        classLock: 'fire_mage',
+        name: 'Kindled Aegis',
+        evolvedName: 'Blazing Aegis',
+        icon: 'starters/kindled_aegis.jpg',
+        evolvedIcon: 'starters/blazing_aegis.jpg',
+        color: '#ff8800',
+        evolveWave: 10,
+        base: {
+            desc: '+120 Max HP, -25% Burn Damage Taken',
+            modifiers: { maxHpFlat: 120, burnDamageTakenMult: -0.25 },
+            passives: []
+        },
+        evolved: {
+            desc: '+220 Max HP, -40% Burn Damage Taken',
+            modifiers: { maxHpFlat: 220, burnDamageTakenMult: -0.40 },
+            passives: [{
+                type: 'onHitFlamePulse',
+                damage: 100,
+                radiusPx: 140,
+                internalCooldownSeconds: 6.0,
+                desc: 'When hit, emit a flame pulse (100 dmg, 140px radius, 6s cooldown)'
+            }]
+        }
     },
-    crackedAmulet: {
-        name: 'Cracked Amulet',
-        icon: '📿',
-        desc: '+1 HP per 5 seconds',
-        color: '#4682b4',
-        effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; }
-    },
-    dullRing: {
-        name: 'Dull Ring',
-        icon: '💍',
-        desc: '+2% Crit Chance',
-        color: '#c0c0c0',
-        effect: (g) => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.02; }
-    },
-    patchedArmor: {
-        name: 'Patched Armor',
-        icon: '🛡️',
-        desc: '+15 HP, +3 Damage',
-        color: '#708090',
-        effect: (g) => { g.player.maxHealth += 15; g.player.health += 15; g.weapons.bullet.damage += 3; }
-    },
-    tarnishedCoin: {
-        name: 'Tarnished Coin',
-        icon: '🪙',
-        desc: '+10% XP Gain',
-        color: '#daa520',
-        effect: (g) => { g.xpMultiplier = (g.xpMultiplier || 1) * 1.1; }
-    },
-    brokenWand: {
-        name: 'Broken Wand',
-        icon: '🪄',
-        desc: '+3% Fire Rate',
-        color: '#9932cc',
-        effect: (g) => { g.weapons.bullet.fireRate *= 0.97; }
+    fm_sparkcaller_tome: {
+        id: 'fm_sparkcaller_tome',
+        classLock: 'fire_mage',
+        name: 'Sparkcaller Tome',
+        evolvedName: 'Tome of Wildfire',
+        icon: 'starters/sparkcaller_tome.jpg',
+        evolvedIcon: 'starters/tome_of_wildfire.jpg',
+        color: '#ffaa00',
+        evolveWave: 10,
+        base: {
+            desc: '+12% Fire Rate, +20% Burn Duration',
+            modifiers: { fireRateMult: 0.12, burnDurationMult: 0.20 },
+            passives: []
+        },
+        evolved: {
+            desc: '+20% Fire Rate, +40% Burn Duration',
+            modifiers: { fireRateMult: 0.20, burnDurationMult: 0.40 },
+            passives: [{
+                type: 'burnStacksCap',
+                maxStacks: 2,
+                desc: 'Burn damage can stack up to 2 times on the same enemy'
+            }]
+        }
     }
 };
+
+// Helper: Get starter items for a specific class
+function getStarterItemsForClass(classId) {
+    return Object.keys(STARTER_ITEMS)
+        .filter(key => STARTER_ITEMS[key].classLock === classId)
+        .map(key => ({ key, ...STARTER_ITEMS[key] }));
+}
+
+// Helper: Apply starter item modifiers
+function applyStarterModifiers(game, modifiers) {
+    if (modifiers.flatDamageBonus) {
+        game.weapons.bullet.damage += modifiers.flatDamageBonus;
+    }
+    if (modifiers.fireRateMult) {
+        // Fire rate is lower = faster, so multiply by (1 - mult)
+        game.weapons.bullet.fireRate *= (1 - modifiers.fireRateMult);
+    }
+    if (modifiers.moveSpeedMult) {
+        game.player.speed *= (1 + modifiers.moveSpeedMult);
+    }
+    if (modifiers.projectileSpeedMult) {
+        game.weapons.bullet.speed *= (1 + modifiers.projectileSpeedMult);
+    }
+    if (modifiers.maxHpFlat) {
+        game.player.maxHealth += modifiers.maxHpFlat;
+        game.player.health += modifiers.maxHpFlat;
+    }
+    if (modifiers.burnDurationMult) {
+        game.starterBurnDurationMult = (game.starterBurnDurationMult || 0) + modifiers.burnDurationMult;
+    }
+    if (modifiers.burnDamageTakenMult) {
+        game.starterBurnDamageTakenMult = (game.starterBurnDamageTakenMult || 0) + modifiers.burnDamageTakenMult;
+    }
+}
+
+// Helper: Remove starter item modifiers (for evolution transition)
+function removeStarterModifiers(game, modifiers) {
+    if (modifiers.flatDamageBonus) {
+        game.weapons.bullet.damage -= modifiers.flatDamageBonus;
+    }
+    if (modifiers.fireRateMult) {
+        // Reverse the fire rate change
+        game.weapons.bullet.fireRate /= (1 - modifiers.fireRateMult);
+    }
+    if (modifiers.moveSpeedMult) {
+        game.player.speed /= (1 + modifiers.moveSpeedMult);
+    }
+    if (modifiers.projectileSpeedMult) {
+        game.weapons.bullet.speed /= (1 + modifiers.projectileSpeedMult);
+    }
+    if (modifiers.maxHpFlat) {
+        game.player.maxHealth -= modifiers.maxHpFlat;
+        game.player.health = Math.min(game.player.health, game.player.maxHealth);
+    }
+    if (modifiers.burnDurationMult) {
+        game.starterBurnDurationMult = (game.starterBurnDurationMult || 0) - modifiers.burnDurationMult;
+    }
+    if (modifiers.burnDamageTakenMult) {
+        game.starterBurnDamageTakenMult = (game.starterBurnDamageTakenMult || 0) - modifiers.burnDamageTakenMult;
+    }
+}
+
+// Helper: Register evolved passives
+function registerEvolvedPassives(game, passives) {
+    for (const passive of passives) {
+        switch (passive.type) {
+            case 'damageVsBurningMult':
+                game.starterDamageVsBurningMult = passive.value;
+                break;
+            case 'momentumFireRateBuff':
+                game.starterMomentumBuff = {
+                    requiredMoveSeconds: passive.requiredMoveSeconds,
+                    buffFireRateMult: passive.buffFireRateMult,
+                    buffDurationSeconds: passive.buffDurationSeconds,
+                    internalCooldownSeconds: passive.internalCooldownSeconds,
+                    moveTimer: 0,
+                    buffTimer: 0,
+                    lastMoveTime: 0
+                };
+                break;
+            case 'onHitFlamePulse':
+                game.starterFlamePulse = {
+                    damage: passive.damage,
+                    radiusPx: passive.radiusPx,
+                    internalCooldownSeconds: passive.internalCooldownSeconds,
+                    cooldownTimer: 0
+                };
+                break;
+            case 'burnStacksCap':
+                game.starterBurnStacksCap = passive.maxStacks;
+                break;
+        }
+    }
+}
 
 // Build Set Bonuses - activated when all 3 pieces are collected
 const BUILD_SETS = {
@@ -2808,29 +2949,50 @@ class DotsSurvivor {
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
 
-        // Use STARTER_ITEMS for low stat-stick items (no OP stacking items)
-        const items = Object.keys(STARTER_ITEMS).map(key => {
-            const item = STARTER_ITEMS[key];
-            return { key, ...item };
-        });
+        // Get class-specific starter items using the classLock field
+        const classId = characterClass.id || characterClass.name.toLowerCase().replace(/ /g, '_');
+        const items = getStarterItemsForClass(classId);
+
+        // If no starter items for this class, skip directly to game
+        if (items.length === 0) {
+            this.selectedStarterItem = null;
+            this.startGame();
+            return;
+        }
+
+        const CDN_BASE = 'https://d2f5lfipdzhi8t.cloudfront.net/veltharas-dominion/';
 
         content.innerHTML = `
             <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;">
                 <span style="font-size:2rem;">${characterClass.icon}</span>
                 <span style="color:${characterClass.color};font-size:1.2rem;font-weight:700;">${characterClass.name}</span>
             </div>
-            <h1 style="color:#fbbf24;font-size:1.6rem;margin-bottom:0.5rem;">🎁 CHOOSE STARTER ITEM</h1>
-            <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Pick a small bonus to start your run!</p>
-            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;max-width:800px;margin:0 auto;">
+            <h1 style="color:#fbbf24;font-size:1.6rem;margin-bottom:0.5rem;">🔥 CHOOSE STARTER ITEM</h1>
+            <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Evolves automatically at Wave 10!</p>
+            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;max-width:900px;margin:0 auto;">
                 ${items.map(item => `
-                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(255,255,255,0.05);border:2px solid ${item.color || '#444'};border-radius:12px;padding:0.8rem;cursor:pointer;text-align:center;transition:all 0.2s;min-height:100px;">
-                        <div style="font-size:2rem;margin-bottom:0.3rem;">${item.icon}</div>
-                        <div style="font-weight:700;color:#fff;font-size:0.85rem;margin:0.2rem 0;">${item.name}</div>
-                        <div style="font-size:0.7rem;color:#aaa;line-height:1.3;">${item.desc}</div>
+                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(0,0,0,0.6);border:2px solid ${item.color};border-radius:12px;padding:1rem;cursor:pointer;text-align:left;transition:all 0.2s;">
+                        <div style="display:flex;gap:1rem;align-items:flex-start;">
+                            <div style="flex-shrink:0;">
+                                <img src="${CDN_BASE}${item.icon}" style="width:80px;height:80px;border-radius:8px;border:2px solid ${item.color};" crossorigin="anonymous" />
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;color:${item.color};font-size:1rem;margin-bottom:0.3rem;">${item.name}</div>
+                                <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.5rem;">${item.base.desc}</div>
+                                <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.1);">
+                                    <img src="${CDN_BASE}${item.evolvedIcon}" style="width:40px;height:40px;border-radius:4px;border:1px solid #ffaa00;" crossorigin="anonymous" />
+                                    <div>
+                                        <div style="font-size:0.7rem;color:#ffaa00;font-weight:600;">⭐ Wave 10: ${item.evolvedName}</div>
+                                        <div style="font-size:0.65rem;color:#888;">${item.evolved.desc}</div>
+                                        ${item.evolved.passives.length > 0 ? `<div style="font-size:0.6rem;color:#44ff88;margin-top:2px;">✨ ${item.evolved.passives[0].desc}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `).join('')}
             </div>
-            <button id="skip-item-btn" style="margin-top:1.5rem;padding:10px 24px;background:transparent;border:1px solid #666;color:#888;border-radius:8px;cursor:pointer;font-family:inherit;">Skip (No Item)</button>
+            <button id="skip-item-btn" style="margin-top:1.5rem;padding:10px 24px;background:transparent;border:1px solid #666;color:#888;border-radius:8px;cursor:pointer;font-family:inherit;">Skip (No Starter)</button>
             <button id="back-to-chars-btn" style="margin-top:0.5rem;padding:8px 20px;background:transparent;border:1px solid #444;color:#666;border-radius:8px;cursor:pointer;font-family:inherit;display:block;margin-left:auto;margin-right:auto;">← Back to Characters</button>
         `;
 
@@ -2840,19 +3002,18 @@ class DotsSurvivor {
             card.addEventListener('mouseenter', () => {
                 const item = STARTER_ITEMS[card.dataset.item];
                 card.style.borderColor = '#fbbf24';
-                card.style.background = 'rgba(251,191,36,0.1)';
-                card.style.transform = 'scale(1.05)';
+                card.style.background = 'rgba(251,191,36,0.15)';
+                card.style.transform = 'scale(1.02)';
             });
             card.addEventListener('mouseleave', () => {
                 const item = STARTER_ITEMS[card.dataset.item];
                 card.style.borderColor = item?.color || '#444';
-                card.style.background = 'rgba(255,255,255,0.05)';
+                card.style.background = 'rgba(0,0,0,0.6)';
                 card.style.transform = 'scale(1)';
             });
             card.addEventListener('click', () => {
                 const itemKey = card.dataset.item;
                 this.selectedStarterItem = itemKey;
-                this.selectedStarterItemType = 'starter'; // Mark as starter item, not stacking
                 this.startGame();
             });
         });
@@ -3259,40 +3420,39 @@ class DotsSurvivor {
             console.log(`[CLASS PASSIVE] Applied: ${this.selectedClass.passive.name}`);
         }
 
-        // Apply starter item if selected (STARTER_ITEMS are simple stat bonuses)
-        if (this.selectedStarterItem) {
+        // Apply starter item if selected (new class-locked evolving system)
+        // Store the selected starter for this run (do NOT clear until next run)
+        this.activeStarter = null;
+        this.starterEvolved = false;
+        // Reset starter passive tracking
+        this.starterDamageVsBurningMult = 0;
+        this.starterMomentumBuff = null;
+        this.starterFlamePulse = null;
+        this.starterBurnStacksCap = 0;
+        this.starterBurnDurationMult = 0;
+        this.starterBurnDamageTakenMult = 0;
+
+        if (this.selectedStarterItem && STARTER_ITEMS[this.selectedStarterItem]) {
             const itemKey = this.selectedStarterItem;
+            const item = STARTER_ITEMS[itemKey];
 
-            // Check if it's a STARTER_ITEM (simple stat bonus) or STACKING_ITEM (legacy)
-            if (STARTER_ITEMS[itemKey]) {
-                const item = STARTER_ITEMS[itemKey];
-                // Apply the simple stat effect
-                if (item.effect) {
-                    item.effect(this);
-                }
-                // Show pickup message
-                this.damageNumbers.push({
-                    x: this.player.x, y: this.player.y - 40,
-                    value: `🎁 ${item.name}`, lifetime: 2, color: item.color || '#fbbf24', scale: 1.3
-                });
-            } else if (STACKING_ITEMS[itemKey]) {
-                // Legacy support for stacking items as starter (shouldn't happen normally)
-                const item = STACKING_ITEMS[itemKey];
-                this.stackingItems[itemKey] = { stacks: 1, evolved: false };
-                this.droppedItems.push(itemKey);
-                if (item.effect) {
-                    item.effect(this, 1);
-                }
-                this.damageNumbers.push({
-                    x: this.player.x, y: this.player.y - 40,
-                    value: `🎁 ${item.name}`, lifetime: 2, color: '#fbbf24', scale: 1.3
-                });
-            }
+            // Store active starter for this run
+            this.activeStarter = itemKey;
 
-            // Clear the selection for next game
-            this.selectedStarterItem = null;
-            this.selectedStarterItemType = null;
+            // Apply base modifiers
+            applyStarterModifiers(this, item.base.modifiers);
+
+            // Show pickup message
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 40,
+                value: `🔥 ${item.name}`, lifetime: 2, color: item.color || '#fbbf24', scale: 1.3
+            });
+
+            console.log(`[STARTER] Applied: ${item.name} (evolves at Wave ${item.evolveWave})`);
         }
+
+        // Clear selection for next game (activeStarter holds current run's starter)
+        this.selectedStarterItem = null;
 
         // Start Game Loop
         this.gameRunning = true;
@@ -3840,6 +4000,46 @@ class DotsSurvivor {
                 this.waveTimer = 0;
                 this.enemySpawnRate = Math.max(100, this.enemySpawnRate - 100); // Faster spawn reduction, lower minimum
 
+                // =============================================
+                // STARTER ITEM EVOLUTION AT WAVE 10
+                // =============================================
+                if (this.wave === 10 && this.activeStarter && !this.starterEvolved) {
+                    const starter = STARTER_ITEMS[this.activeStarter];
+                    if (starter) {
+                        // Remove base modifiers
+                        removeStarterModifiers(this, starter.base.modifiers);
+                        // Apply evolved modifiers
+                        applyStarterModifiers(this, starter.evolved.modifiers);
+                        // Register evolved passives
+                        registerEvolvedPassives(this, starter.evolved.passives);
+                        // Mark as evolved
+                        this.starterEvolved = true;
+
+                        // Play evolution sound
+                        this.playSound('levelup');
+
+                        // Show evolution toast
+                        this.damageNumbers.push({
+                            x: this.canvas.width / 2,
+                            y: this.canvas.height / 2 - 80,
+                            value: `⭐ STARTER EVOLVED! ⭐`,
+                            lifetime: 3,
+                            color: '#ffaa00',
+                            scale: 1.8
+                        });
+                        this.damageNumbers.push({
+                            x: this.canvas.width / 2,
+                            y: this.canvas.height / 2 - 40,
+                            value: starter.evolvedName,
+                            lifetime: 3,
+                            color: starter.color,
+                            scale: 1.5
+                        });
+
+                        console.log(`[STARTER] Evolved: ${starter.name} → ${starter.evolvedName}`);
+                    }
+                }
+
                 // Spawn soul collectors every 5 waves
                 if (this.wave % 5 === 0 || this.wave - this.lastSoulCollectorWave >= 5) {
                     this.spawnSoulCollector();
@@ -4216,8 +4416,96 @@ class DotsSurvivor {
         this.updateGameJuice(dt); // Always real-time for juice effects
         this.updateGreenMucusEffect(effectiveDt); // Mini Consumer death effect
         this.updateCorruptedSigilDownsides(effectiveDt); // Corrupted Sigil downsides
+        this.updateStarterPassives(effectiveDt); // Starter item evolved passives
         if (this.player.health <= 0) this.gameOver();
         this.updateHUD();
+    }
+
+    // ============ STARTER ITEM EVOLVED PASSIVES ============
+    updateStarterPassives(dt) {
+        // Only process if we have an evolved starter
+        if (!this.starterEvolved || !this.activeStarter) return;
+
+        // ---- Momentum Fire Rate Buff (Emberstep Sandals evolved) ----
+        if (this.starterMomentumBuff) {
+            const isMoving = (this.keys['w'] || this.keys['arrowup'] ||
+                              this.keys['s'] || this.keys['arrowdown'] ||
+                              this.keys['a'] || this.keys['arrowleft'] ||
+                              this.keys['d'] || this.keys['arrowright'] ||
+                              this.joystick.dx || this.joystick.dy);
+
+            if (isMoving) {
+                this.starterMomentumBuff.moveTimer += dt;
+                this.starterMomentumBuff.lastMoveTime = this.gameTime;
+
+                // Check if buff should trigger
+                if (this.starterMomentumBuff.moveTimer >= this.starterMomentumBuff.requiredMoveSeconds &&
+                    this.starterMomentumBuff.buffTimer <= 0) {
+                    // Trigger the buff
+                    this.starterMomentumBuff.buffTimer = this.starterMomentumBuff.buffDurationSeconds;
+                    this.starterMomentumBuff.moveTimer = 0;
+
+                    // Show buff indicator
+                    this.damageNumbers.push({
+                        x: this.player.x, y: this.player.y - 30,
+                        value: '⚡ MOMENTUM!', lifetime: 1, color: '#ff6600', scale: 1.2
+                    });
+                }
+            } else {
+                // Reset move timer if stationary for >0.2s
+                if (this.gameTime - this.starterMomentumBuff.lastMoveTime > 200) {
+                    this.starterMomentumBuff.moveTimer = 0;
+                }
+            }
+
+            // Tick down buff duration
+            if (this.starterMomentumBuff.buffTimer > 0) {
+                this.starterMomentumBuff.buffTimer -= dt;
+            }
+        }
+
+        // ---- Flame Pulse Cooldown (Kindled Aegis evolved) ----
+        if (this.starterFlamePulse && this.starterFlamePulse.cooldownTimer > 0) {
+            this.starterFlamePulse.cooldownTimer -= dt;
+        }
+    }
+
+    // Trigger flame pulse when player takes damage (called from damage handler)
+    triggerFlamePulse() {
+        if (!this.starterFlamePulse || this.starterFlamePulse.cooldownTimer > 0) return;
+
+        // Set cooldown
+        this.starterFlamePulse.cooldownTimer = this.starterFlamePulse.internalCooldownSeconds;
+
+        const damage = this.starterFlamePulse.damage;
+        const radius = this.starterFlamePulse.radiusPx;
+
+        // Damage all enemies in radius
+        for (const enemy of this.enemies) {
+            const distToEnemy = Math.sqrt(
+                (enemy.wx - this.worldX) ** 2 + (enemy.wy - this.worldY) ** 2
+            );
+            if (distToEnemy <= radius) {
+                enemy.health -= damage;
+                enemy.hitFlash = 0.2;
+
+                // Show damage number
+                const sx = this.player.x + (enemy.wx - this.worldX);
+                const sy = this.player.y + (enemy.wy - this.worldY);
+                this.damageNumbers.push({
+                    x: sx, y: sy - 10,
+                    value: damage, lifetime: 0.5, color: '#ff4400', scale: 1.0
+                });
+            }
+        }
+
+        // Visual effect
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 40,
+            value: '🔥 FLAME PULSE!', lifetime: 1, color: '#ff4400', scale: 1.3
+        });
+
+        this.playSound('explosion');
     }
 
     updateGreenMucusEffect(dt) {
@@ -4328,33 +4616,72 @@ class DotsSurvivor {
     updateAuraFire(dt) {
         if (!this.auraFire) return;
 
+        // Calculate burn duration with starter item multiplier
+        const baseBurnDuration = this.auraFire.burnDuration;
+        const burnDurationMult = 1 + (this.starterBurnDurationMult || 0);
+        const effectiveBurnDuration = baseBurnDuration * burnDurationMult;
+
+        // Check if burn stacking is enabled (Sparkcaller Tome evolved passive)
+        const burnStacksCap = this.starterBurnStacksCap || 0;
+
         for (const e of this.enemies) {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
             const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
 
             if (dist < this.auraFire.radius + e.radius) {
-                // Apply burn if not already burning from aura
-                if (!e.auraBurn) {
-                    e.auraBurn = { timer: this.auraFire.burnDuration, dps: this.auraFire.damage };
-                    e.hitFlash = 0.5;
-                    this.spawnParticles(sx, sy, '#ff4400', 3);
+                // Initialize burn stacks array if stacking is enabled
+                if (burnStacksCap > 0) {
+                    if (!e.auraBurnStacks) e.auraBurnStacks = [];
+                    // Add new burn stack if under cap
+                    if (e.auraBurnStacks.length < burnStacksCap) {
+                        e.auraBurnStacks.push({ timer: effectiveBurnDuration, dps: this.auraFire.damage });
+                        e.hitFlash = 0.5;
+                        this.spawnParticles(sx, sy, '#ff4400', 3);
+                    }
+                } else {
+                    // Standard single burn behavior
+                    if (!e.auraBurn) {
+                        e.auraBurn = { timer: effectiveBurnDuration, dps: this.auraFire.damage };
+                        e.hitFlash = 0.5;
+                        this.spawnParticles(sx, sy, '#ff4400', 3);
+                    }
                 }
             }
         }
 
         // Process aura burns
         for (const e of this.enemies) {
-            if (e.auraBurn && e.auraBurn.timer > 0) {
+            const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+
+            // Process stacked burns (Sparkcaller Tome evolved)
+            if (e.auraBurnStacks && e.auraBurnStacks.length > 0) {
+                let totalDamage = 0;
+                for (let i = e.auraBurnStacks.length - 1; i >= 0; i--) {
+                    const stack = e.auraBurnStacks[i];
+                    stack.timer -= dt;
+                    if (stack.timer > 0) {
+                        totalDamage += stack.dps * dt * ampBoost;
+                    } else {
+                        e.auraBurnStacks.splice(i, 1); // Remove expired stack
+                    }
+                }
+                if (totalDamage > 0) {
+                    e.health -= totalDamage;
+                    if (Math.random() < 0.15) {
+                        this.spawnParticles(sx, sy, '#ff6600', 2);
+                    }
+                }
+            }
+            // Process single burn (standard behavior)
+            else if (e.auraBurn && e.auraBurn.timer > 0) {
                 e.auraBurn.timer -= dt;
-                // Apply Fire Amp boost if active
-                const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
                 e.health -= this.auraFire.damage * dt * ampBoost;
 
                 // Visual burn effect
                 if (Math.random() < 0.1) {
-                    const sx = this.player.x + (e.wx - this.worldX);
-                    const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#ff6600', 1);
                 }
             }
@@ -4368,6 +4695,14 @@ class DotsSurvivor {
         // Update rotation
         this.playerRingOfFire.rotation += this.playerRingOfFire.rotationSpeed * dt;
 
+        // Calculate burn duration with starter item multiplier
+        const baseBurnDuration = this.playerRingOfFire.burnDuration || 3;
+        const burnDurationMult = 1 + (this.starterBurnDurationMult || 0);
+        const effectiveBurnDuration = baseBurnDuration * burnDurationMult;
+
+        // Check if burn stacking is enabled (Sparkcaller Tome evolved passive)
+        const burnStacksCap = this.starterBurnStacksCap || 0;
+
         // Damage enemies within ring radius
         for (const e of this.enemies) {
             const sx = this.player.x + (e.wx - this.worldX);
@@ -4376,26 +4711,57 @@ class DotsSurvivor {
 
             // Enemy is within ring area
             if (dist < this.playerRingOfFire.radius + e.radius) {
-                // Apply burn if not already burning from ring
-                if (!e.ringBurn) {
-                    e.ringBurn = { timer: this.playerRingOfFire.burnDuration || 3, dps: this.playerRingOfFire.damage };
-                    e.hitFlash = 0.3;
-                    this.spawnParticles(sx, sy, '#ff6600', 4);
+                // Initialize burn stacks array if stacking is enabled
+                if (burnStacksCap > 0) {
+                    if (!e.ringBurnStacks) e.ringBurnStacks = [];
+                    if (e.ringBurnStacks.length < burnStacksCap) {
+                        e.ringBurnStacks.push({ timer: effectiveBurnDuration, dps: this.playerRingOfFire.damage });
+                        e.hitFlash = 0.3;
+                        this.spawnParticles(sx, sy, '#ff6600', 4);
+                    }
+                } else {
+                    // Standard single burn behavior
+                    if (!e.ringBurn) {
+                        e.ringBurn = { timer: effectiveBurnDuration, dps: this.playerRingOfFire.damage };
+                        e.hitFlash = 0.3;
+                        this.spawnParticles(sx, sy, '#ff6600', 4);
+                    }
                 }
             }
         }
 
         // Process ring burns
         for (const e of this.enemies) {
-            if (e.ringBurn && e.ringBurn.timer > 0) {
+            const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+            const fireDmgBonus = this.fireDamageBonus || 1;
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+
+            // Process stacked burns (Sparkcaller Tome evolved)
+            if (e.ringBurnStacks && e.ringBurnStacks.length > 0) {
+                let totalDamage = 0;
+                for (let i = e.ringBurnStacks.length - 1; i >= 0; i--) {
+                    const stack = e.ringBurnStacks[i];
+                    stack.timer -= dt;
+                    if (stack.timer > 0) {
+                        totalDamage += stack.dps * dt * ampBoost * fireDmgBonus;
+                    } else {
+                        e.ringBurnStacks.splice(i, 1);
+                    }
+                }
+                if (totalDamage > 0) {
+                    e.health -= totalDamage;
+                    if (Math.random() < 0.15) {
+                        this.spawnParticles(sx, sy, '#ff4400', 2);
+                    }
+                }
+            }
+            // Process single burn (standard behavior)
+            else if (e.ringBurn && e.ringBurn.timer > 0) {
                 e.ringBurn.timer -= dt;
-                const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
-                const fireDmgBonus = this.fireDamageBonus || 1;
                 e.health -= e.ringBurn.dps * dt * ampBoost * fireDmgBonus;
 
                 if (Math.random() < 0.15) {
-                    const sx = this.player.x + (e.wx - this.worldX);
-                    const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#ff4400', 2);
                 }
             }
@@ -5853,6 +6219,11 @@ class DotsSurvivor {
                         this.combatTimer = 0; // Reset combat timer - healing reduced for 3s
                         this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -remainingDamage, lifetime: 1, color: '#ff4444', isText: true });
                         this.playSound('hit');
+
+                        // Starter Passive: Flame Pulse (Kindled Aegis evolved)
+                        if (this.starterEvolved && this.starterFlamePulse) {
+                            this.triggerFlamePulse();
+                        }
                     }
 
                     // Thorn Armor: reflect damage back to enemy
@@ -7070,7 +7441,15 @@ class DotsSurvivor {
 
     fireWeapons() {
         const now = performance.now(), w = this.weapons.bullet;
-        if (now - w.lastFired < w.fireRate) return;
+
+        // Calculate effective fire rate (includes Momentum buff from Emberstep Sandals evolved)
+        let effectiveFireRate = w.fireRate;
+        if (this.starterMomentumBuff && this.starterMomentumBuff.buffTimer > 0) {
+            // Reduce fire rate (faster shooting) by buff percentage
+            effectiveFireRate = w.fireRate * (1 - this.starterMomentumBuff.buffFireRateMult);
+        }
+
+        if (now - w.lastFired < effectiveFireRate) return;
         w.lastFired = now;
 
         // Shadow Master: Whip attack instead of projectiles
@@ -7292,7 +7671,15 @@ class DotsSurvivor {
                     if (this.titanKillerBonus && (e.isBoss || e.type === 'tank')) {
                         damage = Math.floor(damage * (1 + this.titanKillerBonus));
                     }
-                    
+
+                    // Starter Passive: Damage vs Burning Enemies (Cinderbrand Focus evolved)
+                    if (this.starterDamageVsBurningMult > 0 && (e.burn || e.auraBurn || e.ringBurn || e.impBurn)) {
+                        damage = Math.floor(damage * (1 + this.starterDamageVsBurningMult));
+                    }
+
+                    // Starter Passive: Momentum Fire Rate Buff (adds temporary damage indicator, fire rate is handled elsewhere)
+                    // No damage boost from momentum - it's fire rate only
+
                     // Stacking crit bonus
                     const critChance = (this.weapons.bullet.critChance || 0.05) + (this.critChance || 0) + (this.stackingCritBonus || 0);
                     const isCrit = Math.random() < critChance;
