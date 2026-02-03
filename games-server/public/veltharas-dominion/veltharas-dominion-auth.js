@@ -1,4 +1,7 @@
 // Velthara's Dominion - Authentication & Save System
+// VERSION: 2024-02-03-v1 (Score submit fix + Aura fire visual)
+console.log('🎮 Velthara Auth v2024-02-03-v1 loaded');
+
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3002'  // Local dev server
     : 'https://www.zecrugames.com';  // Main API server in production
