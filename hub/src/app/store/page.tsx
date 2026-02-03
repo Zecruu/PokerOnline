@@ -28,6 +28,18 @@ const ALL_GAMES = [
     price: 5,
     category: "action",
   },
+  {
+    id: "stripe-test",
+    title: "Stripe Test Game",
+    description: "A 1 cent test game to verify Stripe checkout and ownership verification works correctly.",
+    thumbnail: "/games/poker/poker_thumbnail.png",
+    href: "https://games.zecrugames.com/stripe-test/",
+    badge: "TEST",
+    badgeColor: "gold" as const,
+    isFree: false,
+    price: 0.01,
+    category: "action",
+  },
 ];
 
 const CATEGORIES = [
