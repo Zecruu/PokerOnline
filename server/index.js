@@ -1690,7 +1690,7 @@ app.post('/api/games/purchase/:gameId', authenticateToken, async (req, res) => {
                 quantity: 1,
             }],
             mode: 'payment',
-            success_url: `https://games.zecrugames.com/${gameId}/?purchase_success=1`,
+            success_url: `https://games.zecrugames.com/${gameId}/?purchase_success=1&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `https://games.zecrugames.com/${gameId}/?purchase_cancelled=1`,
             metadata: {
                 gameId,
@@ -1704,6 +1704,66 @@ app.post('/api/games/purchase/:gameId', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Game purchase error:', error);
         res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
+
+// Confirm game purchase after successful Stripe redirect (fallback when webhook not configured)
+app.post('/api/games/confirm-purchase/:gameId', authenticateToken, async (req, res) => {
+    try {
+        const { gameId } = req.params;
+        const { sessionId } = req.body;
+
+        if (!GAME_PRICES[gameId]) {
+            return res.status(400).json({ error: 'Invalid game ID' });
+        }
+
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Already owns?
+        if (user.library?.some(g => g.gameId === gameId)) {
+            return res.json({ success: true, message: 'Already owned' });
+        }
+
+        // Verify with Stripe that payment was successful
+        if (!process.env.STRIPE_SECRET_KEY) {
+            return res.status(503).json({ error: 'Stripe not configured' });
+        }
+
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+        try {
+            const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+            // Verify session belongs to this user and game
+            if (session.metadata?.userId !== user._id.toString() || session.metadata?.gameId !== gameId) {
+                return res.status(403).json({ error: 'Session mismatch' });
+            }
+
+            // Verify payment was successful
+            if (session.payment_status !== 'paid') {
+                return res.status(400).json({ error: 'Payment not completed' });
+            }
+
+            // Add to library
+            if (!user.library) user.library = [];
+            user.library.push({
+                gameId,
+                purchasedAt: new Date(),
+                price: session.amount_total,
+                stripePaymentId: session.payment_intent || sessionId
+            });
+            await user.save();
+
+            console.log(`✅ Game confirmed: ${gameId} by ${user.username} (session: ${sessionId})`);
+            res.json({ success: true, message: 'Purchase confirmed!' });
+        } catch (stripeError) {
+            console.error('Stripe session verification failed:', stripeError);
+            return res.status(400).json({ error: 'Could not verify payment' });
+        }
+    } catch (error) {
+        console.error('Confirm purchase error:', error);
+        res.status(500).json({ error: 'Failed to confirm purchase' });
     }
 });
 

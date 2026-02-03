@@ -502,14 +502,28 @@ class AuthManager {
     }
 
     // Handle Stripe purchase callback
-    handlePurchaseCallback() {
+    async handlePurchaseCallback() {
         const params = new URLSearchParams(window.location.search);
 
         if (params.get('purchase_success') === '1') {
-            // Clear URL params
+            const sessionId = params.get('session_id');
+
+            // Clear URL params immediately
             window.history.replaceState({}, '', window.location.pathname);
 
-            // Show success message after a short delay (let page load)
+            // Confirm purchase with server if we have session ID
+            if (sessionId && this.token) {
+                try {
+                    console.log('🔄 Confirming purchase with server...');
+                    const result = await this.apiPost('/api/games/confirm-purchase/veltharas-dominion', { sessionId });
+                    console.log('✅ Purchase confirmed:', result);
+                } catch (e) {
+                    console.error('Failed to confirm purchase:', e);
+                    // Continue anyway - webhook might have handled it
+                }
+            }
+
+            // Show success message after a short delay
             setTimeout(() => {
                 this.showPurchaseSuccess();
             }, 500);
@@ -525,20 +539,21 @@ class AuthManager {
     }
 
     // Show purchase success modal
-    showPurchaseSuccess() {
+    async showPurchaseSuccess() {
         // Refresh user data to get updated library
         if (this.token) {
-            this.apiGet('/api/auth/me').then(res => {
+            try {
+                const res = await this.apiGet('/api/auth/me');
                 this.user = res;
                 localStorage.setItem('user_data', JSON.stringify(res));
 
                 // Show success and reload menu
                 alert('🎉 Purchase successful! Welcome to Velthara\'s Dominion!');
                 this.showStartMenu();
-            }).catch(() => {
+            } catch (e) {
                 alert('🎉 Purchase successful! Please refresh the page to access the game.');
                 window.location.reload();
-            });
+            }
         } else {
             alert('🎉 Purchase successful! Please login to access your game.');
         }

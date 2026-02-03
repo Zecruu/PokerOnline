@@ -89,24 +89,60 @@
 
     <script>
         const API_BASE = 'https://www.zecrugames.com';
-        
+        const GAME_ID = 'stripe-test';
+
+        // Check for purchase success and confirm with server
+        async function confirmPurchase() {
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('session_id');
+            const purchaseSuccess = params.get('purchase_success');
+
+            if (purchaseSuccess === '1' && sessionId) {
+                const token = localStorage.getItem('auth_token');
+                if (!token) return false;
+
+                try {
+                    const res = await fetch(`${API_BASE}/api/games/confirm-purchase/${GAME_ID}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ sessionId })
+                    });
+                    const data = await res.json();
+                    console.log('Purchase confirmation:', data);
+
+                    // Clean URL
+                    window.history.replaceState({}, '', window.location.pathname);
+                    return data.success;
+                } catch (e) {
+                    console.error('Failed to confirm purchase:', e);
+                }
+            }
+            return false;
+        }
+
         async function checkOwnership() {
             const token = localStorage.getItem('auth_token');
             const statusEl = document.getElementById('status');
-            
+
             if (!token) {
                 statusEl.innerHTML = '<span style="color:#ff6b6b;">Not logged in</span>';
                 document.getElementById('purchase-overlay').classList.remove('hidden');
                 document.getElementById('main-content').classList.add('hidden');
                 return;
             }
-            
+
+            // First try to confirm purchase if coming from Stripe
+            await confirmPurchase();
+
             try {
-                const res = await fetch(`${API_BASE}/api/games/check-ownership/stripe-test`, {
+                const res = await fetch(`${API_BASE}/api/games/check-ownership/${GAME_ID}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                
+
                 if (data.ownsGame) {
                     statusEl.innerHTML = `<span style="color:#10b981;">✅ Owned (${data.reason})</span>`;
                 } else {
