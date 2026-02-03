@@ -1554,7 +1554,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 // Game pricing configuration
 const GAME_PRICES = {
     'veltharas-dominion': { price: 500, name: "Velthara's Dominion" }, // 500 cents = $5
-    'stripe-test': { price: 1, name: "Stripe Test Game" } // 1 cent = $0.01
+    'stripe-test': { price: 50, name: "Stripe Test Game" } // 50 cents = $0.50 (Stripe minimum)
 };
 
 // Check if user owns a game
@@ -1690,8 +1690,8 @@ app.post('/api/games/purchase/:gameId', authenticateToken, async (req, res) => {
                 quantity: 1,
             }],
             mode: 'payment',
-            success_url: `https://games.zecrugames.com/veltharas-dominion/?purchase_success=1`,
-            cancel_url: `https://games.zecrugames.com/veltharas-dominion/?purchase_cancelled=1`,
+            success_url: `https://games.zecrugames.com/${gameId}/?purchase_success=1`,
+            cancel_url: `https://games.zecrugames.com/${gameId}/?purchase_cancelled=1`,
             metadata: {
                 gameId,
                 userId: user._id.toString(),
