@@ -33,7 +33,14 @@ app.use(cors({
     ],
     credentials: true
 }));
-app.use(express.json());
+// Parse JSON for all routes EXCEPT the Stripe webhook (which needs raw body)
+app.use((req, res, next) => {
+    if (req.originalUrl === '/api/games/webhook') {
+        next();
+    } else {
+        express.json()(req, res, next);
+    }
+});
 // Serve the Next.js static export from hub/out
 app.use(express.static(path.join(__dirname, '../hub/out')));
 
