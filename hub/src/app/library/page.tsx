@@ -55,19 +55,39 @@ export default function LibraryPage() {
     setFavorites(JSON.parse(localStorage.getItem("favorites") || "[]"));
     setWishlist(JSON.parse(localStorage.getItem("wishlist") || "[]"));
 
-    // Load user data to check owned games and admin status
-    const userData = localStorage.getItem("user_data");
-    if (userData) {
+    // Fetch fresh user data from API to get current library
+    async function fetchUserData() {
+      if (!token) return;
+
       try {
-        const user = JSON.parse(userData);
-        setIsAdmin(user.isAdmin || user.isTester || false);
-        // Get owned game IDs from library
-        const owned = (user.library || []).map((g: { gameId: string }) => g.gameId);
-        setOwnedGames(owned);
+        const res = await fetch("https://www.zecrugames.com/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const user = await res.json();
+          // Update localStorage with fresh data
+          localStorage.setItem("user_data", JSON.stringify(user));
+          setIsAdmin(user.isAdmin || user.isTester || false);
+          const owned = (user.library || []).map((g: { gameId: string }) => g.gameId);
+          setOwnedGames(owned);
+        }
       } catch (e) {
-        console.error("Failed to parse user data");
+        // Fallback to cached data
+        const userData = localStorage.getItem("user_data");
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            setIsAdmin(user.isAdmin || user.isTester || false);
+            const owned = (user.library || []).map((g: { gameId: string }) => g.gameId);
+            setOwnedGames(owned);
+          } catch (e) {
+            console.error("Failed to parse user data");
+          }
+        }
       }
     }
+
+    fetchUserData();
   }, []);
 
   // Library includes: free games + owned paid games + all games for admin/tester
