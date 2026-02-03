@@ -7870,6 +7870,7 @@ class DotsSurvivor {
 
         // Sigil tier colors and styling with tier images
         const tierStyles = {
+            // Legacy rarity names mapping to sigil tiers
             common: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
             bronze: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
             silver: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'RUNED', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)', tierKey: 'RUNED' },
@@ -7878,13 +7879,19 @@ class DotsSurvivor {
             epic: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
             legendary: { border: '#ffd700', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'ASCENDANT', labelBg: 'linear-gradient(90deg,#ffd700,#f59e0b)', glow: 'rgba(255,215,0,0.5)', tierKey: 'ASCENDANT' },
             mythic: { border: '#ff6600', bg: 'linear-gradient(135deg, #1a0a00, #2a1000)', label: '🔥 MYTHIC 🔥', labelBg: 'linear-gradient(90deg,#ff6600,#ff0000,#ff6600)', glow: 'rgba(255,102,0,0.6)', tierKey: 'MYTHIC' },
+            // New sigil tier names (lowercase for direct lookup)
+            faded: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
+            runed: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'RUNED', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)', tierKey: 'RUNED' },
+            empowered: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
+            ascendant: { border: '#ffd700', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'ASCENDANT', labelBg: 'linear-gradient(90deg,#ffd700,#f59e0b)', glow: 'rgba(255,215,0,0.5)', tierKey: 'ASCENDANT' },
             // Corrupted tier styles - dark red/purple with unstable effects
             corrupted_runed: { border: '#8b0000', bg: 'linear-gradient(135deg, #1a0505, #2d0a0a)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#8b0000,#4a0000)', glow: 'rgba(139,0,0,0.6)', tierKey: 'CORRUPTED_RUNED', isCorrupted: true },
             corrupted_empowered: { border: '#4a0080', bg: 'linear-gradient(135deg, #0a0515, #150a20)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#4a0080,#2a0050)', glow: 'rgba(74,0,128,0.6)', tierKey: 'CORRUPTED_EMPOWERED', isCorrupted: true }
         };
 
         choices.forEach(rune => {
-            const tier = rune.tier || rune.rarity || 'common';
+            const tierRaw = rune.tier || rune.rarity || 'common';
+            const tier = tierRaw.toLowerCase(); // Normalize to lowercase for tierStyles lookup
             const style = tierStyles[tier] || tierStyles.common;
             const isMythic = tier === 'mythic';
             const isLegendary = tier === 'legendary';
@@ -10327,6 +10334,7 @@ class DotsSurvivor {
 
         // Helper to format large numbers
         const formatNum = (n) => {
+            if (n === Infinity) return '∞';
             if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
             if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
             return Math.floor(n).toString();
@@ -10397,9 +10405,10 @@ class DotsSurvivor {
                     ctx.fillText(icon, 15, y + 17);
                 }
 
-                // Stack count
+                // Stack count - show only current stacks for infinite scaling items
                 ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'right';
-                ctx.fillText(isEvolved ? '★ MAX' : `${stacksFormatted}/${maxFormatted}`, boxWidth + 5, y + 16);
+                const stackText = isEvolved ? '★ MAX' : (item.infiniteScaling ? `${stacksFormatted} stacks` : `${stacksFormatted}/${maxFormatted}`);
+                ctx.fillText(stackText, boxWidth + 5, y + 16);
 
                 if (isEvolved) {
                     ctx.strokeStyle = '#ff6b00'; ctx.lineWidth = 2;
