@@ -151,6 +151,269 @@ const ANIM_STATE = {
 // Animation speed (seconds per frame)
 const ANIM_SPEED = 0.15;
 
+// ============================================
+// SIGIL SYSTEM - Replaces Augment terminology
+// Sigil Tiers (canonical):
+//   Tier 1: Faded Sigils
+//   Tier 2: Runed Sigils
+//   Tier 3: Empowered Sigils
+//   Tier 4: Ascendant Sigils
+//   Tier 5: Mythic Sigils
+// ============================================
+const SIGIL_TIERS = {
+    FADED: { tier: 1, name: 'Faded', color: '#8b7355', label: 'Faded Sigil', image: 'sigils/tier_faded.jpg' },
+    RUNED: { tier: 2, name: 'Runed', color: '#c0c0c0', label: 'Runed Sigil', image: 'sigils/tier_runed.jpg' },
+    EMPOWERED: { tier: 3, name: 'Empowered', color: '#9932cc', label: 'Empowered Sigil', image: 'sigils/tier_empowered.jpg' },
+    ASCENDANT: { tier: 4, name: 'Ascendant', color: '#ffd700', label: 'Ascendant Sigil', image: 'sigils/tier_ascendant.jpg' },
+    MYTHIC: { tier: 5, name: 'Mythic', color: '#ff6600', label: 'Mythic Sigil', image: 'sigils/tier_mythic.jpg' }
+};
+
+// Map old rarity names to new sigil tiers
+const RARITY_TO_TIER = {
+    'common': 'FADED',
+    'bronze': 'FADED',
+    'silver': 'RUNED',
+    'rare': 'RUNED',
+    'purple': 'EMPOWERED',
+    'epic': 'EMPOWERED',
+    'legendary': 'ASCENDANT',
+    'mythic': 'MYTHIC'
+};
+
+// ============================================
+// DOMINION SETS SYSTEM
+// Rules:
+// - Max 1 Tier IV set active at any time
+// - Max 2 Tier III sets active at any time
+// - Mixing Tier I-II encouraged
+// - Mythic Sigils count as 2 pieces for matching set
+// ============================================
+const DOMINION_SETS = {
+    infinite_echoes: {
+        id: 'infinite_echoes',
+        name: 'Sigil of Infinite Echoes',
+        desc: 'Stacking/Progression',
+        icon: '♾️',
+        color: '#00ff88',
+        image: 'sigils/sigil_infinite_echoes.jpg',
+        tiers: {
+            1: { name: 'Tier I', bonus: '+35% item stack gain', effect: (g) => { g.dominionStackGain = (g.dominionStackGain || 1) * 1.35; } },
+            2: { name: 'Tier II', bonus: '+75% item stack gain', effect: (g) => { g.dominionStackGain = (g.dominionStackGain || 1) * 1.75; } },
+            3: { name: 'Tier III', bonus: '+140% item stack gain', effect: (g) => { g.dominionStackGain = (g.dominionStackGain || 1) * 2.40; } },
+            4: { name: 'Tier IV', bonus: 'Stack overflow enabled; stacks beyond cap are 50% effective', effect: (g) => { g.dominionStackGain = (g.dominionStackGain || 1) * 2.40; g.stackOverflowEnabled = true; g.stackOverflowEfficiency = 0.5; } }
+        }
+    },
+    cataclysm: {
+        id: 'cataclysm',
+        name: 'Sigil of Cataclysm',
+        desc: 'Explosions/Chaos',
+        icon: '💥',
+        color: '#ff4400',
+        image: 'sigils/sigil_cataclysm.jpg',
+        tiers: {
+            1: { name: 'Tier I', bonus: 'Explosions +20% radius', effect: (g) => { g.dominionExplosionRadius = (g.dominionExplosionRadius || 1) * 1.20; } },
+            2: { name: 'Tier II', bonus: 'Explosions +40% damage', effect: (g) => { g.dominionExplosionRadius = (g.dominionExplosionRadius || 1) * 1.20; g.dominionExplosionDamage = (g.dominionExplosionDamage || 1) * 1.40; } },
+            3: { name: 'Tier III', bonus: 'Explosions chain once at 50% damage', effect: (g) => { g.dominionExplosionRadius = (g.dominionExplosionRadius || 1) * 1.20; g.dominionExplosionDamage = (g.dominionExplosionDamage || 1) * 1.40; g.dominionExplosionChain = true; g.dominionExplosionChainDamage = 0.5; } },
+            4: { name: 'Tier IV', bonus: 'Mini-nova on explosion (300 dmg, 6s ICD)', effect: (g) => { g.dominionExplosionRadius = (g.dominionExplosionRadius || 1) * 1.20; g.dominionExplosionDamage = (g.dominionExplosionDamage || 1) * 1.40; g.dominionExplosionChain = true; g.dominionExplosionChainDamage = 0.5; g.dominionMiniNova = true; g.dominionMiniNovaDamage = 300; g.dominionMiniNovaICD = 6; g.dominionMiniNovaTimer = 0; } }
+        }
+    },
+    astral_host: {
+        id: 'astral_host',
+        name: 'Sigil of the Astral Host',
+        desc: 'Summons/Orbits',
+        icon: '🌟',
+        color: '#9966ff',
+        image: 'sigils/sigil_astral_host.jpg',
+        tiers: {
+            1: { name: 'Tier I', bonus: '+1 summon/orb', effect: (g) => { g.dominionSummonBonus = 1; } },
+            2: { name: 'Tier II', bonus: 'Summons +35% damage', effect: (g) => { g.dominionSummonBonus = 1; g.dominionSummonDamage = (g.dominionSummonDamage || 1) * 1.35; } },
+            3: { name: 'Tier III', bonus: 'Summons inherit on-hit effects at 50% power', effect: (g) => { g.dominionSummonBonus = 1; g.dominionSummonDamage = (g.dominionSummonDamage || 1) * 1.35; g.dominionSummonOnHit = true; g.dominionSummonOnHitPower = 0.5; } },
+            4: { name: 'Tier IV', bonus: 'Summons explode on death (600 dmg, 120px radius)', effect: (g) => { g.dominionSummonBonus = 1; g.dominionSummonDamage = (g.dominionSummonDamage || 1) * 1.35; g.dominionSummonOnHit = true; g.dominionSummonOnHitPower = 0.5; g.dominionSummonExplode = true; g.dominionSummonExplodeDamage = 600; g.dominionSummonExplodeRadius = 120; } }
+        }
+    },
+    bloodbound_throne: {
+        id: 'bloodbound_throne',
+        name: 'Sigil of the Bloodbound Throne',
+        desc: 'Sustain/Risk',
+        icon: '🩸',
+        color: '#cc0000',
+        image: 'sigils/sigil_bloodbound_throne.jpg',
+        tiers: {
+            1: { name: 'Tier I', bonus: 'Lifesteal 2% of damage dealt', effect: (g) => { g.dominionLifesteal = 0.02; } },
+            2: { name: 'Tier II', bonus: 'Bonus damage = 1% of MAX HP', effect: (g) => { g.dominionLifesteal = 0.02; g.dominionHPDamage = 0.01; } },
+            3: { name: 'Tier III', bonus: 'Overheal becomes Blood Shield (cap = 15% MAX HP)', effect: (g) => { g.dominionLifesteal = 0.02; g.dominionHPDamage = 0.01; g.dominionBloodShield = true; g.dominionBloodShieldCap = 0.15; } },
+            4: { name: 'Tier IV', bonus: 'Blood Shield detonates at cap (800 dmg, 160px, 8s ICD)', effect: (g) => { g.dominionLifesteal = 0.02; g.dominionHPDamage = 0.01; g.dominionBloodShield = true; g.dominionBloodShieldCap = 0.15; g.dominionBloodDetonate = true; g.dominionBloodDetonateDamage = 800; g.dominionBloodDetonateRadius = 160; g.dominionBloodDetonateICD = 8; g.dominionBloodDetonateTimer = 0; } }
+        }
+    }
+};
+
+// ID mapping for save compatibility (old augment IDs -> new sigil IDs)
+const SIGIL_ID_MAP = {
+    // Fire Mage Class Sigils
+    'fm_speed': 'fm_emberstep', 'fm_hp': 'fm_cinder_ward',
+    'fm_orb': 'fm_orb_incandescence', 'fm_fire_rate': 'fm_accelerant_flame',
+    'fm_aura_expand': 'fm_inferno_radius', 'fm_fireball_size': 'fm_meteor_aspect',
+    'fm_blast_radius': 'fm_solar_flare', 'fm_orb_frenzy': 'fm_orb_singularity',
+    'fm_burn_spread': 'fm_wild_pyre', 'fm_amp_persist': 'fm_everburn',
+    // Shadow Master Class Sigils
+    'sm_speed': 'sm_shade_step', 'sm_hp': 'sm_umbral_skin',
+    'sm_monster': 'sm_caller_shades', 'sm_sentinel': 'sm_sentinel_binding',
+    'sm_whip_range': 'sm_chain_lash', 'sm_monster_frenzy': 'sm_frenzy_night',
+    'sm_cloak_extend': 'sm_cloak_depths', 'sm_dark_pact': 'sm_pact_shadows',
+    'sm_sentinel_explode': 'sm_void_detonation', 'sm_step_damage': 'sm_phantom_rend',
+    // Necromancer Class Sigils
+    'nc_speed': 'nc_gravewalker', 'nc_hp': 'nc_bone_plating',
+    'nc_skull': 'nc_skullbinder', 'nc_corpse': 'nc_mass_gravecall',
+    'nc_raise_chance': 'nc_rite_return', 'nc_drain_chain': 'nc_crimson_chain',
+    'nc_pit_radius': 'nc_expanded_ossuary', 'nc_corpse_explode': 'nc_detonation_rite',
+    'nc_drain_evolve': 'nc_siphon_unlife', 'nc_soul_harvest': 'nc_harvest_eternal',
+    // Diamond Sigils
+    'feral_frenzy': 'wolfsblood_frenzy', 'pack_tactics': 'lunar_pack',
+    'alpha_howl': 'howl_first_beast', 'pyroclasm': 'ashburst_impact',
+    'inferno_mastery': 'sovereign_flame', 'flame_cascade': 'cascade_cinders',
+    'molten_core': 'molten_heart', 'ring_of_fire_1': 'ring_ember_oath',
+    'ring_of_fire_2': 'ring_ember_oath_2', 'tactical_nuke': 'ruinfall',
+    'overclock': 'overclocked_fate', 'bullet_storm': 'shatterhail',
+    'titan_killer': 'colossus_bane', 'wind_push': 'tempest_reversal',
+    'time_stop': 'chronolock', 'skull_frenzy': 'skullwhirl',
+    'skull_army': 'ossuary_legion', 'tech_wizard': 'reapers_seed',
+    'aura_fire': 'cinder_halo', 'imp_horde': 'legion_imps',
+    'hellfire_fury': 'hellbound_fury', 'eternal_flame': 'unending_pyre',
+    // Mythic Sigils
+    'demonic_inferno': 'mythic_hell_crowned', 'void_sovereign': 'mythic_void_seal',
+    'thunder_god': 'mythic_storm_titan', 'blood_lord': 'mythic_bloodbound',
+    'celestial_guardian': 'mythic_seraphic', 'omega_destroyer': 'mythic_omega',
+    'devil_ring_of_fire': 'mythic_devil_halo',
+    // Rune -> Sigil mappings
+    'rune_vitality': 'faded_vital_spark', 'rune_might': 'faded_iron_pulse',
+    'rune_swiftness': 'faded_quickstep', 'rune_recovery': 'faded_mending',
+    'rune_precision': 'faded_keen_eye', 'rune_endurance': 'faded_stalwart',
+    'rune_vitality_2': 'runed_heartforge', 'rune_might_2': 'runed_bladeforge',
+    'rune_swiftness_2': 'runed_galefoot', 'rune_recovery_2': 'runed_evermend',
+    'rune_ferocity': 'runed_frenzied_ember', 'rune_fortitude': 'runed_bastion',
+    'rune_agility': 'runed_lightning_step',
+    'rune_vitality_3': 'empowered_crimson', 'rune_might_3': 'empowered_warbrand',
+    'rune_swiftness_3': 'empowered_vortex', 'rune_recovery_3': 'empowered_radiant',
+    'rune_devastation': 'empowered_cataclysm', 'rune_juggernaut': 'empowered_titanwrought',
+    'rune_assassin': 'empowered_nightfang',
+    'rune_berserker': 'ascendant_berserker', 'rune_titan': 'ascendant_titan',
+    'rune_executioner': 'ascendant_executioner', 'rune_phoenix': 'ascendant_phoenix',
+    'rune_tempest': 'ascendant_tempest', 'rune_vampire': 'ascendant_vampire',
+    'rune_doubler': 'ascendant_echo_doubling', 'rune_momentum': 'ascendant_momentum',
+    'rune_ring_mastery': 'ascendant_fire_mastery',
+    'mythic_inferno': 'mythic_infernal_dominion', 'mythic_void': 'mythic_void_sovereign',
+    'mythic_thunder': 'mythic_thunder_god', 'mythic_blood': 'mythic_blood_lord',
+    'mythic_celestial': 'mythic_celestial_guardian', 'mythic_omega': 'mythic_omega_destroyer'
+};
+
+// Helper function to migrate old augment IDs to new sigil IDs
+function migrateSigilId(oldId) {
+    return SIGIL_ID_MAP[oldId] || oldId;
+}
+
+// ============================================
+// DOMINION SETS - Helper Functions
+// ============================================
+
+// Get sigil data by ID from all pools
+function getSigilDataById(sigilId) {
+    // Check all sigil pools
+    const pools = [FADED_SIGILS, RUNED_SIGILS, EMPOWERED_SIGILS, ASCENDANT_SIGILS, MYTHIC_SIGILS, DIAMOND_SIGILS, MYTHIC_RUNES];
+    for (const pool of pools) {
+        if (!pool) continue;
+        const found = pool.find(s => s.id === sigilId);
+        if (found) return found;
+    }
+    return null;
+}
+
+// Recalculate Dominion Set pieces and tiers for a game instance
+function recalculateDominionSets(game) {
+    // Reset set pieces
+    game.dominionSetPieces = {};
+    game.dominionSetTiers = {};
+
+    // Count pieces for each set
+    for (const sigilId of game.boundSigils) {
+        const sigilData = getSigilDataById(sigilId);
+        if (!sigilData || !sigilData.setKey) continue;
+
+        const setId = sigilData.setKey;
+        const isMythic = sigilData.tier === 'MYTHIC' || sigilData.rarity === 'mythic';
+        const pieceValue = isMythic ? 2 : 1; // Mythic counts as 2 pieces
+
+        game.dominionSetPieces[setId] = (game.dominionSetPieces[setId] || 0) + pieceValue;
+    }
+
+    // Calculate tier for each set based on piece count
+    // Tier thresholds: 1 piece = T1, 2 pieces = T2, 3 pieces = T3, 4+ pieces = T4
+    for (const setId in game.dominionSetPieces) {
+        const pieces = game.dominionSetPieces[setId];
+        let tier = 0;
+        if (pieces >= 4) tier = 4;
+        else if (pieces >= 3) tier = 3;
+        else if (pieces >= 2) tier = 2;
+        else if (pieces >= 1) tier = 1;
+        game.dominionSetTiers[setId] = tier;
+    }
+
+    // Enforce tier limits: Max 1 Tier IV, Max 2 Tier III
+    const tierIVSets = Object.entries(game.dominionSetTiers).filter(([_, t]) => t === 4);
+    const tierIIISets = Object.entries(game.dominionSetTiers).filter(([_, t]) => t === 3);
+
+    // Clamp excess Tier IV sets to Tier III
+    if (tierIVSets.length > 1) {
+        for (let i = 1; i < tierIVSets.length; i++) {
+            game.dominionSetTiers[tierIVSets[i][0]] = 3;
+        }
+    }
+
+    // Clamp excess Tier III sets to Tier II (after T4 clamping may have added more)
+    const newTierIIISets = Object.entries(game.dominionSetTiers).filter(([_, t]) => t === 3);
+    if (newTierIIISets.length > 2) {
+        for (let i = 2; i < newTierIIISets.length; i++) {
+            game.dominionSetTiers[newTierIIISets[i][0]] = 2;
+        }
+    }
+
+    // Apply set bonuses
+    applyDominionSetBonuses(game);
+}
+
+// Apply all active Dominion Set bonuses
+function applyDominionSetBonuses(game) {
+    // Reset all dominion bonuses to defaults
+    game.dominionStackGain = 1;
+    game.stackOverflowEnabled = false;
+    game.stackOverflowEfficiency = 0;
+    game.dominionExplosionRadius = 1;
+    game.dominionExplosionDamage = 1;
+    game.dominionExplosionChain = false;
+    game.dominionExplosionChainDamage = 0;
+    game.dominionMiniNova = false;
+    game.dominionSummonBonus = 0;
+    game.dominionSummonDamage = 1;
+    game.dominionSummonOnHit = false;
+    game.dominionSummonOnHitPower = 0;
+    game.dominionSummonExplode = false;
+    game.dominionLifesteal = 0;
+    game.dominionHPDamage = 0;
+    game.dominionBloodShield = false;
+    game.dominionBloodDetonate = false;
+
+    // Apply each set's current tier bonus
+    for (const setId in game.dominionSetTiers) {
+        const tier = game.dominionSetTiers[setId];
+        if (tier <= 0) continue;
+
+        const setData = DOMINION_SETS[setId];
+        if (!setData || !setData.tiers[tier]) continue;
+
+        // Apply the effect
+        setData.tiers[tier].effect(game);
+    }
+}
+
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
     // Define sprite paths for each enemy type (set to null for default circle rendering)
@@ -333,7 +596,7 @@ const SURVIVOR_CLASS = {
 // ============================================
 // PLAYABLE CHARACTER CLASSES (Launch: 3 classes)
 // Each character has: 3 Skills + 2 Abilities
-// Augments: Common/Rare = stats, Epic/Legendary = skill/ability upgrades
+// Sigils: Faded/Runed = stats, Empowered/Ascendant = skill/ability upgrades
 // ============================================
 
 // 🔥 FIRE MAGE - Elemental destruction specialist
@@ -368,23 +631,25 @@ const FIRE_MAGE_CLASS = {
     },
     // Legacy abilities - REMOVED (kept for reference)
     abilities: {},
-    // Augments for leveling up - SCALED 5x (halved from 10x)
-    augments: [
-        // Common
-        { id: 'fm_speed', name: 'Swift Flames', icon: '💨', desc: '+10% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.1, getDesc: (g) => `Speed: ${g.player.speed} → ${Math.floor(g.player.speed * 1.1)}` },
-        { id: 'fm_hp', name: 'Flame Shield', icon: '🛡️', desc: '+250 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 250}` },
-        // Rare
-        { id: 'fm_orb', name: 'Elemental Orb', icon: '🔮', desc: '+1 orbiting orb (max 6)', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Orbs: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
-        { id: 'fm_firerate', name: 'Rapid Fire', icon: '🔥', desc: '+15% fire rate', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate *= 0.85, getDesc: (g) => `Fire Rate: +15%` },
-        // Epic (Skill Upgrades)
-        { id: 'fm_aura_expand', name: 'Inferno Expansion', icon: '🔵', desc: 'Aura Ring +12 radius, +75 damage', rarity: 'epic', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { if(g.auraFire) { g.auraFire.radius += 12; g.auraFire.damage += 75; } }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 12}` : 'Aura not active' },
-        { id: 'fm_fireball_size', name: 'Meteor Strike', icon: '☄️', desc: 'Fireballs +40% size, +20% damage', rarity: 'epic', isSkillUpgrade: true, skill: 'fireball', effect: (g) => { g.weapons.bullet.size = Math.floor(g.weapons.bullet.size * 1.4); g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.2); }, getDesc: (g) => `Size +40%, Damage +20%` },
-        { id: 'fm_blast_radius', name: 'Supernova', icon: '💥', desc: 'Fire Blast radius +100px, damage +25%', rarity: 'epic', isAbilityUpgrade: true, ability: 'fireBlast', effect: (g) => { g.fireBlastRadius = (g.fireBlastRadius || 800) + 100; g.fireBlastDamage = (g.fireBlastDamage || 1) * 1.25; }, getDesc: (g) => `Radius: ${g.fireBlastRadius || 800} → ${(g.fireBlastRadius || 800) + 100}` },
-        // Legendary (Major Skill/Ability Upgrades)
-        { id: 'fm_orb_frenzy', name: 'Orb Frenzy', icon: '🌀', desc: 'Orbs spin 2x faster, +50% damage', rarity: 'legendary', isSkillUpgrade: true, skill: 'elementalOrbs', effect: (g) => { g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => `Orb Speed & Damage doubled` },
-        { id: 'fm_burn_spread', name: 'Wildfire', icon: '🌋', desc: 'Burning enemies spread fire to nearby enemies', rarity: 'legendary', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => g.augments.push('burn_spread'), getDesc: (g) => g.augments.includes('burn_spread') ? 'Active ✓' : 'Activate' },
-        { id: 'fm_amp_persist', name: 'Eternal Flame', icon: '🔥', desc: 'Fire Amp lasts 3s longer, +50% damage boost', rarity: 'legendary', isAbilityUpgrade: true, ability: 'fireAmp', effect: (g) => { g.fireAmpDuration = (g.fireAmpDuration || 5) + 3; g.fireAmpBoost = (g.fireAmpBoost || 1.5) + 0.5; }, getDesc: (g) => `Duration +3s, Boost +50%` },
-    ]
+    // Class Sigils for leveling up - REBALANCED
+    sigils: [
+        // Tier 1 (Faded) - REBALANCED
+        { id: 'fm_emberstep', name: 'Emberstep Sigil', icon: '💨', desc: '+8% movement speed', tier: 'FADED', rarity: 'common', effect: (g) => g.player.speed *= 1.08, getDesc: (g) => `Speed: ${g.player.speed} → ${Math.floor(g.player.speed * 1.08)}` },
+        { id: 'fm_cinder_ward', name: 'Cinder Ward', icon: '🛡️', desc: '+200 max HP', tier: 'FADED', rarity: 'common', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 200}` },
+        // Tier 2 (Runed) - REBALANCED
+        { id: 'fm_orb_incandescence', name: 'Orb of Incandescence', icon: '🔮', desc: '+1 orbiting orb (max 6)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Orbs: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
+        { id: 'fm_accelerant_flame', name: 'Accelerant Flame', icon: '🔥', desc: '+12% fire rate', tier: 'RUNED', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate *= 0.88, getDesc: (g) => `Fire Rate: +12%` },
+        // Tier 3 (Empowered) - REBALANCED
+        { id: 'fm_inferno_radius', name: 'Inferno Radius', icon: '🔵', desc: 'Aura +10 radius, +60 DPS', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { if(g.auraFire) { g.auraFire.radius += 10; g.auraFire.damage += 60; } }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 10}` : 'Aura not active' },
+        { id: 'fm_meteor_aspect', name: 'Meteor Aspect', icon: '☄️', desc: 'Fireballs +30% size, +15% damage', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'fireball', effect: (g) => { g.weapons.bullet.size = Math.floor(g.weapons.bullet.size * 1.3); g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.15); }, getDesc: (g) => `Size +30%, Damage +15%` },
+        { id: 'fm_solar_flare', name: 'Solar Flare', icon: '💥', desc: 'Fire Blast radius +80px, +20% damage', tier: 'EMPOWERED', rarity: 'epic', isAbilityUpgrade: true, ability: 'fireBlast', effect: (g) => { g.fireBlastRadius = (g.fireBlastRadius || 800) + 80; g.fireBlastDamage = (g.fireBlastDamage || 1) * 1.20; }, getDesc: (g) => `Radius: ${g.fireBlastRadius || 800} → ${(g.fireBlastRadius || 800) + 80}` },
+        // Tier 4 (Ascendant) - REBALANCED
+        { id: 'fm_orb_singularity', name: 'Orb Singularity', icon: '🌀', desc: 'Orbs spin 1.75x faster, +40% damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'elementalOrbs', effect: (g) => { g.skulls.forEach(s => { s.speed *= 1.75; s.damage *= 1.4; }); }, getDesc: (g) => `Orb Speed x1.75, Damage +40%` },
+        { id: 'fm_wild_pyre', name: 'Wild Pyre', icon: '🌋', desc: 'Burn spreads at 60% damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { g.boundSigils.push('burn_spread'); g.burnSpreadDamage = 0.6; }, getDesc: (g) => g.boundSigils?.includes('burn_spread') ? 'Active ✓' : 'Activate' },
+        { id: 'fm_everburn', name: 'Everburn Sigil', icon: '🔥', desc: 'Fire Amp +2s, +35% damage', tier: 'ASCENDANT', rarity: 'legendary', isAbilityUpgrade: true, ability: 'fireAmp', effect: (g) => { g.fireAmpDuration = (g.fireAmpDuration || 5) + 2; g.fireAmpBoost = (g.fireAmpBoost || 1.5) + 0.35; }, getDesc: (g) => `Duration +2s, Boost +35%` },
+    ],
+    // Legacy augments array (for backward compatibility)
+    augments: []
 };
 
 // 🌑 SHADOW MASTER - Shadow creature summoner with whip attack
@@ -417,22 +682,25 @@ const SHADOW_MASTER_CLASS = {
     },
     // Legacy abilities - REMOVED
     abilities: {},
-    augments: [
-        // Common - SCALED 5x (halved from 10x)
-        { id: 'sm_speed', name: 'Shadow Speed', icon: '💨', desc: '+12% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.12, getDesc: (g) => `Speed +12%` },
-        { id: 'sm_hp', name: 'Dark Resilience', icon: '🛡️', desc: '+200 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; }, getDesc: (g) => `HP +200` },
-        // Rare
-        { id: 'sm_monster', name: 'Shadow Summon', icon: '👻', desc: '+1 shadow monster (max 5)', rarity: 'rare', effect: (g) => { if((g.shadowMonsters?.length || 0) < 5) g.shadowMonsters.push(g.createShadowMonster()); }, getDesc: (g) => `Monsters: ${g.shadowMonsters?.length || 0} → ${Math.min(5, (g.shadowMonsters?.length || 0) + 1)}` },
-        { id: 'sm_sentinel', name: 'Sentinel Guard', icon: '🦇', desc: '+1 shadow sentinel (max 6)', rarity: 'rare', effect: (g) => { if((g.shadowSentinels?.length || 0) < 6) g.shadowSentinels.push(g.createShadowSentinel()); }, getDesc: (g) => `Sentinels: ${g.shadowSentinels?.length || 0} → ${Math.min(6, (g.shadowSentinels?.length || 0) + 1)}` },
-        // Epic (Skill Upgrades)
-        { id: 'sm_whip_range', name: 'Extended Lash', icon: '🔗', desc: 'Whip +35% range, hits +2 enemies', rarity: 'epic', isSkillUpgrade: true, skill: 'whipAttack', effect: (g) => { g.whipRange = (g.whipRange || 120) * 1.35; g.whipTargets = (g.whipTargets || 3) + 2; }, getDesc: (g) => `Range +35%, Targets +2` },
-        { id: 'sm_monster_frenzy', name: 'Shadow Frenzy', icon: '👻', desc: 'Monsters attack 50% faster, +30% damage', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.shadowAttackSpeed = (g.shadowAttackSpeed || 1) * 1.5; g.shadowDamageBonus = (g.shadowDamageBonus || 1) * 1.3; }, getDesc: (g) => `Attack +50%, Damage +30%` },
-        { id: 'sm_cloak_extend', name: 'Deeper Shadows', icon: '👤', desc: 'Shadow Cloak +2s duration', rarity: 'epic', isAbilityUpgrade: true, ability: 'shadowCloak', effect: (g) => g.shadowCloakDuration = (g.shadowCloakDuration || 3) + 2, getDesc: (g) => `Duration: ${g.shadowCloakDuration || 3}s → ${(g.shadowCloakDuration || 3) + 2}s` },
-        // Legendary - SCALED 5x (halved from 10x)
-        { id: 'sm_dark_pact', name: 'Dark Pact', icon: '💀', desc: 'Shadow monsters heal you for 8% damage dealt', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.augments.push('dark_pact'); g.darkPactHeal = 0.08; }, getDesc: (g) => g.augments.includes('dark_pact') ? 'Active ✓' : 'Activate' },
-        { id: 'sm_sentinel_explode', name: 'Shadow Burst', icon: '💥', desc: 'Sentinels explode on death dealing 750 damage', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowSentinels', effect: (g) => g.augments.push('sentinel_explode'), getDesc: (g) => g.augments.includes('sentinel_explode') ? 'Active ✓' : 'Activate' },
-        { id: 'sm_step_damage', name: 'Phantom Strike', icon: '💨', desc: 'Shadow Step deals 500 damage to passed enemies', rarity: 'legendary', isAbilityUpgrade: true, ability: 'shadowStep', effect: (g) => g.shadowStepDamage = 500, getDesc: (g) => `Step Damage: 500` },
-    ]
+    // Class Sigils for leveling up - REBALANCED
+    sigils: [
+        // Tier 1 (Faded) - REBALANCED
+        { id: 'sm_shade_step', name: 'Shade Step', icon: '💨', desc: '+10% movement speed', tier: 'FADED', rarity: 'common', effect: (g) => g.player.speed *= 1.10, getDesc: (g) => `Speed +10%` },
+        { id: 'sm_umbral_skin', name: 'Umbral Skin', icon: '🛡️', desc: '+175 max HP', tier: 'FADED', rarity: 'common', effect: (g) => { g.player.maxHealth += 175; g.player.health += 175; }, getDesc: (g) => `HP +175` },
+        // Tier 2 (Runed) - REBALANCED
+        { id: 'sm_caller_shades', name: 'Caller of Shades', icon: '👻', desc: '+1 shadow monster (max 5)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if((g.shadowMonsters?.length || 0) < 5) g.shadowMonsters.push(g.createShadowMonster()); }, getDesc: (g) => `Monsters: ${g.shadowMonsters?.length || 0} → ${Math.min(5, (g.shadowMonsters?.length || 0) + 1)}` },
+        { id: 'sm_sentinel_binding', name: 'Sentinel Binding', icon: '🦇', desc: '+1 shadow sentinel (max 6)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if((g.shadowSentinels?.length || 0) < 6) g.shadowSentinels.push(g.createShadowSentinel()); }, getDesc: (g) => `Sentinels: ${g.shadowSentinels?.length || 0} → ${Math.min(6, (g.shadowSentinels?.length || 0) + 1)}` },
+        // Tier 3 (Empowered) - REBALANCED
+        { id: 'sm_chain_lash', name: 'Chain-Lash Sigil', icon: '🔗', desc: 'Whip +30% range, hits +1 enemy', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'whipAttack', effect: (g) => { g.whipRange = (g.whipRange || 120) * 1.30; g.whipTargets = (g.whipTargets || 3) + 1; }, getDesc: (g) => `Range +30%, Targets +1` },
+        { id: 'sm_frenzy_night', name: 'Frenzy of Night', icon: '👻', desc: 'Monsters attack 40% faster, +25% damage', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.shadowAttackSpeed = (g.shadowAttackSpeed || 1) * 1.4; g.shadowDamageBonus = (g.shadowDamageBonus || 1) * 1.25; }, getDesc: (g) => `Attack +40%, Damage +25%` },
+        { id: 'sm_cloak_depths', name: 'Cloak of Depths', icon: '👤', desc: 'Shadow Cloak +1.5s duration', tier: 'EMPOWERED', rarity: 'epic', isAbilityUpgrade: true, ability: 'shadowCloak', effect: (g) => g.shadowCloakDuration = (g.shadowCloakDuration || 3) + 1.5, getDesc: (g) => `Duration: ${g.shadowCloakDuration || 3}s → ${(g.shadowCloakDuration || 3) + 1.5}s` },
+        // Tier 4 (Ascendant) - REBALANCED
+        { id: 'sm_pact_shadows', name: 'Pact of Shadows', icon: '💀', desc: 'Monsters heal you 6% of damage dealt', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.boundSigils.push('dark_pact'); g.darkPactHeal = 0.06; }, getDesc: (g) => g.boundSigils?.includes('dark_pact') ? 'Active ✓' : 'Activate' },
+        { id: 'sm_void_detonation', name: 'Void Detonation', icon: '💥', desc: 'Sentinels explode on death (600 dmg)', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowSentinels', effect: (g) => { g.boundSigils.push('sentinel_explode'); g.sentinelExplosionDamage = 600; }, getDesc: (g) => g.boundSigils?.includes('sentinel_explode') ? 'Active ✓' : 'Activate' },
+        { id: 'sm_phantom_rend', name: 'Phantom Rend', icon: '💨', desc: 'Shadow Step deals 400 damage to passed enemies', tier: 'ASCENDANT', rarity: 'legendary', isAbilityUpgrade: true, ability: 'shadowStep', effect: (g) => g.shadowStepDamage = 400, getDesc: (g) => `Step Damage: 400` },
+    ],
+    // Legacy augments array (for backward compatibility)
+    augments: []
 };
 
 // ☠️ NECROMANCER - Master of death, raises the fallen
@@ -467,22 +735,25 @@ const NECROMANCER_CLASS = {
     },
     // Legacy abilities - REMOVED
     abilities: {},
-    augments: [
-        // Common - SCALED 5x (halved from 10x)
-        { id: 'nc_speed', name: 'Death March', icon: '💨', desc: '+8% movement speed', rarity: 'common', effect: (g) => g.player.speed *= 1.08, getDesc: (g) => `Speed +8%` },
-        { id: 'nc_hp', name: 'Undying Will', icon: '🛡️', desc: '+300 max HP', rarity: 'common', effect: (g) => { g.player.maxHealth += 300; g.player.health += 300; }, getDesc: (g) => `HP +300` },
-        // Rare
-        { id: 'nc_skull', name: 'Soul Collector', icon: '💀', desc: '+1 floating skull (max 6)', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Skulls: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
-        { id: 'nc_corpse_limit', name: 'Army of Dead', icon: '🧟', desc: '+3 max raised corpses', rarity: 'rare', effect: (g) => g.maxRaisedCorpses = (g.maxRaisedCorpses || 5) + 3, getDesc: (g) => `Max Corpses: ${g.maxRaisedCorpses || 5} → ${(g.maxRaisedCorpses || 5) + 3}` },
-        // Epic (Skill Upgrades)
-        { id: 'nc_raise_chance', name: 'Mass Resurrection', icon: '🧟', desc: '+10% raise chance, corpses last +5s', rarity: 'epic', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.raiseChance = (g.raiseChance || 0.15) + 0.1; g.corpseLifetime = (g.corpseLifetime || 20) + 5; }, getDesc: (g) => `Raise: ${Math.floor((g.raiseChance || 0.15) * 100)}% → ${Math.floor(((g.raiseChance || 0.15) + 0.1) * 100)}%` },
-        { id: 'nc_drain_chain', name: 'Chain Drain', icon: '🩸', desc: 'Death Drain chains to +2 enemies', rarity: 'epic', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => g.deathDrainChains = (g.deathDrainChains || 1) + 2, getDesc: (g) => `Chains: ${g.deathDrainChains || 1} → ${(g.deathDrainChains || 1) + 2}` },
-        { id: 'nc_pit_radius', name: 'Mass Grave', icon: '🦴', desc: 'Bone Pit +50% radius', rarity: 'epic', isAbilityUpgrade: true, ability: 'bonePit', effect: (g) => g.bonePitRadius = (g.bonePitRadius || 100) * 1.5, getDesc: (g) => `Radius: ${g.bonePitRadius || 100} → ${Math.floor((g.bonePitRadius || 100) * 1.5)}` },
-        // Legendary - SCALED 5x (halved from 10x)
-        { id: 'nc_corpse_explode', name: 'Corpse Explosion', icon: '💥', desc: 'Raised corpses explode on death (1250 dmg)', rarity: 'legendary', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.augments.push('corpse_explode'); g.corpseExplosionDamage = 1250; }, getDesc: (g) => g.augments.includes('corpse_explode') ? 'Active ✓' : 'Activate' },
-        { id: 'nc_drain_evolve', name: 'Life Siphon', icon: '💚', desc: 'Death Drain heals you, beam turns green', rarity: 'legendary', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => { g.augments.push('drain_heals'); g.deathDrainEvolved = true; }, getDesc: (g) => g.augments.includes('drain_heals') ? 'Active ✓' : 'Activate' },
-        { id: 'nc_soul_harvest', name: 'Soul Harvest', icon: '🔮', desc: '+1% max HP per 10 kills (permanent)', rarity: 'legendary', isSkillUpgrade: true, skill: 'floatingSkulls', effect: (g) => g.augments.push('soul_harvest'), getDesc: (g) => g.augments.includes('soul_harvest') ? 'Active ✓' : 'Activate' },
-    ]
+    // Class Sigils for leveling up - REBALANCED
+    sigils: [
+        // Tier 1 (Faded) - REBALANCED
+        { id: 'nc_gravewalker', name: "Gravewalker's Pace", icon: '💨', desc: '+6% movement speed', tier: 'FADED', rarity: 'common', effect: (g) => g.player.speed *= 1.06, getDesc: (g) => `Speed +6%` },
+        { id: 'nc_bone_plating', name: 'Bone Plating', icon: '🛡️', desc: '+250 max HP', tier: 'FADED', rarity: 'common', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; }, getDesc: (g) => `HP +250` },
+        // Tier 2 (Runed) - REBALANCED
+        { id: 'nc_skullbinder', name: 'Skullbinder', icon: '💀', desc: '+1 floating skull (max 6)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Skulls: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
+        { id: 'nc_mass_gravecall', name: 'Mass Gravecall', icon: '🧟', desc: '+2 max raised corpses', tier: 'RUNED', rarity: 'rare', effect: (g) => g.maxRaisedCorpses = (g.maxRaisedCorpses || 5) + 2, getDesc: (g) => `Max Corpses: ${g.maxRaisedCorpses || 5} → ${(g.maxRaisedCorpses || 5) + 2}` },
+        // Tier 3 (Empowered) - REBALANCED
+        { id: 'nc_rite_return', name: 'Rite of Return', icon: '🧟', desc: '+8% raise chance, corpses last +4s', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.raiseChance = (g.raiseChance || 0.15) + 0.08; g.corpseLifetime = (g.corpseLifetime || 20) + 4; }, getDesc: (g) => `Raise: ${Math.floor((g.raiseChance || 0.15) * 100)}% → ${Math.floor(((g.raiseChance || 0.15) + 0.08) * 100)}%` },
+        { id: 'nc_crimson_chain', name: 'Crimson Chain', icon: '🩸', desc: 'Death Drain chains to +1 enemy', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => g.deathDrainChains = (g.deathDrainChains || 1) + 1, getDesc: (g) => `Chains: ${g.deathDrainChains || 1} → ${(g.deathDrainChains || 1) + 1}` },
+        { id: 'nc_expanded_ossuary', name: 'Expanded Ossuary', icon: '🦴', desc: 'Bone Pit +40% radius', tier: 'EMPOWERED', rarity: 'epic', isAbilityUpgrade: true, ability: 'bonePit', effect: (g) => g.bonePitRadius = (g.bonePitRadius || 100) * 1.4, getDesc: (g) => `Radius: ${g.bonePitRadius || 100} → ${Math.floor((g.bonePitRadius || 100) * 1.4)}` },
+        // Tier 4 (Ascendant) - REBALANCED
+        { id: 'nc_detonation_rite', name: 'Detonation Rite', icon: '💥', desc: 'Raised corpses explode on death (900 dmg)', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.boundSigils.push('corpse_explode'); g.corpseExplosionDamage = 900; }, getDesc: (g) => g.boundSigils?.includes('corpse_explode') ? 'Active ✓' : 'Activate' },
+        { id: 'nc_siphon_unlife', name: 'Siphon of Unlife', icon: '💚', desc: 'Death Drain heals you 2.5% of damage dealt', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => { g.boundSigils.push('drain_heals'); g.deathDrainEvolved = true; g.deathDrainHealPercent = 0.025; }, getDesc: (g) => g.boundSigils?.includes('drain_heals') ? 'Active ✓' : 'Activate' },
+        { id: 'nc_harvest_eternal', name: 'Harvest Eternal', icon: '🔮', desc: '+1% max HP per 15 kills (permanent)', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'floatingSkulls', effect: (g) => { g.boundSigils.push('soul_harvest'); g.soulHarvestKillsRequired = 15; }, getDesc: (g) => g.boundSigils?.includes('soul_harvest') ? 'Active ✓' : 'Activate' },
+    ],
+    // Legacy augments array (for backward compatibility)
+    augments: []
 };
 
 // All playable classes for character select
@@ -521,234 +792,268 @@ const COSMETIC_STORE = {
 // ============================================
 
 // COMMON RUNES (Bronze) - Basic stat boosts
-const COMMON_RUNES = [
-    { id: 'rune_vitality', name: 'Rune of Vitality', icon: '❤️', desc: '+50 Max HP', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 50}` },
-    { id: 'rune_might', name: 'Rune of Might', icon: '⚔️', desc: '+10 Damage', rarity: 'common', tier: 'bronze', effect: (g) => { g.weapons.bullet.damage += 10; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 10}` },
-    { id: 'rune_swiftness', name: 'Rune of Swiftness', icon: '💨', desc: '+5 Speed', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.speed += 5; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 5}` },
-    { id: 'rune_recovery', name: 'Rune of Recovery', icon: '💚', desc: '+1 HP per 5 seconds', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 1}` },
-    { id: 'rune_precision', name: 'Rune of Precision', icon: '🎯', desc: '+2% Crit Chance', rarity: 'common', tier: 'bronze', effect: (g) => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.02; }, getDesc: (g) => `Crit: +${Math.round((g.critChanceBonus || 0) * 100)}% → +${Math.round(((g.critChanceBonus || 0) + 0.02) * 100)}%` },
-    { id: 'rune_endurance', name: 'Rune of Endurance', icon: '🛡️', desc: '+25 HP, +3 Speed', rarity: 'common', tier: 'bronze', effect: (g) => { g.player.maxHealth += 25; g.player.health += 25; g.player.speed += 3; }, getDesc: (g) => `HP +25, Speed +3` },
+// ============================================
+// FADED SIGILS (Tier 1) - Basic stat boosts
+// ============================================
+const FADED_SIGILS = [
+    { id: 'sigil_vitality', name: 'Faded Sigil of Vitality', icon: '❤️', desc: '+50 Max HP', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 50}` },
+    { id: 'sigil_might', name: 'Faded Sigil of Might', icon: '⚔️', desc: '+10 Damage', rarity: 'common', tier: 'FADED', effect: (g) => { g.weapons.bullet.damage += 10; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 10}` },
+    { id: 'sigil_swiftness', name: 'Faded Sigil of Swiftness', icon: '💨', desc: '+5 Speed', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.speed += 5; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 5}` },
+    { id: 'sigil_recovery', name: 'Faded Sigil of Recovery', icon: '💚', desc: '+1 HP per 5 seconds', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 1}` },
+    { id: 'sigil_precision', name: 'Faded Sigil of Precision', icon: '🎯', desc: '+2% Crit Chance', rarity: 'common', tier: 'FADED', effect: (g) => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.02; }, getDesc: (g) => `Crit: +${Math.round((g.critChanceBonus || 0) * 100)}% → +${Math.round(((g.critChanceBonus || 0) + 0.02) * 100)}%` },
+    { id: 'sigil_endurance', name: 'Faded Sigil of Endurance', icon: '🛡️', desc: '+25 HP, +3 Speed', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.maxHealth += 25; g.player.health += 25; g.player.speed += 3; }, getDesc: (g) => `HP +25, Speed +3` },
 ];
 
-// SILVER RUNES - Better stat boosts
-const SILVER_RUNES = [
-    { id: 'rune_greater_vitality', name: 'Greater Vitality', icon: '❤️‍🔥', desc: '+100 Max HP', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 100}` },
-    { id: 'rune_greater_might', name: 'Greater Might', icon: '🗡️', desc: '+20 Damage', rarity: 'silver', tier: 'silver', effect: (g) => { g.weapons.bullet.damage += 20; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
-    { id: 'rune_greater_swiftness', name: 'Greater Swiftness', icon: '🌪️', desc: '+10 Speed', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.speed += 10; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 10}` },
-    { id: 'rune_greater_recovery', name: 'Greater Recovery', icon: '💖', desc: '+2 HP per 5 seconds', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 2}` },
-    { id: 'rune_ferocity', name: 'Rune of Ferocity', icon: '🔥', desc: '+5% Fire Rate', rarity: 'silver', tier: 'silver', effect: (g) => { g.weapons.bullet.fireRate *= 0.95; }, getDesc: (g) => `Fire Rate +5%` },
-    { id: 'rune_fortitude', name: 'Rune of Fortitude', icon: '🏰', desc: '+75 HP, +5 Damage', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.maxHealth += 75; g.player.health += 75; g.weapons.bullet.damage += 5; }, getDesc: (g) => `HP +75, Damage +5` },
-    { id: 'rune_agility', name: 'Rune of Agility', icon: '⚡', desc: '+8 Speed, +3% Crit', rarity: 'silver', tier: 'silver', effect: (g) => { g.player.speed += 8; g.critChanceBonus = (g.critChanceBonus || 0) + 0.03; }, getDesc: (g) => `Speed +8, Crit +3%` },
+// Legacy alias for backward compatibility
+const COMMON_RUNES = FADED_SIGILS;
+
+// ============================================
+// RUNED SIGILS (Tier 2) - Better stat boosts
+// ============================================
+const RUNED_SIGILS = [
+    { id: 'sigil_greater_vitality', name: 'Runed Sigil of Vitality', icon: '❤️‍🔥', desc: '+100 Max HP', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 100}` },
+    { id: 'sigil_greater_might', name: 'Runed Sigil of Might', icon: '🗡️', desc: '+20 Damage', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.damage += 20; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
+    { id: 'sigil_greater_swiftness', name: 'Runed Sigil of Swiftness', icon: '🌪️', desc: '+10 Speed', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.speed += 10; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 10}` },
+    { id: 'sigil_greater_recovery', name: 'Runed Sigil of Recovery', icon: '💖', desc: '+2 HP per 5 seconds', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 2}` },
+    { id: 'sigil_ferocity', name: 'Runed Sigil of Ferocity', icon: '🔥', desc: '+5% Fire Rate', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.fireRate *= 0.95; }, getDesc: (g) => `Fire Rate +5%` },
+    { id: 'sigil_fortitude', name: 'Runed Sigil of Fortitude', icon: '🏰', desc: '+75 HP, +5 Damage', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.maxHealth += 75; g.player.health += 75; g.weapons.bullet.damage += 5; }, getDesc: (g) => `HP +75, Damage +5` },
+    { id: 'sigil_agility', name: 'Runed Sigil of Agility', icon: '⚡', desc: '+8 Speed, +3% Crit', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.speed += 8; g.critChanceBonus = (g.critChanceBonus || 0) + 0.03; }, getDesc: (g) => `Speed +8, Crit +3%` },
 ];
 
-// PURPLE RUNES (Epic) - Strong stat boosts
-const PURPLE_RUNES = [
-    { id: 'rune_superior_vitality', name: 'Superior Vitality', icon: '💗', desc: '+200 Max HP', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 200}` },
-    { id: 'rune_superior_might', name: 'Superior Might', icon: '⚔️', desc: '+40 Damage', rarity: 'epic', tier: 'purple', effect: (g) => { g.weapons.bullet.damage += 40; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 40}` },
-    { id: 'rune_superior_swiftness', name: 'Superior Swiftness', icon: '🌀', desc: '+20 Speed', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.speed += 20; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 20}` },
-    { id: 'rune_superior_recovery', name: 'Superior Recovery', icon: '✨', desc: '+4 HP per 5 seconds', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 4; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 4}` },
-    { id: 'rune_devastation', name: 'Rune of Devastation', icon: '💥', desc: '+30 Damage, +10% Fire Rate', rarity: 'epic', tier: 'purple', effect: (g) => { g.weapons.bullet.damage += 30; g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Damage +30, Fire Rate +10%` },
-    { id: 'rune_juggernaut', name: 'Rune of Juggernaut', icon: '🦾', desc: '+150 HP, +15 Damage, +5 Speed', rarity: 'epic', tier: 'purple', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; g.weapons.bullet.damage += 15; g.player.speed += 5; }, getDesc: (g) => `HP +150, Damage +15, Speed +5` },
-    { id: 'rune_assassin', name: 'Rune of Assassin', icon: '🗡️', desc: '+25% Crit Damage, +5% Crit Chance', rarity: 'epic', tier: 'purple', effect: (g) => { g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25; g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; }, getDesc: (g) => `Crit Damage +25%, Crit Chance +5%` },
+// Legacy alias for backward compatibility
+const SILVER_RUNES = RUNED_SIGILS;
+
+// ============================================
+// EMPOWERED SIGILS (Tier 3) - Strong stat boosts
+// ============================================
+const EMPOWERED_SIGILS = [
+    { id: 'sigil_superior_vitality', name: 'Empowered Sigil of Vitality', icon: '💗', desc: '+200 Max HP', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 200}` },
+    { id: 'sigil_superior_might', name: 'Empowered Sigil of Might', icon: '⚔️', desc: '+40 Damage', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.damage += 40; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 40}` },
+    { id: 'sigil_superior_swiftness', name: 'Empowered Sigil of Swiftness', icon: '🌀', desc: '+20 Speed', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.player.speed += 20; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 20}` },
+    { id: 'sigil_superior_recovery', name: 'Empowered Sigil of Recovery', icon: '✨', desc: '+4 HP per 5 seconds', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 4; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 4}` },
+    { id: 'sigil_devastation', name: 'Empowered Sigil of Devastation', icon: '💥', desc: '+30 Damage, +10% Fire Rate', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.damage += 30; g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Damage +30, Fire Rate +10%` },
+    { id: 'sigil_juggernaut', name: 'Empowered Sigil of Juggernaut', icon: '🦾', desc: '+150 HP, +15 Damage, +5 Speed', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; g.weapons.bullet.damage += 15; g.player.speed += 5; }, getDesc: (g) => `HP +150, Damage +15, Speed +5` },
+    { id: 'sigil_assassin', name: 'Empowered Sigil of Assassin', icon: '🗡️', desc: '+25% Crit Damage, +5% Crit Chance', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25; g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; }, getDesc: (g) => `Crit Damage +25%, Crit Chance +5%` },
 ];
 
-// LEGENDARY RUNES - Unique passives with stat combos
-const LEGENDARY_RUNES = [
-    { id: 'rune_berserker', name: 'Berserker\'s Fury', icon: '😤', desc: '+300 HP, +50 Damage. PASSIVE: Deal +1% damage for each 1% HP missing', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 300; g.player.health += 300; g.weapons.bullet.damage += 50; g.augments.push('berserker_fury'); }, getDesc: (g) => g.augments.includes('berserker_fury') ? 'Active ✓' : '+300 HP, +50 Damage, Berserker Passive' },
-    { id: 'rune_titan', name: 'Titan\'s Resolve', icon: '🗿', desc: '+500 HP, +25 Damage. PASSIVE: Take 15% less damage from all sources', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 500; g.player.health += 500; g.weapons.bullet.damage += 25; g.damageReduction = (g.damageReduction || 0) + 0.15; }, getDesc: (g) => `HP +500, Damage +25, -15% Damage Taken` },
-    { id: 'rune_executioner', name: 'Executioner\'s Call', icon: '⚰️', desc: '+60 Damage, +50% Crit Damage. PASSIVE: Enemies below 20% HP take 2x damage', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.weapons.bullet.damage += 60; g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.5; g.augments.push('executioner'); }, getDesc: (g) => g.augments.includes('executioner') ? 'Active ✓' : '+60 Damage, +50% Crit, Execute Passive' },
-    { id: 'rune_phoenix', name: 'Phoenix\'s Blessing', icon: '🔥', desc: '+250 HP, +6 HP5. PASSIVE: Revive once with 50% HP (180s cooldown)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; g.player.hpRegen = (g.player.hpRegen || 0) + 6; g.phoenixRevive = true; g.phoenixCooldown = 0; }, getDesc: (g) => g.phoenixRevive ? 'Active ✓' : '+250 HP, +6 HP5, Revive Passive' },
-    { id: 'rune_tempest', name: 'Tempest\'s Wrath', icon: '⛈️', desc: '+40 Damage, +15 Speed. PASSIVE: Every 5th hit triggers chain lightning (3 targets)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.weapons.bullet.damage += 40; g.player.speed += 15; g.augments.push('tempest_chain'); g.tempestCounter = 0; }, getDesc: (g) => g.augments.includes('tempest_chain') ? 'Active ✓' : '+40 Damage, +15 Speed, Chain Lightning' },
-    { id: 'rune_vampire', name: 'Vampire\'s Embrace', icon: '🧛', desc: '+200 HP, +35 Damage. PASSIVE: Heal 3% of damage dealt (reduced in combat)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 35; g.vampireHeal = 0.03; }, getDesc: (g) => `HP +200, Damage +35, 3% Lifesteal` },
-    { id: 'rune_doubler', name: 'Rune of Doubling', icon: '✖️', desc: '+100 HP, +20 Damage. PASSIVE: All item stacks count as DOUBLE', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; g.weapons.bullet.damage += 20; g.stackDoubler = true; }, getDesc: (g) => g.stackDoubler ? 'Active ✓ (Stacks 2x)' : '+100 HP, +20 Damage, Double Stacks' },
-    { id: 'rune_momentum', name: 'Momentum\'s Edge', icon: '🏃', desc: '+30 Speed, +30 Damage. PASSIVE: Gain +1% damage per second moving (max 50%)', rarity: 'legendary', tier: 'legendary', effect: (g) => { g.player.speed += 30; g.weapons.bullet.damage += 30; g.augments.push('momentum'); g.momentumBonus = 0; }, getDesc: (g) => g.augments.includes('momentum') ? `Active ✓ (+${Math.floor((g.momentumBonus || 0) * 100)}% dmg)` : '+30 Speed, +30 Damage, Momentum Passive' },
-    { id: 'rune_ring_mastery', name: 'Ring of Fire Mastery', icon: '🔥', desc: '+200 HP, +40 Damage. PASSIVE: Ring of Fire radius +100, damage +80 DPS, burn enemies for 5s', rarity: 'legendary', tier: 'legendary', classReq: 'fire_mage', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 40; if (!g.playerRingOfFire) { g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; } g.playerRingOfFire.radius += 100; g.playerRingOfFire.damage += 80; g.playerRingOfFire.burnDuration = 5; g.augments.push('ring_mastery'); }, getDesc: (g) => g.augments.includes('ring_mastery') ? 'Active ✓' : '+200 HP, +40 Damage, Ring Upgrade' },
+// Legacy alias for backward compatibility
+const PURPLE_RUNES = EMPOWERED_SIGILS;
+
+// ============================================
+// ASCENDANT SIGILS (Tier 4) - Unique passives with stat combos
+// ============================================
+const ASCENDANT_SIGILS = [
+    { id: 'sigil_berserker', name: 'Ascendant Sigil: Berserker\'s Fury', icon: '😤', desc: '+300 HP, +50 Damage. PASSIVE: Deal +1% damage for each 1% HP missing', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 300; g.player.health += 300; g.weapons.bullet.damage += 50; g.boundSigils.push('berserker_fury'); }, getDesc: (g) => g.boundSigils?.includes('berserker_fury') ? 'Active ✓' : '+300 HP, +50 Damage, Berserker Passive' },
+    { id: 'sigil_titan', name: 'Ascendant Sigil: Titan\'s Resolve', icon: '🗿', desc: '+500 HP, +25 Damage. PASSIVE: Take 15% less damage from all sources', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 500; g.player.health += 500; g.weapons.bullet.damage += 25; g.damageReduction = (g.damageReduction || 0) + 0.15; }, getDesc: (g) => `HP +500, Damage +25, -15% Damage Taken` },
+    { id: 'sigil_executioner', name: 'Ascendant Sigil: Executioner\'s Call', icon: '⚰️', desc: '+60 Damage, +50% Crit Damage. PASSIVE: Enemies below 20% HP take 2x damage', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.weapons.bullet.damage += 60; g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.5; g.boundSigils.push('executioner'); }, getDesc: (g) => g.boundSigils?.includes('executioner') ? 'Active ✓' : '+60 Damage, +50% Crit, Execute Passive' },
+    { id: 'sigil_phoenix', name: 'Ascendant Sigil: Phoenix\'s Blessing', icon: '🔥', desc: '+250 HP, +6 HP5. PASSIVE: Revive once with 50% HP (180s cooldown)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; g.player.hpRegen = (g.player.hpRegen || 0) + 6; g.phoenixRevive = true; g.phoenixCooldown = 0; }, getDesc: (g) => g.phoenixRevive ? 'Active ✓' : '+250 HP, +6 HP5, Revive Passive' },
+    { id: 'sigil_tempest', name: 'Ascendant Sigil: Tempest\'s Wrath', icon: '⛈️', desc: '+40 Damage, +15 Speed. PASSIVE: Every 5th hit triggers chain lightning (3 targets)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.weapons.bullet.damage += 40; g.player.speed += 15; g.boundSigils.push('tempest_chain'); g.tempestCounter = 0; }, getDesc: (g) => g.boundSigils?.includes('tempest_chain') ? 'Active ✓' : '+40 Damage, +15 Speed, Chain Lightning' },
+    { id: 'sigil_vampire', name: 'Ascendant Sigil: Vampire\'s Embrace', icon: '🧛', desc: '+200 HP, +35 Damage. PASSIVE: Heal 3% of damage dealt (reduced in combat)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 35; g.vampireHeal = 0.03; }, getDesc: (g) => `HP +200, Damage +35, 3% Lifesteal` },
+    { id: 'sigil_doubler', name: 'Ascendant Sigil: Doubling', icon: '✖️', desc: '+100 HP, +20 Damage. PASSIVE: All item stacks count as DOUBLE', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; g.weapons.bullet.damage += 20; g.stackDoubler = true; }, getDesc: (g) => g.stackDoubler ? 'Active ✓ (Stacks 2x)' : '+100 HP, +20 Damage, Double Stacks' },
+    { id: 'sigil_momentum', name: 'Ascendant Sigil: Momentum\'s Edge', icon: '🏃', desc: '+30 Speed, +30 Damage. PASSIVE: Gain +1% damage per second moving (max 50%)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.speed += 30; g.weapons.bullet.damage += 30; g.boundSigils.push('momentum'); g.momentumBonus = 0; }, getDesc: (g) => g.boundSigils?.includes('momentum') ? `Active ✓ (+${Math.floor((g.momentumBonus || 0) * 100)}% dmg)` : '+30 Speed, +30 Damage, Momentum Passive' },
+    { id: 'sigil_ring_mastery', name: 'Ascendant Sigil: Ring of Fire Mastery', icon: '🔥', desc: '+200 HP, +40 Damage. PASSIVE: Ring of Fire radius +100, damage +80 DPS, burn enemies for 5s', rarity: 'legendary', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 40; if (!g.playerRingOfFire) { g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; } g.playerRingOfFire.radius += 100; g.playerRingOfFire.damage += 80; g.playerRingOfFire.burnDuration = 5; g.boundSigils.push('ring_mastery'); }, getDesc: (g) => g.boundSigils?.includes('ring_mastery') ? 'Active ✓' : '+200 HP, +40 Damage, Ring Upgrade' },
 ];
 
-// MYTHIC RUNES - Game-changing powers (kept from old system but renamed)
+// Legacy alias for backward compatibility
+const LEGENDARY_RUNES = ASCENDANT_SIGILS;
+
+// ============================================
+// MYTHIC RUNES - Legacy array aliased to rune-style mythics
+// Uses boundSigils for tracking
+// ============================================
 const MYTHIC_RUNES = [
     {
         id: 'mythic_inferno',
         name: 'Infernal Dominion',
         icon: '👹',
         rarity: 'mythic',
-        tier: 'mythic',
+        tier: 'MYTHIC',
+        setKey: 'cataclysm',
         desc: '+1000 HP, 100 DPS Aura, Nova every 8s (5000 dmg), +25 HP on kill',
         hasSprite: true,
         spriteKey: 'demonic_fire_mythic',
         effect: (g) => {
             g.player.maxHealth += 1000; g.player.health += 1000;
-            g.augments.push('mythic_inferno');
+            g.boundSigils.push('mythic_inferno');
             g.demonicAura = { radius: 150, damage: 100 };
             g.demonicNova = { cooldown: 8, timer: 0, damage: 5000, radius: 300 };
             g.demonicHealOnKill = 25;
         },
-        getDesc: (g) => g.augments.includes('mythic_inferno') ? '🔥 INFERNAL ACTIVE 🔥' : '+1000 HP, Aura, Nova, Heal on Kill'
+        getDesc: (g) => g.boundSigils?.includes('mythic_inferno') ? '🔥 INFERNAL ACTIVE 🔥' : '+1000 HP, Aura, Nova, Heal on Kill'
     },
     {
         id: 'mythic_void',
         name: 'Void Sovereign',
         icon: '🕳️',
         rarity: 'mythic',
-        tier: 'mythic',
+        tier: 'MYTHIC',
+        setKey: 'astral_host',
         desc: '+500 HP. Every 5s pull enemies to you for 2000 damage. +50% damage to pulled enemies.',
         effect: (g) => {
             g.player.maxHealth += 500; g.player.health += 500;
-            g.augments.push('mythic_void');
+            g.boundSigils.push('mythic_void');
             g.voidPull = { cooldown: 5, timer: 0, damage: 2000, radius: 400 };
             g.voidDamageBonus = 0.5;
         },
-        getDesc: (g) => g.augments.includes('mythic_void') ? '🕳️ VOID ACTIVE 🕳️' : '+500 HP, Void Pull, +50% to pulled'
+        getDesc: (g) => g.boundSigils?.includes('mythic_void') ? '🕳️ VOID ACTIVE 🕳️' : '+500 HP, Void Pull, +50% to pulled'
     },
     {
         id: 'mythic_thunder',
         name: 'Thunder God\'s Wrath',
         icon: '⚡',
         rarity: 'mythic',
-        tier: 'mythic',
+        tier: 'MYTHIC',
+        setKey: 'cataclysm',
         desc: '+300 HP. Attacks chain lightning to 3 enemies (500 dmg). +100% crit damage.',
         effect: (g) => {
             g.player.maxHealth += 300; g.player.health += 300;
-            g.augments.push('mythic_thunder');
+            g.boundSigils.push('mythic_thunder');
             g.thunderChain = { targets: 3, damage: 500, range: 200 };
             g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 1;
         },
-        getDesc: (g) => g.augments.includes('mythic_thunder') ? '⚡ THUNDER ACTIVE ⚡' : '+300 HP, Chain Lightning, +100% Crit'
+        getDesc: (g) => g.boundSigils?.includes('mythic_thunder') ? '⚡ THUNDER ACTIVE ⚡' : '+300 HP, Chain Lightning, +100% Crit'
     },
     {
         id: 'mythic_blood',
         name: 'Blood Lord\'s Reign',
         icon: '🩸',
         rarity: 'mythic',
-        tier: 'mythic',
+        tier: 'MYTHIC',
+        setKey: 'bloodbound_throne',
         desc: '+750 HP. Deal +3% of your max HP as bonus damage. 5% lifesteal. +2000 Blood Shield.',
         effect: (g) => {
             g.player.maxHealth += 750; g.player.health += 750;
-            g.augments.push('mythic_blood');
+            g.boundSigils.push('mythic_blood');
             g.bloodLordDamage = 0.03;
             g.vampireHeal = (g.vampireHeal || 0) + 0.05;
             g.bloodShieldEnabled = true;
             g.bloodShieldMaxBase = (g.bloodShieldMaxBase || 0) + 2000;
         },
-        getDesc: (g) => g.augments.includes('mythic_blood') ? '🩸 BLOOD LORD ACTIVE 🩸' : '+750 HP, %HP Damage, Lifesteal, Shield'
+        getDesc: (g) => g.boundSigils?.includes('mythic_blood') ? '🩸 BLOOD LORD ACTIVE 🩸' : '+750 HP, %HP Damage, Lifesteal, Shield'
     },
     {
         id: 'mythic_celestial',
         name: 'Celestial Guardian',
         icon: '✨',
         rarity: 'mythic',
-        tier: 'mythic',
+        tier: 'MYTHIC',
+        setKey: 'infinite_echoes',
         desc: '+2000 HP. Immune to damage for 0.5s after being hit (2s CD). One-time full HP revive.',
         effect: (g) => {
             g.player.maxHealth += 2000; g.player.health += 2000;
-            g.augments.push('mythic_celestial');
+            g.boundSigils.push('mythic_celestial');
             g.celestialImmunity = { duration: 0.5, cooldown: 2, timer: 0, active: false };
             g.celestialRevive = true;
         },
-        getDesc: (g) => g.augments.includes('mythic_celestial') ? '✨ CELESTIAL ACTIVE ✨' : '+2000 HP, Immunity, Revive'
+        getDesc: (g) => g.boundSigils?.includes('mythic_celestial') ? '✨ CELESTIAL ACTIVE ✨' : '+2000 HP, Immunity, Revive'
     },
     {
         id: 'mythic_omega',
         name: 'Omega Destroyer',
         icon: '💀',
         rarity: 'mythic',
-        tier: 'mythic',
+        tier: 'MYTHIC',
+        setKey: 'cataclysm',
         desc: '+500% projectile damage, -50% fire rate. Projectiles explode. +3 projectiles.',
         effect: (g) => {
             g.player.maxHealth += 500; g.player.health += 500;
-            g.augments.push('mythic_omega');
+            g.boundSigils.push('mythic_omega');
             g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 6);
             g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 2);
             g.weapons.bullet.count = (g.weapons.bullet.count || 1) + 3;
             g.omegaExplosions = true;
         },
-        getDesc: (g) => g.augments.includes('mythic_omega') ? '💀 OMEGA ACTIVE 💀' : '+500% dmg, -50% rate, explosions'
+        getDesc: (g) => g.boundSigils?.includes('mythic_omega') ? '💀 OMEGA ACTIVE 💀' : '+500% dmg, -50% rate, explosions'
     }
 ];
 
-// All runes combined for easy access
+// Legacy alias for backward compatibility (uses MYTHIC_RUNES for rune selection)
 const ALL_RUNES = {
-    common: COMMON_RUNES,
-    silver: SILVER_RUNES,
-    purple: PURPLE_RUNES,
-    legendary: LEGENDARY_RUNES,
+    common: FADED_SIGILS,
+    silver: RUNED_SIGILS,
+    purple: EMPOWERED_SIGILS,
+    legendary: ASCENDANT_SIGILS,
     mythic: MYTHIC_RUNES
 };
+// Note: ALL_SIGILS is defined after MYTHIC_SIGILS below
 
-// Legacy Diamond Augments - kept for backward compatibility but redirects to runes
-const DIAMOND_AUGMENTS = [
-    // Wolf Pack Path - SHADOW MASTER ONLY
-    { id: 'feral_frenzy', name: 'Feral Frenzy', icon: '🐺', desc: 'Wolves attack 50% faster and deal +25% damage', classReq: 'shadow_master', effect: (g) => { g.augments.push('feral_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.augments.includes('feral_frenzy') ? 'Active ✓' : 'Not Active' },
-    { id: 'pack_tactics', name: 'Pack Tactics', icon: '🌙', desc: 'You gain +5% damage for every active wolf', classReq: 'shadow_master', effect: (g) => g.augments.push('pack_tactics'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
-    { id: 'alpha_howl', name: 'Alpha Howl', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', classReq: 'shadow_master', effect: (g) => { g.augments.push('alpha_howl'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.augments.includes('alpha_howl') ? 'Active ✓' : 'Not Active' },
-    // Fire Mage Path - FIRE MAGE ONLY
-    { id: 'pyroclasm', name: 'Pyroclasm', icon: '💥', desc: 'Fireballs explode on impact dealing 50% damage in small area', classReq: 'fire_mage', effect: (g) => { g.augments.push('pyroclasm'); g.fireballExplosion = true; g.fireballExplosionRadius = 60; g.fireballExplosionDamage = 0.5; }, getDesc: (g) => g.augments.includes('pyroclasm') ? 'Active ✓' : 'Not Active' },
-    { id: 'inferno_mastery', name: 'Inferno Mastery', icon: '🔥', desc: '+30% fire damage, burn duration +2s', classReq: 'fire_mage', effect: (g) => { g.augments.push('inferno_mastery'); g.fireDamageBonus = (g.fireDamageBonus || 1) * 1.3; if (g.auraFire) g.auraFire.burnDuration += 2; }, getDesc: (g) => g.augments.includes('inferno_mastery') ? 'Active ✓' : 'Not Active' },
-    { id: 'flame_cascade', name: 'Flame Cascade', icon: '🌋', desc: 'Every 3rd fireball splits into 3 on impact', classReq: 'fire_mage', effect: (g) => { g.augments.push('flame_cascade'); g.flameCascadeCounter = 0; }, getDesc: (g) => g.augments.includes('flame_cascade') ? 'Active ✓' : 'Not Active' },
-    { id: 'molten_core', name: 'Molten Core', icon: '🌡️', desc: 'Burn damage stacks up to 5 times on same enemy', classReq: 'fire_mage', effect: (g) => { g.augments.push('molten_core'); g.burnStackLimit = 5; }, getDesc: (g) => g.augments.includes('molten_core') ? 'Active ✓' : 'Not Active' },
-    { id: 'ring_of_fire_1', name: 'Ring of Fire I', icon: '⭕', desc: 'Gain a rotating fire ring that damages enemies (50 DPS, 100px radius)', classReq: 'fire_mage', effect: (g) => { g.augments.push('ring_of_fire_1'); g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Not Active' },
-    { id: 'ring_of_fire_2', name: 'Ring of Fire II', icon: '⭕', desc: 'Upgrade Ring of Fire: +30 DPS, +50px radius, +0.5 rotation speed', classReq: 'fire_mage', req: 'ring_of_fire_1', effect: (g) => { g.augments.push('ring_of_fire_2'); if (g.playerRingOfFire) { g.playerRingOfFire.damage += 30; g.playerRingOfFire.radius += 50; g.playerRingOfFire.rotationSpeed += 0.5; } }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Requires Ring of Fire I' },
-    // Soldier Path
-    { id: 'tactical_nuke', name: 'Tactical Nuke', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', effect: (g) => g.augments.push('tactical_nuke'), getDesc: (g) => g.augments.includes('tactical_nuke') ? 'Active ✓' : 'Not Active' },
-    { id: 'overclock', name: 'Overclock', icon: '⚙️', desc: 'Fire rate +10%', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
-    { id: 'bullet_storm', name: 'Bullet Storm', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', effect: (g) => g.augments.push('bullet_storm'), getDesc: (g) => g.augments.includes('bullet_storm') ? 'Active ✓' : 'Not Active' },
-    { id: 'titan_killer', name: 'Titan Killer', icon: '🎯', desc: 'Deal +15% damage to Bosses and Tanks (+5% per stack)', effect: (g) => { if (!g.augments.includes('titan_killer')) g.augments.push('titan_killer'); g.titanKillerBonus = (g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15); }, getDesc: (g) => `Boss/Tank Dmg: +${Math.round((g.titanKillerBonus || 0) * 100)}% → +${Math.round(((g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15)) * 100)}%` },
-    // Mage Path
-    { id: 'wind_push', name: 'Gale Force', icon: '💨', desc: 'Every 7 seconds, unleash a wind slash that pushes all enemies back (bigger enemies resist more)', effect: (g) => { g.augments.push('wind_push'); g.windPushTimer = 0; g.windPushCooldown = 7; }, getDesc: (g) => g.augments.includes('wind_push') ? 'Active ✓' : 'Not Active' },
-    { id: 'time_stop', name: 'Chrono Field', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', effect: (g) => g.augments.push('time_stop'), getDesc: (g) => g.augments.includes('time_stop') ? 'Active ✓' : 'Not Active' },
-    { id: 'skull_frenzy', name: 'Skull Frenzy', icon: '💀', desc: 'Skulls spin 2x faster and deal +50% damage', effect: (g) => { g.augments.push('skull_frenzy'); g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => g.augments.includes('skull_frenzy') ? 'Active ✓' : 'Not Active' },
-    { id: 'skull_army', name: 'Skull Army', icon: '☠️', desc: '+3 elemental skulls (max 6), overflow = +150 damage each', effect: (g) => { for(let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 150); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}` : `Skull Damage: +450`; } },
-    // Wolf Pack Path augments moved to top with classReq: 'shadow_master'
-    // Hybrid Paths
-    { id: 'tech_wizard', name: 'Soul Harvest', icon: '🔮', desc: 'Projectiles spawn Skulls on kill (10% chance, max 6)', effect: (g) => g.augments.push('tech_wizard'), getDesc: (g) => g.augments.includes('tech_wizard') ? 'Active ✓' : 'Not Active' },
-    // Demon Set Augments
-    { id: 'imp_horde', name: 'Imp Horde', icon: '👿', desc: 'Max Imps +5', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
-    { id: 'hellfire_fury', name: 'Hellfire Fury', icon: '🔥', desc: 'Imp Damage +100%', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
-    { id: 'eternal_flame', name: 'Eternal Flame', icon: '🕯️', desc: 'Imp Burn Duration +5s', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
-    // Aura augment - SCALED 5x (halved from 10x)
-    { id: 'aura_fire', name: 'Aura Fire Circle', icon: '🔥', desc: 'Thin burning ring - enemies take 40 burn damage/s.', effect: (g) => { g.augments.push('aura_fire'); g.auraFire = { radius: 120, damage: 40, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
+// Diamond Sigils - Ascendant tier universal and class-specific sigils
+const DIAMOND_SIGILS = [
+    // Wolf Pack Path - SHADOW MASTER ONLY - RENAMED
+    { id: 'wolfsblood_frenzy', name: 'Wolfsblood Frenzy Sigil', icon: '🐺', desc: 'Wolves attack 50% faster and deal +25% damage', tier: 'ASCENDANT', classReq: 'shadow_master', effect: (g) => { g.boundSigils.push('wolfsblood_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.boundSigils?.includes('wolfsblood_frenzy') ? 'Active ✓' : 'Not Active' },
+    { id: 'lunar_pack', name: 'Lunar Pack Sigil', icon: '🌙', desc: 'You gain +5% damage for every active wolf', tier: 'ASCENDANT', classReq: 'shadow_master', effect: (g) => g.boundSigils.push('lunar_pack'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
+    { id: 'howl_first_beast', name: 'Howl of the First Beast', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', tier: 'ASCENDANT', classReq: 'shadow_master', effect: (g) => { g.boundSigils.push('howl_first_beast'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.boundSigils?.includes('howl_first_beast') ? 'Active ✓' : 'Not Active' },
+    // Fire Mage Path - FIRE MAGE ONLY - RENAMED
+    { id: 'ashburst_impact', name: 'Ashburst Impact Sigil', icon: '💥', desc: 'Fireballs explode on impact dealing 50% damage in small area', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('ashburst_impact'); g.fireballExplosion = true; g.fireballExplosionRadius = 60; g.fireballExplosionDamage = 0.5; }, getDesc: (g) => g.boundSigils?.includes('ashburst_impact') ? 'Active ✓' : 'Not Active' },
+    { id: 'sovereign_flame', name: 'Sovereign Flame Sigil', icon: '🔥', desc: '+30% fire damage, burn duration +2s', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('sovereign_flame'); g.fireDamageBonus = (g.fireDamageBonus || 1) * 1.3; if (g.auraFire) g.auraFire.burnDuration += 2; }, getDesc: (g) => g.boundSigils?.includes('sovereign_flame') ? 'Active ✓' : 'Not Active' },
+    { id: 'cascade_cinders', name: 'Cascade of Cinders Sigil', icon: '🌋', desc: 'Every 3rd fireball splits into 3 on impact', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('cascade_cinders'); g.flameCascadeCounter = 0; }, getDesc: (g) => g.boundSigils?.includes('cascade_cinders') ? 'Active ✓' : 'Not Active' },
+    { id: 'molten_heart', name: 'Molten Heart Sigil', icon: '🌡️', desc: 'Burn damage stacks up to 5 times on same enemy', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('molten_heart'); g.burnStackLimit = 5; }, getDesc: (g) => g.boundSigils?.includes('molten_heart') ? 'Active ✓' : 'Not Active' },
+    { id: 'ring_ember_oath', name: 'Ring of the Ember Oath I', icon: '⭕', desc: 'Gain a rotating fire ring that damages enemies (50 DPS, 100px radius)', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('ring_ember_oath'); g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Not Active' },
+    { id: 'ring_ember_oath_2', name: 'Ring of the Ember Oath II', icon: '⭕', desc: 'Upgrade Ring of Fire: +30 DPS, +50px radius, +0.5 rotation speed', tier: 'ASCENDANT', classReq: 'fire_mage', req: 'ring_ember_oath', effect: (g) => { g.boundSigils.push('ring_ember_oath_2'); if (g.playerRingOfFire) { g.playerRingOfFire.damage += 30; g.playerRingOfFire.radius += 50; g.playerRingOfFire.rotationSpeed += 0.5; } }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Requires Ring of Ember Oath I' },
+    // Universal Path - RENAMED
+    { id: 'ruinfall', name: 'Ruinfall Sigil', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('ruinfall'), getDesc: (g) => g.boundSigils?.includes('ruinfall') ? 'Active ✓' : 'Not Active' },
+    { id: 'overclocked_fate', name: 'Overclocked Fate Sigil', icon: '⚙️', desc: 'Fire rate +10%', tier: 'ASCENDANT', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
+    { id: 'shatterhail', name: 'Shatterhail Sigil', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('shatterhail'), getDesc: (g) => g.boundSigils?.includes('shatterhail') ? 'Active ✓' : 'Not Active' },
+    { id: 'colossus_bane', name: 'Colossus Bane Sigil', icon: '🎯', desc: 'Deal +15% damage to Bosses and Tanks (+5% per stack)', tier: 'ASCENDANT', effect: (g) => { if (!g.boundSigils?.includes('colossus_bane')) g.boundSigils.push('colossus_bane'); g.titanKillerBonus = (g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15); }, getDesc: (g) => `Boss/Tank Dmg: +${Math.round((g.titanKillerBonus || 0) * 100)}% → +${Math.round(((g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15)) * 100)}%` },
+    // Mage Path - RENAMED
+    { id: 'tempest_reversal', name: 'Tempest Reversal Sigil', icon: '💨', desc: 'Every 7 seconds, unleash a wind slash that pushes all enemies back', tier: 'ASCENDANT', effect: (g) => { g.boundSigils.push('tempest_reversal'); g.windPushTimer = 0; g.windPushCooldown = 7; }, getDesc: (g) => g.boundSigils?.includes('tempest_reversal') ? 'Active ✓' : 'Not Active' },
+    { id: 'chronolock', name: 'Chronolock Sigil', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('chronolock'), getDesc: (g) => g.boundSigils?.includes('chronolock') ? 'Active ✓' : 'Not Active' },
+    { id: 'skullwhirl', name: 'Skullwhirl Sigil', icon: '💀', desc: 'Skulls spin 2x faster and deal +50% damage', tier: 'ASCENDANT', effect: (g) => { g.boundSigils.push('skullwhirl'); g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => g.boundSigils?.includes('skullwhirl') ? 'Active ✓' : 'Not Active' },
+    { id: 'ossuary_legion', name: 'Ossuary Legion Sigil', icon: '☠️', desc: '+3 elemental skulls (max 6), overflow = +150 damage each', tier: 'ASCENDANT', effect: (g) => { for(let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 150); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}` : `Skull Damage: +450`; } },
+    // Hybrid Paths - RENAMED
+    { id: 'reapers_seed', name: "Reaper's Seed Sigil", icon: '🔮', desc: 'Projectiles spawn Skulls on kill (10% chance, max 6)', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('reapers_seed'), getDesc: (g) => g.boundSigils?.includes('reapers_seed') ? 'Active ✓' : 'Not Active' },
+    // Demon Set Sigils - RENAMED
+    { id: 'legion_imps', name: 'Legion of Imps Sigil', icon: '👿', desc: 'Max Imps +5', tier: 'ASCENDANT', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
+    { id: 'hellbound_fury', name: 'Hellbound Fury Sigil', icon: '🔥', desc: 'Imp Damage +100%', tier: 'ASCENDANT', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
+    { id: 'unending_pyre', name: 'Unending Pyre Sigil', icon: '🕯️', desc: 'Imp Burn Duration +5s', tier: 'ASCENDANT', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
+    // Aura sigil - RENAMED
+    { id: 'cinder_halo', name: 'Cinder Halo Sigil', icon: '🔥', desc: 'Thin burning ring - enemies take 40 burn damage/s.', tier: 'ASCENDANT', effect: (g) => { g.boundSigils.push('cinder_halo'); g.auraFire = { radius: 120, damage: 40, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
 ];
 
+// Legacy alias for backward compatibility
+const DIAMOND_AUGMENTS = DIAMOND_SIGILS;
+
 // ============================================
-// MYTHIC AUGMENTS - Ultra rare, game-changing powers (~5% chance to appear)
-// These are the "high roll" augments that make runs feel special
+// MYTHIC SIGILS - Ultra rare, game-changing powers (~5% chance to appear)
+// These are Tier 5 Sigils that make runs feel special
+// Mythic Sigils count as 2 pieces for Dominion Set bonuses
 // ============================================
-const MYTHIC_AUGMENTS = [
+const MYTHIC_SIGILS = [
     {
-        id: 'demonic_inferno',
-        name: 'Demonic Inferno',
+        id: 'mythic_hell_crowned',
+        name: 'Mythic Sigil: Hell-Crowned Dominion',
         icon: '👹',
+        tier: 'MYTHIC',
         rarity: 'mythic',
+        setKey: 'cataclysm', // Counts as 2 pieces for Cataclysm set
         hasSprite: true,
         spriteKey: 'demonic_fire_mythic',
         desc: 'Unleash hellfire. +1000 max HP. Gain Inferno Aura (100 DPS). Every 8s, summon a Hellfire Nova dealing 5000 damage. Kills heal 25 HP.',
         effect: (g) => {
-            g.augments.push('demonic_inferno');
-            // Massive HP boost
+            g.boundSigils.push('mythic_hell_crowned');
             g.player.maxHealth += 1000;
             g.player.health += 1000;
-            // Powerful inferno aura (100 DPS)
             g.demonicInferno = true;
             g.demonicInfernoRadius = 150;
             g.demonicInfernoDPS = 100;
-            // Hellfire Nova every 8 seconds
             g.hellfireNovaTimer = 0;
             g.hellfireNovaCooldown = 8;
             g.hellfireNovaDamage = 5000;
             g.hellfireNovaRadius = 300;
-            // Heal on kill
             g.demonicHealOnKill = 25;
         },
-        getDesc: (g) => g.augments.includes('demonic_inferno') ? '🔥 HELLFIRE ACTIVE 🔥' : '+1000 HP, 100 DPS Aura, 5000 Nova/8s'
+        getDesc: (g) => g.boundSigils?.includes('mythic_hell_crowned') ? '🔥 HELLFIRE ACTIVE 🔥' : '+1000 HP, 100 DPS Aura, 5000 Nova/8s'
     },
     {
-        id: 'void_sovereign',
-        name: 'Void Sovereign',
+        id: 'mythic_void_seal',
+        name: 'Mythic Sigil: Void Seal',
         icon: '🕳️',
+        tier: 'MYTHIC',
         rarity: 'mythic',
+        setKey: 'astral_host', // Counts as 2 pieces for Astral Host set
         desc: 'Become one with the void. +500 HP. Every 5s, pull all enemies toward you and deal 2000 damage. +50% damage to pulled enemies for 3s.',
         effect: (g) => {
-            g.augments.push('void_sovereign');
+            g.boundSigils.push('mythic_void_seal');
             g.player.maxHealth += 500;
             g.player.health += 500;
             g.voidSovereign = true;
@@ -758,91 +1063,100 @@ const MYTHIC_AUGMENTS = [
             g.voidPullRadius = 400;
             g.voidVulnerableDuration = 3;
         },
-        getDesc: (g) => g.augments.includes('void_sovereign') ? '🌀 VOID ACTIVE 🌀' : '+500 HP, 2000 dmg pull/5s'
+        getDesc: (g) => g.boundSigils?.includes('mythic_void_seal') ? '🌀 VOID ACTIVE 🌀' : '+500 HP, 2000 dmg pull/5s'
     },
     {
-        id: 'thunder_god',
-        name: 'Thunder God',
+        id: 'mythic_storm_titan',
+        name: 'Mythic Sigil: Storm Titan',
         icon: '⚡',
+        tier: 'MYTHIC',
         rarity: 'mythic',
+        setKey: 'cataclysm', // Counts as 2 pieces for Cataclysm set
         desc: 'Channel divine lightning. +300 HP. Every projectile chains lightning to 3 nearby enemies for 500 damage. +100% crit damage.',
         effect: (g) => {
-            g.augments.push('thunder_god');
+            g.boundSigils.push('mythic_storm_titan');
             g.player.maxHealth += 300;
             g.player.health += 300;
             g.thunderGod = true;
             g.lightningChainCount = 3;
             g.lightningChainDamage = 500;
-            g.critDamageBonus = (g.critDamageBonus || 1) + 1; // +100% crit damage
+            g.critDamageBonus = (g.critDamageBonus || 1) + 1;
         },
-        getDesc: (g) => g.augments.includes('thunder_god') ? '⚡ THUNDER ACTIVE ⚡' : '+300 HP, chain lightning, +100% crit'
+        getDesc: (g) => g.boundSigils?.includes('mythic_storm_titan') ? '⚡ THUNDER ACTIVE ⚡' : '+300 HP, chain lightning, +100% crit'
     },
     {
-        id: 'blood_lord',
-        name: 'Blood Lord',
+        id: 'mythic_bloodbound',
+        name: 'Mythic Sigil: Bloodbound Sovereign',
         icon: '🩸',
+        tier: 'MYTHIC',
         rarity: 'mythic',
+        setKey: 'bloodbound_throne', // Counts as 2 pieces for Bloodbound Throne set
         desc: 'Master of blood magic. +750 HP. Deal 3% of your max HP as bonus damage. Heal 5% of all damage dealt. Blood Shield max +2000.',
         effect: (g) => {
-            g.augments.push('blood_lord');
+            g.boundSigils.push('mythic_bloodbound');
             g.player.maxHealth += 750;
             g.player.health += 750;
             g.bloodLord = true;
-            g.bloodLordBonusDamage = 0.03; // 3% max HP as bonus damage
-            g.bloodLordLifesteal = 0.05; // 5% of damage dealt heals
+            g.bloodLordBonusDamage = 0.03;
+            g.bloodLordLifesteal = 0.05;
             g.bloodShieldMaxBase = (g.bloodShieldMaxBase || 0) + 2000;
         },
-        getDesc: (g) => g.augments.includes('blood_lord') ? '🩸 BLOOD LORD ACTIVE 🩸' : '+750 HP, 3% HP dmg, 5% lifesteal'
+        getDesc: (g) => g.boundSigils?.includes('mythic_bloodbound') ? '🩸 BLOOD LORD ACTIVE 🩸' : '+750 HP, 3% HP dmg, 5% lifesteal'
     },
     {
-        id: 'celestial_guardian',
-        name: 'Celestial Guardian',
+        id: 'mythic_seraphic',
+        name: 'Mythic Sigil: Seraphic Aegis',
         icon: '✨',
+        tier: 'MYTHIC',
         rarity: 'mythic',
+        setKey: 'infinite_echoes', // Counts as 2 pieces for Infinite Echoes set
         desc: 'Divine protection. +2000 max HP. Immune to damage for 0.5s after taking a hit (5s cooldown). Revive with 100% HP once.',
         effect: (g) => {
-            g.augments.push('celestial_guardian');
+            g.boundSigils.push('mythic_seraphic');
             g.player.maxHealth += 2000;
             g.player.health += 2000;
             g.celestialGuardian = true;
             g.celestialImmuneCooldown = 0;
             g.celestialImmuneActive = false;
-            g.celestialRevive = true; // One-time revive with full HP
+            g.celestialRevive = true;
         },
-        getDesc: (g) => g.augments.includes('celestial_guardian') ? '✨ DIVINE PROTECTION ✨' : '+2000 HP, damage immunity, full revive'
+        getDesc: (g) => g.boundSigils?.includes('mythic_seraphic') ? '✨ DIVINE PROTECTION ✨' : '+2000 HP, damage immunity, full revive'
     },
     {
-        id: 'omega_destroyer',
-        name: 'Omega Destroyer',
+        id: 'mythic_omega',
+        name: 'Mythic Sigil: Omega Annihilator',
         icon: '💀',
+        tier: 'MYTHIC',
         rarity: 'mythic',
+        setKey: 'cataclysm', // Counts as 2 pieces for Cataclysm set
         desc: 'Pure destruction. +500% projectile damage. -50% fire rate. Projectiles explode for 1500 damage in 100px radius. +3 projectiles.',
         effect: (g) => {
-            g.augments.push('omega_destroyer');
-            g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 6); // +500%
-            g.weapons.bullet.fireRate *= 2; // -50% fire rate (slower)
+            g.boundSigils.push('mythic_omega');
+            g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 6);
+            g.weapons.bullet.fireRate *= 2;
             g.omegaDestroyer = true;
             g.omegaExplosionDamage = 1500;
             g.omegaExplosionRadius = 100;
             g.weapons.bullet.count += 3;
         },
-        getDesc: (g) => g.augments.includes('omega_destroyer') ? '💀 OMEGA ACTIVE 💀' : '+500% dmg, -50% rate, explosions'
+        getDesc: (g) => g.boundSigils?.includes('mythic_omega') ? '💀 OMEGA ACTIVE 💀' : '+500% dmg, -50% rate, explosions'
     },
     {
-        id: 'devil_ring_of_fire',
-        name: 'Devil Ring of Fire',
+        id: 'mythic_devil_halo',
+        name: 'Mythic Sigil: Devil Halo',
         icon: '😈',
+        tier: 'MYTHIC',
         rarity: 'mythic',
         classReq: 'fire_mage',
+        setKey: 'cataclysm', // Counts as 2 pieces for Cataclysm set
         hasSprite: true,
         spriteKey: 'devil_ring_of_fire',
         desc: 'DEMONIC INFERNO. +500 HP, +100 Damage. Triple fire ring (3 rotating rings). 200 DPS each, 200px radius. Burns enemies for 10s. Every 10s, all rings explode for 3000 damage.',
         effect: (g) => {
-            g.augments.push('devil_ring_of_fire');
+            g.boundSigils.push('mythic_devil_halo');
             g.player.maxHealth += 500;
             g.player.health += 500;
             g.weapons.bullet.damage += 100;
-            // Triple Devil Ring of Fire
             g.devilRingOfFire = {
                 rings: 3,
                 radius: 200,
@@ -855,12 +1169,25 @@ const MYTHIC_AUGMENTS = [
                 explosionDamage: 3000,
                 explosionRadius: 350
             };
-            // Disable regular ring of fire if active
             g.playerRingOfFire = null;
         },
-        getDesc: (g) => g.augments.includes('devil_ring_of_fire') ? '😈 DEVIL RING ACTIVE 😈' : '+500 HP, +100 Damage, 3 Fire Rings'
+        getDesc: (g) => g.boundSigils?.includes('mythic_devil_halo') ? '😈 DEVIL RING ACTIVE 😈' : '+500 HP, +100 Damage, 3 Fire Rings'
     }
 ];
+
+// Legacy alias for backward compatibility
+const MYTHIC_AUGMENTS = MYTHIC_SIGILS;
+
+// ============================================
+// ALL SIGILS - Combined sigils for easy access by tier
+// ============================================
+const ALL_SIGILS = {
+    faded: FADED_SIGILS,
+    runed: RUNED_SIGILS,
+    empowered: EMPOWERED_SIGILS,
+    ascendant: ASCENDANT_SIGILS,
+    mythic: MYTHIC_SIGILS
+};
 
 // STACKING ITEMS SYSTEM - Items drop once and stack with kills/damage
 const STACKING_ITEMS = {
@@ -1122,10 +1449,10 @@ const BUILD_SETS = {
 const GAME_SETTINGS = {
     enemyHealthMult: 0.35,       // Lower base health for easier early game (waves 1-14)
     enemyDamageMult: 1.0,
-    enemySpeedMult: 1.3,         // FASTER enemies for more exciting gameplay
-    spawnRateMult: 0.5,          // MUCH FASTER spawns (lower = more frequent) - was 0.7
-    scalingPerWave: 0.12,        // INCREASED from 0.08 - 12% per wave for bigger numbers later
-    scalingPerWaveLate: 0.90,    // INCREASED from 0.60 - 90% per wave after wave 10
+    enemySpeedMult: 1.2,         // REBALANCED: 1.3 -> 1.2
+    spawnRateMult: 0.6,          // REBALANCED: 0.5 -> 0.6 (slightly slower spawns)
+    scalingPerWave: 0.09,        // REBALANCED: 0.12 -> 0.09 (9% per wave for waves 1-9)
+    scalingPerWaveLate: 0.70,    // REBALANCED: 0.90 -> 0.70 (70% per wave after wave 10)
     lateGameWave: 10,            // When late game scaling kicks in
     playerHealthMult: 1.0,
     xpMult: 1.2,                 // More XP for faster leveling
@@ -1863,9 +2190,10 @@ class DotsSurvivor {
             // Skulls
             skullsCount: this.skulls.length,
 
-            // Perks and augments
+            // Perks and sigils (boundSigils is primary, augments for backward compatibility)
             perks: this.perks,
-            augments: this.augments,
+            boundSigils: this.boundSigils,
+            augments: this.boundSigils, // Legacy: kept for backward compatibility
 
             // Class
             selectedClassName: this.selectedClass?.name,
@@ -1924,9 +2252,15 @@ class DotsSurvivor {
             this.skulls.push(this.createSkull());
         }
 
-        // Perks and augments
+        // Perks and sigils (with backward compatibility)
         this.perks = state.perks || [];
-        this.augments = state.augments || [];
+
+        // Migrate old augments to new boundSigils system
+        const oldAugments = state.augments || [];
+        const migratedSigils = oldAugments.map(id => migrateSigilId(id));
+        this.boundSigils = state.boundSigils ? state.boundSigils.map(id => migrateSigilId(id)) : migratedSigils;
+        this.augments = this.boundSigils; // Legacy alias
+
         this.perks.forEach(p => this.applyPerk(p));
 
         // Wolf pack
@@ -1942,6 +2276,9 @@ class DotsSurvivor {
         this.demonSet = state.demonSet || { helm: false, chest: false, boots: false };
         this.demonSetBonusActive = state.demonSetBonusActive || false;
         if (state.impStats) this.impStats = state.impStats;
+
+        // Recalculate Dominion Set bonuses based on loaded sigils
+        recalculateDominionSets(this);
 
         return true;
     }
@@ -2404,9 +2741,31 @@ class DotsSurvivor {
         // Regen timer
         this.regenTimer = 0;
 
-        // Diamond Augments & Wolf Pack Stats
-        this.augments = [];
-        this.titanKillerBonus = 0; // Titan Killer augment bonus damage to bosses/tanks
+        // Sigils System (replaces Augments terminology)
+        this.boundSigils = [];  // New: Bound Sigils array
+        this.augments = this.boundSigils; // Legacy alias: points to same array
+        this.titanKillerBonus = 0; // Colossus Bane sigil bonus damage to bosses/tanks
+
+        // Dominion Sets tracking
+        this.dominionSetPieces = {};  // { setId: pieceCount }
+        this.dominionSetTiers = {};   // { setId: currentTier }
+        this.dominionStackGain = 1;   // Infinite Echoes bonus
+        this.stackOverflowEnabled = false;
+        this.stackOverflowEfficiency = 0;
+        this.dominionExplosionRadius = 1;  // Cataclysm bonus
+        this.dominionExplosionDamage = 1;
+        this.dominionExplosionChain = false;
+        this.dominionMiniNova = false;
+        this.dominionMiniNovaTimer = 0;
+        this.dominionSummonBonus = 0;  // Astral Host bonus
+        this.dominionSummonDamage = 1;
+        this.dominionSummonOnHit = false;
+        this.dominionSummonExplode = false;
+        this.dominionLifesteal = 0;  // Bloodbound Throne bonus
+        this.dominionHPDamage = 0;
+        this.dominionBloodShield = false;
+        this.dominionBloodDetonate = false;
+        this.dominionBloodDetonateTimer = 0;
         this.maxWolves = 0;
         this.wolfSizeBonus = 1;
         this.wolfDamageBonus = 1;
@@ -2452,7 +2811,7 @@ class DotsSurvivor {
         // ========== FIRE MAGE ========== SCALED 5x (halved from 10x)
         if (this.selectedClass.bonuses.hasAuraFire) {
             this.auraFire = { radius: 120, damage: 40, burnDuration: 3 };  // 40 dps = 120 dmg over 3s (swarm has 100 HP)
-            this.augments.push('aura_fire');
+            this.boundSigils.push('aura_fire');
         }
         if (this.selectedClass.bonuses.hasFireballs) {
             // Fire Mage uses fireballs (default projectile system)
@@ -4840,7 +5199,7 @@ class DotsSurvivor {
             ice: { radius: 32, speed: 55, health: 1000, damage: 50, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
             poison: { radius: 14, speed: 90, health: 400, damage: 30, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
             // Wave 5+ enemy types
-            goblin: { radius: 14, speed: 95, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
+            goblin: { radius: 22, speed: 115, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
             necromancer: { radius: 18, speed: 40, health: 600, damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
             necro_sprite: { radius: 8, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
             miniconsumer: { radius: 20, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true }
@@ -7025,18 +7384,22 @@ class DotsSurvivor {
 
     showLevelUpMenu() {
         // ============================================
-        // RUNE SYSTEM - Player scales through Runes
-        // Tiers: Common (50%), Silver (30%), Purple (15%), Legendary (4%), Mythic (1%)
+        // SIGIL SYSTEM - Player scales through Sigils
+        // Tiers: Faded (50%), Runed (30%), Empowered (15%), Ascendant (4%), Mythic (1%)
+        // First 3 offerings guarantee at least one Faded Sigil
         // ============================================
         this.playSound('levelup');
         this.playLevelupSound();
         this.gamePaused = true;
 
+        // Track sigil offerings for early game guarantee
+        this.sigilOfferingCount = (this.sigilOfferingCount || 0) + 1;
+
         // Build the upgrade menu
         const container = document.getElementById('upgrade-choices');
         if (!container) {
-            // Fallback - auto-select a common rune
-            const randomRune = COMMON_RUNES[Math.floor(Math.random() * COMMON_RUNES.length)];
+            // Fallback - auto-select a faded sigil
+            const randomRune = FADED_SIGILS[Math.floor(Math.random() * FADED_SIGILS.length)];
             randomRune.effect(this);
             this.gamePaused = false;
             return;
@@ -7044,23 +7407,34 @@ class DotsSurvivor {
 
         container.innerHTML = '';
 
-        // Rune tier selection with weighted probabilities
-        // Common: 50%, Silver: 30%, Purple: 15%, Legendary: 4%, Mythic: 1%
+        // Sigil tier selection with weighted probabilities
+        // Faded: 50%, Runed: 30%, Empowered: 15%, Ascendant: 4%, Mythic: 1%
         const selectRuneTier = () => {
             const roll = Math.random() * 100;
             if (roll < 1) return 'mythic';        // 1% chance
-            if (roll < 5) return 'legendary';     // 4% chance
-            if (roll < 20) return 'purple';       // 15% chance
-            if (roll < 50) return 'silver';       // 30% chance
-            return 'common';                       // 50% chance
+            if (roll < 5) return 'legendary';     // 4% chance (Ascendant)
+            if (roll < 20) return 'purple';       // 15% chance (Empowered)
+            if (roll < 50) return 'silver';       // 30% chance (Runed)
+            return 'common';                       // 50% chance (Faded)
         };
 
-        // Pick 3 random runes (each with independent tier roll)
+        // Pick 3 random sigils (each with independent tier roll)
         const choices = [];
         const usedIds = new Set();
 
+        // First 3 offerings: guarantee at least one Faded (Tier 1) sigil
+        const guaranteeFaded = this.sigilOfferingCount <= 3;
+        let hasFaded = false;
+
         for (let i = 0; i < 3; i++) {
-            const tier = selectRuneTier();
+            let tier = selectRuneTier();
+
+            // On third slot of first 3 offerings, force Faded if none selected yet
+            if (guaranteeFaded && i === 2 && !hasFaded) {
+                tier = 'common';
+            }
+
+            if (tier === 'common') hasFaded = true;
             let runePool;
             switch (tier) {
                 case 'mythic': runePool = MYTHIC_RUNES.filter(r => !this.augments.includes(r.id) && !usedIds.has(r.id)); break;
@@ -7083,15 +7457,16 @@ class DotsSurvivor {
             choices.push(rune);
         }
 
-        // Rune tier colors and styling
+        // Sigil tier colors and styling with tier images
         const tierStyles = {
-            common: { border: '#cd7f32', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'COMMON', labelBg: '#cd7f32', glow: 'rgba(205,127,50,0.3)' },
-            bronze: { border: '#cd7f32', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'COMMON', labelBg: '#cd7f32', glow: 'rgba(205,127,50,0.3)' },
-            silver: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'SILVER', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)' },
-            purple: { border: '#9966ff', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EPIC', labelBg: '#9966ff', glow: 'rgba(153,102,255,0.4)' },
-            epic: { border: '#9966ff', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EPIC', labelBg: '#9966ff', glow: 'rgba(153,102,255,0.4)' },
-            legendary: { border: '#fbbf24', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'LEGENDARY', labelBg: 'linear-gradient(90deg,#fbbf24,#f59e0b)', glow: 'rgba(251,191,36,0.5)' },
-            mythic: { border: '#ff6600', bg: 'linear-gradient(135deg, #1a0a00, #2a1000)', label: '🔥 MYTHIC 🔥', labelBg: 'linear-gradient(90deg,#ff6600,#ff0000,#ff6600)', glow: 'rgba(255,102,0,0.6)' }
+            common: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
+            bronze: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
+            silver: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'RUNED', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)', tierKey: 'RUNED' },
+            rare: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'RUNED', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)', tierKey: 'RUNED' },
+            purple: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
+            epic: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
+            legendary: { border: '#ffd700', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'ASCENDANT', labelBg: 'linear-gradient(90deg,#ffd700,#f59e0b)', glow: 'rgba(255,215,0,0.5)', tierKey: 'ASCENDANT' },
+            mythic: { border: '#ff6600', bg: 'linear-gradient(135deg, #1a0a00, #2a1000)', label: '🔥 MYTHIC 🔥', labelBg: 'linear-gradient(90deg,#ff6600,#ff0000,#ff6600)', glow: 'rgba(255,102,0,0.6)', tierKey: 'MYTHIC' }
         };
 
         choices.forEach(rune => {
@@ -7100,24 +7475,54 @@ class DotsSurvivor {
             const isMythic = tier === 'mythic';
             const isLegendary = tier === 'legendary';
 
+            // Get tier image from SIGIL_TIERS
+            const sigilTierData = SIGIL_TIERS[style.tierKey];
+            const tierImageUrl = sigilTierData && sigilTierData.image ? getSpritePath(sigilTierData.image) : null;
+
+            // Check if sigil belongs to a Dominion Set
+            const setData = rune.setKey ? DOMINION_SETS[rune.setKey] : null;
+            const setImageUrl = setData && setData.image ? getSpritePath(setData.image) : null;
+
             const card = document.createElement('div');
             card.className = `upgrade-card ${tier}`;
             card.style.borderColor = style.border;
             card.style.boxShadow = `0 0 20px ${style.glow}`;
             card.style.background = style.bg;
+            card.style.position = 'relative'; // For set badge positioning
             if (isMythic) card.style.animation = 'mythicPulse 2s ease-in-out infinite';
             if (isLegendary) card.style.animation = 'legendaryShine 3s ease-in-out infinite';
 
+            // Build set badge HTML if this sigil belongs to a set
+            const setBadgeHtml = setData ? `
+                <div class="sigil-set-badge" style="position:absolute;top:5px;right:5px;display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:8px;background:${setData.color}33;border:1px solid ${setData.color};">
+                    ${setImageUrl ? `<img src="${setImageUrl}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;" crossorigin="anonymous">` : ''}
+                    <span style="font-size:10px;color:${setData.color};font-weight:bold;">${setData.icon}</span>
+                </div>
+            ` : '';
+
+            // Build tier image HTML - shows the sigil tier artwork
+            const tierImageHtml = tierImageUrl ? `
+                <div class="sigil-tier-image" style="width:60px;height:60px;margin:0 auto 8px;border-radius:8px;overflow:hidden;border:2px solid ${style.border};box-shadow:0 0 10px ${style.glow};">
+                    <img src="${tierImageUrl}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous">
+                </div>
+            ` : `<div class="upgrade-icon" style="font-size:2.5rem;">${rune.icon}</div>`;
+
             card.innerHTML = `
-                <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
-                <div class="upgrade-icon" style="font-size:2.5rem;">${rune.icon}</div>
+                ${setBadgeHtml}
+                <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' || tier === 'rare' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
+                ${tierImageHtml}
                 <div class="upgrade-name" style="color:${style.border};font-weight:bold;">${rune.name}</div>
                 <div class="upgrade-desc" style="color:#ddd;font-size:0.85em;">${rune.desc}</div>
+                ${setData ? `<div class="sigil-set-info" style="color:${setData.color};font-size:0.75em;margin-top:4px;font-style:italic;">${setData.icon} ${setData.name}</div>` : ''}
                 <div class="upgrade-stats" style="color:#aaa;font-size:0.8em;">${rune.getDesc ? rune.getDesc(this) : ''}</div>
             `;
 
             card.onclick = () => {
                 rune.effect(this);
+
+                // Recalculate Dominion Set bonuses after binding a sigil/rune
+                recalculateDominionSets(this);
+
                 document.getElementById('levelup-menu').classList.add('hidden');
                 this.upgradeMenuShowing = false;
                 this.gamePaused = false;
@@ -7135,6 +7540,18 @@ class DotsSurvivor {
 
                 if (isMythic) {
                     this.triggerScreenShake(15, 0.5);
+                }
+
+                // Show Dominion Set progress if applicable
+                if (rune.setKey && this.dominionSetPieces[rune.setKey]) {
+                    const setData = DOMINION_SETS[rune.setKey];
+                    const pieces = this.dominionSetPieces[rune.setKey];
+                    const setTier = this.dominionSetTiers[rune.setKey];
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2, y: this.canvas.height / 2,
+                        value: `${setData.icon} ${setData.name} [${pieces} pcs] Tier ${setTier}`,
+                        lifetime: 3, color: setData.color, scale: 1
+                    });
                 }
 
                 // Handle multiple pending upgrades
@@ -7253,6 +7670,10 @@ class DotsSurvivor {
 
             card.addEventListener('click', () => {
                 u.effect(this);
+
+                // Recalculate Dominion Set bonuses after binding a sigil
+                recalculateDominionSets(this);
+
                 document.getElementById('augment-menu').classList.add('hidden');
                 this.gamePaused = false;
 
@@ -7263,6 +7684,18 @@ class DotsSurvivor {
                     this.triggerScreenShake(15, 0.5);
                 } else {
                     this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: `💎 ${u.name}!`, lifetime: 3, color: '#00ffff' });
+                }
+
+                // Show Dominion Set progress if applicable
+                if (u.setKey && this.dominionSetPieces[u.setKey]) {
+                    const setData = DOMINION_SETS[u.setKey];
+                    const pieces = this.dominionSetPieces[u.setKey];
+                    const tier = this.dominionSetTiers[u.setKey];
+                    this.damageNumbers.push({
+                        x: this.player.x, y: this.player.y - 40,
+                        value: `${setData.icon} ${setData.name} [${pieces} pcs] Tier ${tier}`,
+                        lifetime: 3, color: setData.color, scale: 1
+                    });
                 }
 
                 if (this.currentAugmentOnComplete) this.currentAugmentOnComplete();
