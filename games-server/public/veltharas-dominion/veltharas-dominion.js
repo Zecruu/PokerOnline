@@ -2840,12 +2840,25 @@ class DotsSurvivor {
         const canSave = typeof authManager !== 'undefined' && authManager.user;
 
         pauseMenu.innerHTML = `
-            <div class="menu-content" style="text-align:center;">
-                <h1 style="font-size:3rem;margin-bottom:1rem;">⏸️ PAUSED</h1>
-                <p style="color:#888;margin-bottom:2rem;">Press ESC or P to resume</p>
-                <button id="resume-btn" class="menu-btn" style="background:linear-gradient(135deg,#00ffaa,#00aa66);border:none;padding:1rem 2rem;border-radius:12px;color:#000;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:200px;margin-left:auto;margin-right:auto;">▶️ Resume</button>
-                ${canSave ? `<button id="save-quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#4da6ff,#2266aa);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:200px;margin-left:auto;margin-right:auto;">💾 Save & Quit</button>` : ''}
-                <button id="quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#ff4466,#cc2244);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:200px;margin-left:auto;margin-right:auto;">🚪 Quit</button>
+            <div class="menu-content" style="text-align:center;max-height:85vh;display:flex;flex-direction:column;">
+                <h1 style="font-size:2.5rem;margin-bottom:0.5rem;">⏸️ PAUSED</h1>
+                <p style="color:#888;margin-bottom:1rem;font-size:0.9rem;">Press ESC or P to resume</p>
+
+                <!-- Scrollable button area -->
+                <div id="pause-menu-buttons" style="overflow-y:auto;max-height:50vh;padding:0.5rem;scrollbar-width:thin;scrollbar-color:#00ffaa33 transparent;">
+                    <button id="resume-btn" class="menu-btn" style="background:linear-gradient(135deg,#00ffaa,#00aa66);border:none;padding:1rem 2rem;border-radius:12px;color:#000;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;">▶️ Resume</button>
+                    ${canSave ? `<button id="save-quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#4da6ff,#2266aa);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;">💾 Save & Quit</button>` : ''}
+                    <button id="quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#ff4466,#cc2244);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;">🚪 Quit</button>
+
+                    <!-- Divider -->
+                    <div style="border-top:1px solid #333;margin:1rem auto;width:180px;"></div>
+
+                    <!-- Donate Button -->
+                    <a id="donate-btn" href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn" style="background:linear-gradient(135deg,#ff5e5b,#ff9966);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;text-decoration:none;box-shadow:0 0 20px rgba(255,94,91,0.3);transition:all 0.2s;">
+                        ❤️ Support Us
+                    </a>
+                    <p style="color:#888;font-size:0.75rem;margin-top:0.25rem;text-align:center;">Help fund indie game development!</p>
+                </div>
             </div>
         `;
 
@@ -2854,6 +2867,19 @@ class DotsSurvivor {
             this.togglePause();
             this.gameOver();
         });
+
+        // Donate button hover effect
+        const donateBtn = document.getElementById('donate-btn');
+        if (donateBtn) {
+            donateBtn.addEventListener('mouseenter', () => {
+                donateBtn.style.transform = 'scale(1.05)';
+                donateBtn.style.boxShadow = '0 0 30px rgba(255,94,91,0.5)';
+            });
+            donateBtn.addEventListener('mouseleave', () => {
+                donateBtn.style.transform = 'scale(1)';
+                donateBtn.style.boxShadow = '0 0 20px rgba(255,94,91,0.3)';
+            });
+        }
 
         if (canSave) {
             document.getElementById('save-quit-btn').addEventListener('click', async () => {
