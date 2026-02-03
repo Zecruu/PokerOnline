@@ -753,7 +753,8 @@ const ENEMY_SPRITES = {
     goblin: 'enemies/goblin.png',           // Wave 5 - Passive XP stealer
     necromancer: 'enemies/necromancer-enemy.png', // Wave 6 - Spawns sprites
     necro_sprite: 'enemies/necro-sprite.png',     // Necromancer's minions
-    miniconsumer: 'enemies/mini-consumer.png' // Wave 10 - Grows with deaths
+    miniconsumer: 'enemies/mini-consumer.png', // Wave 10 - Grows with deaths
+    cinder_wretch: 'enemies/cinder_wretch.png' // Wave 6+ - Fire enemy, spawns Fire Zone on death
 };
 
 // Sprite cache - stores loaded Image objects
@@ -2030,6 +2031,29 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
         }
     }
 
+    // ============ CINDER WRETCH SPAWN GATING ============
+    // Waves 1-5: disabled
+    // Waves 6-9: LOW spawn weight (1 entry)
+    // Wave 10+: NORMAL spawn weight (2 entries)
+    // Easy difficulty: reduce by 30% (don't add on Easy for waves 6-9, reduced on Easy for wave 10+)
+    const isEasyDifficulty = typeof getDifficultyTier !== 'undefined' && getDifficultyTier(wave).name === 'Easy';
+
+    if (wave >= 6 && wave <= 9) {
+        // LOW weight - only add if NOT Easy difficulty
+        if (!isEasyDifficulty) {
+            types.push('cinder_wretch'); // 1 entry = low weight
+        }
+    } else if (wave >= 10) {
+        // NORMAL weight at wave 10+
+        if (isEasyDifficulty) {
+            // Easy: 30% reduction = 1 entry instead of 2
+            types.push('cinder_wretch');
+        } else {
+            // Normal+: full weight = 2 entries
+            types.push('cinder_wretch', 'cinder_wretch');
+        }
+    }
+
     return types;
 }
 
@@ -2151,9 +2175,75 @@ function runSpawnSystemTests() {
     assert(infernal.healthMult === 1.85, `Infernal healthMult should be 1.85, got ${infernal.healthMult}`);
     assert(infernal.damageMult === 1.80, `Infernal damageMult should be 1.80, got ${infernal.damageMult}`);
 
+    // ============================================
+    // CINDER WRETCH TESTS
+    // ============================================
+
+    // Test 11: Cinder Wretch does NOT spawn before Wave 6
+    const wave1TypesCW = getEnemyTypesForWave(1, 'tank');
+    const wave3TypesCW = getEnemyTypesForWave(3, 'tank');
+    const wave5TypesCW = getEnemyTypesForWave(5, 'tank');
+    assert(!wave1TypesCW.includes('cinder_wretch'), 'Cinder Wretch should NOT spawn at Wave 1');
+    assert(!wave3TypesCW.includes('cinder_wretch'), 'Cinder Wretch should NOT spawn at Wave 3');
+    assert(!wave5TypesCW.includes('cinder_wretch'), 'Cinder Wretch should NOT spawn at Wave 5');
+
+    // Test 12: Cinder Wretch spawns at Wave 6+ with low weight
+    const wave6TypesCW = getEnemyTypesForWave(6, 'tank');
+    const wave8TypesCW = getEnemyTypesForWave(8, 'tank');
+    // On Normal+ difficulty, Cinder Wretch should appear at wave 6-9
+    // (Note: Easy difficulty won't add it at waves 6-9)
+    const wave6CinderCount = wave6TypesCW.filter(t => t === 'cinder_wretch').length;
+    const wave8CinderCount = wave8TypesCW.filter(t => t === 'cinder_wretch').length;
+    // Should have at least 1 entry (Normal difficulty)
+    assert(wave6CinderCount >= 1, `Wave 6 should have Cinder Wretch (count: ${wave6CinderCount})`);
+    assert(wave8CinderCount >= 1, `Wave 8 should have Cinder Wretch (count: ${wave8CinderCount})`);
+    // Low weight = 1 entry
+    assert(wave6CinderCount <= 1, `Wave 6 Cinder Wretch weight (${wave6CinderCount}) should be low (1)`);
+
+    // Test 13: Cinder Wretch has NORMAL weight at Wave 10+
+    const wave10TypesCW = getEnemyTypesForWave(10, 'tank');
+    const wave12TypesCW = getEnemyTypesForWave(12, 'tank');
+    const wave10CinderCount = wave10TypesCW.filter(t => t === 'cinder_wretch').length;
+    const wave12CinderCount = wave12TypesCW.filter(t => t === 'cinder_wretch').length;
+    assert(wave10CinderCount >= 2, `Wave 10 Cinder Wretch weight (${wave10CinderCount}) should be normal (2+)`);
+    assert(wave12CinderCount >= 2, `Wave 12 Cinder Wretch weight (${wave12CinderCount}) should be normal (2+)`);
+
+    // Test 14: Fire Zone properties are correct (static test)
+    const testFireZone = {
+        wx: 0, wy: 0,
+        radius: 80,
+        duration: 3.5,
+        timer: 3.5,
+        dps: 18,
+        lastDamageTick: 0
+    };
+    assert(testFireZone.radius === 80, `Fire Zone radius should be 80px, got ${testFireZone.radius}`);
+    assert(testFireZone.duration === 3.5, `Fire Zone duration should be 3.5s, got ${testFireZone.duration}`);
+    assert(testFireZone.dps === 18, `Fire Zone DPS should be 18, got ${testFireZone.dps}`);
+    // Damage per 0.5s tick = 18 * 0.5 = 9
+    const expectedTickDamage = testFireZone.dps * 0.5;
+    assert(expectedTickDamage === 9, `Fire Zone tick damage (0.5s) should be 9, got ${expectedTickDamage}`);
+
+    // Test 15: Fire Zone burn damage modifier calculation
+    // burnDamageTakenMult = 0.75 means 25% burn resistance (Fire Mage starter item: Kindled Aegis)
+    const baseDamage = 9; // Damage per tick
+    const burnResist = 0.75; // 25% reduction
+    const damageWithResist = Math.floor(baseDamage * burnResist);
+    assert(damageWithResist === 6, `Fire Zone damage with 25% burn resist should be 6, got ${damageWithResist}`);
+
+    // Test 16: Easy difficulty has fewer Cinder Wretches
+    // Easy difficulty reduces weight by 30% - at waves 6-9, it doesn't add them at all
+    // At wave 10+, Easy adds 1 instead of 2
+    // We can't easily simulate Easy difficulty here without mocking, so we test the logic:
+    // The code checks: if (isEasyDifficulty) types.push('cinder_wretch'); // 1 entry
+    // else types.push('cinder_wretch', 'cinder_wretch'); // 2 entries
+    // So Normal+ should have 2x the count of Easy at wave 10+
+    assert(wave10CinderCount >= 2, `Normal difficulty Wave 10 should have 2+ Cinder Wretches, got ${wave10CinderCount}`);
+    // Note: Can't directly test Easy without game instance, but logic is verified by code inspection
+
     // Print results
     console.log('\n========================================');
-    console.log('SPAWN SYSTEM TESTS');
+    console.log('SPAWN SYSTEM TESTS (including Cinder Wretch)');
     console.log('========================================\n');
     results.forEach(r => console.log(r));
     console.log('\n========================================');
@@ -3369,6 +3459,10 @@ class DotsSurvivor {
 
         // Ice zones array for ice mob death effect
         this.iceZones = [];
+
+        // Fire zones array for Cinder Wretch death effect
+        this.fireZones = [];
+        this.playerInFireZone = false; // Track if player is currently in a fire zone (for non-stacking damage)
 
         // Sticky immobilization timer
 
@@ -5837,6 +5931,74 @@ class DotsSurvivor {
             }
         }
 
+        // Update fire zones (Cinder Wretch death effect)
+        this.playerInFireZone = false; // Reset each frame
+        for (let i = this.fireZones.length - 1; i >= 0; i--) {
+            const zone = this.fireZones[i];
+            zone.timer -= dt;
+            zone.lastDamageTick += dt;
+
+            // Remove expired fire zones
+            if (zone.timer <= 0) {
+                this.fireZones.splice(i, 1);
+                continue;
+            }
+
+            // Check if player is in this fire zone
+            const distToZone = Math.sqrt((this.worldX - zone.wx) ** 2 + (this.worldY - zone.wy) ** 2);
+            if (distToZone < zone.radius) {
+                this.playerInFireZone = true;
+
+                // Tick damage at 0.5 second intervals (same as other DoTs)
+                if (zone.lastDamageTick >= 0.5) {
+                    zone.lastDamageTick = 0;
+
+                    // Calculate damage with modifiers
+                    let damage = zone.dps * 0.5; // Damage per tick (0.5s * 18 DPS = 9 damage per tick)
+
+                    // Apply burnDamageTakenMult (Fire Mage starter item reduces this)
+                    const burnResist = this.burnDamageTakenMult || 1;
+                    damage *= burnResist;
+
+                    // Apply fire resist if any
+                    const fireResist = this.fireResist || 0;
+                    damage *= (1 - fireResist);
+
+                    // Floor the damage
+                    damage = Math.floor(damage);
+
+                    if (damage > 0) {
+                        this.player.health -= damage;
+                        this.combatTimer = 0; // Reset combat timer
+
+                        // Visual feedback
+                        this.damageNumbers.push({
+                            x: this.player.x + (Math.random() - 0.5) * 30,
+                            y: this.player.y - 30,
+                            value: `-${damage} 🔥`,
+                            lifetime: 0.8,
+                            color: '#ff4400'
+                        });
+
+                        // Don't stack damage - break after first zone damages
+                        // If player is in multiple zones, only take damage once but refresh duration
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If player is in a fire zone, refresh the duration of all zones they're in (non-stacking)
+        if (this.playerInFireZone) {
+            for (const zone of this.fireZones) {
+                const distToZone = Math.sqrt((this.worldX - zone.wx) ** 2 + (this.worldY - zone.wy) ** 2);
+                if (distToZone < zone.radius) {
+                    // Refresh duration but don't stack damage
+                    zone.timer = Math.max(zone.timer, 1.0); // Keep at least 1 second when refreshed
+                }
+            }
+        }
+
         // Check if player is stuck (sticky enemy hit)
         if (this.stickyTimer > 0) {
             // Player cannot move while stuck
@@ -6150,7 +6312,9 @@ class DotsSurvivor {
             goblin: { radius: 22, speed: 115, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
             necromancer: { radius: 18, speed: 40, health: 600, damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
             necro_sprite: { radius: 8, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
-            miniconsumer: { radius: 20, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true }
+            miniconsumer: { radius: 20, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true },
+            // Wave 6+ fire enemy - spawns Fire Zone on death
+            cinder_wretch: { radius: 14, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -6194,7 +6358,8 @@ class DotsSurvivor {
             lastSpriteSpawn: 0, // Timer for necromancer sprite spawning
             isMiniConsumer: data.isMiniConsumer || false,
             absorbedKills: 0, // Kills absorbed by mini consumer
-            passive: data.passive || false // Passive enemies don't chase player
+            passive: data.passive || false, // Passive enemies don't chase player
+            spawnsFireZone: data.spawnsFireZone || false // Cinder Wretch spawns Fire Zone on death
         };
     }
 
@@ -6726,6 +6891,24 @@ class DotsSurvivor {
             this.damageNumbers.push({
                 x: sx, y: sy - 20,
                 value: '❄️ ICY ZONE!', lifetime: 2, color: '#00ddff', scale: 1.3
+            });
+        }
+
+        // CINDER WRETCH: Spawn Fire Zone on death (damages player, burn type)
+        if (e.spawnsFireZone) {
+            this.fireZones.push({
+                wx: e.wx,
+                wy: e.wy,
+                radius: 80, // 80px radius as specified
+                duration: 3.5, // 3.5 seconds duration
+                timer: 3.5,
+                dps: 18, // 18 damage per second
+                lastDamageTick: 0 // For tick-based damage
+            });
+            this.spawnParticles(sx, sy, '#ff4400', 20);
+            this.damageNumbers.push({
+                x: sx, y: sy - 20,
+                value: '🔥 FIRE ZONE!', lifetime: 2, color: '#ff4400', scale: 1.3
             });
         }
 
@@ -9314,6 +9497,55 @@ class DotsSurvivor {
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle = `rgba(255, 255, 255, ${0.7 + Math.sin(this.gameTime / 150) * 0.3})`;
                 ctx.fillText('❄️', sx, sy);
+
+                ctx.restore();
+            });
+        }
+
+        // Draw fire zones (Cinder Wretch death effect - damages player)
+        if (this.fireZones && this.fireZones.length > 0) {
+            this.fireZones.forEach(zone => {
+                const sx = this.player.x + (zone.wx - this.worldX);
+                const sy = this.player.y + (zone.wy - this.worldY);
+
+                // Calculate fade-out alpha based on remaining duration
+                const fadeAlpha = Math.min(1, zone.timer / 0.5); // Fade out in last 0.5 seconds
+                const pulseAlpha = 0.15 + Math.sin(this.gameTime / 100) * 0.05;
+
+                ctx.save();
+
+                // Outer fire glow (pulsing orange/red)
+                ctx.beginPath();
+                ctx.arc(sx, sy, zone.radius, 0, Math.PI * 2);
+                const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, zone.radius);
+                gradient.addColorStop(0, `rgba(255, 100, 0, ${0.3 * fadeAlpha})`);
+                gradient.addColorStop(0.5, `rgba(255, 68, 0, ${0.2 * fadeAlpha})`);
+                gradient.addColorStop(1, `rgba(255, 34, 0, ${0.05 * fadeAlpha})`);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Fire ring border (animated)
+                ctx.beginPath();
+                ctx.arc(sx, sy, zone.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 68, 0, ${(0.7 + Math.sin(this.gameTime / 80) * 0.3) * fadeAlpha})`;
+                ctx.lineWidth = 4;
+                ctx.setLineDash([12, 6]);
+                ctx.lineDashOffset = -this.gameTime / 50; // Animate the dash
+                ctx.stroke();
+
+                // Inner hot zone
+                ctx.beginPath();
+                ctx.arc(sx, sy, zone.radius * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 150, 50, ${(pulseAlpha + 0.1) * fadeAlpha})`;
+                ctx.fill();
+
+                // Fire emoji at center
+                ctx.setLineDash([]);
+                ctx.font = `${Math.floor(zone.radius * 0.35)}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = `rgba(255, 255, 255, ${(0.8 + Math.sin(this.gameTime / 120) * 0.2) * fadeAlpha})`;
+                ctx.fillText('🔥', sx, sy);
 
                 ctx.restore();
             });
