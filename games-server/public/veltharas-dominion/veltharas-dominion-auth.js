@@ -332,6 +332,33 @@ class AuthManager {
         return this.user.isAdmin === true;
     }
 
+    // Check if current user is a tester (gets free access)
+    isTester() {
+        if (!this.user) return false;
+        return this.user.isTester === true;
+    }
+
+    // Check if user owns the game
+    async checkGameOwnership() {
+        // Admins and testers always have access
+        if (this.isAdmin() || this.isTester()) {
+            return { ownsGame: true, reason: this.isAdmin() ? 'admin' : 'tester' };
+        }
+
+        // Check with server
+        try {
+            const res = await this.apiGet('/api/games/check-ownership/veltharas-dominion');
+            return res;
+        } catch (e) {
+            console.error('Failed to check ownership:', e);
+            // If server is down, check local library cache
+            if (this.user?.library?.some(g => g.gameId === 'veltharas-dominion')) {
+                return { ownsGame: true, reason: 'purchased' };
+            }
+            return { ownsGame: false, reason: 'error' };
+        }
+    }
+
     clearSession() {
         this.user = null;
         this.token = null;
@@ -365,9 +392,32 @@ class AuthManager {
 
         // Update user info
         const userInfoEl = document.getElementById('user-info');
+
+        // Check game ownership first
+        const ownership = await this.checkGameOwnership();
+
+        if (!ownership.ownsGame) {
+            // User doesn't own the game - show purchase prompt
+            userInfoEl.innerHTML = this.user
+                ? `<span style="color:#00ffaa;">👤 ${this.user.username}</span><br>
+                   <button onclick="authManager.logout()" style="background:none;border:none;color:#ff6666;cursor:pointer;font-size:0.8rem;">Logout</button>`
+                : `<span style="color:#888;">Not logged in</span>`;
+
+            document.getElementById('saved-game-notice').classList.add('hidden');
+            document.getElementById('start-btn').classList.add('hidden');
+
+            // Show purchase required message
+            this.showPurchaseRequired();
+            return;
+        }
+
         if (this.user) {
+            let badge = '';
+            if (ownership.reason === 'admin') badge = ' <span style="color:#ffd700;">👑</span>';
+            else if (ownership.reason === 'tester') badge = ' <span style="color:#00aaff;">🧪</span>';
+
             userInfoEl.innerHTML = `
-                <span style="color:#00ffaa;">👤 ${this.user.username}</span><br>
+                <span style="color:#00ffaa;">👤 ${this.user.username}${badge}</span><br>
                 <button onclick="authManager.logout()" style="background:none;border:none;color:#ff6666;cursor:pointer;font-size:0.8rem;">Logout</button>
             `;
 
@@ -380,11 +430,75 @@ class AuthManager {
                 document.getElementById('start-btn').classList.remove('hidden');
             }
         } else {
-            // Guests can play too (purchase is handled in game hub)
+            // Guest with ownership (shouldn't happen normally, but handle it)
             userInfoEl.innerHTML = `<span style="color:#888;">Playing as Guest</span>`;
             document.getElementById('saved-game-notice').classList.add('hidden');
             document.getElementById('start-btn').classList.remove('hidden');
         }
+    }
+
+    // Show purchase required overlay
+    showPurchaseRequired() {
+        // Hide game buttons
+        document.getElementById('start-btn')?.classList.add('hidden');
+        document.getElementById('continue-btn')?.classList.add('hidden');
+
+        // Create or update purchase overlay
+        let overlay = document.getElementById('purchase-required-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'purchase-required-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.9);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+                text-align: center;
+                padding: 2rem;
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div style="max-width: 500px;">
+                <h1 style="color: #ff6b6b; font-size: 2.5rem; margin-bottom: 1rem;">🔒 Game Not Owned</h1>
+                <p style="color: #ccc; font-size: 1.2rem; margin-bottom: 2rem;">
+                    You need to purchase <strong style="color: #fbbf24;">Velthara's Dominion</strong> to play.
+                </p>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                    <a href="https://www.zecrugames.com/store" style="
+                        display: inline-block;
+                        padding: 1rem 2rem;
+                        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                        color: #000;
+                        text-decoration: none;
+                        border-radius: 12px;
+                        font-weight: bold;
+                        font-size: 1.1rem;
+                    ">🛒 Buy Now — $5</a>
+                    <a href="https://www.zecrugames.com" style="
+                        display: inline-block;
+                        padding: 1rem 2rem;
+                        background: #333;
+                        color: #fff;
+                        text-decoration: none;
+                        border-radius: 12px;
+                        font-weight: bold;
+                        font-size: 1.1rem;
+                    ">← Back to Hub</a>
+                </div>
+                ${this.user ? '' : `
+                    <p style="color: #888; margin-top: 2rem; font-size: 0.9rem;">
+                        Already purchased? <a href="https://www.zecrugames.com/login" style="color: #00aaff;">Login</a> to access your game.
+                    </p>
+                `}
+            </div>
+        `;
+        overlay.classList.remove('hidden');
     }
 
     // Handle Stripe purchase callback
