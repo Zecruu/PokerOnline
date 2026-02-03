@@ -84,12 +84,6 @@ const RING_XP_SPRITES = {
     evolved: 'items/ring-xp-evolved.jpg'
 };
 
-// Soul Collector Sprites (POI icons)
-const SOUL_COLLECTOR_SPRITES = {
-    collecting: 'items/soul-collector.jpg',
-    complete: 'items/soul-collector-evolved.jpg'
-};
-
 // Boots of Swiftness Sprites (stacking item icons)
 const BOOTS_SWIFTNESS_SPRITES = {
     base: 'items/boots-swiftness.png',
@@ -637,7 +631,7 @@ function migrateSigilId(oldId) {
 // Get sigil data by ID from all pools
 function getSigilDataById(sigilId) {
     // Check all sigil pools
-    const pools = [FADED_SIGILS, RUNED_SIGILS, EMPOWERED_SIGILS, ASCENDANT_SIGILS, MYTHIC_SIGILS, DIAMOND_SIGILS, MYTHIC_RUNES];
+    const pools = [FADED_SIGILS, RUNED_SIGILS, EMPOWERED_SIGILS, ASCENDANT_SIGILS, MYTHIC_SIGILS, MYTHIC_RUNES];
     for (const pool of pools) {
         if (!pool) continue;
         const found = pool.find(s => s.id === sigilId);
@@ -856,10 +850,6 @@ function initSprites() {
     // Load Ring of XP sprites
     for (const [type, path] of Object.entries(RING_XP_SPRITES)) {
         loadSprite('ring_xp_' + type, path, true);
-    }
-    // Load Soul Collector sprites
-    for (const [type, path] of Object.entries(SOUL_COLLECTOR_SPRITES)) {
-        loadSprite('soul_collector_' + type, path, true);
     }
     // Load Boots of Swiftness sprites
     for (const [type, path] of Object.entries(BOOTS_SWIFTNESS_SPRITES)) {
@@ -1296,42 +1286,6 @@ const ALL_RUNES = {
     mythic: MYTHIC_RUNES
 };
 // Note: ALL_SIGILS is defined after MYTHIC_SIGILS below
-
-// Diamond Sigils - Ascendant tier universal and class-specific sigils
-const DIAMOND_SIGILS = [
-    // Wolf Pack Path - SHADOW MASTER ONLY - RENAMED
-    { id: 'wolfsblood_frenzy', name: 'Wolfsblood Frenzy Sigil', icon: '🐺', desc: 'Wolves attack 50% faster and deal +25% damage', tier: 'ASCENDANT', classReq: 'shadow_master', effect: (g) => { g.boundSigils.push('wolfsblood_frenzy'); g.wolfAttackSpeed = (g.wolfAttackSpeed || 1) * 1.5; g.wolfDamageBonus = (g.wolfDamageBonus || 1) * 1.25; }, getDesc: (g) => g.boundSigils?.includes('wolfsblood_frenzy') ? 'Active ✓' : 'Not Active' },
-    { id: 'lunar_pack', name: 'Lunar Pack Sigil', icon: '🌙', desc: 'You gain +5% damage for every active wolf', tier: 'ASCENDANT', classReq: 'shadow_master', effect: (g) => g.boundSigils.push('lunar_pack'), getDesc: (g) => `Wolves: ${g.minions?.length || 0} (+${(g.minions?.length || 0) * 5}% dmg)` },
-    { id: 'howl_first_beast', name: 'Howl of the First Beast', icon: '🌕', desc: 'Every 10s wolves howl, gaining +50% speed and damage for 5s', tier: 'ASCENDANT', classReq: 'shadow_master', effect: (g) => { g.boundSigils.push('howl_first_beast'); g.howlTimer = 0; g.howlCooldown = 10; g.howlDuration = 5; }, getDesc: (g) => g.boundSigils?.includes('howl_first_beast') ? 'Active ✓' : 'Not Active' },
-    // Fire Mage Path - FIRE MAGE ONLY - RENAMED
-    { id: 'ashburst_impact', name: 'Ashburst Impact Sigil', icon: '💥', desc: 'Fireballs explode on impact dealing 50% damage in small area', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('ashburst_impact'); g.fireballExplosion = true; g.fireballExplosionRadius = 60; g.fireballExplosionDamage = 0.5; }, getDesc: (g) => g.boundSigils?.includes('ashburst_impact') ? 'Active ✓' : 'Not Active' },
-    { id: 'sovereign_flame', name: 'Sovereign Flame Sigil', icon: '🔥', desc: '+30% fire damage, burn duration +2s', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('sovereign_flame'); g.fireDamageBonus = (g.fireDamageBonus || 1) * 1.3; if (g.auraFire) g.auraFire.burnDuration += 2; }, getDesc: (g) => g.boundSigils?.includes('sovereign_flame') ? 'Active ✓' : 'Not Active' },
-    { id: 'cascade_cinders', name: 'Cascade of Cinders Sigil', icon: '🌋', desc: 'Every 3rd fireball splits into 3 on impact', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('cascade_cinders'); g.flameCascadeCounter = 0; }, getDesc: (g) => g.boundSigils?.includes('cascade_cinders') ? 'Active ✓' : 'Not Active' },
-    { id: 'molten_heart', name: 'Molten Heart Sigil', icon: '🌡️', desc: 'Burn damage stacks up to 5 times on same enemy', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('molten_heart'); g.burnStackLimit = 5; }, getDesc: (g) => g.boundSigils?.includes('molten_heart') ? 'Active ✓' : 'Not Active' },
-    { id: 'ring_ember_oath', name: 'Ring of the Ember Oath I', icon: '⭕', desc: 'Gain a rotating fire ring that damages enemies (50 DPS, 100px radius)', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.boundSigils.push('ring_ember_oath'); g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Not Active' },
-    { id: 'ring_ember_oath_2', name: 'Ring of the Ember Oath II', icon: '⭕', desc: 'Upgrade Ring of Fire: +30 DPS, +50px radius, +0.5 rotation speed', tier: 'ASCENDANT', classReq: 'fire_mage', req: 'ring_ember_oath', effect: (g) => { g.boundSigils.push('ring_ember_oath_2'); if (g.playerRingOfFire) { g.playerRingOfFire.damage += 30; g.playerRingOfFire.radius += 50; g.playerRingOfFire.rotationSpeed += 0.5; } }, getDesc: (g) => g.playerRingOfFire ? `${g.playerRingOfFire.damage} DPS, ${g.playerRingOfFire.radius}px` : 'Requires Ring of Ember Oath I' },
-    // Universal Path - RENAMED
-    { id: 'ruinfall', name: 'Ruinfall Sigil', icon: '☢️', desc: 'Every 5th shot fires a nuke dealing 500% damage in a huge area', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('ruinfall'), getDesc: (g) => g.boundSigils?.includes('ruinfall') ? 'Active ✓' : 'Not Active' },
-    { id: 'overclocked_fate', name: 'Overclocked Fate Sigil', icon: '⚙️', desc: 'Fire rate +10%', tier: 'ASCENDANT', effect: (g) => { g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
-    { id: 'shatterhail', name: 'Shatterhail Sigil', icon: '🌧️', desc: 'Bullets split into 3 smaller bullets on impact', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('shatterhail'), getDesc: (g) => g.boundSigils?.includes('shatterhail') ? 'Active ✓' : 'Not Active' },
-    { id: 'colossus_bane', name: 'Colossus Bane Sigil', icon: '🎯', desc: 'Deal +15% damage to Bosses and Tanks (+5% per stack)', tier: 'ASCENDANT', effect: (g) => { if (!g.boundSigils?.includes('colossus_bane')) g.boundSigils.push('colossus_bane'); g.titanKillerBonus = (g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15); }, getDesc: (g) => `Boss/Tank Dmg: +${Math.round((g.titanKillerBonus || 0) * 100)}% → +${Math.round(((g.titanKillerBonus || 0) + (g.titanKillerBonus ? 0.05 : 0.15)) * 100)}%` },
-    // Mage Path - RENAMED
-    { id: 'tempest_reversal', name: 'Tempest Reversal Sigil', icon: '💨', desc: 'Every 7 seconds, unleash a wind slash that pushes all enemies back', tier: 'ASCENDANT', effect: (g) => { g.boundSigils.push('tempest_reversal'); g.windPushTimer = 0; g.windPushCooldown = 7; }, getDesc: (g) => g.boundSigils?.includes('tempest_reversal') ? 'Active ✓' : 'Not Active' },
-    { id: 'chronolock', name: 'Chronolock Sigil', icon: '⏳', desc: 'Periodically freeze all enemies for 3 seconds', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('chronolock'), getDesc: (g) => g.boundSigils?.includes('chronolock') ? 'Active ✓' : 'Not Active' },
-    { id: 'skullwhirl', name: 'Skullwhirl Sigil', icon: '💀', desc: 'Skulls spin 2x faster and deal +50% damage', tier: 'ASCENDANT', effect: (g) => { g.boundSigils.push('skullwhirl'); g.skulls.forEach(s => { s.speed *= 2; s.damage *= 1.5; }); }, getDesc: (g) => g.boundSigils?.includes('skullwhirl') ? 'Active ✓' : 'Not Active' },
-    { id: 'ossuary_legion', name: 'Ossuary Legion Sigil', icon: '☠️', desc: '+3 elemental skulls (max 6), overflow = +150 damage each', tier: 'ASCENDANT', effect: (g) => { for(let i = 0; i < 3; i++) { if (g.skulls.length < 6) g.skulls.push(g.createSkull()); else g.skulls.forEach(s => s.damage += 150); } }, getDesc: (g) => { const toAdd = Math.min(3, 6 - g.skulls.length); return toAdd > 0 ? `Skulls: ${g.skulls.length} → ${g.skulls.length + toAdd}` : `Skull Damage: +450`; } },
-    // Hybrid Paths - RENAMED
-    { id: 'reapers_seed', name: "Reaper's Seed Sigil", icon: '🔮', desc: 'Projectiles spawn Skulls on kill (10% chance, max 6)', tier: 'ASCENDANT', effect: (g) => g.boundSigils.push('reapers_seed'), getDesc: (g) => g.boundSigils?.includes('reapers_seed') ? 'Active ✓' : 'Not Active' },
-    // Demon Set Sigils - RENAMED
-    { id: 'legion_imps', name: 'Legion of Imps Sigil', icon: '👿', desc: 'Max Imps +5', tier: 'ASCENDANT', req: 'demonSet', effect: (g) => g.impStats.maxImps += 5, getDesc: (g) => `Max Imps: ${g.impStats?.maxImps || 0} → ${(g.impStats?.maxImps || 0) + 5}` },
-    { id: 'hellbound_fury', name: 'Hellbound Fury Sigil', icon: '🔥', desc: 'Imp Damage +100%', tier: 'ASCENDANT', req: 'demonSet', effect: (g) => g.impStats.damage *= 2, getDesc: (g) => `Imp Dmg: ${g.impStats?.damage || 0} → ${(g.impStats?.damage || 0) * 2}` },
-    { id: 'unending_pyre', name: 'Unending Pyre Sigil', icon: '🕯️', desc: 'Imp Burn Duration +5s', tier: 'ASCENDANT', req: 'demonSet', effect: (g) => g.impStats.burnDuration += 5, getDesc: (g) => `Burn: ${g.impStats?.burnDuration || 0}s → ${(g.impStats?.burnDuration || 0) + 5}s` },
-    // Aura sigil - RENAMED
-    { id: 'cinder_halo', name: 'Cinder Halo Sigil', icon: '🔥', desc: 'Thin burning ring - enemies take 40 burn damage/s.', tier: 'ASCENDANT', effect: (g) => { g.boundSigils.push('cinder_halo'); g.auraFire = { radius: 120, damage: 40, burnDuration: 3 }; }, getDesc: (g) => g.auraFire ? `${g.auraFire.damage} dmg/s, ${g.auraFire.radius}px radius` : 'Not Active' }
-];
-
-// Legacy alias for backward compatibility
-const DIAMOND_AUGMENTS = DIAMOND_SIGILS;
 
 // ============================================
 // MYTHIC SIGILS - Ultra rare, game-changing powers (~5% chance to appear)
@@ -3428,9 +3382,6 @@ class DotsSurvivor {
         this.stackingMagnetBonus = 0;
         this.stackingRegen = 0;
 
-        // Reroll System - 1 free reroll per augment selection
-        this.augmentRerollsLeft = 1;
-
         // Blood Shield (Blood Soaker item)
         this.bloodShieldEnabled = false;
         this.bloodShieldEvolved = false;
@@ -3492,8 +3443,7 @@ class DotsSurvivor {
         // Horde system
         this.lastHordeCount = 0;
 
-        // Soul Collectors (POI) and perks
-        this.soulCollectors = [];
+        // Perks
         this.perks = [];
         this.availablePerks = [...LEGENDARY_PERKS];
 
@@ -3504,8 +3454,6 @@ class DotsSurvivor {
         this.bossStatMultiplier = 1.0;
         this.consumerSpawned = false;
         this.bossGracePeriod = 0; // Seconds of reduced spawns after boss appears
-        this.spawnSoulCollector();
-        this.lastSoulCollectorWave = 1;
 
         // Health packs (rare spawns)
         this.lastHealthPackSpawn = 0;
@@ -3592,11 +3540,6 @@ class DotsSurvivor {
 
         // Initialize available perks for control points
         this.availablePerks = [...LEGENDARY_PERKS];
-        // Add Diamond Augments to the pool? Or are they separate?
-        // User request implied "Diamond Augments" are what's being shown.
-        // Let's add them to the pool or use them exclusively for a specific event
-        // Current code likely wasn't using them if grep failed, but let's ensure they are used
-        this.diamondAugments = [...DIAMOND_AUGMENTS];
 
         // ============================================
         // CLASS-SPECIFIC INITIALIZATION
@@ -3806,37 +3749,6 @@ class DotsSurvivor {
                 value: '▶️ GAME RESUMED', lifetime: 3, color: '#00ffaa', scale: 1.5
             });
         }
-    }
-
-    spawnSoulCollector() {
-        // Only allow one active (incomplete) soul collector at a time
-        const hasActiveSoulCollector = this.soulCollectors.some(sc => !sc.complete);
-        if (hasActiveSoulCollector) return;
-
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 300 + Math.random() * 400; // Reduced distance to stay in map
-
-        // Calculate position and clamp to map boundaries with padding
-        const padding = 100; // Keep away from edges
-        let wx = this.worldX + Math.cos(angle) * dist;
-        let wy = this.worldY + Math.sin(angle) * dist;
-
-        // Clamp to map bounds
-        wx = Math.max(this.mapBounds.minX + padding, Math.min(this.mapBounds.maxX - padding, wx));
-        wy = Math.max(this.mapBounds.minY + padding, Math.min(this.mapBounds.maxY - padding, wy));
-
-        // Soul collector requires 25-50 souls based on wave
-        const soulsRequired = Math.min(25 + Math.floor(this.wave * 2), 100);
-
-        this.soulCollectors.push({
-            wx, wy,
-            radius: 180,  // Increased collection radius - kills within this range count
-            soulsCollected: 0,
-            soulsRequired: soulsRequired,
-            complete: false,
-            completeTimer: 0,  // Timer for showing complete icon
-            spawnWave: this.wave
-        });
     }
 
     spawnConsumer() {
@@ -4368,33 +4280,9 @@ class DotsSurvivor {
                     }
                 }
 
-                // Spawn soul collectors every 5 waves
-                if (this.wave % 5 === 0 || this.wave - this.lastSoulCollectorWave >= 5) {
-                    this.spawnSoulCollector();
-                    this.lastSoulCollectorWave = this.wave;
-                }
-
                 // Reset boss tracking for new wave
                 this.bossesSpawnedThisWave = 0;
                 this.generalSpawnedThisWave = false;
-
-                // Check for expired soul collectors (10 waves without completion)
-                for (let i = this.soulCollectors.length - 1; i >= 0; i--) {
-                    const sc = this.soulCollectors[i];
-                    if (!sc.complete && this.wave - sc.spawnWave >= 10) {
-                        // Despawn and trigger horde
-                        this.soulCollectors.splice(i, 1);
-                        this.damageNumbers.push({
-                            x: this.canvas.width / 2,
-                            y: this.canvas.height / 2 - 100,
-                            value: '⚠️ SOUL COLLECTOR LOST! HORDE INCOMING! ⚠️',
-                            lifetime: 3,
-                            color: '#ff0044',
-                            scale: 1.5
-                        });
-                        this.spawnHorde();
-                    }
-                }
             }
             this.checkHorde();
             this.update(dt);
@@ -4709,7 +4597,6 @@ class DotsSurvivor {
         this.updateEvents(effectiveDt);
         this.spawnEnemies();
         this.spawnHealthPacks();
-        this.updateSoulCollectors(effectiveDt);
         this.updateEnemies(effectiveDt);
         this.updateSkulls(effectiveDt);
         this.updateMinions(effectiveDt);
@@ -5782,112 +5669,6 @@ class DotsSurvivor {
         }
     }
 
-    updateSoulCollectors(dt) {
-        for (let i = this.soulCollectors.length - 1; i >= 0; i--) {
-            const sc = this.soulCollectors[i];
-
-            // Handle complete timer (show complete icon for 5 seconds then remove)
-            if (sc.complete) {
-                sc.completeTimer -= dt;
-                if (sc.completeTimer <= 0) {
-                    this.soulCollectors.splice(i, 1);
-                }
-                continue;
-            }
-        }
-    }
-
-    // Called when enemy dies near a soul collector
-    checkSoulCollection(enemyWx, enemyWy, isBoss) {
-        for (const sc of this.soulCollectors) {
-            if (sc.complete) continue;
-
-            // Check if enemy died within collection radius
-            const dx = enemyWx - sc.wx;
-            const dy = enemyWy - sc.wy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist <= sc.radius) {
-                // Add souls (bosses give 5 souls)
-                const soulsGained = isBoss ? 5 : 1;
-                sc.soulsCollected += soulsGained;
-
-                // Visual feedback - soul flying to chest
-                const sx = this.player.x + (enemyWx - this.worldX);
-                const sy = this.player.y + (enemyWy - this.worldY);
-                this.spawnParticles(sx, sy, '#88ffff', 3);
-
-                // Check if complete (double-check sc.complete to prevent multiple triggers)
-                if (!sc.complete && sc.soulsCollected >= sc.soulsRequired) {
-                    this.completeSoulCollector(sc);
-                }
-            }
-        }
-    }
-
-    completeSoulCollector(sc) {
-        sc.complete = true;
-        sc.completeTimer = 5; // Show complete icon for 5 seconds
-
-        this.playSound('capture');
-
-        // Grant large XP reward (scales with wave)
-        const xpReward = 500 + (this.wave * 50);
-        this.player.xp += xpReward;
-
-        // Screen position for effects
-        const sx = this.player.x + (sc.wx - this.worldX);
-        const sy = this.player.y + (sc.wy - this.worldY);
-
-        // Visual feedback
-        this.damageNumbers.push({
-            x: sx, y: sy - 40,
-            value: `💀 SOULS COLLECTED! +${xpReward} XP`,
-            lifetime: 3,
-            color: '#00ffff',
-            scale: 1.8
-        });
-
-        this.spawnParticles(sx, sy, '#00ffff', 30);
-        this.triggerScreenShake(10, 0.3);
-
-        // Show Augment Menu as reward
-        let available = this.diamondAugments.filter(a => {
-            if (this.augments.includes(a.id)) return false;
-            if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
-            // Filter by class requirement (wolf augments only for Shadow Master)
-            if (a.classReq && a.classReq !== this.selectedClass?.id) return false;
-            // Check prerequisite requirement (e.g., Ring II requires Ring I)
-            if (a.req && a.req !== 'demonSet' && !this.boundSigils?.includes(a.req)) return false;
-            return true;
-        });
-
-        if (available.length === 0) {
-            available = this.availablePerks;
-        }
-
-        if (available.length > 0) {
-            const choices = [];
-            let pool = [...available];
-
-            for (let i = 0; i < 3 && pool.length > 0; i++) {
-                const idx = Math.floor(Math.random() * pool.length);
-                choices.push(pool[idx]);
-                pool.splice(idx, 1);
-            }
-            this.showAugmentMenu(choices, () => {
-                this.spawnHorde();
-                this.spawnSoulCollector();
-            });
-        } else {
-            this.player.health = this.player.maxHealth;
-            this.damageNumbers.push({ x: this.player.x, y: this.player.y, value: 'Fully Healed!', color: '#00ff00' });
-            this.spawnHorde();
-            this.spawnSoulCollector();
-        }
-    }
-
-
     applyPerk(perk) {
         // SCALED UP 10x for big satisfying numbers
         switch (perk.id) {
@@ -6646,9 +6427,6 @@ class DotsSurvivor {
 
         this.player.kills++;
         this.playSound('kill');
-
-        // Soul Collector - check if enemy died near a collector
-        this.checkSoulCollection(e.wx, e.wy, e.isBoss);
 
         // Necromancer: Raise Dead - chance to raise killed enemy as ally
         if (this.raisedCorpses && !e.isBoss && !e.isRaised) {
@@ -8527,12 +8305,8 @@ class DotsSurvivor {
                 this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.3);
             }
 
-            // Check for Diamond Augment (Every 5 levels)
-            if (this.player.level % 5 === 0) {
-                this.showAugmentMenu();
-            } else {
-                this.showLevelUpMenu();
-            }
+            // Show level up menu for sigil selection
+            this.showLevelUpMenu();
         }
     }
 
@@ -8785,180 +8559,6 @@ class DotsSurvivor {
         });
 
         document.getElementById('levelup-menu').classList.remove('hidden');
-    }
-
-    showAugmentMenu(choices = null, onComplete = null, isReroll = false) {
-        // If first arg is function, it's onComplete (legacy support or if no choices passed)
-        if (typeof choices === 'function') {
-            onComplete = choices;
-            choices = null;
-        }
-
-        this.gamePaused = true;
-        if (!isReroll) {
-            this.playSound('levelup');
-            // Reset rerolls for new augment selection
-            this.augmentRerollsLeft = 1;
-        }
-
-        // Store onComplete for reroll use
-        this.currentAugmentOnComplete = onComplete;
-
-        if (!choices) {
-            // Check for MYTHIC augment chance (~8% chance for one Mythic to appear)
-            const mythicChance = 0.08;
-            const hasMythic = Math.random() < mythicChance;
-
-            // Get available Diamond augments (filter by classReq for wolf augments)
-            const availableDiamond = DIAMOND_AUGMENTS.filter(a => {
-                if (this.augments.includes(a.id)) return false;
-                if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
-                // Filter wolf augments - only show for Shadow Master
-                if (a.classReq && a.classReq !== this.selectedClass?.id) return false;
-                // Check prerequisite requirement (e.g., Ring II requires Ring I)
-                if (a.req && a.req !== 'demonSet' && !this.boundSigils?.includes(a.req)) return false;
-                return true;
-            });
-
-            // Get available Mythic augments
-            const availableMythic = MYTHIC_AUGMENTS.filter(a => !this.augments.includes(a.id));
-
-            if (availableDiamond.length === 0 && availableMythic.length === 0) {
-                this.gamePaused = false;
-                if (onComplete) onComplete();
-                return;
-            }
-
-            choices = [];
-
-            // If we rolled a Mythic and have one available, add it first
-            if (hasMythic && availableMythic.length > 0) {
-                const mythicIdx = Math.floor(Math.random() * availableMythic.length);
-                choices.push({ ...availableMythic[mythicIdx], isMythic: true });
-            }
-
-            // Fill remaining slots with Diamond augments
-            const diamondPool = [...availableDiamond];
-            while (choices.length < 3 && diamondPool.length > 0) {
-                const idx = Math.floor(Math.random() * diamondPool.length);
-                choices.push({ ...diamondPool.splice(idx, 1)[0], isMythic: false });
-            }
-        }
-
-        const container = document.getElementById('augment-choices');
-        container.innerHTML = '';
-
-        choices.forEach(u => {
-            const desc = u.getDesc ? u.getDesc(this) : u.desc;
-            const card = document.createElement('div');
-            const isMythic = u.isMythic || u.rarity === 'mythic';
-
-            if (isMythic) {
-                // MYTHIC STYLING - Special golden/red gradient with animation
-                card.className = `upgrade-card mythic`;
-                card.style.borderColor = '#ff6600';
-                card.style.boxShadow = '0 0 30px rgba(255,102,0,0.5), 0 0 60px rgba(255,0,0,0.3)';
-                card.style.background = 'linear-gradient(135deg, #1a0a00, #2a1000, #1a0a00)';
-                card.style.animation = 'mythicPulse 2s ease-in-out infinite';
-
-                // Check if this augment has a sprite
-                let iconHtml = `<div class="upgrade-icon" style="font-size:3rem;">${u.icon}</div>`;
-                if (u.hasSprite && u.spriteKey && MYTHIC_SPRITES[u.spriteKey]) {
-                    iconHtml = `<img src="${getSpritePath(MYTHIC_SPRITES[u.spriteKey])}" style="width:80px;height:80px;border-radius:12px;border:3px solid #ff6600;margin-bottom:0.5rem;" onerror="this.outerHTML='<div class=upgrade-icon style=font-size:3rem;>${u.icon}</div>'">`;
-                }
-
-                card.innerHTML = `
-                    <div class="upgrade-rarity" style="background:linear-gradient(90deg,#ff6600,#ff0000,#ff6600);color:#fff;font-weight:900;text-shadow:0 0 10px #ff0000;animation:mythicText 1s ease-in-out infinite;">🔥 MYTHIC 🔥</div>
-                    ${iconHtml}
-                    <div class="upgrade-details-container">
-                        <div class="upgrade-name" style="color:#ff6600;font-size:1.2em;text-shadow:0 0 10px #ff6600;">${u.name}</div>
-                        <div class="upgrade-desc" style="color:#ffcc88;font-size:0.9em;">${u.desc}</div>
-                        <div class="upgrade-stats" style="color:#ff8844;font-size:0.8em;margin-top:4px;">${desc}</div>
-                    </div>
-                `;
-            } else {
-                // DIAMOND STYLING (unchanged)
-                card.className = `upgrade-card legendary`;
-                card.style.borderColor = '#00ffff';
-                card.style.boxShadow = '0 0 15px rgba(0,255,255,0.2)';
-                card.innerHTML = `
-                    <div class="upgrade-rarity" style="background:#00ffff;color:#000;">DIAMOND</div>
-                    <div class="upgrade-icon">${u.icon}</div>
-                    <div class="upgrade-details-container">
-                        <div class="upgrade-name" style="color:#ffffff;">${u.name}</div>
-                        <div class="upgrade-desc" style="color:#ffffff;">${u.desc}</div>
-                        <div class="upgrade-stats" style="color:#cccccc;font-size:0.8em;margin-top:4px;">${desc}</div>
-                    </div>
-                `;
-            }
-
-            card.addEventListener('click', () => {
-                u.effect(this);
-
-                // Recalculate Dominion Set bonuses after binding a sigil
-                recalculateDominionSets(this);
-
-                document.getElementById('augment-menu').classList.add('hidden');
-                this.gamePaused = false;
-
-                if (isMythic) {
-                    // Special Mythic announcement
-                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 120, value: `🔥 MYTHIC UNLOCKED! 🔥`, lifetime: 4, color: '#ff6600', scale: 2 });
-                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: u.name, lifetime: 3, color: '#ff0000', scale: 1.5 });
-                    this.triggerScreenShake(15, 0.5);
-                } else {
-                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 80, value: `💎 ${u.name}!`, lifetime: 3, color: '#00ffff' });
-                }
-
-                // Show Dominion Set progress if applicable
-                if (u.setKey && this.dominionSetPieces[u.setKey]) {
-                    const setData = DOMINION_SETS[u.setKey];
-                    const pieces = this.dominionSetPieces[u.setKey];
-                    const tier = this.dominionSetTiers[u.setKey];
-                    this.damageNumbers.push({
-                        x: this.player.x, y: this.player.y - 40,
-                        value: `${setData.icon} ${setData.name} [${pieces} pcs] Tier ${tier}`,
-                        lifetime: 3, color: setData.color, scale: 1
-                    });
-                }
-
-                if (this.currentAugmentOnComplete) this.currentAugmentOnComplete();
-            });
-            container.appendChild(card);
-        });
-
-        // Update reroll button
-        const rerollBtn = document.getElementById('augment-reroll-btn');
-        if (rerollBtn) {
-            if (this.augmentRerollsLeft > 0) {
-                rerollBtn.textContent = `🎲 REROLL (${this.augmentRerollsLeft} Free)`;
-                rerollBtn.style.opacity = '1';
-                rerollBtn.style.cursor = 'pointer';
-                rerollBtn.disabled = false;
-
-                // Remove old listeners and add new one
-                const newBtn = rerollBtn.cloneNode(true);
-                rerollBtn.parentNode.replaceChild(newBtn, rerollBtn);
-                newBtn.addEventListener('click', () => this.rerollAugments());
-            } else {
-                rerollBtn.textContent = '🎲 No Rerolls Left';
-                rerollBtn.style.opacity = '0.5';
-                rerollBtn.style.cursor = 'not-allowed';
-                rerollBtn.disabled = true;
-            }
-        }
-
-        document.getElementById('augment-menu').classList.remove('hidden');
-    }
-
-    rerollAugments() {
-        if (this.augmentRerollsLeft <= 0) return;
-
-        this.augmentRerollsLeft--;
-        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 50, value: '🎲 REROLLED!', lifetime: 1.5, color: '#9966ff', scale: 1.2 });
-
-        // Show new augment choices (pass null to generate new ones, preserve onComplete, mark as reroll)
-        this.showAugmentMenu(null, this.currentAugmentOnComplete, true);
     }
 
     getRandomUpgrades(count) {
@@ -9838,59 +9438,6 @@ class DotsSurvivor {
                 const bw = e.radius * 1.5;
                 ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 4);
                 ctx.fillStyle = '#ff4444'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 4);
-            }
-        });
-
-        // Soul Collectors
-        this.soulCollectors.forEach(sc => {
-            const sx = this.player.x + (sc.wx - this.worldX);
-            const sy = this.player.y + (sc.wy - this.worldY);
-
-            // Collection radius indicator (dashed circle)
-            ctx.beginPath();
-            ctx.arc(sx, sy, sc.radius, 0, Math.PI * 2);
-            ctx.setLineDash([10, 10]);
-            ctx.strokeStyle = sc.complete ? '#00ff88' : 'rgba(136, 255, 255, 0.5)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Progress ring
-            if (!sc.complete && sc.soulsCollected > 0) {
-                const progress = sc.soulsCollected / sc.soulsRequired;
-                ctx.beginPath();
-                ctx.arc(sx, sy, 40, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
-                ctx.strokeStyle = '#00ffff';
-                ctx.lineWidth = 6;
-                ctx.stroke();
-            }
-
-            // Soul Collector icon (sprite or fallback)
-            const spriteKey = sc.complete ? 'soul_collector_complete' : 'soul_collector_collecting';
-            const sprite = SPRITE_CACHE[spriteKey];
-            if (sprite) {
-                const iconSize = sc.complete ? 64 : 48;
-                ctx.drawImage(sprite, sx - iconSize/2, sy - iconSize/2, iconSize, iconSize);
-            } else {
-                // Fallback emoji
-                ctx.font = sc.complete ? '40px Arial' : '32px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = sc.complete ? '#00ff88' : '#88ffff';
-                ctx.fillText(sc.complete ? '✨' : '💀', sx, sy);
-            }
-
-            // Soul count UI (only if not complete)
-            if (!sc.complete) {
-                ctx.font = 'bold 14px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#fff';
-                ctx.fillText(`${sc.soulsCollected}/${sc.soulsRequired}`, sx, sy + 40);
-
-                // "KILL NEARBY" hint
-                ctx.font = '10px Inter';
-                ctx.fillStyle = '#88ffff';
-                ctx.fillText('KILL NEARBY', sx, sy + 52);
             }
         });
 
@@ -11250,27 +10797,6 @@ class DotsSurvivor {
                     ctx.strokeRect(10, y, boxWidth, 28);
                 }
                 y += 36;
-            }
-        });
-
-        // Diamond Augments
-        y += 10;
-        this.augments.forEach(augId => {
-            const aug = DIAMOND_AUGMENTS.find(a => a.id === augId);
-            if (aug) {
-                if (compact) {
-                    ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(10, y, 30, 30);
-                    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(10, y, 30, 30);
-                    ctx.font = '18px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'center';
-                    ctx.fillText(`${aug.icon}`, 25, y + 20);
-                    y += 35;
-                } else {
-                    ctx.fillStyle = 'rgba(0,30,40,0.7)'; ctx.fillRect(10, y, 120, 20);
-                    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1; ctx.strokeRect(10, y, 120, 20);
-                    ctx.font = '12px Inter'; ctx.fillStyle = '#00ffff'; ctx.textAlign = 'left';
-                    ctx.fillText(`${aug.icon} ${aug.name}`, 15, y + 14);
-                    y += 24;
-                }
             }
         });
     }
