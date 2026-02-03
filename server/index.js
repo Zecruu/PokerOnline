@@ -803,46 +803,68 @@ function sanitizeRoom(room) {
 
 // ================== USER AUTHENTICATION & DOTS SURVIVOR API ==================
 
-const { User, LeaderboardEntry } = require('./userModels');
+const { User, LeaderboardEntry, Session } = require('./userModels');
 
 // Generate session token (simple implementation)
 function generateToken() {
     return require('crypto').randomBytes(32).toString('hex');
 }
 
-// In-memory session store (for production, use Redis)
-const sessions = new Map();
+// Session expiry time: 7 days
+const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Middleware to check auth
-function authenticateToken(req, res, next) {
+// Middleware to check auth (MongoDB-backed sessions)
+async function authenticateToken(req, res, next) {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token provided' });
-
-    const session = sessions.get(token);
-    if (!session) return res.status(401).json({ error: 'Invalid or expired token' });
-
-    req.userId = session.userId;
-    req.username = session.username;
-    next();
-}
-
-// Middleware to check admin
-async function authenticateAdmin(req, res, next) {
-    const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-
-    const session = sessions.get(token);
-    if (!session) return res.status(401).json({ error: 'Invalid or expired token' });
 
     try {
-        const user = await User.findById(session.userId);
-        if (!user || !user.isAdmin) {
-            return res.status(403).json({ error: 'Admin access required' });
+        const session = await Session.findOne({
+            token,
+            expiresAt: { $gt: new Date() }
+        });
+
+        if (!session) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
         }
+
+        // Update last activity (don't await to avoid slowing down requests)
+        Session.updateOne({ _id: session._id }, { lastActivity: new Date() }).exec();
+
         req.userId = session.userId;
         req.username = session.username;
         next();
     } catch (error) {
+        console.error('Auth error:', error);
+        return res.status(500).json({ error: 'Authentication failed' });
+    }
+}
+
+// Middleware to check admin (MongoDB-backed sessions)
+async function authenticateAdmin(req, res, next) {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+
+    try {
+        const session = await Session.findOne({
+            token,
+            expiresAt: { $gt: new Date() }
+        });
+
+        if (!session) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+
+        const user = await User.findById(session.userId);
+        if (!user || !user.isAdmin) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        req.userId = session.userId;
+        req.username = session.username;
+        next();
+    } catch (error) {
+        console.error('Admin auth error:', error);
         return res.status(500).json({ error: 'Authentication failed' });
     }
 }
@@ -905,9 +927,15 @@ app.post('/api/auth/register', async (req, res) => {
         user.setPassword(password);
         await user.save();
 
-        // Auto-login after registration
+        // Auto-login after registration - create persistent session
         const token = generateToken();
-        sessions.set(token, { userId: user._id, username: user.username });
+        await Session.create({
+            token,
+            userId: user._id,
+            username: user.username,
+            expiresAt: new Date(Date.now() + SESSION_EXPIRY_MS),
+            deviceInfo: req.headers['user-agent'] || 'Unknown'
+        });
 
         res.json({
             success: true,
@@ -965,8 +993,15 @@ app.post('/api/auth/login', async (req, res) => {
 
         user.lastLogin = new Date();
 
+        // Create persistent session in MongoDB
         const token = generateToken();
-        sessions.set(token, { userId: user._id, username: user.username });
+        await Session.create({
+            token,
+            userId: user._id,
+            username: user.username,
+            expiresAt: new Date(Date.now() + SESSION_EXPIRY_MS),
+            deviceInfo: deviceInfo || req.headers['user-agent'] || 'Unknown'
+        });
 
         let rememberToken = null;
         if (rememberMe) {
@@ -1017,9 +1052,14 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
     const token = req.headers['authorization']?.split(' ')[1];
     const { rememberToken } = req.body || {};
-    
-    sessions.delete(token);
-    
+
+    // Delete session from MongoDB
+    try {
+        await Session.deleteOne({ token });
+    } catch (e) {
+        console.error('Error deleting session:', e);
+    }
+
     // Also remove remember token if provided
     if (rememberToken) {
         try {
@@ -1032,7 +1072,7 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
             console.error('Error removing remember token:', e);
         }
     }
-    
+
     res.json({ success: true });
 });
 
@@ -1062,9 +1102,15 @@ app.post('/api/auth/remember', async (req, res) => {
         user.lastLogin = new Date();
         await user.save();
 
-        // Generate new session token
+        // Generate new session token and persist to MongoDB
         const token = generateToken();
-        sessions.set(token, { userId: user._id, username: user.username });
+        await Session.create({
+            token,
+            userId: user._id,
+            username: user.username,
+            expiresAt: new Date(Date.now() + SESSION_EXPIRY_MS),
+            deviceInfo: req.headers['user-agent'] || 'Unknown'
+        });
 
         res.json({
             success: true,
@@ -1420,12 +1466,8 @@ app.post('/api/admin/ban/:userId', authenticateAdmin, async (req, res) => {
         user.bannedAt = new Date();
         await user.save();
 
-        // Remove all active sessions for this user
-        for (const [token, session] of sessions.entries()) {
-            if (session.userId.toString() === userId) {
-                sessions.delete(token);
-            }
-        }
+        // Remove all active sessions for this user from MongoDB
+        await Session.deleteMany({ userId: user._id });
 
         res.json({ success: true, message: `User ${user.username} has been banned` });
         console.log(`🚫 User banned: ${user.username} by ${req.username}. Reason: ${reason || 'None'}`);

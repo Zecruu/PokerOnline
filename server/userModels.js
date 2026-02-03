@@ -95,7 +95,22 @@ const LeaderboardEntrySchema = new mongoose.Schema({
 LeaderboardEntrySchema.index({ category: 1, value: -1 });
 LeaderboardEntrySchema.index({ userId: 1, category: 1 }, { unique: true });
 
+// Session Schema - For persistent auth sessions (survives server restarts)
+const SessionSchema = new mongoose.Schema({
+    token: { type: String, required: true, unique: true, index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    username: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date, required: true, index: true },
+    deviceInfo: { type: String, default: 'Unknown' },
+    lastActivity: { type: Date, default: Date.now }
+});
+
+// Auto-delete expired sessions with TTL index
+SessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 const User = mongoose.model('User', UserSchema);
 const LeaderboardEntry = mongoose.model('LeaderboardEntry', LeaderboardEntrySchema);
+const Session = mongoose.model('Session', SessionSchema);
 
-module.exports = { User, LeaderboardEntry };
+module.exports = { User, LeaderboardEntry, Session };
