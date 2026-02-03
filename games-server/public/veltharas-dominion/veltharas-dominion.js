@@ -5489,8 +5489,8 @@ class DotsSurvivor {
                 const sy = this.player.y + (enemyWy - this.worldY);
                 this.spawnParticles(sx, sy, '#88ffff', 3);
 
-                // Check if complete
-                if (sc.soulsCollected >= sc.soulsRequired) {
+                // Check if complete (double-check sc.complete to prevent multiple triggers)
+                if (!sc.complete && sc.soulsCollected >= sc.soulsRequired) {
                     this.completeSoulCollector(sc);
                 }
             }
@@ -5529,6 +5529,8 @@ class DotsSurvivor {
             if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
             // Filter by class requirement (wolf augments only for Shadow Master)
             if (a.classReq && a.classReq !== this.selectedClass?.id) return false;
+            // Check prerequisite requirement (e.g., Ring II requires Ring I)
+            if (a.req && a.req !== 'demonSet' && !this.boundSigils?.includes(a.req)) return false;
             return true;
         });
 
@@ -8207,18 +8209,33 @@ class DotsSurvivor {
             }
 
             if (tier === 'common') hasFaded = true;
+            // Helper function to filter sigils by requirements
+            const filterSigil = (r) => {
+                if (usedIds.has(r.id)) return false;
+                // Check class requirement
+                if (r.classReq && r.classReq !== this.selectedClass?.id) return false;
+                // Check prerequisite requirement (e.g., Ring II requires Ring I)
+                if (r.req && r.req !== 'demonSet' && !this.boundSigils?.includes(r.req)) return false;
+                // Check demon set requirement
+                if (r.req === 'demonSet' && !this.demonSetBonusActive) return false;
+                return true;
+            };
+
             let runePool;
             switch (tier) {
-                case 'mythic': runePool = MYTHIC_RUNES.filter(r => !this.augments.includes(r.id) && !usedIds.has(r.id)); break;
-                case 'legendary': runePool = LEGENDARY_RUNES.filter(r => !usedIds.has(r.id)); break;
-                case 'purple': runePool = PURPLE_RUNES.filter(r => !usedIds.has(r.id)); break;
-                case 'silver': runePool = SILVER_RUNES.filter(r => !usedIds.has(r.id)); break;
-                default: runePool = COMMON_RUNES.filter(r => !usedIds.has(r.id)); break;
+                case 'mythic': runePool = MYTHIC_RUNES.filter(r => !this.augments.includes(r.id) && filterSigil(r)); break;
+                case 'legendary': runePool = LEGENDARY_RUNES.filter(filterSigil); break;
+                case 'purple': runePool = PURPLE_RUNES.filter(filterSigil); break;
+                case 'silver': runePool = SILVER_RUNES.filter(filterSigil); break;
+                default: runePool = COMMON_RUNES.filter(filterSigil); break;
             }
 
             // Fallback to common if pool is empty
             if (runePool.length === 0) {
-                runePool = COMMON_RUNES.filter(r => !usedIds.has(r.id));
+                runePool = COMMON_RUNES.filter(filterSigil);
+            }
+            if (runePool.length === 0) {
+                runePool = COMMON_RUNES.filter(r => !usedIds.has(r.id)); // Allow any common sigil
             }
             if (runePool.length === 0) {
                 runePool = [...COMMON_RUNES]; // Allow duplicates if all used
@@ -8418,6 +8435,8 @@ class DotsSurvivor {
                 if (a.req === 'demonSet' && !this.demonSetBonusActive) return false;
                 // Filter wolf augments - only show for Shadow Master
                 if (a.classReq && a.classReq !== this.selectedClass?.id) return false;
+                // Check prerequisite requirement (e.g., Ring II requires Ring I)
+                if (a.req && a.req !== 'demonSet' && !this.boundSigils?.includes(a.req)) return false;
                 return true;
             });
 
