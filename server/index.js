@@ -1689,8 +1689,8 @@ app.post('/api/games/purchase/:gameId', authenticateToken, async (req, res) => {
                 quantity: 1,
             }],
             mode: 'payment',
-            success_url: `${req.protocol}://${req.get('host')}/veltharas-dominion/?purchase_success=1`,
-            cancel_url: `${req.protocol}://${req.get('host')}/veltharas-dominion/?purchase_cancelled=1`,
+            success_url: `https://games.zecrugames.com/veltharas-dominion/?purchase_success=1`,
+            cancel_url: `https://games.zecrugames.com/veltharas-dominion/?purchase_cancelled=1`,
             metadata: {
                 gameId,
                 userId: user._id.toString(),
