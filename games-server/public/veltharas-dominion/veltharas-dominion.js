@@ -8696,6 +8696,59 @@ class DotsSurvivor {
         // Inferno aura
         if (this.inferno) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 100, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,100,0,0.3)'; ctx.lineWidth = 2; ctx.stroke(); }
 
+        // ============ BASE AURA FIRE (FIRE MAGE STARTING SKILL) ============
+        // Only draw if we have auraFire but NOT the upgraded ring versions
+        if (this.auraFire && !this.playerRingOfFire && !this.devilRingOfFire) {
+            ctx.save();
+            const auraRadius = this.auraFire.radius;
+
+            // Pulsing effect
+            const pulse = 1 + Math.sin(this.gameTime / 200) * 0.05;
+            const drawRadius = auraRadius * pulse;
+
+            // Outer glow
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, drawRadius + 8, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 100, 0, 0.15)';
+            ctx.lineWidth = 12;
+            ctx.stroke();
+
+            // Main flame circle
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, drawRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff4400';
+            ctx.stroke();
+
+            // Inner glow
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, drawRadius - 3, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 200, 50, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Animated flame particles around the ring
+            const numFlames = 12;
+            const rotationOffset = this.gameTime / 500; // Slow rotation
+            for (let i = 0; i < numFlames; i++) {
+                const angle = (i / numFlames) * Math.PI * 2 + rotationOffset;
+                const flicker = Math.sin(this.gameTime / 100 + i * 2) * 3;
+                const fx = this.player.x + Math.cos(angle) * (drawRadius + flicker);
+                const fy = this.player.y + Math.sin(angle) * (drawRadius + flicker);
+                const flameSize = 4 + Math.sin(this.gameTime / 80 + i) * 2;
+
+                ctx.beginPath();
+                ctx.arc(fx, fy, flameSize, 0, Math.PI * 2);
+                const alpha = 0.6 + Math.sin(this.gameTime / 60 + i * 3) * 0.3;
+                ctx.fillStyle = `rgba(255, ${Math.floor(100 + Math.random() * 50)}, 0, ${alpha})`;
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
         // ============ PLAYER RING OF FIRE (AUGMENT) ============
         if (this.playerRingOfFire) {
             ctx.save();

@@ -368,15 +368,6 @@ class AuthManager {
                 <button onclick="authManager.logout()" style="background:none;border:none;color:#ff6666;cursor:pointer;font-size:0.8rem;">Logout</button>
             `;
 
-            // Check game ownership
-            const ownsGame = await this.checkGameOwnership();
-
-            if (!ownsGame) {
-                // Show paywall
-                this.showPaywall();
-                return;
-            }
-
             // Check for saved game
             if (this.user.savedGame?.exists) {
                 document.getElementById('saved-game-notice').classList.remove('hidden');
@@ -386,99 +377,10 @@ class AuthManager {
                 document.getElementById('start-btn').classList.remove('hidden');
             }
         } else {
-            // Guests can't play - must login/register
+            // Guests can play too (purchase is handled in game hub)
             userInfoEl.innerHTML = `<span style="color:#888;">Playing as Guest</span>`;
-            this.showPaywall(true); // isGuest = true
-        }
-    }
-
-    // Check if user owns this game
-    async checkGameOwnership() {
-        // Admin and Tester get free access
-        if (this.user?.isAdmin || this.user?.isTester) {
-            return true;
-        }
-
-        // Check library from user data first (faster)
-        if (this.user?.library?.some(g => g.gameId === 'veltharas-dominion')) {
-            return true;
-        }
-
-        // Double-check with server
-        try {
-            const res = await this.apiGet('/api/games/check-ownership/veltharas-dominion');
-            return res.ownsGame === true;
-        } catch (e) {
-            // If server check fails, allow playing based on cached library
-            console.log('Ownership check failed, using cached data');
-            return this.user?.library?.some(g => g.gameId === 'veltharas-dominion') || false;
-        }
-    }
-
-    // Show paywall for users who don't own the game
-    showPaywall(isGuest = false) {
-        // Hide normal start menu content
-        document.getElementById('saved-game-notice')?.classList.add('hidden');
-        document.getElementById('start-btn')?.classList.add('hidden');
-
-        // Remove existing paywall if any
-        document.getElementById('paywall-notice')?.remove();
-
-        const paywallHTML = `
-            <div id="paywall-notice" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #fbbf24;border-radius:16px;padding:2rem;margin:1rem 0;text-align:center;">
-                <h2 style="color:#fbbf24;margin:0 0 1rem 0;font-size:1.5rem;">🔐 Unlock Full Game</h2>
-                <p style="color:#ccc;margin:0 0 1rem 0;font-size:1.1rem;">
-                    <strong style="color:#fbbf24;">Velthara's Dominion</strong> is a premium game
-                </p>
-                <p style="color:#fff;font-size:2rem;margin:1rem 0;font-weight:bold;">
-                    $5.00 <span style="font-size:0.9rem;color:#888;font-weight:normal;">one-time purchase</span>
-                </p>
-                <p style="color:#888;font-size:0.9rem;margin:0 0 1.5rem 0;">
-                    Includes all current content and future updates!
-                </p>
-                ${isGuest ? `
-                    <p style="color:#ff6666;margin-bottom:1rem;">⚠️ You must create an account to purchase</p>
-                    <button onclick="authManager.showAuthMenu()" class="menu-btn primary" style="margin-bottom:0.5rem;background:linear-gradient(135deg,#00ffaa,#00cc88);">
-                        🔑 LOGIN / REGISTER
-                    </button>
-                ` : `
-                    <button onclick="authManager.purchaseGame()" class="menu-btn primary" style="margin-bottom:0.5rem;background:linear-gradient(135deg,#fbbf24,#f59e0b);">
-                        💳 BUY NOW - $5.00
-                    </button>
-                `}
-                <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #333;">
-                    <p style="color:#666;font-size:0.8rem;margin:0;">
-                        ✨ Secure payment via Stripe<br>
-                        🔒 Instant access after purchase
-                    </p>
-                </div>
-            </div>
-        `;
-
-        // Insert after user info
-        const startMenu = document.querySelector('#start-menu .menu-content');
-        const subtitle = startMenu.querySelector('.alpha-tag');
-        subtitle.insertAdjacentHTML('afterend', paywallHTML);
-    }
-
-    // Initiate game purchase via Stripe
-    async purchaseGame() {
-        if (!this.user || !this.token) {
-            this.showAuthMenu();
-            return;
-        }
-
-        try {
-            const res = await this.apiPost('/api/games/purchase/veltharas-dominion', {});
-
-            if (res.checkoutUrl) {
-                // Redirect to Stripe checkout
-                window.location.href = res.checkoutUrl;
-            } else if (res.error) {
-                alert(res.error);
-            }
-        } catch (e) {
-            alert(e.message || 'Purchase failed. Please try again.');
+            document.getElementById('saved-game-notice').classList.add('hidden');
+            document.getElementById('start-btn').classList.remove('hidden');
         }
     }
 
@@ -1106,6 +1008,28 @@ class AuthManager {
             this.user.stats = res.stats;
             return res;
         } catch (e) {
+            // If token expired, try to refresh and retry
+            if (e.message && e.message.toLowerCase().includes('token') && this.rememberToken) {
+                console.log('Score submit token expired, attempting refresh...');
+                try {
+                    const refreshRes = await this.apiPost('/api/auth/remember', {
+                        rememberToken: this.rememberToken
+                    });
+                    this.token = refreshRes.token;
+                    this.user = refreshRes.user;
+                    localStorage.setItem('ds_token', refreshRes.token);
+                    localStorage.setItem('auth_token', refreshRes.token);
+                    localStorage.setItem('user_data', JSON.stringify(refreshRes.user));
+                    console.log('Token refreshed, retrying score submit...');
+
+                    // Retry the score submission with new token
+                    const res = await this.apiPost('/api/dots-survivor/submit-score', { score, wave, kills, timePlayed });
+                    this.user.stats = res.stats;
+                    return res;
+                } catch (refreshError) {
+                    console.error('Token refresh failed:', refreshError);
+                }
+            }
             console.error('Failed to submit score:', e);
             return null;
         }
