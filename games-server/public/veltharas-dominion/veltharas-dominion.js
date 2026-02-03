@@ -1,116 +1,130 @@
 // Velthara's Dominion - Complete Game with Classes, Items, Bosses & Infinite Map
 
-// Get base path for sprites (works on both desktop and mobile)
-const SPRITE_BASE_PATH = (() => {
-    // Get the directory of the current script/page
-    const path = window.location.pathname;
-    const dir = path.substring(0, path.lastIndexOf('/') + 1);
-    return dir;
-})();
+// ============================================
+// CDN CONFIGURATION - CloudFront Distribution
+// ============================================
+const CDN_CONFIG = {
+    enabled: true, // Set to false to use local assets for development
+    baseUrl: 'https://d2f5lfipdzhi8t.cloudfront.net/veltharas-dominion'
+};
 
-// Helper function to get full sprite path
+// Helper function to get full sprite path (CDN or local)
 function getSpritePath(filename) {
     // If already absolute or has protocol, return as is
     if (filename.startsWith('/') || filename.startsWith('http')) return filename;
-    return SPRITE_BASE_PATH + filename;
+    if (CDN_CONFIG.enabled) {
+        return `${CDN_CONFIG.baseUrl}/${filename}`;
+    }
+    // Fallback to local path
+    const path = window.location.pathname;
+    const dir = path.substring(0, path.lastIndexOf('/') + 1);
+    return dir + filename;
 }
 
-// Player, Minion, and Projectile Sprite System (Single Sprites per Animation)
+// Player sprites for necromancer class
 const PLAYER_SPRITES = {
-    standing: 'Standing-removebg-preview.png',
-    walking: 'Walking-removebg-preview.png',
-    dead: 'Dead-removebg-preview.png'
+    standing: 'characters/necromancer-idle.png',
+    walking: 'characters/necromancer-walk.png',
+    dead: 'characters/necromancer-dead.png'
 };
 
-// Player level progression sprites (changes appearance as player levels up)
+// Fire Mage level progression sprites
 const PLAYER_LEVEL_SPRITES = {
-    level1: 'Level1Mage.png',      // Level 1-4
-    level5: 'Level2Mage.png',      // Level 5-9
-    level10: 'Level3.png',         // Level 10-14
-    level15: 'Level4Mage.png',     // Level 15-19
-    level20: 'Level5Mage.png',     // Level 20-24
-    level25: 'Level6Mage.png',     // Level 25-29
-    level30: 'Standing-removebg-preview.png'  // Level 30+
+    level1: 'characters/fire-mage-lv1.png',      // Level 1-4
+    level5: 'characters/fire-mage-lv5.png',      // Level 5-9
+    level10: 'characters/fire-mage-lv10.png',    // Level 10-14
+    level15: 'characters/fire-mage-lv15.png',    // Level 15-19
+    level20: 'characters/fire-mage-lv20.png',    // Level 20-24
+    level25: 'characters/fire-mage-lv25.png',    // Level 25-29
+    level30: 'characters/necromancer-idle.png'   // Level 30+
+};
+
+// Shadow Monarch level progression sprites
+const SHADOW_MONARCH_SPRITES = {
+    level1: 'characters/shadow-monarch-lv1.png',
+    level5: 'characters/shadow-monarch-lv5.png',
+    level10: 'characters/shadow-monarch-lv10.png',
+    level15: 'characters/shadow-monarch-lv15.png'
 };
 
 const WOLF_SPRITES = {
-    standing: 'WolfStanding-removebg-preview.png',
-    running1: 'WolfRunning-removebg-preview.png',
-    running2: 'WolfRunning2-removebg-preview.png',
-    biting: 'WolfBitting-removebg-preview.png'
+    standing: 'minions/wolf-idle.png',
+    running1: 'minions/wolf-run.png',
+    running2: 'minions/wolf-run-alt.png',
+    biting: 'minions/wolf-attack.png'
 };
 
-const FIREBALL_SPRITE = 'Fireball.png';
-const RINGOFFIRE_SPRITE = 'ring_of_fire.png';
-const DEVIL_RINGOFFIRE_SPRITE = 'devil_ring_of_fire.png';
+const FIREBALL_SPRITE = 'effects/fireball.png';
+const RINGOFFIRE_SPRITE = 'effects/ring-of-fire-aura.png';
+const DEVIL_RINGOFFIRE_SPRITE = 'effects/devil-ring-of-fire.png';
 
 // Elemental Skull Sprites (for orbiting skull augment)
 const SKULL_SPRITES = {
-    fire: '1ec244e0-23e0-4582-866c-10c9705ee8b1-removebg-preview.png',
-    slow: '23758cbd-26db-454a-b5f7-cfb21a00d678-removebg-preview.png',
-    dark: '5e6439b6-6125-4cc8-bcf4-acf56e524b72-removebg-preview.png',
-    lightning: '0a93e9de-a767-4d80-9df3-e21ca59d8319-removebg-preview.png'
+    fire: 'items/skull-fire.png',
+    slow: 'items/skull-slow.png',
+    dark: 'items/skull-dark.png',
+    lightning: 'items/skull-lightning.png'
 };
 
 // Beam of Despair Sprites (stacking item icons)
 const BEAM_DESPAIR_SPRITES = {
-    base: '1d6bda2b-9e6a-4e43-aa19-9edcf1a91255.jpg',
-    evolved: '916b5e75-0b5b-4e95-a550-c84fbfe0a268.jpg'
+    base: 'items/beam-despair.jpg',
+    evolved: 'items/beam-despair-evolved.jpg'
 };
 
 // Crit Blade Sprites (stacking item icons)
 const CRIT_BLADE_SPRITES = {
-    base: 'e6ae531e-f976-4598-9cb1-3645d62a2d0a.jpg',
-    evolved: '151435d5-709b-4fb5-ab63-216453fa472d.jpg'
+    base: 'items/crit-blade.jpg',
+    evolved: 'items/crit-blade-evolved.jpg'
 };
 
 // Ring of XP Sprites (stacking item icons)
 const RING_XP_SPRITES = {
-    base: 'bdd432b1-e52d-43fa-b591-20759c11bd7b.jpg',
-    evolved: 'aa38aa35-9eca-4b7c-9a43-7dbd2981b7d8.jpg'
+    base: 'items/ring-xp.jpg',
+    evolved: 'items/ring-xp-evolved.jpg'
 };
 
 // Soul Collector Sprites (POI icons)
 const SOUL_COLLECTOR_SPRITES = {
-    collecting: 'f8ac43e1-63f9-4aac-9a62-bd7435a93b2b.jpg',
-    complete: 'f3e8ed8c-0406-4cbe-a85b-4d925bffb445.jpg'
+    collecting: 'items/soul-collector.jpg',
+    complete: 'items/soul-collector-evolved.jpg'
 };
 
 // Boots of Swiftness Sprites (stacking item icons)
 const BOOTS_SWIFTNESS_SPRITES = {
-    base: 'b8ed813f-ac3d-4cfe-91c0-5e8b3c82cb84-removebg-preview.png',
-    evolved: 'a2d729b4-7e35-4961-a88e-bac4cc28398d-removebg-preview.png'
+    base: 'items/boots-swiftness.png',
+    evolved: 'items/boots-swiftness-evolved.png'
 };
 
 // Demon Set Sprites
 const DEMON_SET_SPRITES = {
-    helm: '0770a100-e29d-4325-8741-9951ba4affcd.jpg',
-    chest: 'deee24a8-9020-43ea-8fc9-cef4b810b858.jpg',
-    boots: 'd8a16809-cbe3-4b78-a63c-e974e12aba1d.jpg'
+    helm: 'items/demon-helm.jpg',
+    chest: 'items/demon-chest.jpg',
+    boots: 'items/demon-boots.jpg'
 };
 
 // Heart of Vitality Sprites (stacking item icons)
 const HEART_VITALITY_SPRITES = {
-    base: '53ded777-5832-47cf-8640-4c0c5e933582.jpg',
-    evolved: 'c81ba2ce-1664-4f4c-83c7-c7cf898e1116.jpg'
+    base: 'items/heart-vitality.jpg',
+    evolved: 'items/heart-vitality-evolved.jpg'
 };
 
 // Blood Soaker Sprites (stacking item icons)
 const BLOOD_SOAKER_SPRITES = {
-    base: 'd7f4391a-1877-4d7a-89c2-fa09b95fa006.jpg',
-    evolved: '977daf8c-4a8b-43bb-ac0f-3abd5824a2ad.jpg'
+    base: 'items/blood-soaker.jpg',
+    evolved: 'items/blood-soaker-evolved.jpg'
 };
 
 // Ability Icons
 const ABILITY_SPRITES = {
-    dash: '0a9fd5ff-f2e6-4a80-8788-d21979342ffc.jpg',
-    nuclearBlast: 'a8ed4028-237c-4ba6-b084-c92b9176c417.jpg'
+    dash: 'abilities/dash.jpg',
+    nuclearBlast: 'abilities/nuclear-blast.jpg'
 };
 
 // Mythic Augment Sprites
 const MYTHIC_SPRITES = {
-    demonic_fire_mythic: 'demonic-fire-mythic.png',
-    devil_ring_of_fire: 'devil_ring_of_fire.png'
+    demonic_fire_mythic: 'effects/demonic-fire-mythic.png',
+    devil_ring_of_fire: 'effects/devil-ring-of-fire.png'
 };
 
 // Beam of Despair color progression (changes every 1000 kills)
@@ -140,24 +154,24 @@ const ANIM_SPEED = 0.15;
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
     // Define sprite paths for each enemy type (set to null for default circle rendering)
-    swarm: 'swarm.png',
-    basic: 'basicenemy.png',
-    runner: 'RunnerEnemy.png',
-    tank: 'TankEnemy.png',
-    splitter: 'Splitter.png',
-    bomber: 'BomberEnemy.png',
-    mini: 'TinyEnemy.png',
-    sticky: 'StickyEnemy.png',
-    ice: 'IceEnemy.png',
-    poison: 'Poison.png',
-    boss: 'BossEnemy.png',
-    general: 'DemonKing.png',
-    consumer: 'affafb7e-20ab-48d6-aa16-726fa9b54c9c-removebg-preview.png',  // The Consumer boss - void spiral
+    swarm: 'enemies/swarm.png',
+    basic: 'enemies/basic.png',
+    runner: 'enemies/runner.png',
+    tank: 'enemies/tank.png',
+    splitter: 'enemies/splitter.png',
+    bomber: 'enemies/bomber.png',
+    mini: 'enemies/mini.png',
+    sticky: 'enemies/sticky.png',
+    ice: 'enemies/ice.png',
+    poison: 'enemies/poison.png',
+    boss: 'enemies/boss-consumer.png',
+    general: 'enemies/demon-king.png',
+    consumer: 'enemies/the-consumer.png',  // The Consumer boss - void spiral
     // New enemies - Wave 5+
-    goblin: 'goblin.png',           // Wave 5 - Passive XP stealer
-    necromancer: 'necromancer.png', // Wave 6 - Spawns sprites
-    necro_sprite: 'sprite.png',     // Necromancer's minions
-    miniconsumer: 'miniconsumer.png' // Wave 10 - Grows with deaths
+    goblin: 'enemies/goblin.png',           // Wave 5 - Passive XP stealer
+    necromancer: 'enemies/necromancer-enemy.png', // Wave 6 - Spawns sprites
+    necro_sprite: 'enemies/necro-sprite.png',     // Necromancer's minions
+    miniconsumer: 'enemies/mini-consumer.png' // Wave 10 - Grows with deaths
 };
 
 // Sprite cache - stores loaded Image objects
