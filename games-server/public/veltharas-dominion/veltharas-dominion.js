@@ -165,7 +165,10 @@ const SIGIL_TIERS = {
     RUNED: { tier: 2, name: 'Runed', color: '#c0c0c0', label: 'Runed Sigil', image: 'sigils/tier_runed.jpg' },
     EMPOWERED: { tier: 3, name: 'Empowered', color: '#9932cc', label: 'Empowered Sigil', image: 'sigils/tier_empowered.jpg' },
     ASCENDANT: { tier: 4, name: 'Ascendant', color: '#ffd700', label: 'Ascendant Sigil', image: 'sigils/tier_ascendant.jpg' },
-    MYTHIC: { tier: 5, name: 'Mythic', color: '#ff6600', label: 'Mythic Sigil', image: 'sigils/tier_mythic.jpg' }
+    MYTHIC: { tier: 5, name: 'Mythic', color: '#ff6600', label: 'Mythic Sigil', image: 'sigils/tier_mythic.jpg' },
+    // Corrupted variants (Tier II and III only)
+    CORRUPTED_RUNED: { tier: 2, name: 'Corrupted Runed', color: '#8b0000', label: 'Corrupted Sigil', image: 'sigils/tier_corrupted_runed.jpg', isCorrupted: true },
+    CORRUPTED_EMPOWERED: { tier: 3, name: 'Corrupted Empowered', color: '#4a0080', label: 'Corrupted Sigil', image: 'sigils/tier_corrupted_empowered.jpg', isCorrupted: true }
 };
 
 // Map old rarity names to new sigil tiers
@@ -177,8 +180,324 @@ const RARITY_TO_TIER = {
     'purple': 'EMPOWERED',
     'epic': 'EMPOWERED',
     'legendary': 'ASCENDANT',
-    'mythic': 'MYTHIC'
+    'mythic': 'MYTHIC',
+    'corrupted_runed': 'CORRUPTED_RUNED',
+    'corrupted_empowered': 'CORRUPTED_EMPOWERED'
 };
+
+// ============================================
+// CORRUPTED SIGILS SYSTEM
+// Rules:
+// - Only appear after Wave 8
+// - Only Tier II (Runed) or Tier III (Empowered)
+// - Maximum 2 Corrupted Sigils per run
+// - Each has a powerful upside and meaningful downside
+// ============================================
+const CORRUPTED_SIGILS = {
+    // Universal Pool (6)
+    universal: [
+        {
+            id: 'corrupted_vitality',
+            name: 'Blighted Vitality',
+            icon: '💔',
+            tier: 'CORRUPTED_RUNED',
+            rarity: 'corrupted_runed',
+            isCorrupted: true,
+            baseSigil: 'sigil_greater_vitality',
+            desc: '+150 Max HP. Take 15% more damage.',
+            flavor: 'Strength borrowed from the void demands payment.',
+            tags: ['health', 'defense'],
+            upside: '+150 Max HP (vs +100 normal)',
+            downside: 'Take 15% more damage from all sources',
+            effect: (g) => {
+                g.player.maxHealth += 150;
+                g.player.health += 150;
+                g.corruptedDamageTaken = (g.corruptedDamageTaken || 1) * 1.15;
+                g.boundSigils.push('corrupted_vitality');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 150}`
+        },
+        {
+            id: 'corrupted_haste',
+            name: 'Frenzied Haste',
+            icon: '💨',
+            tier: 'CORRUPTED_RUNED',
+            rarity: 'corrupted_runed',
+            isCorrupted: true,
+            baseSigil: 'sigil_swiftness',
+            desc: '+25% move speed. Nearby enemies +10% faster.',
+            flavor: 'The corruption quickens all it touches.',
+            tags: ['movement'],
+            upside: '+25% movement speed (vs +15% normal)',
+            downside: 'Enemies move 10% faster when nearby',
+            effect: (g) => {
+                g.player.speed *= 1.25;
+                g.corruptedEnemySpeedAura = 1.10;
+                g.boundSigils.push('corrupted_haste');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Speed: +25%`
+        },
+        {
+            id: 'corrupted_drain',
+            name: 'Voracious Drain',
+            icon: '🩸',
+            tier: 'CORRUPTED_EMPOWERED',
+            rarity: 'corrupted_empowered',
+            isCorrupted: true,
+            baseSigil: 'sigil_lifesteal',
+            desc: '8% lifesteal on all damage. Lose 2 HP/s.',
+            flavor: 'It feeds, but never stops hungering.',
+            tags: ['lifesteal', 'sustain'],
+            upside: '8% lifesteal on all damage (vs 5% normal)',
+            downside: 'Lose 2 HP per second passively',
+            effect: (g) => {
+                g.lifesteal = (g.lifesteal || 0) + 0.08;
+                g.corruptedHPDrain = (g.corruptedHPDrain || 0) + 2;
+                g.boundSigils.push('corrupted_drain');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Lifesteal: ${Math.round((g.lifesteal || 0) * 100)}% → ${Math.round(((g.lifesteal || 0) + 0.08) * 100)}%`
+        },
+        {
+            id: 'corrupted_explosion',
+            name: 'Unstable Detonation',
+            icon: '💥',
+            tier: 'CORRUPTED_EMPOWERED',
+            rarity: 'corrupted_empowered',
+            isCorrupted: true,
+            baseSigil: 'sigil_explosion',
+            desc: 'Explosions +60% dmg, +40% radius. 10% self-damage.',
+            flavor: 'Power without control is still power.',
+            tags: ['explosion', 'chaos'],
+            upside: 'Explosions deal +60% damage, +40% radius',
+            downside: '10% chance explosions damage you for 50 HP',
+            effect: (g) => {
+                g.explosionDamage = (g.explosionDamage || 1) * 1.60;
+                g.explosionRadius = (g.explosionRadius || 1) * 1.40;
+                g.corruptedExplosionBackfire = 0.10;
+                g.corruptedExplosionSelfDamage = 50;
+                g.boundSigils.push('corrupted_explosion');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Explosion Dmg +60%, Radius +40%`
+        },
+        {
+            id: 'corrupted_xp',
+            name: 'Ravenous Experience',
+            icon: '📚',
+            tier: 'CORRUPTED_RUNED',
+            rarity: 'corrupted_runed',
+            isCorrupted: true,
+            baseSigil: 'sigil_xp',
+            desc: '+40% XP gain. Enemies drop 30% less loot.',
+            flavor: 'Knowledge devours all other rewards.',
+            tags: ['progression'],
+            upside: '+40% XP gain (vs +25% normal)',
+            downside: 'Enemies drop 30% less gold/items',
+            effect: (g) => {
+                g.xpMult = (g.xpMult || 1) * 1.40;
+                g.corruptedLootPenalty = 0.70;
+                g.boundSigils.push('corrupted_xp');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `XP: +40%`
+        },
+        {
+            id: 'corrupted_crit',
+            name: 'Cursed Precision',
+            icon: '🎯',
+            tier: 'CORRUPTED_EMPOWERED',
+            rarity: 'corrupted_empowered',
+            isCorrupted: true,
+            baseSigil: 'sigil_critical',
+            desc: '+20% crit chance, +30% crit dmg. 8% miss chance.',
+            flavor: 'Perfect aim, imperfect reality.',
+            tags: ['damage', 'crit'],
+            upside: '+20% crit chance, +30% crit damage',
+            downside: 'Miss 8% of attacks completely',
+            effect: (g) => {
+                g.critChance = (g.critChance || 0.05) + 0.20;
+                g.critDamage = (g.critDamage || 1.5) + 0.30;
+                g.corruptedMissChance = 0.08;
+                g.boundSigils.push('corrupted_crit');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Crit: ${Math.round((g.critChance || 0.05) * 100)}% → ${Math.round(((g.critChance || 0.05) + 0.20) * 100)}%`
+        }
+    ],
+    // Fire Mage Corrupted Sigils (2)
+    fire_mage: [
+        {
+            id: 'corrupted_fm_orbs',
+            name: 'Hellfire Incandescence',
+            icon: '🔮',
+            tier: 'CORRUPTED_EMPOWERED',
+            rarity: 'corrupted_empowered',
+            isCorrupted: true,
+            classRestriction: 'fire_mage',
+            baseSigil: 'fm_orb_incandescence',
+            desc: '+2 orbs, +25% orb damage. Orbs drain 1 HP/s each.',
+            flavor: 'Each flame is a piece of your soul.',
+            tags: ['fire', 'orbs'],
+            upside: '+2 orbiting orbs (vs +1), orbs deal +25% damage',
+            downside: 'Orbs drain 1 HP per second each',
+            effect: (g) => {
+                if (g.skulls.length < 6) g.skulls.push(g.createSkull());
+                if (g.skulls.length < 6) g.skulls.push(g.createSkull());
+                g.skulls.forEach(s => s.damage *= 1.25);
+                g.corruptedOrbDrain = (g.corruptedOrbDrain || 0) + 1;
+                g.boundSigils.push('corrupted_fm_orbs');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Orbs: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 2)}`
+        },
+        {
+            id: 'corrupted_fm_aura',
+            name: 'Pyroclastic Inferno',
+            icon: '🔥',
+            tier: 'CORRUPTED_RUNED',
+            rarity: 'corrupted_runed',
+            isCorrupted: true,
+            classRestriction: 'fire_mage',
+            baseSigil: 'fm_inferno_radius',
+            desc: 'Aura +25 radius, +100 DPS. Standing still burns you.',
+            flavor: 'The fire demands you keep moving.',
+            tags: ['fire', 'aura'],
+            upside: 'Aura +25 radius, +100 DPS (vs +10, +60)',
+            downside: 'Standing still for 2s burns you for 30 DPS',
+            effect: (g) => {
+                if (g.auraFire) {
+                    g.auraFire.radius += 25;
+                    g.auraFire.damage += 100;
+                }
+                g.corruptedStillBurn = { threshold: 2, damage: 30, timer: 0 };
+                g.boundSigils.push('corrupted_fm_aura');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 25}` : 'Aura not active'
+        }
+    ],
+    // Shadow Master Corrupted Sigils (2)
+    shadow_master: [
+        {
+            id: 'corrupted_sm_summon',
+            name: 'Abyssal Shadows',
+            icon: '👤',
+            tier: 'CORRUPTED_EMPOWERED',
+            rarity: 'corrupted_empowered',
+            isCorrupted: true,
+            classRestriction: 'shadow_master',
+            baseSigil: 'sm_caller_shades',
+            desc: 'Summon 2 shadows, +40% damage. Death explosion hurts you.',
+            flavor: 'They serve, but resent their chains.',
+            tags: ['summon', 'shadow'],
+            upside: 'Summon 2 shadow monsters (vs 1), +40% damage',
+            downside: 'Shadows explode on death, damaging you for 25 HP',
+            effect: (g) => {
+                g.maxShadowMonsters = (g.maxShadowMonsters || 0) + 2;
+                g.shadowMonsterDamage = (g.shadowMonsterDamage || 1) * 1.40;
+                g.corruptedShadowDeathDamage = 25;
+                g.boundSigils.push('corrupted_sm_summon');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Shadows: +2, Damage +40%`
+        },
+        {
+            id: 'corrupted_sm_cloak',
+            name: 'Void-Touched Cloak',
+            icon: '🌑',
+            tier: 'CORRUPTED_RUNED',
+            rarity: 'corrupted_runed',
+            isCorrupted: true,
+            classRestriction: 'shadow_master',
+            baseSigil: 'sm_cloak_depths',
+            desc: 'Cloak +4s duration, +50% damage. Exit stuns you 0.5s.',
+            flavor: 'The void releases you reluctantly.',
+            tags: ['stealth', 'shadow'],
+            upside: 'Cloak duration +4s (vs +2s), +50% cloak damage',
+            downside: 'Exiting cloak stuns you for 0.5s',
+            effect: (g) => {
+                g.cloakDuration = (g.cloakDuration || 3) + 4;
+                g.cloakDamageBonus = (g.cloakDamageBonus || 1) * 1.50;
+                g.corruptedCloakStun = 0.5;
+                g.boundSigils.push('corrupted_sm_cloak');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Cloak: +4s, Damage +50%`
+        }
+    ],
+    // Necromancer Corrupted Sigils (2)
+    necromancer: [
+        {
+            id: 'corrupted_nc_raise',
+            name: 'Malevolent Resurrection',
+            icon: '💀',
+            tier: 'CORRUPTED_EMPOWERED',
+            rarity: 'corrupted_empowered',
+            isCorrupted: true,
+            classRestriction: 'necromancer',
+            baseSigil: 'nc_soul_harvest',
+            desc: 'Raise 2 skeletons/kill, +30% HP. 20% chance to attack you.',
+            flavor: 'The dead remember who killed them.',
+            tags: ['summon', 'undead'],
+            upside: 'Raise 2 skeletons per kill (vs 1), +30% skeleton HP',
+            downside: 'Skeletons have 20% chance to attack you',
+            effect: (g) => {
+                g.skeletonsPerKill = (g.skeletonsPerKill || 1) + 1;
+                g.skeletonHPBonus = (g.skeletonHPBonus || 1) * 1.30;
+                g.corruptedSkeletonBetrayal = 0.20;
+                g.boundSigils.push('corrupted_nc_raise');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Skeletons: 2/kill, HP +30%`
+        },
+        {
+            id: 'corrupted_nc_siphon',
+            name: 'Blighted Siphon',
+            icon: '🌀',
+            tier: 'CORRUPTED_RUNED',
+            rarity: 'corrupted_runed',
+            isCorrupted: true,
+            classRestriction: 'necromancer',
+            baseSigil: 'nc_death_siphon',
+            desc: 'Siphon +80% heal, chains +2 targets. Costs 10 HP to cast.',
+            flavor: 'To take life, you must give life.',
+            tags: ['drain', 'undead'],
+            upside: 'Siphon heals +80% more, chains to 2 extra targets',
+            downside: 'Each siphon costs 10 HP to cast',
+            effect: (g) => {
+                g.siphonHealBonus = (g.siphonHealBonus || 1) * 1.80;
+                g.siphonChainTargets = (g.siphonChainTargets || 1) + 2;
+                g.corruptedSiphonCost = 10;
+                g.boundSigils.push('corrupted_nc_siphon');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Siphon: +80% heal, +2 chains`
+        }
+    ]
+};
+
+// Helper to get available corrupted sigils for current game state
+function getAvailableCorruptedSigils(game) {
+    if (game.wave < 8) return [];
+    if ((game.corruptedSigilCount || 0) >= 2) return [];
+
+    const available = [...CORRUPTED_SIGILS.universal];
+
+    // Add class-specific corrupted sigils
+    if (game.selectedClass === 'fire_mage') {
+        available.push(...CORRUPTED_SIGILS.fire_mage);
+    } else if (game.selectedClass === 'shadow_master') {
+        available.push(...CORRUPTED_SIGILS.shadow_master);
+    } else if (game.selectedClass === 'necromancer') {
+        available.push(...CORRUPTED_SIGILS.necromancer);
+    }
+
+    // Filter out already bound corrupted sigils
+    return available.filter(s => !game.boundSigils.includes(s.id));
+}
 
 // ============================================
 // DOMINION SETS SYSTEM
@@ -3896,6 +4215,7 @@ class DotsSurvivor {
         this.updateDamageNumbers(effectiveDt);
         this.updateGameJuice(dt); // Always real-time for juice effects
         this.updateGreenMucusEffect(effectiveDt); // Mini Consumer death effect
+        this.updateCorruptedSigilDownsides(effectiveDt); // Corrupted Sigil downsides
         if (this.player.health <= 0) this.gameOver();
         this.updateHUD();
     }
@@ -3906,6 +4226,60 @@ class DotsSurvivor {
             if (this.greenMucusEffect.timer <= 0) {
                 this.greenMucusEffect.active = false;
             }
+        }
+    }
+
+    // Corrupted Sigil Downsides - Process passive negative effects
+    updateCorruptedSigilDownsides(dt) {
+        // Voracious Drain: Lose 2 HP per second passively
+        if (this.corruptedHPDrain && this.corruptedHPDrain > 0) {
+            const drain = this.corruptedHPDrain * dt;
+            this.player.health -= drain;
+            // Show occasional damage number
+            if (Math.random() < dt * 0.5) {
+                this.damageNumbers.push({
+                    x: this.player.x + (Math.random() - 0.5) * 20,
+                    y: this.player.y - 30,
+                    value: `💔 ${-Math.ceil(drain)}`,
+                    lifetime: 0.8,
+                    color: '#8b0000'
+                });
+            }
+        }
+
+        // Hellfire Incandescence: Orbs drain 1 HP per second each
+        if (this.corruptedOrbDrain && this.corruptedOrbDrain > 0 && this.skulls) {
+            const orbDrain = this.corruptedOrbDrain * this.skulls.length * dt;
+            if (orbDrain > 0) {
+                this.player.health -= orbDrain;
+            }
+        }
+
+        // Pyroclastic Inferno: Standing still burns you after 2 seconds
+        if (this.corruptedStillBurn) {
+            const playerMoving = this.lastPlayerX !== undefined &&
+                (Math.abs(this.player.x - this.lastPlayerX) > 1 || Math.abs(this.player.y - this.lastPlayerY) > 1);
+
+            if (!playerMoving) {
+                this.corruptedStillBurn.timer = (this.corruptedStillBurn.timer || 0) + dt;
+                if (this.corruptedStillBurn.timer >= this.corruptedStillBurn.threshold) {
+                    const burn = this.corruptedStillBurn.damage * dt;
+                    this.player.health -= burn;
+                    if (Math.random() < dt) {
+                        this.damageNumbers.push({
+                            x: this.player.x + (Math.random() - 0.5) * 30,
+                            y: this.player.y - 25,
+                            value: `🔥 ${-Math.ceil(burn)}`,
+                            lifetime: 0.6,
+                            color: '#ff4400'
+                        });
+                    }
+                }
+            } else {
+                this.corruptedStillBurn.timer = 0;
+            }
+            this.lastPlayerX = this.player.x;
+            this.lastPlayerY = this.player.y;
         }
     }
 
@@ -5356,6 +5730,11 @@ class DotsSurvivor {
                 }
             }
 
+            // Frenzied Haste (Corrupted Sigil): Nearby enemies move 10% faster
+            if (this.corruptedEnemySpeedAura && d < 300) {
+                speedMult *= this.corruptedEnemySpeedAura;
+            }
+
             if (e.passive) {
                 // Passive enemies wander randomly around, not towards player
                 if (!e.wanderAngle) e.wanderAngle = Math.random() * Math.PI * 2;
@@ -5445,7 +5824,8 @@ class DotsSurvivor {
                     this.spawnParticles(corpse.x, corpse.y, '#00cc66', 5);
                     this.playSound('hit');
                 } else {
-                    let remainingDamage = e.damage;
+                    // Apply corrupted damage taken multiplier (Blighted Vitality)
+                    let remainingDamage = e.damage * (this.corruptedDamageTaken || 1);
 
                     // Blood Shield absorbs damage first
                     if (this.bloodShield > 0) {
@@ -6923,7 +7303,12 @@ class DotsSurvivor {
                         const multiplier = this.weapons.bullet.critMultiplier || 2.0;
                         damage = Math.floor(damage * multiplier);
                         color = '#ff0000';
-                        text = `💥 ${damage}`;
+                    }
+
+                    // Cursed Precision (Corrupted Sigil): 8% chance to miss completely
+                    if (this.corruptedMissChance && Math.random() < this.corruptedMissChance) {
+                        this.damageNumbers.push({ x: sx, y: sy - 20, value: 'MISS', lifetime: 0.6, color: '#888888', scale: 0.8 });
+                        continue; // Skip this hit entirely
                     }
 
                     e.health -= damage; e.hitFlash = 1;
@@ -7457,6 +7842,32 @@ class DotsSurvivor {
             choices.push(rune);
         }
 
+        // After Wave 8: 15% chance per slot to offer a corrupted sigil instead (max 2 corrupted per run)
+        if (this.wave >= 8 && (this.corruptedSigilCount || 0) < 2) {
+            const availableCorrupted = getAvailableCorruptedSigils(this);
+            if (availableCorrupted.length > 0) {
+                for (let i = 0; i < choices.length; i++) {
+                    if (Math.random() < 0.15) {
+                        // Pick a corrupted sigil matching the tier if possible
+                        const currentTier = choices[i].tier || choices[i].rarity || 'common';
+                        let matchingCorrupted;
+                        if (currentTier === 'silver' || currentTier === 'rare') {
+                            matchingCorrupted = availableCorrupted.filter(c => c.rarity === 'corrupted_runed');
+                        } else if (currentTier === 'purple' || currentTier === 'epic') {
+                            matchingCorrupted = availableCorrupted.filter(c => c.rarity === 'corrupted_empowered');
+                        } else {
+                            matchingCorrupted = availableCorrupted;
+                        }
+                        if (matchingCorrupted.length > 0) {
+                            const corruptedSigil = matchingCorrupted[Math.floor(Math.random() * matchingCorrupted.length)];
+                            choices[i] = corruptedSigil;
+                            break; // Only replace one slot per level-up
+                        }
+                    }
+                }
+            }
+        }
+
         // Sigil tier colors and styling with tier images
         const tierStyles = {
             common: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
@@ -7466,7 +7877,10 @@ class DotsSurvivor {
             purple: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
             epic: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
             legendary: { border: '#ffd700', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'ASCENDANT', labelBg: 'linear-gradient(90deg,#ffd700,#f59e0b)', glow: 'rgba(255,215,0,0.5)', tierKey: 'ASCENDANT' },
-            mythic: { border: '#ff6600', bg: 'linear-gradient(135deg, #1a0a00, #2a1000)', label: '🔥 MYTHIC 🔥', labelBg: 'linear-gradient(90deg,#ff6600,#ff0000,#ff6600)', glow: 'rgba(255,102,0,0.6)', tierKey: 'MYTHIC' }
+            mythic: { border: '#ff6600', bg: 'linear-gradient(135deg, #1a0a00, #2a1000)', label: '🔥 MYTHIC 🔥', labelBg: 'linear-gradient(90deg,#ff6600,#ff0000,#ff6600)', glow: 'rgba(255,102,0,0.6)', tierKey: 'MYTHIC' },
+            // Corrupted tier styles - dark red/purple with unstable effects
+            corrupted_runed: { border: '#8b0000', bg: 'linear-gradient(135deg, #1a0505, #2d0a0a)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#8b0000,#4a0000)', glow: 'rgba(139,0,0,0.6)', tierKey: 'CORRUPTED_RUNED', isCorrupted: true },
+            corrupted_empowered: { border: '#4a0080', bg: 'linear-gradient(135deg, #0a0515, #150a20)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#4a0080,#2a0050)', glow: 'rgba(74,0,128,0.6)', tierKey: 'CORRUPTED_EMPOWERED', isCorrupted: true }
         };
 
         choices.forEach(rune => {
@@ -7474,6 +7888,7 @@ class DotsSurvivor {
             const style = tierStyles[tier] || tierStyles.common;
             const isMythic = tier === 'mythic';
             const isLegendary = tier === 'legendary';
+            const isCorrupted = rune.isCorrupted || style.isCorrupted;
 
             // Get tier image from SIGIL_TIERS
             const sigilTierData = SIGIL_TIERS[style.tierKey];
@@ -7491,6 +7906,15 @@ class DotsSurvivor {
             card.style.position = 'relative'; // For set badge positioning
             if (isMythic) card.style.animation = 'mythicPulse 2s ease-in-out infinite';
             if (isLegendary) card.style.animation = 'legendaryShine 3s ease-in-out infinite';
+            if (isCorrupted) card.style.animation = 'corruptedFlicker 1.5s ease-in-out infinite';
+
+            // Build corrupted overlay HTML for corrupted sigils
+            const corruptedOverlayHtml = isCorrupted ? `
+                <div class="corrupted-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;border-radius:inherit;overflow:hidden;">
+                    <div style="position:absolute;top:5px;left:5px;font-size:16px;">☠️</div>
+                    <div style="position:absolute;inset:0;background:linear-gradient(45deg,transparent 40%,rgba(139,0,0,0.1) 50%,transparent 60%);animation:corruptionVeins 3s linear infinite;"></div>
+                </div>
+            ` : '';
 
             // Build set badge HTML if this sigil belongs to a set
             const setBadgeHtml = setData ? `
@@ -7507,12 +7931,19 @@ class DotsSurvivor {
                 </div>
             ` : `<div class="upgrade-icon" style="font-size:2.5rem;">${rune.icon}</div>`;
 
+            // Build downside warning for corrupted sigils
+            const downsideHtml = isCorrupted && rune.downside ? `
+                <div class="corrupted-downside" style="color:#ff4444;font-size:0.75em;margin-top:4px;padding:2px 4px;background:rgba(139,0,0,0.2);border-radius:4px;">⚠️ ${rune.downside}</div>
+            ` : '';
+
             card.innerHTML = `
+                ${corruptedOverlayHtml}
                 ${setBadgeHtml}
                 <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' || tier === 'rare' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
                 ${tierImageHtml}
                 <div class="upgrade-name" style="color:${style.border};font-weight:bold;">${rune.name}</div>
                 <div class="upgrade-desc" style="color:#ddd;font-size:0.85em;">${rune.desc}</div>
+                ${downsideHtml}
                 ${setData ? `<div class="sigil-set-info" style="color:${setData.color};font-size:0.75em;margin-top:4px;font-style:italic;">${setData.icon} ${setData.name}</div>` : ''}
                 <div class="upgrade-stats" style="color:#aaa;font-size:0.8em;">${rune.getDesc ? rune.getDesc(this) : ''}</div>
             `;
