@@ -1,12 +1,7 @@
 // Velthara's Dominion - Complete Game with Classes, Items, Bosses & Infinite Map
 
 // Get base path for sprites (works on both desktop and mobile)
-const SPRITE_BASE_PATH = (() => {
-    // Get the directory of the current script/page
-    const path = window.location.pathname;
-    const dir = path.substring(0, path.lastIndexOf('/') + 1);
-    return dir;
-})();
+const SPRITE_BASE_PATH = 'https://d2f5lfipdzhi8t.cloudfront.net/dots-survivor/';
 
 // Helper function to get full sprite path
 function getSpritePath(filename) {
@@ -200,17 +195,14 @@ function loadSprite(type, path, skipProcessing = false) {
         // Skip processing for sprites that already have transparency
         if (skipProcessing || type.startsWith('player_') || type.startsWith('wolf_') || type === 'fireball') {
             SPRITE_CACHE[type] = img; // Use image directly
-            console.log(`Loaded sprite for ${type} (no processing)`);
         } else {
             // Process image to remove white background for enemy sprites
             const processedCanvas = removeWhiteBackground(img);
             SPRITE_CACHE[type] = processedCanvas;
-            console.log(`Loaded and processed sprite for ${type}`);
         }
     };
-    img.onerror = () => {
-        console.warn(`Failed to load sprite for ${type}: ${path}`);
-    };
+    img.onerror = () => {};
+    img.crossOrigin = 'anonymous';
     return img;
 }
 
@@ -555,7 +547,7 @@ const GAME_SETTINGS = {
     enemySpeedMult: 1.3,         // FASTER enemies for more exciting gameplay
     spawnRateMult: 0.7,          // FASTER spawns (lower = more frequent)
     scalingPerWave: 0.08,        // Slightly lower early scaling for smoother progression
-    scalingPerWaveLate: 0.60,    // Heavy scaling after wave 10 (difficulty ramps up)
+    scalingPerWaveLate: 0.25,    // Moderate scaling after wave 10 (smooth difficulty ramp)
     lateGameWave: 10,            // When late game scaling kicks in
     playerHealthMult: 1.0,
     xpMult: 1.2,                 // More XP for faster leveling
@@ -697,50 +689,50 @@ class DotsSurvivor {
         this.audioCtx = null;
         try {
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (e) { console.log('Audio not supported'); }
+        } catch (e) {}
 
         // Background music - Menu
-        this.menuMusic = new Audio('menu-music.mp3');
+        this.menuMusic = new Audio(getSpritePath('menu-music.mp3'));
         this.menuMusic.loop = true;
         this.menuMusic.volume = 0.3;
         this.musicPlaying = false;
 
         // Background music - In-game
-        this.gameMusic = new Audio('game-music.mp3');
+        this.gameMusic = new Audio(getSpritePath('game-music.mp3'));
         this.gameMusic.loop = true;
         this.gameMusic.volume = 0.35;
         this.gameMusicPlaying = false;
 
         // Background music - Boss
-        this.bossMusic = new Audio('boss-music.mp3');
+        this.bossMusic = new Audio(getSpritePath('boss-music.mp3'));
         this.bossMusic.loop = true;
         this.bossMusic.volume = 0.4;
         this.bossMusicPlaying = false;
 
         // Beam of Despair sound effect
-        this.beamSound = new Audio('beam-sound.mp3');
+        this.beamSound = new Audio(getSpritePath('beam-sound.mp3'));
         this.beamSound.loop = true;
         this.beamSound.volume = 0.25;
         this.beamSoundPlaying = false;
 
         // Fireball shoot sound
-        this.fireballSound = new Audio('fireball-sound.mp3');
+        this.fireballSound = new Audio(getSpritePath('fireball-sound.mp3'));
         this.fireballSound.volume = 0.3;
 
         // Level up sound
-        this.levelupSound = new Audio('levelup-sound.mp3');
+        this.levelupSound = new Audio(getSpritePath('levelup-sound.mp3'));
         this.levelupSound.volume = 0.5;
 
         // Wolf howl sound
-        this.wolfHowlSound = new Audio('wolf-howl.mp3');
+        this.wolfHowlSound = new Audio(getSpritePath('wolf-howl.mp3'));
         this.wolfHowlSound.volume = 0.4;
 
         // Horde spawn sound
-        this.hordeSound = new Audio('horde-sound.mp3');
+        this.hordeSound = new Audio(getSpritePath('horde-sound.mp3'));
         this.hordeSound.volume = 0.6;
 
         // Game start voiceover
-        this.gameStartVoice = new Audio('game-start-voice.mp3');
+        this.gameStartVoice = new Audio(getSpritePath('game-start-voice.mp3'));
         this.gameStartVoice.volume = 0.7;
     }
 
@@ -757,10 +749,7 @@ class DotsSurvivor {
 
         this.menuMusic.play().then(() => {
             this.musicPlaying = true;
-            console.log('🎵 Menu music started');
-        }).catch(e => {
-            console.log('Music autoplay blocked, will play on user interaction');
-        });
+        }).catch(e => {});
     }
 
     stopMenuMusic() {
@@ -768,7 +757,6 @@ class DotsSurvivor {
             this.menuMusic.pause();
             this.menuMusic.currentTime = 0;
             this.musicPlaying = false;
-            console.log('🎵 Menu music stopped');
         }
     }
 
@@ -780,10 +768,7 @@ class DotsSurvivor {
 
         this.gameMusic.play().then(() => {
             this.gameMusicPlaying = true;
-            console.log('🎵 Game music started');
-        }).catch(e => {
-            console.log('Game music autoplay blocked');
-        });
+        }).catch(e => {});
     }
 
     stopGameMusic() {
@@ -791,14 +776,12 @@ class DotsSurvivor {
             this.gameMusic.pause();
             this.gameMusic.currentTime = 0;
             this.gameMusicPlaying = false;
-            console.log('🎵 Game music stopped');
         }
     }
 
     pauseGameMusic() {
         if (this.gameMusic && this.gameMusicPlaying) {
             this.gameMusic.pause();
-            console.log('🎵 Game music paused');
         }
     }
 
@@ -809,7 +792,6 @@ class DotsSurvivor {
         this.gameMusic.volume = 0.35 * volumeMult;
 
         this.gameMusic.play().catch(e => {});
-        console.log('🎵 Game music resumed');
     }
 
     playBossMusic() {
@@ -823,10 +805,7 @@ class DotsSurvivor {
 
         this.bossMusic.play().then(() => {
             this.bossMusicPlaying = true;
-            console.log('🎵 Boss music started');
-        }).catch(e => {
-            console.log('Boss music autoplay blocked');
-        });
+        }).catch(e => {});
     }
 
     stopBossMusic() {
@@ -834,7 +813,6 @@ class DotsSurvivor {
             this.bossMusic.pause();
             this.bossMusic.currentTime = 0;
             this.bossMusicPlaying = false;
-            console.log('🎵 Boss music stopped');
 
             // Resume game music after boss dies
             this.resumeGameMusic();
@@ -1237,7 +1215,7 @@ class DotsSurvivor {
                         }, 2000);
                     }
                 } catch (e) {
-                    console.error('Save error:', e);
+                    // Save error handled by UI
                     btn.textContent = '❌ Save Error';
                     btn.disabled = false;
                     setTimeout(() => {
@@ -2212,7 +2190,8 @@ class DotsSurvivor {
         // Load arena floor image for warning phase
         if (!this.arenaFloorImage) {
             this.arenaFloorImage = new Image();
-            this.arenaFloorImage.src = '4513c543-5ff6-499f-8105-a008fa343452.jpg';
+            this.arenaFloorImage.crossOrigin = 'anonymous';
+            this.arenaFloorImage.src = getSpritePath('4513c543-5ff6-499f-8105-a008fa343452.jpg');
         }
 
         // Swimming creatures removed - they were confusing during the fight
@@ -2675,7 +2654,7 @@ class DotsSurvivor {
             if (this.waveTimer >= this.waveDuration) {
                 this.wave++;
                 this.waveTimer = 0;
-                this.enemySpawnRate = Math.max(200, this.enemySpawnRate - 80);
+                this.enemySpawnRate = Math.max(400, this.enemySpawnRate - 60);
 
                 // Spawn soul collectors every 5 waves
                 if (this.wave % 5 === 0 || this.wave - this.lastSoulCollectorWave >= 5) {
@@ -3246,18 +3225,20 @@ class DotsSurvivor {
         this.worldX += dx * ability.distance;
         this.worldY += dy * ability.distance;
 
-        // Visual effect - particles trail
-        for (let i = 0; i < 10; i++) {
-            const px = this.player.x - dx * ability.distance * (i / 10);
-            const py = this.player.y - dy * ability.distance * (i / 10);
-            this.particles.push({
-                x: px + (Math.random() - 0.5) * 20,
-                y: py + (Math.random() - 0.5) * 20,
-                vx: (Math.random() - 0.5) * 50,
-                vy: (Math.random() - 0.5) * 50,
-                lifetime: 0.5,
-                color: '#00ccff'
-            });
+        // Visual effect - particles trail (capped)
+        if (this.particles.length < 60) {
+            for (let i = 0; i < 6; i++) {
+                const px = this.player.x - dx * ability.distance * (i / 6);
+                const py = this.player.y - dy * ability.distance * (i / 6);
+                this.particles.push({
+                    x: px + (Math.random() - 0.5) * 20,
+                    y: py + (Math.random() - 0.5) * 20,
+                    vx: (Math.random() - 0.5) * 50,
+                    vy: (Math.random() - 0.5) * 50,
+                    lifetime: 0.5,
+                    color: '#00ccff'
+                });
+            }
         }
 
         // Invincibility frames during dash
@@ -3295,8 +3276,9 @@ class DotsSurvivor {
         this.triggerScreenShake(15, 0.5);
         this.triggerSlowmo(0.2, 0.3);
 
-        // Spawn particles at center
-        for (let i = 0; i < 30; i++) {
+        // Spawn particles at center (capped)
+        const blastCount = Math.min(15, 60 - this.particles.length);
+        for (let i = 0; i < blastCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 100 + Math.random() * 200;
             this.particles.push({
@@ -3859,13 +3841,16 @@ class DotsSurvivor {
 
         const now = performance.now();
 
-        // DYNAMIC MINIMUM: Start at 10, +1 per wave, max 30 (or 40 after wave 10)
-        // Early game is manageable, late game gets overwhelming
+        // DYNAMIC MINIMUM: Start at 10, +1 per wave, gradual ramp
         // BOSS GRACE PERIOD: Reduce minimum enemies when boss just spawned
-        let MIN_ENEMIES = this.wave >= 10 ? Math.max(40, 10 + this.wave - 1) : Math.min(30, 10 + this.wave - 1);
+        let MIN_ENEMIES = Math.min(35, 10 + this.wave - 1);
         if (this.bossGracePeriod > 0) {
             MIN_ENEMIES = Math.floor(MIN_ENEMIES * 0.3); // Only 30% of normal during grace period
         }
+
+        // HARD CAP: Never exceed 80 total enemies to prevent browser crash
+        if (this.enemies.length >= 80) return;
+
         const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
 
         // Only check spawn rate if we're not in emergency spawn mode
@@ -4153,25 +4138,27 @@ class DotsSurvivor {
                 }
             }
 
-            // NECROMANCER: Spawn sprites periodically
+            // NECROMANCER: Spawn sprites periodically (capped)
             if (e.isNecromancer) {
                 e.lastSpriteSpawn += dt;
-                if (e.lastSpriteSpawn >= 3) { // Spawn sprite every 3 seconds
+                // Count existing necro sprites to prevent unbounded growth
+                if (!e.spritesCapped) e.spritesCapped = 0;
+                if (e.lastSpriteSpawn >= 3 && this.enemies.length < 70) { // Spawn sprite every 3 seconds, respect cap
                     e.lastSpriteSpawn = 0;
-                    // Spawn 1-2 sprites near the necromancer
-                    const spriteCount = 1 + Math.floor(Math.random() * 2);
-                    for (let s = 0; s < spriteCount; s++) {
+                    // Cap at 4 sprites per necromancer
+                    const currentSprites = this.enemies.filter(en => en.type === 'necro_sprite').length;
+                    if (currentSprites < 8) {
                         const angle = Math.random() * Math.PI * 2;
                         const spriteDist = 30 + Math.random() * 20;
                         const spriteWx = e.wx + Math.cos(angle) * spriteDist;
                         const spriteWy = e.wy + Math.sin(angle) * spriteDist;
                         const sprite = this.createEnemy(spriteWx, spriteWy, 'necro_sprite');
                         this.enemies.push(sprite);
+                        // Visual effect when spawning
+                        const necroSx = this.player.x + (e.wx - this.worldX);
+                        const necroSy = this.player.y + (e.wy - this.worldY);
+                        this.spawnParticles(necroSx, necroSy, '#aa44ff', 4);
                     }
-                    // Visual effect when spawning
-                    const necroSx = this.player.x + (e.wx - this.worldX);
-                    const necroSy = this.player.y + (e.wy - this.worldY);
-                    this.spawnParticles(necroSx, necroSy, '#aa44ff', 8);
                 }
             }
             // Update screen position after movement
@@ -4416,11 +4403,11 @@ class DotsSurvivor {
             const explosionRadius = e.isPoisonous ? 100 : 80;
             this.spawnParticles(sx, sy, explosionColor, e.isPoisonous ? 30 : 20);
             
-            // Poison has larger green explosion visual
-            if (e.isPoisonous) {
+            // Poison has larger green explosion visual (capped)
+            if (e.isPoisonous && this.particles.length < 60) {
                 // Create poison cloud effect
-                for (let p = 0; p < 12; p++) {
-                    const angle = (p / 12) * Math.PI * 2;
+                for (let p = 0; p < 6; p++) {
+                    const angle = (p / 6) * Math.PI * 2;
                     const dist = 30 + Math.random() * 40;
                     this.particles.push({
                         x: sx + Math.cos(angle) * dist,
@@ -4429,7 +4416,7 @@ class DotsSurvivor {
                         vy: Math.sin(angle) * 20,
                         radius: 8 + Math.random() * 6,
                         color: '#00cc44',
-                        lifetime: 1.5
+                        lifetime: 1.0
                     });
                 }
             }
@@ -4518,13 +4505,13 @@ class DotsSurvivor {
             this.spawnParticles(sx, sy, '#00ff44', 30);
         }
 
-        // MINI CONSUMER GROWTH: When any enemy dies, nearby mini consumers grow
+        // MINI CONSUMER GROWTH: When any enemy dies, nearby mini consumers grow (capped)
         for (const mc of this.enemies) {
             if (mc.isMiniConsumer && mc !== e) {
                 const mcSx = this.player.x + (mc.wx - this.worldX);
                 const mcSy = this.player.y + (mc.wy - this.worldY);
                 const dist = Math.sqrt((sx - mcSx) ** 2 + (sy - mcSy) ** 2);
-                if (dist < 200) { // Within growth radius
+                if (dist < 200 && mc.absorbedKills < 30) { // Within growth radius, cap at 30 absorbs
                     mc.absorbedKills++;
                     // Grow every 3 kills absorbed
                     if (mc.absorbedKills % 3 === 0) {
@@ -5811,7 +5798,7 @@ class DotsSurvivor {
             // Reset and play video
             video.currentTime = 0;
             video.play().catch(e => {
-                console.log('Video autoplay blocked');
+                // Video autoplay blocked, skip to game over
                 // If video can't play, skip to game over
                 overlay.classList.add('hidden');
                 resolve();

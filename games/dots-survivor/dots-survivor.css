@@ -1,6 +1,6 @@
 /* Velthara's Dominion Styles */
 :root {
-    --bg-dark: #0a0a0f;
+    --bg-dark: #0a0508;
     --bg-card: #151520;
     --text-primary: #ffffff;
     --text-secondary: #8888aa;
@@ -33,7 +33,7 @@ body {
 
 #game-canvas {
     display: block;
-    background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
+    background: #0a0508;
 }
 
 /* Menu Overlays */
