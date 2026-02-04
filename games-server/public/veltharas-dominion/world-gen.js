@@ -94,7 +94,7 @@ class WorldSystem {
         this.chunks.clear();
         this.currentPlayerChunkX = null;
         this.currentPlayerChunkY = null;
-        console.log(`[WorldGen] Initialized with seed: ${this.worldSeed}`);
+        // WorldGen initialized
     }
 
     getPlayerChunk(worldX, worldY) {

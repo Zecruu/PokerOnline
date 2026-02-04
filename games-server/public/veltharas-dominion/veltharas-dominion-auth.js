@@ -1,6 +1,5 @@
 // Velthara's Dominion - Authentication & Save System
 // VERSION: 2024-02-03-v1 (Score submit fix + Aura fire visual)
-console.log('🎮 Velthara Auth v2024-02-03-v1 loaded');
 
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3002'  // Local dev server
@@ -20,21 +19,17 @@ class AuthManager {
             // Store tokens from URL to localStorage
             localStorage.setItem('auth_token', urlToken);
             localStorage.setItem('ds_token', urlToken);
-            console.log('✅ Auth token received from hub via URL');
 
             if (urlRememberToken) {
                 localStorage.setItem('remember_token', urlRememberToken);
                 localStorage.setItem('ds_remember_token', urlRememberToken);
-                console.log('✅ Remember token received from hub via URL');
             }
 
             if (urlUserData) {
                 try {
                     const userData = JSON.parse(decodeURIComponent(urlUserData));
                     localStorage.setItem('user_data', JSON.stringify(userData));
-                    console.log('✅ User data received from hub via URL');
                 } catch (e) {
-                    console.log('Could not parse user data from URL');
                 }
             }
 
@@ -63,7 +58,6 @@ class AuthManager {
                 this.token = hubToken;
                 // Sync to game storage
                 localStorage.setItem('ds_token', hubToken);
-                console.log('✅ Logged in via Game Hub as:', this.user.username);
 
                 // Try to refresh user data from server (for saved game status)
                 // But don't fail if server is unavailable
@@ -72,14 +66,12 @@ class AuthManager {
                     this.user = res;
                     localStorage.setItem('user_data', JSON.stringify(res));
                 } catch (e) {
-                    console.log('Could not refresh user data from server, using cached data');
                 }
 
                 this.showStartMenu();
                 this.setupEventListeners();
                 return;
             } catch (e) {
-                console.log('Invalid hub user data, continuing...');
             }
         }
 
@@ -93,7 +85,6 @@ class AuthManager {
                 this.setupEventListeners();
                 return;
             } catch (e) {
-                console.log('Game token invalid, trying remember token...');
                 this.token = null;
                 localStorage.removeItem('ds_token');
             }
@@ -256,7 +247,6 @@ class AuthManager {
                     game.startGameWithState(savedState);
                 } else {
                     // No saved state found - maybe it was deleted or never existed
-                    console.error('No saved state found or game not ready');
                     document.getElementById('saved-game-notice').classList.add('hidden');
                     document.getElementById('start-btn').classList.remove('hidden');
                     this.user.savedGame = { exists: false };
@@ -264,7 +254,6 @@ class AuthManager {
                     localStorage.setItem('user_data', JSON.stringify(this.user));
                 }
             } catch (e) {
-                console.error('Failed to continue game:', e);
                 // Reset UI on error
                 document.getElementById('saved-game-notice').classList.add('hidden');
                 document.getElementById('start-btn').classList.remove('hidden');
@@ -280,7 +269,6 @@ class AuthManager {
             try {
                 await this.deleteSavedGame();
             } catch (e) {
-                console.log('Could not delete save (continuing anyway):', e.message);
             }
 
             // Clear local saved game state regardless of API result
@@ -384,7 +372,6 @@ class AuthManager {
             const res = await this.apiGet('/api/games/check-ownership/veltharas-dominion');
             return res;
         } catch (e) {
-            console.error('Failed to check ownership:', e);
             // If server is down, check local library cache
             if (this.user?.library?.some(g => g.gameId === 'veltharas-dominion')) {
                 return { ownsGame: true, reason: 'purchased' };
@@ -548,11 +535,8 @@ class AuthManager {
             // Confirm purchase with server if we have session ID
             if (sessionId && this.token) {
                 try {
-                    console.log('🔄 Confirming purchase with server...');
                     const result = await this.apiPost('/api/games/confirm-purchase/veltharas-dominion', { sessionId });
-                    console.log('✅ Purchase confirmed:', result);
                 } catch (e) {
-                    console.error('Failed to confirm purchase:', e);
                     // Continue anyway - webhook might have handled it
                 }
             }
@@ -925,7 +909,6 @@ class AuthManager {
 
     // Admin instant unlock (free)
     adminUnlockCosmetic(itemId, category) {
-        console.log('👑 Admin unlocking cosmetic:', itemId);
         this.handleSuccessfulPurchase(itemId, category);
         this.showStoreMessage('👑 Admin Unlock! Item added to your collection.', '#ffd700');
     }
@@ -966,7 +949,6 @@ class AuthManager {
             }
         } catch (e) {
             // Stripe not configured yet - show placeholder message
-            console.log('Stripe checkout error:', e);
             this.showStoreMessage('⚠️ Payments coming soon!', '#ff8844');
         }
     }
@@ -999,8 +981,6 @@ class AuthManager {
             const category = params.get('category');
 
             if (itemId && category) {
-                console.log('💳 Processing successful purchase:', { itemId, category });
-
                 // Add to owned cosmetics
                 this.handleSuccessfulPurchase(itemId, category);
 
@@ -1016,7 +996,6 @@ class AuthManager {
         }
 
         if (params.get('purchase_cancelled') === '1') {
-            console.log('❌ Purchase was cancelled');
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }
@@ -1118,7 +1097,6 @@ class AuthManager {
         } catch (e) {
             // If token expired, try to refresh and retry
             if (e.message && e.message.toLowerCase().includes('token') && this.rememberToken) {
-                console.log('Token expired, attempting refresh...');
                 try {
                     const res = await this.apiPost('/api/auth/remember', {
                         rememberToken: this.rememberToken
@@ -1128,17 +1106,14 @@ class AuthManager {
                     localStorage.setItem('ds_token', res.token);
                     localStorage.setItem('auth_token', res.token);
                     localStorage.setItem('user_data', JSON.stringify(res.user));
-                    console.log('Token refreshed, retrying save...');
 
                     // Retry the save with new token
                     await this.apiPost('/api/dots-survivor/save', { gameState });
                     this.user.savedGame = { exists: true, savedAt: new Date() };
                     return true;
                 } catch (refreshError) {
-                    console.error('Token refresh failed:', refreshError);
                 }
             }
-            console.error('Failed to save game:', e);
             return false;
         }
     }
@@ -1150,7 +1125,6 @@ class AuthManager {
             const res = await this.apiGet('/api/dots-survivor/load');
             return res.gameState;
         } catch (e) {
-            console.error('Failed to load game:', e);
             return null;
         }
     }
@@ -1162,7 +1136,6 @@ class AuthManager {
             await this.apiDelete('/api/dots-survivor/save');
             this.user.savedGame = { exists: false };
         } catch (e) {
-            console.error('Failed to delete save:', e);
         }
     }
 
@@ -1176,7 +1149,6 @@ class AuthManager {
         } catch (e) {
             // If token expired, try to refresh and retry
             if (e.message && e.message.toLowerCase().includes('token') && this.rememberToken) {
-                console.log('Score submit token expired, attempting refresh...');
                 try {
                     const refreshRes = await this.apiPost('/api/auth/remember', {
                         rememberToken: this.rememberToken
@@ -1186,17 +1158,14 @@ class AuthManager {
                     localStorage.setItem('ds_token', refreshRes.token);
                     localStorage.setItem('auth_token', refreshRes.token);
                     localStorage.setItem('user_data', JSON.stringify(refreshRes.user));
-                    console.log('Token refreshed, retrying score submit...');
 
                     // Retry the score submission with new token
                     const res = await this.apiPost('/api/dots-survivor/submit-score', { score, wave, kills, timePlayed });
                     this.user.stats = res.stats;
                     return res;
                 } catch (refreshError) {
-                    console.error('Token refresh failed:', refreshError);
                 }
             }
-            console.error('Failed to submit score:', e);
             return null;
         }
     }

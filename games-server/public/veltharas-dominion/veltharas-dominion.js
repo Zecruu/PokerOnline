@@ -1,18 +1,49 @@
 // Velthara's Dominion - Complete Game with Classes, Items, Bosses & Infinite Map
 // CDN configuration is loaded from cdn-assets.js
 
-// Helper function to get full sprite path (CDN or local)
-// Uses CDN_CONFIG from cdn-assets.js
+// Spatial Hash Grid for O(1) amortized collision lookups
+class SpatialGrid {
+    constructor(cellSize) {
+        this.cellSize = cellSize;
+        this.cells = new Map();
+    }
+    clear() { this.cells.clear(); }
+    _key(cx, cy) { return (cx * 73856093 ^ cy * 19349669) | 0; }
+    insert(entity) {
+        const cx = (entity.wx / this.cellSize) | 0;
+        const cy = (entity.wy / this.cellSize) | 0;
+        const key = this._key(cx, cy);
+        let bucket = this.cells.get(key);
+        if (!bucket) { bucket = []; this.cells.set(key, bucket); }
+        bucket.push(entity);
+    }
+    getNearby(wx, wy, radius) {
+        const results = [];
+        const cs = this.cellSize;
+        const minCx = ((wx - radius) / cs) | 0;
+        const maxCx = ((wx + radius) / cs) | 0;
+        const minCy = ((wy - radius) / cs) | 0;
+        const maxCy = ((wy + radius) / cs) | 0;
+        for (let cx = minCx; cx <= maxCx; cx++) {
+            for (let cy = minCy; cy <= maxCy; cy++) {
+                const bucket = this.cells.get(this._key(cx, cy));
+                if (bucket) {
+                    for (let i = 0; i < bucket.length; i++) results.push(bucket[i]);
+                }
+            }
+        }
+        return results;
+    }
+}
+
+// CloudFront CDN base path for all assets
+const SPRITE_BASE_PATH = 'https://d2f5lfipdzhi8t.cloudfront.net/dots-survivor/';
+
+// Helper function to get full sprite path (CDN)
 function getSpritePath(filename) {
     // If already absolute or has protocol, return as is
     if (filename.startsWith('/') || filename.startsWith('http')) return filename;
-    if (typeof CDN_CONFIG !== 'undefined' && CDN_CONFIG.enabled) {
-        return `${CDN_CONFIG.baseUrl}/${filename}`;
-    }
-    // Fallback to local path
-    const path = window.location.pathname;
-    const dir = path.substring(0, path.lastIndexOf('/') + 1);
-    return dir + filename;
+    return SPRITE_BASE_PATH + filename;
 }
 
 // Player sprites for necromancer class
@@ -792,16 +823,14 @@ function loadSprite(type, path, skipProcessing = false) {
         // Skip processing for sprites that already have transparency
         if (skipProcessing || type.startsWith('player_') || type.startsWith('wolf_') || type === 'fireball') {
             SPRITE_CACHE[type] = img; // Use image directly
-            console.log(`Loaded sprite for ${type} (no processing)`);
         } else {
             // Process image to remove white background for enemy sprites
             const processedCanvas = removeWhiteBackground(img);
             SPRITE_CACHE[type] = processedCanvas;
-            console.log(`Loaded and processed sprite for ${type}`);
         }
     };
     img.onerror = () => {
-        console.warn(`Failed to load sprite for ${type}: ${path}`);
+        // Sprite load failed
     };
     return img;
 }
@@ -1892,21 +1921,21 @@ function getDifficultyTier(wave) {
 // Base spawn rate = 500ms * this multiplier
 function getSpawnRateMultByWave(wave) {
     if (wave <= 3) return 1.10;   // Waves 1-3: slower spawns
-    if (wave <= 6) return 0.95;   // Waves 4-6: slightly faster
-    if (wave <= 9) return 0.80;   // Waves 7-9: faster
-    if (wave <= 12) return 0.62;  // Waves 10-12: much faster
-    if (wave <= 15) return 0.52;  // Waves 13-15: very fast
-    return 0.45;                  // Waves 16+: maximum spawn rate
+    if (wave <= 6) return 0.85;   // Waves 4-6: slightly faster
+    if (wave <= 9) return 0.70;   // Waves 7-9: faster
+    if (wave <= 12) return 0.55;  // Waves 10-12: much faster
+    if (wave <= 15) return 0.45;  // Waves 13-15: very fast
+    return 0.35;                  // Waves 16+: maximum spawn rate
 }
 
 // Get max alive enemy cap by wave
 function getMaxAliveByWave(wave) {
-    if (wave <= 3) return 28;     // Waves 1-3: low cap
-    if (wave <= 6) return 44;     // Waves 4-6: medium cap
-    if (wave <= 9) return 62;     // Waves 7-9: higher cap
-    if (wave <= 12) return 95;    // Waves 10-12: high cap
-    if (wave <= 15) return 125;   // Waves 13-15: very high cap
-    return 165;                   // Waves 16+: maximum cap
+    if (wave <= 3) return 40;     // Waves 1-3: low cap
+    if (wave <= 6) return 60;     // Waves 4-6: medium cap
+    if (wave <= 9) return 85;     // Waves 7-9: higher cap
+    if (wave <= 12) return 120;   // Waves 10-12: high cap
+    if (wave <= 15) return 160;   // Waves 13-15: very high cap
+    return 200;                   // Waves 16+: maximum cap
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
@@ -2028,32 +2057,32 @@ function runSpawnSystemTests() {
     }
 
     // Test 1: maxAlive cap values are correct
-    assert(getMaxAliveByWave(1) === 28, 'Wave 1 maxAlive should be 28');
-    assert(getMaxAliveByWave(3) === 28, 'Wave 3 maxAlive should be 28');
-    assert(getMaxAliveByWave(4) === 44, 'Wave 4 maxAlive should be 44');
-    assert(getMaxAliveByWave(6) === 44, 'Wave 6 maxAlive should be 44');
-    assert(getMaxAliveByWave(7) === 62, 'Wave 7 maxAlive should be 62');
-    assert(getMaxAliveByWave(9) === 62, 'Wave 9 maxAlive should be 62');
-    assert(getMaxAliveByWave(10) === 95, 'Wave 10 maxAlive should be 95');
-    assert(getMaxAliveByWave(12) === 95, 'Wave 12 maxAlive should be 95');
-    assert(getMaxAliveByWave(13) === 125, 'Wave 13 maxAlive should be 125');
-    assert(getMaxAliveByWave(15) === 125, 'Wave 15 maxAlive should be 125');
-    assert(getMaxAliveByWave(16) === 165, 'Wave 16 maxAlive should be 165');
-    assert(getMaxAliveByWave(20) === 165, 'Wave 20 maxAlive should be 165');
+    assert(getMaxAliveByWave(1) === 40, 'Wave 1 maxAlive should be 40');
+    assert(getMaxAliveByWave(3) === 40, 'Wave 3 maxAlive should be 40');
+    assert(getMaxAliveByWave(4) === 60, 'Wave 4 maxAlive should be 60');
+    assert(getMaxAliveByWave(6) === 60, 'Wave 6 maxAlive should be 60');
+    assert(getMaxAliveByWave(7) === 85, 'Wave 7 maxAlive should be 85');
+    assert(getMaxAliveByWave(9) === 85, 'Wave 9 maxAlive should be 85');
+    assert(getMaxAliveByWave(10) === 120, 'Wave 10 maxAlive should be 120');
+    assert(getMaxAliveByWave(12) === 120, 'Wave 12 maxAlive should be 120');
+    assert(getMaxAliveByWave(13) === 160, 'Wave 13 maxAlive should be 160');
+    assert(getMaxAliveByWave(15) === 160, 'Wave 15 maxAlive should be 160');
+    assert(getMaxAliveByWave(16) === 200, 'Wave 16 maxAlive should be 200');
+    assert(getMaxAliveByWave(20) === 200, 'Wave 20 maxAlive should be 200');
 
     // Test 2: spawnRateMult values are correct
     assert(getSpawnRateMultByWave(1) === 1.10, 'Wave 1 spawnRateMult should be 1.10');
     assert(getSpawnRateMultByWave(3) === 1.10, 'Wave 3 spawnRateMult should be 1.10');
-    assert(getSpawnRateMultByWave(4) === 0.95, 'Wave 4 spawnRateMult should be 0.95');
-    assert(getSpawnRateMultByWave(6) === 0.95, 'Wave 6 spawnRateMult should be 0.95');
-    assert(getSpawnRateMultByWave(7) === 0.80, 'Wave 7 spawnRateMult should be 0.80');
-    assert(getSpawnRateMultByWave(9) === 0.80, 'Wave 9 spawnRateMult should be 0.80');
-    assert(getSpawnRateMultByWave(10) === 0.62, 'Wave 10 spawnRateMult should be 0.62');
-    assert(getSpawnRateMultByWave(12) === 0.62, 'Wave 12 spawnRateMult should be 0.62');
-    assert(getSpawnRateMultByWave(13) === 0.52, 'Wave 13 spawnRateMult should be 0.52');
-    assert(getSpawnRateMultByWave(15) === 0.52, 'Wave 15 spawnRateMult should be 0.52');
-    assert(getSpawnRateMultByWave(16) === 0.45, 'Wave 16 spawnRateMult should be 0.45');
-    assert(getSpawnRateMultByWave(20) === 0.45, 'Wave 20 spawnRateMult should be 0.45');
+    assert(getSpawnRateMultByWave(4) === 0.85, 'Wave 4 spawnRateMult should be 0.85');
+    assert(getSpawnRateMultByWave(6) === 0.85, 'Wave 6 spawnRateMult should be 0.85');
+    assert(getSpawnRateMultByWave(7) === 0.70, 'Wave 7 spawnRateMult should be 0.70');
+    assert(getSpawnRateMultByWave(9) === 0.70, 'Wave 9 spawnRateMult should be 0.70');
+    assert(getSpawnRateMultByWave(10) === 0.55, 'Wave 10 spawnRateMult should be 0.55');
+    assert(getSpawnRateMultByWave(12) === 0.55, 'Wave 12 spawnRateMult should be 0.55');
+    assert(getSpawnRateMultByWave(13) === 0.45, 'Wave 13 spawnRateMult should be 0.45');
+    assert(getSpawnRateMultByWave(15) === 0.45, 'Wave 15 spawnRateMult should be 0.45');
+    assert(getSpawnRateMultByWave(16) === 0.35, 'Wave 16 spawnRateMult should be 0.35');
+    assert(getSpawnRateMultByWave(20) === 0.35, 'Wave 20 spawnRateMult should be 0.35');
 
     // Test 3: Wave 10 ramp applies - scaling increases significantly
     const scaling9 = getWaveScalingMult(9);
@@ -2193,13 +2222,7 @@ function runSpawnSystemTests() {
     // Note: Can't directly test Easy without game instance, but logic is verified by code inspection
 
     // Print results
-    console.log('\n========================================');
-    console.log('SPAWN SYSTEM TESTS (including Cinder Wretch)');
-    console.log('========================================\n');
-    results.forEach(r => console.log(r));
-    console.log('\n========================================');
-    console.log(`TOTAL: ${passed} passed, ${failed} failed`);
-    console.log('========================================\n');
+    // Test results logged internally
 
     return { passed, failed, results };
 }
@@ -2271,6 +2294,7 @@ class DotsSurvivor {
 
         // Enemies
         this.enemies = [];
+        this.enemyGrid = new SpatialGrid(150);
         this.enemySpawnRate = 1200;
         this.lastEnemySpawn = 0;
 
@@ -2341,50 +2365,50 @@ class DotsSurvivor {
         this.audioCtx = null;
         try {
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (e) { console.log('Audio not supported'); }
+        } catch (e) { }
 
         // Background music - Menu
-        this.menuMusic = new Audio('menu-music.mp3');
+        this.menuMusic = new Audio(getSpritePath('menu-music.mp3'));
         this.menuMusic.loop = true;
         this.menuMusic.volume = 0.3;
         this.musicPlaying = false;
 
         // Background music - In-game
-        this.gameMusic = new Audio('game-music.mp3');
+        this.gameMusic = new Audio(getSpritePath('game-music.mp3'));
         this.gameMusic.loop = true;
         this.gameMusic.volume = 0.35;
         this.gameMusicPlaying = false;
 
         // Background music - Boss
-        this.bossMusic = new Audio('boss-music.mp3');
+        this.bossMusic = new Audio(getSpritePath('boss-music.mp3'));
         this.bossMusic.loop = true;
         this.bossMusic.volume = 0.4;
         this.bossMusicPlaying = false;
 
         // Beam of Despair sound effect
-        this.beamSound = new Audio('beam-sound.mp3');
+        this.beamSound = new Audio(getSpritePath('beam-sound.mp3'));
         this.beamSound.loop = true;
         this.beamSound.volume = 0.25;
         this.beamSoundPlaying = false;
 
         // Fireball shoot sound
-        this.fireballSound = new Audio('fireball-sound.mp3');
+        this.fireballSound = new Audio(getSpritePath('fireball-sound.mp3'));
         this.fireballSound.volume = 0.3;
 
         // Level up sound
-        this.levelupSound = new Audio('levelup-sound.mp3');
+        this.levelupSound = new Audio(getSpritePath('levelup-sound.mp3'));
         this.levelupSound.volume = 0.5;
 
         // Wolf howl sound
-        this.wolfHowlSound = new Audio('wolf-howl.mp3');
+        this.wolfHowlSound = new Audio(getSpritePath('wolf-howl.mp3'));
         this.wolfHowlSound.volume = 0.4;
 
         // Horde spawn sound
-        this.hordeSound = new Audio('horde-sound.mp3');
+        this.hordeSound = new Audio(getSpritePath('horde-sound.mp3'));
         this.hordeSound.volume = 0.6;
 
         // Game start voiceover
-        this.gameStartVoice = new Audio('game-start-voice.mp3');
+        this.gameStartVoice = new Audio(getSpritePath('game-start-voice.mp3'));
         this.gameStartVoice.volume = 0.7;
     }
 
@@ -2401,10 +2425,7 @@ class DotsSurvivor {
 
         this.menuMusic.play().then(() => {
             this.musicPlaying = true;
-            console.log('🎵 Menu music started');
-        }).catch(e => {
-            console.log('Music autoplay blocked, will play on user interaction');
-        });
+        }).catch(e => {});
     }
 
     stopMenuMusic() {
@@ -2412,7 +2433,6 @@ class DotsSurvivor {
             this.menuMusic.pause();
             this.menuMusic.currentTime = 0;
             this.musicPlaying = false;
-            console.log('🎵 Menu music stopped');
         }
     }
 
@@ -2424,10 +2444,7 @@ class DotsSurvivor {
 
         this.gameMusic.play().then(() => {
             this.gameMusicPlaying = true;
-            console.log('🎵 Game music started');
-        }).catch(e => {
-            console.log('Game music autoplay blocked');
-        });
+        }).catch(e => {});
     }
 
     stopGameMusic() {
@@ -2435,14 +2452,12 @@ class DotsSurvivor {
             this.gameMusic.pause();
             this.gameMusic.currentTime = 0;
             this.gameMusicPlaying = false;
-            console.log('🎵 Game music stopped');
         }
     }
 
     pauseGameMusic() {
         if (this.gameMusic && this.gameMusicPlaying) {
             this.gameMusic.pause();
-            console.log('🎵 Game music paused');
         }
     }
 
@@ -2453,7 +2468,6 @@ class DotsSurvivor {
         this.gameMusic.volume = 0.35 * volumeMult;
 
         this.gameMusic.play().catch(e => {});
-        console.log('🎵 Game music resumed');
     }
 
     playBossMusic() {
@@ -2467,10 +2481,7 @@ class DotsSurvivor {
 
         this.bossMusic.play().then(() => {
             this.bossMusicPlaying = true;
-            console.log('🎵 Boss music started');
-        }).catch(e => {
-            console.log('Boss music autoplay blocked');
-        });
+        }).catch(e => {});
     }
 
     stopBossMusic() {
@@ -2478,7 +2489,6 @@ class DotsSurvivor {
             this.bossMusic.pause();
             this.bossMusic.currentTime = 0;
             this.bossMusicPlaying = false;
-            console.log('🎵 Boss music stopped');
 
             // Resume game music after boss dies
             this.resumeGameMusic();
@@ -2944,7 +2954,7 @@ class DotsSurvivor {
                         }, 2000);
                     }
                 } catch (e) {
-                    console.error('Save error:', e);
+                    // Save error handled by UI
                     btn.textContent = '❌ Save Error';
                     btn.disabled = false;
                     setTimeout(() => {
@@ -3754,7 +3764,6 @@ class DotsSurvivor {
         // Apply class passive effect
         if (this.selectedClass.passive && this.selectedClass.passive.effect) {
             this.selectedClass.passive.effect(this);
-            console.log(`[CLASS PASSIVE] Applied: ${this.selectedClass.passive.name}`);
         }
 
         // Apply starter item if selected (new class-locked evolving system)
@@ -3784,8 +3793,6 @@ class DotsSurvivor {
                 x: this.player.x, y: this.player.y - 40,
                 value: `🔥 ${item.name}`, lifetime: 2, color: item.color || '#fbbf24', scale: 1.3
             });
-
-            console.log(`[STARTER] Applied: ${item.name} (evolves at Wave ${item.evolveWave})`);
         }
 
         // Clear selection for next game (activeStarter holds current run's starter)
@@ -3975,7 +3982,7 @@ class DotsSurvivor {
 
             // Remove when reached center
             if (newDist < consumer.radius * 0.2) {
-                consumer.vacuumParticles.splice(i, 1);
+                consumer.vacuumParticles[i] = consumer.vacuumParticles[consumer.vacuumParticles.length - 1]; consumer.vacuumParticles.pop();
             }
         }
 
@@ -4034,7 +4041,7 @@ class DotsSurvivor {
                     this.spawnParticles(sx, sy, '#ff00ff', 6);
 
                     // Remove consumed enemy
-                    this.enemies.splice(i, 1);
+                    this.enemies[i] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
 
                     // Announce growth every 5 consumed
                     if (consumer.consumedCount % 5 === 0) {
@@ -4342,8 +4349,6 @@ class DotsSurvivor {
                             color: starter.color,
                             scale: 1.5
                         });
-
-                        console.log(`[STARTER] Evolved: ${starter.name} → ${starter.evolvedName}`);
                     }
                 }
 
@@ -4668,6 +4673,8 @@ class DotsSurvivor {
         this.updateElementalCycle(effectiveDt);
         this.updateEvents(effectiveDt);
         this.spawnEnemies();
+        this.enemyGrid.clear();
+        for (let i = 0; i < this.enemies.length; i++) this.enemyGrid.insert(this.enemies[i]);
         this.spawnHealthPacks();
         this.updateEnemies(effectiveDt);
         this.updateSkulls(effectiveDt);
@@ -4993,7 +5000,7 @@ class DotsSurvivor {
                     if (stack.timer > 0) {
                         totalDamage += stack.dps * dt * ampBoost;
                     } else {
-                        e.auraBurnStacks.splice(i, 1); // Remove expired stack
+                        e.auraBurnStacks[i] = e.auraBurnStacks[e.auraBurnStacks.length - 1]; e.auraBurnStacks.pop(); // Remove expired stack
                     }
                 }
                 if (totalDamage > 0) {
@@ -5074,7 +5081,7 @@ class DotsSurvivor {
                     if (stack.timer > 0) {
                         totalDamage += stack.dps * dt * ampBoost * fireDmgBonus;
                     } else {
-                        e.ringBurnStacks.splice(i, 1);
+                        e.ringBurnStacks[i] = e.ringBurnStacks[e.ringBurnStacks.length - 1]; e.ringBurnStacks.pop();
                     }
                 }
                 if (totalDamage > 0) {
@@ -5821,7 +5828,7 @@ class DotsSurvivor {
         for (let i = this.iceZones.length - 1; i >= 0; i--) {
             this.iceZones[i].timer -= dt;
             if (this.iceZones[i].timer <= 0) {
-                this.iceZones.splice(i, 1);
+                this.iceZones[i] = this.iceZones[this.iceZones.length - 1]; this.iceZones.pop();
             }
         }
 
@@ -5834,7 +5841,7 @@ class DotsSurvivor {
 
             // Remove expired fire zones
             if (zone.timer <= 0) {
-                this.fireZones.splice(i, 1);
+                this.fireZones[i] = this.fireZones[this.fireZones.length - 1]; this.fireZones.pop();
                 continue;
             }
 
@@ -6317,6 +6324,10 @@ class DotsSurvivor {
     }
 
     updateEnemies(dt) {
+        this._necroSpriteCount = 0;
+        for (let i = 0; i < this.enemies.length; i++) {
+            if (this.enemies[i].type === 'necro_sprite') this._necroSpriteCount++;
+        }
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i];
 
@@ -6414,6 +6425,7 @@ class DotsSurvivor {
                         const spriteWy = e.wy + Math.sin(angle) * spriteDist;
                         const sprite = this.createEnemy(spriteWx, spriteWy, 'necro_sprite');
                         this.enemies.push(sprite);
+                        this._necroSpriteCount++;
                     }
                     // Visual effect when spawning
                     const necroSx = this.player.x + (e.wx - this.worldX);
@@ -6710,12 +6722,12 @@ class DotsSurvivor {
         if (this.necroExplosion && !e.isBoss) {
             this.spawnParticles(sx, sy, '#aa44ff', 15);
             // Damage nearby enemies
-            for (const other of this.enemies) {
+            const nearbyNecro = this.enemyGrid.getNearby(e.wx, e.wy, 60);
+            for (let ni = 0; ni < nearbyNecro.length; ni++) {
+                const other = nearbyNecro[ni];
                 if (other === e) continue;
-                const osx = this.player.x + (other.wx - this.worldX);
-                const osy = this.player.y + (other.wy - this.worldY);
-                const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
-                if (od < 60) {
+                const odx = e.wx - other.wx, ody = e.wy - other.wy;
+                if (odx * odx + ody * ody < 3600) {
                     other.health -= 300; // SCALED UP 10x
                     other.hitFlash = 1;
                 }
@@ -6880,12 +6892,12 @@ class DotsSurvivor {
         // Nuclear perk - enemies explode
         if (this.nuclear) {
             this.spawnParticles(sx, sy, '#ffff00', 15);
-            for (const other of this.enemies) {
+            const nearbyNuke = this.enemyGrid.getNearby(e.wx, e.wy, 60);
+            for (let ni = 0; ni < nearbyNuke.length; ni++) {
+                const other = nearbyNuke[ni];
                 if (other === e) continue;
-                const osx = this.player.x + (other.wx - this.worldX);
-                const osy = this.player.y + (other.wy - this.worldY);
-                const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
-                if (od < 60) other.health -= 15;
+                const odx = e.wx - other.wx, ody = e.wy - other.wy;
+                if (odx * odx + ody * ody < 3600) other.health -= 15;
             }
         }
 
@@ -6917,7 +6929,7 @@ class DotsSurvivor {
                 this.dropItem(e.wx, e.wy);
             }
         }
-        this.enemies.splice(index, 1);
+        this.enemies[index] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
     }
 
     dropItem(wx, wy) {
@@ -7096,7 +7108,7 @@ class DotsSurvivor {
         for (let i = this.imps.length - 1; i >= 0; i--) {
             const imp = this.imps[i];
             imp.lifetime -= dt;
-            if (imp.lifetime <= 0) { this.imps.splice(i, 1); continue; }
+            if (imp.lifetime <= 0) { this.imps[i] = this.imps[this.imps.length - 1]; this.imps.pop(); continue; }
 
             // Seek nearest
             let nearest = null, nd = Infinity;
@@ -7131,7 +7143,7 @@ class DotsSurvivor {
                         dps: nearest.e.maxHealth * 0.01 // 1% max hp per second
                     };
 
-                    this.imps.splice(i, 1);
+                    this.imps[i] = this.imps[this.imps.length - 1]; this.imps.pop();
                 }
             } else {
                 // Follow player
@@ -7161,7 +7173,7 @@ class DotsSurvivor {
 
             if (m.health <= 0) {
                 this.spawnParticles(m.x, m.y, '#6600aa', 12);
-                this.shadowMonsters.splice(i, 1);
+                this.shadowMonsters[i] = this.shadowMonsters[this.shadowMonsters.length - 1]; this.shadowMonsters.pop();
                 continue;
             }
 
@@ -7236,7 +7248,7 @@ class DotsSurvivor {
                         }
                     }
                 }
-                this.raisedCorpses.splice(i, 1);
+                this.raisedCorpses[i] = this.raisedCorpses[this.raisedCorpses.length - 1]; this.raisedCorpses.pop();
                 continue;
             }
 
@@ -7315,7 +7327,7 @@ class DotsSurvivor {
                         }
                     }
                 }
-                this.shadowSentinels.splice(i, 1);
+                this.shadowSentinels[i] = this.shadowSentinels[this.shadowSentinels.length - 1]; this.shadowSentinels.pop();
                 continue;
             }
 
@@ -7402,7 +7414,7 @@ class DotsSurvivor {
             pit.timer -= dt;
 
             if (pit.timer <= 0) {
-                this.bonePits.splice(i, 1);
+                this.bonePits[i] = this.bonePits[this.bonePits.length - 1]; this.bonePits.pop();
                 continue;
             }
 
@@ -7672,7 +7684,7 @@ class DotsSurvivor {
 
             if (m.health <= 0) {
                 this.spawnParticles(m.x, m.y, m.color, 10);
-                this.minions.splice(i, 1);
+                this.minions[i] = this.minions[this.minions.length - 1]; this.minions.pop();
                 continue;
             }
 
@@ -7743,11 +7755,12 @@ class DotsSurvivor {
 
         // Auto-aim at nearest enemy with PREDICTIVE targeting
         let nearestEnemy = null, nd = Infinity;
-        for (const e of this.enemies) {
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
-            const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-            if (d < nd) { nd = d; nearestEnemy = e; }
+        const nearbyAim = this.enemyGrid.getNearby(this.worldX, this.worldY, 600);
+        for (let ai = 0; ai < nearbyAim.length; ai++) {
+            const e = nearbyAim[ai];
+            const ddx = e.wx - this.worldX, ddy = e.wy - this.worldY;
+            const dSq = ddx * ddx + ddy * ddy;
+            if (dSq < nd) { nd = dSq; nearestEnemy = e; }
         }
         if (!nearestEnemy) return;
 
@@ -7885,12 +7898,15 @@ class DotsSurvivor {
             const p = this.projectiles[i];
 
             // HOMING MISSILES: Find and track nearest enemy
-            let nearestEnemy = null, minDist = Infinity;
-            for (const e of this.enemies) {
-                const sx = this.player.x + (e.wx - this.worldX);
-                const sy = this.player.y + (e.wy - this.worldY);
-                const dist = Math.sqrt((p.x - sx) ** 2 + (p.y - sy) ** 2);
-                if (dist < minDist) { minDist = dist; nearestEnemy = e; }
+            let nearestEnemy = null, minDistSq = Infinity;
+            const pwx = this.worldX + (p.x - this.player.x);
+            const pwy = this.worldY + (p.y - this.player.y);
+            const nearbyHome = this.enemyGrid.getNearby(pwx, pwy, 500);
+            for (let ni = 0; ni < nearbyHome.length; ni++) {
+                const e = nearbyHome[ni];
+                const ddx = e.wx - pwx, ddy = e.wy - pwy;
+                const distSq = ddx * ddx + ddy * ddy;
+                if (distSq < minDistSq) { minDistSq = distSq; nearestEnemy = e; }
             }
 
             if (nearestEnemy) {
@@ -7920,13 +7936,19 @@ class DotsSurvivor {
             const baseRange = 260; // Base range (was 220, +18% buff for more reach)
             const rangeBonus = this.projectileRangeBonus || 1;
             const maxRange = baseRange * rangeBonus;
-            if (Math.abs(p.x - this.player.x) > maxRange || Math.abs(p.y - this.player.y) > maxRange) { this.projectiles.splice(i, 1); continue; }
-            for (const e of this.enemies) {
+            if (Math.abs(p.x - this.player.x) > maxRange || Math.abs(p.y - this.player.y) > maxRange) { this.projectiles[i] = this.projectiles[this.projectiles.length - 1]; this.projectiles.pop(); continue; }
+            const pwx2 = this.worldX + (p.x - this.player.x);
+            const pwy2 = this.worldY + (p.y - this.player.y);
+            const nearbyCol = this.enemyGrid.getNearby(pwx2, pwy2, p.radius + 60);
+            for (let ci = 0; ci < nearbyCol.length; ci++) {
+                const e = nearbyCol[ci];
                 if (p.hitEnemies.includes(e)) continue;
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
-                const d = Math.sqrt((p.x - sx) ** 2 + (p.y - sy) ** 2);
-                if (d < p.radius + e.radius) {
+                const ddx = p.x - sx, ddy = p.y - sy;
+                const dSq = ddx * ddx + ddy * ddy;
+                const radSum = p.radius + e.radius;
+                if (dSq < radSum * radSum) {
                     // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
 
@@ -8041,15 +8063,18 @@ class DotsSurvivor {
                         const expRadius = this.explosionRadius || 40;
                         this.spawnParticles(sx, sy, '#ff8800', 15);
                         // Damage all nearby enemies
-                        for (const other of this.enemies) {
+                        const nearbyExp = this.enemyGrid.getNearby(e.wx, e.wy, expRadius);
+                        const expRadSq = expRadius * expRadius;
+                        for (let ei = 0; ei < nearbyExp.length; ei++) {
+                            const other = nearbyExp[ei];
                             if (other === e) continue;
-                            const osx = this.player.x + (other.wx - this.worldX);
-                            const osy = this.player.y + (other.wy - this.worldY);
-                            const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
-                            if (od < expRadius) {
+                            const odx = e.wx - other.wx, ody = e.wy - other.wy;
+                            if (odx * odx + ody * ody < expRadSq) {
                                 const splashDmg = Math.floor(damage * 0.5);
                                 other.health -= splashDmg;
                                 other.hitFlash = 1;
+                                const osx = this.player.x + (other.wx - this.worldX);
+                                const osy = this.player.y + (other.wy - this.worldY);
                                 this.addDamageNumber(osx, osy, splashDmg, '#ff8800', { enemyId: other.id });
                             }
                         }
@@ -8182,7 +8207,7 @@ class DotsSurvivor {
                         }
                     }
 
-                    if (p.hitEnemies.length >= p.pierce) { this.projectiles.splice(i, 1); break; }
+                    if (p.hitEnemies.length >= p.pierce) { this.projectiles[i] = this.projectiles[this.projectiles.length - 1]; this.projectiles.pop(); break; }
                 }
             }
 
@@ -8193,7 +8218,7 @@ class DotsSurvivor {
             for (let i = this.lightningChains.length - 1; i >= 0; i--) {
                 this.lightningChains[i].lifetime -= dt;
                 if (this.lightningChains[i].lifetime <= 0) {
-                    this.lightningChains.splice(i, 1);
+                    this.lightningChains[i] = this.lightningChains[this.lightningChains.length - 1]; this.lightningChains.pop();
                 }
             }
         }
@@ -8253,7 +8278,7 @@ class DotsSurvivor {
                     this.playSound('xp'); // Play coin sound when collecting XP
                     this.checkLevelUp();
                 }
-                this.pickups.splice(i, 1);
+                this.pickups[i] = this.pickups[this.pickups.length - 1]; this.pickups.pop();
             }
         }
     }
@@ -8869,13 +8894,13 @@ class DotsSurvivor {
                 d.pulseTimer -= dt;
             }
 
-            if (d.lifetime <= 0) this.damageNumbers.splice(i, 1);
+            if (d.lifetime <= 0) { this.damageNumbers[i] = this.damageNumbers[this.damageNumbers.length - 1]; this.damageNumbers.pop(); }
         }
     }
 
 
 
-    updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) this.particles.splice(i, 1); } }
+    updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) { this.particles[i] = this.particles[this.particles.length - 1]; this.particles.pop(); } } }
 
     updateHUD() {
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
@@ -9114,7 +9139,6 @@ class DotsSurvivor {
             // Reset and play video
             video.currentTime = 0;
             video.play().catch(e => {
-                console.log('Video autoplay blocked');
                 // If video can't play, skip to game over
                 overlay.classList.add('hidden');
                 resolve();
@@ -9273,8 +9297,8 @@ class DotsSurvivor {
     render() {
         const ctx = this.ctx;
 
-        // Default background - light grey
-        ctx.fillStyle = '#2a2a2a';
+        // Default background - dark demonic
+        ctx.fillStyle = '#0a0508';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Apply camera zoom (centered on player) and screen shake
@@ -9294,9 +9318,9 @@ class DotsSurvivor {
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
 
-        // Simple light grey background - no procedural world rendering
-        // Just draw subtle grid for orientation
-        this.drawGrid();
+        // Demonic themed grid and border rendering
+        this.drawDemonicSections();
+        this.drawSatanicRings();
         this.drawMapBorders();
 
         // Draw events
@@ -9503,15 +9527,18 @@ class DotsSurvivor {
                     ctx.save();
                     ctx.translate(sx, sy);
 
-                    // Hit flash effect - draw white overlay
-                    if (e.hitFlash > 0) {
-                        ctx.globalAlpha = 0.7;
-                        ctx.filter = 'brightness(3)';
-                    }
-
                     // Draw the sprite centered and scaled to enemy radius
                     const size = e.radius * 2;
                     ctx.drawImage(sprite, -size/2, -size/2, size, size);
+
+                    // Hit flash effect - draw bright overlay using composite operation
+                    if (e.hitFlash > 0) {
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = 0.6;
+                        ctx.drawImage(sprite, -size/2, -size/2, size, size);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = 1;
+                    }
 
                     ctx.restore();
                 } else {
@@ -9568,14 +9595,15 @@ class DotsSurvivor {
                 if (consumerSprite) {
                     ctx.save();
                     ctx.rotate(e.rotationAngle * 0.3); // Slow rotation
-                    // Hit flash effect
-                    if (e.hitFlash > 0) {
-                        ctx.globalAlpha = 0.7;
-                        ctx.filter = 'brightness(2)';
-                    }
                     ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-                    ctx.filter = 'none';
-                    ctx.globalAlpha = 1;
+                    // Hit flash effect using composite operation
+                    if (e.hitFlash > 0) {
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = 0.6;
+                        ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = 1;
+                    }
                     ctx.restore();
                 } else {
                     // Fallback: dark void circle if sprite not loaded
@@ -10582,16 +10610,267 @@ class DotsSurvivor {
     }
 
     drawGrid() {
-        const ctx = this.ctx, gs = 60;
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
-        const ox = -this.worldX % gs, oy = -this.worldY % gs;
+        // Legacy grid replaced by drawDemonicSections
+    }
+
+    drawDemonicSections() {
+        const ctx = this.ctx;
+        const px = this.player.x;
+        const py = this.player.y;
+        const wx = this.worldX;
+        const wy = this.worldY;
+        const t = this.gameTime || Date.now();
+        const sectionSize = 1000;
+        const { minX, maxX, minY, maxY } = this.mapBounds;
+
+        ctx.save();
+
+        // Fine grid lines (subtle, demonic red)
+        const gs = 60;
+        ctx.strokeStyle = 'rgba(80, 10, 10, 0.08)';
+        ctx.lineWidth = 1;
+        const ox = -wx % gs, oy = -wy % gs;
         for (let x = ox; x < this.canvas.width; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, this.canvas.height); ctx.stroke(); }
         for (let y = oy; y < this.canvas.height; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(this.canvas.width, y); ctx.stroke(); }
+
+        // Section divider lines
+        const pulse = 0.4 + Math.sin(t / 800) * 0.15;
+        ctx.lineWidth = 2;
+
+        for (let sx = minX + sectionSize; sx < maxX; sx += sectionSize) {
+            const screenX = px + (sx - wx);
+            if (screenX < -50 || screenX > this.canvas.width + 50) continue;
+            const topY = py + (minY - wy);
+            const botY = py + (maxY - wy);
+            ctx.strokeStyle = `rgba(160, 20, 20, ${pulse})`;
+            ctx.shadowColor = '#ff2200';
+            ctx.shadowBlur = 8;
+            ctx.setLineDash([12, 8]);
+            ctx.beginPath();
+            ctx.moveTo(screenX, topY);
+            ctx.lineTo(screenX, botY);
+            ctx.stroke();
+        }
+
+        for (let sy = minY + sectionSize; sy < maxY; sy += sectionSize) {
+            const screenY = py + (sy - wy);
+            if (screenY < -50 || screenY > this.canvas.height + 50) continue;
+            const leftX = px + (minX - wx);
+            const rightX = px + (maxX - wx);
+            ctx.strokeStyle = `rgba(160, 20, 20, ${pulse})`;
+            ctx.shadowColor = '#ff2200';
+            ctx.shadowBlur = 8;
+            ctx.setLineDash([12, 8]);
+            ctx.beginPath();
+            ctx.moveTo(leftX, screenY);
+            ctx.lineTo(rightX, screenY);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+
+        // Section floor tinting
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 4; col++) {
+                const secMinX = minX + col * sectionSize;
+                const secMinY = minY + row * sectionSize;
+                const sLeft = px + (secMinX - wx);
+                const sTop = py + (secMinY - wy);
+                const sRight = sLeft + sectionSize;
+                const sBot = sTop + sectionSize;
+                if (sRight < 0 || sLeft > this.canvas.width || sBot < 0 || sTop > this.canvas.height) continue;
+                const isEven = (row + col) % 2 === 0;
+                ctx.fillStyle = isEven ? 'rgba(40, 5, 5, 0.12)' : 'rgba(20, 0, 15, 0.10)';
+                ctx.fillRect(sLeft, sTop, sectionSize, sectionSize);
+            }
+        }
+
+        // Pentagrams at section intersections
+        for (let row = 0; row <= 4; row++) {
+            for (let col = 0; col <= 4; col++) {
+                const ix = minX + col * sectionSize;
+                const iy = minY + row * sectionSize;
+                const sxi = px + (ix - wx);
+                const syi = py + (iy - wy);
+                if (sxi < -80 || sxi > this.canvas.width + 80 || syi < -80 || syi > this.canvas.height + 80) continue;
+                if ((col === 0 || col === 4) && (row === 0 || row === 4)) continue;
+                const radius = 25 + Math.sin(t / 600 + col * 2 + row * 3) * 5;
+                const rotation = t / 3000 + (col + row) * 0.5;
+                ctx.beginPath();
+                ctx.arc(sxi, syi, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(200, 30, 30, ${0.25 + Math.sin(t / 500 + col + row) * 0.1})`;
+                ctx.lineWidth = 1.5;
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = rotation + (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                    const ptx = sxi + Math.cos(angle) * radius * 0.85;
+                    const pty = syi + Math.sin(angle) * radius * 0.85;
+                    if (i === 0) ctx.moveTo(ptx, pty);
+                    else ctx.lineTo(ptx, pty);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = `rgba(180, 20, 20, ${0.3 + Math.sin(t / 400 + col * row) * 0.1})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        // Rune symbols inside each section center
+        const runeSymbols = ['\u26E7', '\u2620', '\u26B6', '\u2671', '\u26E5', '\u263D', '\u2E38', '\u26B0', '\u26E4', '\u2625', '\u2670', '\u2694', '\u26E6', '\u2697', '\u263E', '\u2695'];
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 4; col++) {
+                const centerWorldX = minX + col * sectionSize + sectionSize / 2;
+                const centerWorldY = minY + row * sectionSize + sectionSize / 2;
+                const sxr = px + (centerWorldX - wx);
+                const syr = py + (centerWorldY - wy);
+                if (sxr < -100 || sxr > this.canvas.width + 100 || syr < -100 || syr > this.canvas.height + 100) continue;
+                const runeIndex = row * 4 + col;
+                const opacity = 0.08 + Math.sin(t / 1200 + runeIndex) * 0.03;
+                ctx.font = '60px serif';
+                ctx.fillStyle = `rgba(200, 40, 40, ${opacity})`;
+                ctx.shadowColor = '#880000';
+                ctx.shadowBlur = 15;
+                ctx.fillText(runeSymbols[runeIndex], sxr, syr);
+                ctx.shadowBlur = 0;
+                const innerR = 50 + Math.sin(t / 900 + runeIndex * 0.7) * 8;
+                ctx.beginPath();
+                ctx.arc(sxr, syr, innerR, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(150, 20, 20, ${0.06 + Math.sin(t / 700 + runeIndex) * 0.02})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        ctx.restore();
+    }
+
+    drawSatanicRings() {
+        const ctx = this.ctx;
+        const px = this.player.x;
+        const py = this.player.y;
+        const wx = this.worldX;
+        const wy = this.worldY;
+        const t = this.gameTime || Date.now();
+        const centerSX = px + (0 - wx);
+        const centerSY = py + (0 - wy);
+
+        ctx.save();
+
+        const rings = [
+            { radius: 1800, width: 2.5, opacity: 0.25, speed: 2000, dash: [15, 10] },
+            { radius: 1950, width: 3, opacity: 0.35, speed: -3000, dash: [20, 8] },
+            { radius: 2050, width: 2, opacity: 0.20, speed: 4000, dash: [8, 12] },
+            { radius: 2200, width: 1.5, opacity: 0.12, speed: -5000, dash: [6, 14] },
+        ];
+
+        rings.forEach((ring, i) => {
+            const rotation = t / ring.speed;
+            const pulsedOpacity = ring.opacity + Math.sin(t / 600 + i * 1.5) * 0.05;
+            ctx.save();
+            ctx.translate(centerSX, centerSY);
+            ctx.rotate(rotation);
+            ctx.beginPath();
+            ctx.arc(0, 0, ring.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(200, 20, 20, ${pulsedOpacity})`;
+            ctx.lineWidth = ring.width;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 12;
+            ctx.setLineDash(ring.dash);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+            const markerCount = 6 + i * 2;
+            for (let m = 0; m < markerCount; m++) {
+                const angle = (m / markerCount) * Math.PI * 2;
+                const mx = Math.cos(angle) * ring.radius;
+                const my = Math.sin(angle) * ring.radius;
+                ctx.save();
+                ctx.translate(mx, my);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.strokeStyle = `rgba(220, 40, 40, ${pulsedOpacity + 0.1})`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -8);
+                ctx.lineTo(0, 8);
+                ctx.moveTo(-4, -2);
+                ctx.lineTo(4, -2);
+                ctx.stroke();
+                ctx.restore();
+            }
+            ctx.restore();
+        });
+
+        const outerR = 2050;
+        const pentRotation = t / 8000;
+        ctx.save();
+        ctx.translate(centerSX, centerSY);
+        ctx.rotate(pentRotation);
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR + 5, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(180, 0, 0, 0.15)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+            const ptx = Math.cos(angle) * outerR;
+            const pty = Math.sin(angle) * outerR;
+            if (i === 0) ctx.moveTo(ptx, pty);
+            else ctx.lineTo(ptx, pty);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = `rgba(200, 10, 10, ${0.18 + Math.sin(t / 1000) * 0.05})`;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#cc0000';
+        ctx.shadowBlur = 15;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        const innerPulse = 0.12 + Math.sin(t / 500) * 0.04;
+        ctx.beginPath();
+        ctx.arc(centerSX, centerSY, 150, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(180, 30, 30, ${innerPulse})`;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#aa0000';
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.save();
+        ctx.translate(centerSX, centerSY);
+        ctx.rotate(-t / 5000);
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+            const ptx = Math.cos(angle) * 120;
+            const pty = Math.sin(angle) * 120;
+            if (i === 0) ctx.moveTo(ptx, pty);
+            else ctx.lineTo(ptx, pty);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = `rgba(200, 20, 20, ${innerPulse + 0.05})`;
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.restore();
     }
 
     drawMapBorders() {
         const ctx = this.ctx;
         const { minX, maxX, minY, maxY } = this.mapBounds;
+        const t = this.gameTime || Date.now();
+        const pulse = 0.5 + Math.sin(t / 600) * 0.2;
 
         // Convert world bounds to screen coordinates
         const leftEdge = this.player.x + (minX - this.worldX);
@@ -10601,10 +10880,47 @@ class DotsSurvivor {
 
         ctx.save();
 
-        // Draw subtle border glow effect (no red warning gradients)
-        ctx.shadowColor = '#6644aa';
+        // Crimson danger zone gradients on each edge
+        const dangerDepth = 80;
+        const dangerAlpha = 0.35 * pulse;
+
+        // Top danger zone
+        if (topEdge > -dangerDepth && topEdge < this.canvas.height) {
+            const grad = ctx.createLinearGradient(0, topEdge, 0, topEdge + dangerDepth);
+            grad.addColorStop(0, `rgba(180, 0, 0, ${dangerAlpha})`);
+            grad.addColorStop(1, 'rgba(180, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(leftEdge, topEdge, rightEdge - leftEdge, dangerDepth);
+        }
+        // Bottom danger zone
+        if (bottomEdge > 0 && bottomEdge < this.canvas.height + dangerDepth) {
+            const grad = ctx.createLinearGradient(0, bottomEdge, 0, bottomEdge - dangerDepth);
+            grad.addColorStop(0, `rgba(180, 0, 0, ${dangerAlpha})`);
+            grad.addColorStop(1, 'rgba(180, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(leftEdge, bottomEdge - dangerDepth, rightEdge - leftEdge, dangerDepth);
+        }
+        // Left danger zone
+        if (leftEdge > -dangerDepth && leftEdge < this.canvas.width) {
+            const grad = ctx.createLinearGradient(leftEdge, 0, leftEdge + dangerDepth, 0);
+            grad.addColorStop(0, `rgba(180, 0, 0, ${dangerAlpha})`);
+            grad.addColorStop(1, 'rgba(180, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(leftEdge, topEdge, dangerDepth, bottomEdge - topEdge);
+        }
+        // Right danger zone
+        if (rightEdge > 0 && rightEdge < this.canvas.width + dangerDepth) {
+            const grad = ctx.createLinearGradient(rightEdge, 0, rightEdge - dangerDepth, 0);
+            grad.addColorStop(0, `rgba(180, 0, 0, ${dangerAlpha})`);
+            grad.addColorStop(1, 'rgba(180, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(rightEdge - dangerDepth, topEdge, dangerDepth, bottomEdge - topEdge);
+        }
+
+        // Crimson border glow
+        ctx.shadowColor = '#cc1400';
         ctx.shadowBlur = 15;
-        ctx.strokeStyle = '#8866cc';
+        ctx.strokeStyle = `rgba(200, 20, 0, ${pulse})`;
         ctx.lineWidth = 3;
 
         // Draw visible border lines
@@ -10615,6 +10931,45 @@ class DotsSurvivor {
         ctx.lineTo(leftEdge, bottomEdge);
         ctx.closePath();
         ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Rotating pentagram corner markers (skip actual map corners at extreme edges)
+        const corners = [
+            { x: leftEdge, y: topEdge },
+            { x: rightEdge, y: topEdge },
+            { x: rightEdge, y: bottomEdge },
+            { x: leftEdge, y: bottomEdge }
+        ];
+        const cornerRotation = t / 3000;
+        corners.forEach((c, ci) => {
+            if (c.x < -60 || c.x > this.canvas.width + 60 || c.y < -60 || c.y > this.canvas.height + 60) return;
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            ctx.rotate(cornerRotation + ci * Math.PI / 2);
+            // Circle
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(200, 30, 30, ${pulse})`;
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 8;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            // 5-point star
+            ctx.beginPath();
+            for (let s = 0; s < 5; s++) {
+                const angle = (s * 4 * Math.PI) / 5 - Math.PI / 2;
+                const ptx = Math.cos(angle) * 14;
+                const pty = Math.sin(angle) * 14;
+                if (s === 0) ctx.moveTo(ptx, pty);
+                else ctx.lineTo(ptx, pty);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = `rgba(220, 20, 20, ${pulse + 0.1})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        });
 
         ctx.restore();
     }
