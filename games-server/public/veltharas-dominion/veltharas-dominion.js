@@ -1921,21 +1921,21 @@ function getDifficultyTier(wave) {
 // Base spawn rate = 500ms * this multiplier
 function getSpawnRateMultByWave(wave) {
     if (wave <= 3) return 1.10;   // Waves 1-3: slower spawns
-    if (wave <= 6) return 0.85;   // Waves 4-6: slightly faster
-    if (wave <= 9) return 0.70;   // Waves 7-9: faster
-    if (wave <= 12) return 0.55;  // Waves 10-12: much faster
-    if (wave <= 15) return 0.45;  // Waves 13-15: very fast
-    return 0.35;                  // Waves 16+: maximum spawn rate
+    if (wave <= 6) return 0.90;   // Waves 4-6: slightly faster
+    if (wave <= 9) return 0.75;   // Waves 7-9: faster
+    if (wave <= 12) return 0.65;  // Waves 10-12: moderate
+    if (wave <= 15) return 0.55;  // Waves 13-15: fast
+    return 0.50;                  // Waves 16+: maximum spawn rate
 }
 
 // Get max alive enemy cap by wave
 function getMaxAliveByWave(wave) {
-    if (wave <= 3) return 40;     // Waves 1-3: low cap
-    if (wave <= 6) return 60;     // Waves 4-6: medium cap
-    if (wave <= 9) return 85;     // Waves 7-9: higher cap
-    if (wave <= 12) return 120;   // Waves 10-12: high cap
-    if (wave <= 15) return 160;   // Waves 13-15: very high cap
-    return 200;                   // Waves 16+: maximum cap
+    if (wave <= 3) return 25;     // Waves 1-3: low cap
+    if (wave <= 6) return 35;     // Waves 4-6: medium cap
+    if (wave <= 9) return 50;     // Waves 7-9: higher cap
+    if (wave <= 12) return 60;    // Waves 10-12: high cap
+    if (wave <= 15) return 70;    // Waves 13-15: very high cap
+    return 80;                    // Waves 16+: maximum cap
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
@@ -6091,7 +6091,8 @@ class DotsSurvivor {
         // If we're at or above the max alive cap for this wave, don't spawn
         const maxAlive = getMaxAliveByWave(this.wave);
         // Count non-boss enemies only for cap (bosses don't count toward cap)
-        const currentAlive = this.enemies.filter(e => !e.isBoss).length;
+        let currentAlive = 0;
+        for (let i = 0; i < this.enemies.length; i++) { if (!this.enemies[i].isBoss) currentAlive++; }
         if (currentAlive >= maxAlive) {
             return; // Delay spawns until under cap
         }
@@ -9430,7 +9431,7 @@ class DotsSurvivor {
             const sx = this.player.x + (pk.wx - this.worldX);
             const sy = this.player.y + (pk.wy - this.worldY);
             ctx.beginPath(); ctx.arc(sx, sy, pk.radius, 0, Math.PI * 2);
-            ctx.fillStyle = pk.color; ctx.shadowBlur = 15; ctx.shadowColor = pk.color; ctx.fill(); ctx.shadowBlur = 0;
+            ctx.fillStyle = pk.color; ctx.fill();
             if (pk.isItem && STACKING_ITEMS[pk.itemKey]) { ctx.font = '14px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(STACKING_ITEMS[pk.itemKey].icon, sx, sy + 5); }
             // Health pack cross design
             if (pk.isHealth) {
@@ -10626,7 +10627,7 @@ class DotsSurvivor {
         ctx.save();
 
         // Fine grid lines (subtle, demonic red)
-        const gs = 60;
+        const gs = 120;
         ctx.strokeStyle = 'rgba(80, 10, 10, 0.08)';
         ctx.lineWidth = 1;
         const ox = -wx % gs, oy = -wy % gs;
@@ -10637,15 +10638,13 @@ class DotsSurvivor {
         const pulse = 0.4 + Math.sin(t / 800) * 0.15;
         ctx.lineWidth = 2;
 
+        ctx.setLineDash([12, 8]);
         for (let sx = minX + sectionSize; sx < maxX; sx += sectionSize) {
             const screenX = px + (sx - wx);
             if (screenX < -50 || screenX > this.canvas.width + 50) continue;
             const topY = py + (minY - wy);
             const botY = py + (maxY - wy);
             ctx.strokeStyle = `rgba(160, 20, 20, ${pulse})`;
-            ctx.shadowColor = '#ff2200';
-            ctx.shadowBlur = 8;
-            ctx.setLineDash([12, 8]);
             ctx.beginPath();
             ctx.moveTo(screenX, topY);
             ctx.lineTo(screenX, botY);
@@ -10658,16 +10657,12 @@ class DotsSurvivor {
             const leftX = px + (minX - wx);
             const rightX = px + (maxX - wx);
             ctx.strokeStyle = `rgba(160, 20, 20, ${pulse})`;
-            ctx.shadowColor = '#ff2200';
-            ctx.shadowBlur = 8;
-            ctx.setLineDash([12, 8]);
             ctx.beginPath();
             ctx.moveTo(leftX, screenY);
             ctx.lineTo(rightX, screenY);
             ctx.stroke();
         }
         ctx.setLineDash([]);
-        ctx.shadowBlur = 0;
 
         // Section floor tinting
         for (let row = 0; row < 4; row++) {
@@ -10700,10 +10695,7 @@ class DotsSurvivor {
                 ctx.arc(sxi, syi, radius, 0, Math.PI * 2);
                 ctx.strokeStyle = `rgba(200, 30, 30, ${0.25 + Math.sin(t / 500 + col + row) * 0.1})`;
                 ctx.lineWidth = 1.5;
-                ctx.shadowColor = '#ff0000';
-                ctx.shadowBlur = 10;
                 ctx.stroke();
-                ctx.shadowBlur = 0;
                 ctx.beginPath();
                 for (let i = 0; i < 5; i++) {
                     const angle = rotation + (i * 4 * Math.PI) / 5 - Math.PI / 2;
@@ -10734,10 +10726,7 @@ class DotsSurvivor {
                 const opacity = 0.08 + Math.sin(t / 1200 + runeIndex) * 0.03;
                 ctx.font = '60px serif';
                 ctx.fillStyle = `rgba(200, 40, 40, ${opacity})`;
-                ctx.shadowColor = '#880000';
-                ctx.shadowBlur = 15;
                 ctx.fillText(runeSymbols[runeIndex], sxr, syr);
-                ctx.shadowBlur = 0;
                 const innerR = 50 + Math.sin(t / 900 + runeIndex * 0.7) * 8;
                 ctx.beginPath();
                 ctx.arc(sxr, syr, innerR, 0, Math.PI * 2);
@@ -10779,12 +10768,9 @@ class DotsSurvivor {
             ctx.arc(0, 0, ring.radius, 0, Math.PI * 2);
             ctx.strokeStyle = `rgba(200, 20, 20, ${pulsedOpacity})`;
             ctx.lineWidth = ring.width;
-            ctx.shadowColor = '#ff0000';
-            ctx.shadowBlur = 12;
             ctx.setLineDash(ring.dash);
             ctx.stroke();
             ctx.setLineDash([]);
-            ctx.shadowBlur = 0;
             const markerCount = 6 + i * 2;
             for (let m = 0; m < markerCount; m++) {
                 const angle = (m / markerCount) * Math.PI * 2;
@@ -10827,10 +10813,7 @@ class DotsSurvivor {
         ctx.closePath();
         ctx.strokeStyle = `rgba(200, 10, 10, ${0.18 + Math.sin(t / 1000) * 0.05})`;
         ctx.lineWidth = 2;
-        ctx.shadowColor = '#cc0000';
-        ctx.shadowBlur = 15;
         ctx.stroke();
-        ctx.shadowBlur = 0;
         ctx.restore();
 
         const innerPulse = 0.12 + Math.sin(t / 500) * 0.04;
@@ -10838,10 +10821,7 @@ class DotsSurvivor {
         ctx.arc(centerSX, centerSY, 150, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(180, 30, 30, ${innerPulse})`;
         ctx.lineWidth = 2;
-        ctx.shadowColor = '#aa0000';
-        ctx.shadowBlur = 20;
         ctx.stroke();
-        ctx.shadowBlur = 0;
 
         ctx.save();
         ctx.translate(centerSX, centerSY);
@@ -10857,10 +10837,7 @@ class DotsSurvivor {
         ctx.closePath();
         ctx.strokeStyle = `rgba(200, 20, 20, ${innerPulse + 0.05})`;
         ctx.lineWidth = 1.5;
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 10;
         ctx.stroke();
-        ctx.shadowBlur = 0;
         ctx.restore();
 
         ctx.restore();
@@ -10917,9 +10894,7 @@ class DotsSurvivor {
             ctx.fillRect(rightEdge - dangerDepth, topEdge, dangerDepth, bottomEdge - topEdge);
         }
 
-        // Crimson border glow
-        ctx.shadowColor = '#cc1400';
-        ctx.shadowBlur = 15;
+        // Crimson border
         ctx.strokeStyle = `rgba(200, 20, 0, ${pulse})`;
         ctx.lineWidth = 3;
 
@@ -10931,7 +10906,6 @@ class DotsSurvivor {
         ctx.lineTo(leftEdge, bottomEdge);
         ctx.closePath();
         ctx.stroke();
-        ctx.shadowBlur = 0;
 
         // Rotating pentagram corner markers (skip actual map corners at extreme edges)
         const corners = [
