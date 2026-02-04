@@ -241,18 +241,18 @@ const CORRUPTED_SIGILS = {
             rarity: 'corrupted_empowered',
             isCorrupted: true,
             baseSigil: 'sigil_lifesteal',
-            desc: '8% lifesteal on all damage. Lose 2 HP/s.',
+            desc: '8% lifesteal on all damage. Take 15% more damage.',
             flavor: 'It feeds, but never stops hungering.',
             tags: ['lifesteal', 'sustain'],
-            upside: '8% lifesteal on all damage (vs 5% normal)',
-            downside: 'Lose 2 HP per second passively',
+            upside: '8% lifesteal on all damage',
+            downside: 'Take 15% more damage from all sources',
             effect: (g) => {
-                g.lifesteal = (g.lifesteal || 0) + 0.08;
-                g.corruptedHPDrain = (g.corruptedHPDrain || 0) + 2;
+                g.vampireHeal = (g.vampireHeal || 0) + 0.08;
+                g.corruptedDamageTaken = (g.corruptedDamageTaken || 1) * 1.15;
                 g.boundSigils.push('corrupted_drain');
                 g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
             },
-            getDesc: (g) => `Lifesteal: ${Math.round((g.lifesteal || 0) * 100)}% → ${Math.round(((g.lifesteal || 0) + 0.08) * 100)}%`
+            getDesc: (g) => `Lifesteal: ${Math.round((g.vampireHeal || 0) * 100)}% → ${Math.round(((g.vampireHeal || 0) + 0.08) * 100)}%`
         },
         {
             id: 'corrupted_explosion',
@@ -2661,6 +2661,10 @@ class DotsSurvivor {
         }
 
         document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('gameover-menu').classList.add('hidden');
+            this.showCharacterSelect();
+        });
+        document.getElementById('main-menu-btn').addEventListener('click', () => {
             document.getElementById('gameover-menu').classList.add('hidden');
             this.showCharacterSelect();
         });
@@ -7892,6 +7896,24 @@ class DotsSurvivor {
 
                     // Track damage for stacking items
                     this.updateStackingItems('damage', damage);
+
+                    // Lifesteal: vampireHeal heals % of damage dealt
+                    if (this.vampireHeal && this.vampireHeal > 0) {
+                        const healAmount = Math.floor(damage * this.vampireHeal);
+                        if (healAmount > 0 && this.player.health < this.player.maxHealth) {
+                            this.player.health = Math.min(this.player.maxHealth, this.player.health + healAmount);
+                            // Show heal occasionally (10% chance to reduce spam)
+                            if (Math.random() < 0.1) {
+                                this.damageNumbers.push({
+                                    x: this.player.x + (Math.random() - 0.5) * 20,
+                                    y: this.player.y - 40,
+                                    value: `🩸 +${healAmount}`,
+                                    lifetime: 0.6,
+                                    color: '#ff4488'
+                                });
+                            }
+                        }
+                    }
 
                     // Blood Soaker - add to blood shield
                     if (this.bloodShieldEnabled && this.bloodShieldRate > 0 && this.bloodShieldCooldown <= 0) {
