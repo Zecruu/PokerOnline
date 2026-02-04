@@ -5999,8 +5999,8 @@ class DotsSurvivor {
             }
         }
 
-        // Use ocean background color if set, otherwise default
-        const bgColor = (this.oceanBackground && this.oceanBackground.currentColor !== '#000000') ? this.oceanBackground.currentColor : '#0a0a0f';
+        // Use ocean background color if set, otherwise demonic dark background
+        const bgColor = (this.oceanBackground && this.oceanBackground.currentColor !== '#000000') ? this.oceanBackground.currentColor : '#0a0508';
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -6034,7 +6034,8 @@ class DotsSurvivor {
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
 
-        this.drawGrid();
+        this.drawDemonicSections();
+        this.drawSatanicRings();
         this.drawMapBorders();
 
         // Draw Cthulhu warning effects (swimming creatures, water ripples)
@@ -7148,32 +7149,317 @@ class DotsSurvivor {
     }
 
     drawGrid() {
-        const ctx = this.ctx, gs = 60;
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
-        const ox = -this.worldX % gs, oy = -this.worldY % gs;
+        // Legacy grid replaced by drawDemonicSections
+    }
+
+    drawDemonicSections() {
+        const ctx = this.ctx;
+        const px = this.player.x;
+        const py = this.player.y;
+        const wx = this.worldX;
+        const wy = this.worldY;
+        const t = this.gameTime || Date.now();
+        const sectionSize = 1000; // 4x4 grid of 1000x1000 sections
+        const { minX, maxX, minY, maxY } = this.mapBounds;
+
+        ctx.save();
+
+        // --- Fine grid lines (subtle, demonic red) ---
+        const gs = 60;
+        ctx.strokeStyle = 'rgba(80, 10, 10, 0.08)';
+        ctx.lineWidth = 1;
+        const ox = -wx % gs, oy = -wy % gs;
         for (let x = ox; x < this.canvas.width; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, this.canvas.height); ctx.stroke(); }
         for (let y = oy; y < this.canvas.height; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(this.canvas.width, y); ctx.stroke(); }
+
+        // --- Section divider lines ---
+        const pulse = 0.4 + Math.sin(t / 800) * 0.15;
+        ctx.lineWidth = 2;
+
+        // Vertical section lines
+        for (let sx = minX + sectionSize; sx < maxX; sx += sectionSize) {
+            const screenX = px + (sx - wx);
+            if (screenX < -50 || screenX > this.canvas.width + 50) continue;
+            const topY = py + (minY - wy);
+            const botY = py + (maxY - wy);
+            ctx.strokeStyle = `rgba(160, 20, 20, ${pulse})`;
+            ctx.shadowColor = '#ff2200';
+            ctx.shadowBlur = 8;
+            ctx.setLineDash([12, 8]);
+            ctx.beginPath();
+            ctx.moveTo(screenX, topY);
+            ctx.lineTo(screenX, botY);
+            ctx.stroke();
+        }
+
+        // Horizontal section lines
+        for (let sy = minY + sectionSize; sy < maxY; sy += sectionSize) {
+            const screenY = py + (sy - wy);
+            if (screenY < -50 || screenY > this.canvas.height + 50) continue;
+            const leftX = px + (minX - wx);
+            const rightX = px + (maxX - wx);
+            ctx.strokeStyle = `rgba(160, 20, 20, ${pulse})`;
+            ctx.shadowColor = '#ff2200';
+            ctx.shadowBlur = 8;
+            ctx.setLineDash([12, 8]);
+            ctx.beginPath();
+            ctx.moveTo(leftX, screenY);
+            ctx.lineTo(rightX, screenY);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+
+        // --- Section floor tinting (alternating subtle demonic colors) ---
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 4; col++) {
+                const secMinX = minX + col * sectionSize;
+                const secMinY = minY + row * sectionSize;
+                const sLeft = px + (secMinX - wx);
+                const sTop = py + (secMinY - wy);
+                const sRight = sLeft + sectionSize;
+                const sBot = sTop + sectionSize;
+
+                // Cull off-screen sections
+                if (sRight < 0 || sLeft > this.canvas.width || sBot < 0 || sTop > this.canvas.height) continue;
+
+                const isEven = (row + col) % 2 === 0;
+                ctx.fillStyle = isEven ? 'rgba(40, 5, 5, 0.12)' : 'rgba(20, 0, 15, 0.10)';
+                ctx.fillRect(sLeft, sTop, sectionSize, sectionSize);
+            }
+        }
+
+        // --- Pentagrams at section intersections ---
+        for (let row = 0; row <= 4; row++) {
+            for (let col = 0; col <= 4; col++) {
+                const ix = minX + col * sectionSize;
+                const iy = minY + row * sectionSize;
+                const sx = px + (ix - wx);
+                const sy = py + (iy - wy);
+
+                if (sx < -80 || sx > this.canvas.width + 80 || sy < -80 || sy > this.canvas.height + 80) continue;
+
+                // Skip corner positions (they overlap with border markers)
+                if ((col === 0 || col === 4) && (row === 0 || row === 4)) continue;
+
+                const radius = 25 + Math.sin(t / 600 + col * 2 + row * 3) * 5;
+                const rotation = t / 3000 + (col + row) * 0.5;
+
+                // Outer circle
+                ctx.beginPath();
+                ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(200, 30, 30, ${0.25 + Math.sin(t / 500 + col + row) * 0.1})`;
+                ctx.lineWidth = 1.5;
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Pentagram star
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = rotation + (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                    const ptx = sx + Math.cos(angle) * radius * 0.85;
+                    const pty = sy + Math.sin(angle) * radius * 0.85;
+                    if (i === 0) ctx.moveTo(ptx, pty);
+                    else ctx.lineTo(ptx, pty);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = `rgba(180, 20, 20, ${0.3 + Math.sin(t / 400 + col * row) * 0.1})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        // --- Rune symbols inside each section center ---
+        const runeSymbols = ['⛧', '☠', '⚶', '♱', '⛥', '☽', '⸸', '⚰', '⛤', '☥', '♰', '⚔', '⛦', '⚗', '☾', '⚕'];
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 4; col++) {
+                const centerWorldX = minX + col * sectionSize + sectionSize / 2;
+                const centerWorldY = minY + row * sectionSize + sectionSize / 2;
+                const sx = px + (centerWorldX - wx);
+                const sy = py + (centerWorldY - wy);
+
+                if (sx < -100 || sx > this.canvas.width + 100 || sy < -100 || sy > this.canvas.height + 100) continue;
+
+                const runeIndex = row * 4 + col;
+                const opacity = 0.08 + Math.sin(t / 1200 + runeIndex) * 0.03;
+                ctx.font = '60px serif';
+                ctx.fillStyle = `rgba(200, 40, 40, ${opacity})`;
+                ctx.shadowColor = '#880000';
+                ctx.shadowBlur = 15;
+                ctx.fillText(runeSymbols[runeIndex], sx, sy);
+                ctx.shadowBlur = 0;
+
+                // Inner circle around rune
+                const innerR = 50 + Math.sin(t / 900 + runeIndex * 0.7) * 8;
+                ctx.beginPath();
+                ctx.arc(sx, sy, innerR, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(150, 20, 20, ${0.06 + Math.sin(t / 700 + runeIndex) * 0.02})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        ctx.restore();
+    }
+
+    drawSatanicRings() {
+        const ctx = this.ctx;
+        const px = this.player.x;
+        const py = this.player.y;
+        const wx = this.worldX;
+        const wy = this.worldY;
+        const t = this.gameTime || Date.now();
+        const centerSX = px + (0 - wx); // Map center (0,0) to screen
+        const centerSY = py + (0 - wy);
+
+        ctx.save();
+
+        // --- Concentric satanic rings around the map ---
+        const rings = [
+            { radius: 1800, width: 2.5, opacity: 0.25, speed: 2000, dash: [15, 10] },
+            { radius: 1950, width: 3,   opacity: 0.35, speed: -3000, dash: [20, 8] },
+            { radius: 2050, width: 2,   opacity: 0.20, speed: 4000, dash: [8, 12] },
+            { radius: 2200, width: 1.5, opacity: 0.12, speed: -5000, dash: [6, 14] },
+        ];
+
+        rings.forEach((ring, i) => {
+            const rotation = t / ring.speed;
+            const pulsedOpacity = ring.opacity + Math.sin(t / 600 + i * 1.5) * 0.05;
+
+            ctx.save();
+            ctx.translate(centerSX, centerSY);
+            ctx.rotate(rotation);
+
+            // Ring circle
+            ctx.beginPath();
+            ctx.arc(0, 0, ring.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(200, 20, 20, ${pulsedOpacity})`;
+            ctx.lineWidth = ring.width;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 12;
+            ctx.setLineDash(ring.dash);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+
+            // Occult markers along the ring
+            const markerCount = 6 + i * 2;
+            for (let m = 0; m < markerCount; m++) {
+                const angle = (m / markerCount) * Math.PI * 2;
+                const mx = Math.cos(angle) * ring.radius;
+                const my = Math.sin(angle) * ring.radius;
+
+                // Small cross / tick marks
+                ctx.save();
+                ctx.translate(mx, my);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.strokeStyle = `rgba(220, 40, 40, ${pulsedOpacity + 0.1})`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -8);
+                ctx.lineTo(0, 8);
+                ctx.moveTo(-4, -2);
+                ctx.lineTo(4, -2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.restore();
+        });
+
+        // --- Large pentagram inscribed in outermost ring ---
+        const outerR = 2050;
+        const pentRotation = t / 8000;
+        ctx.save();
+        ctx.translate(centerSX, centerSY);
+        ctx.rotate(pentRotation);
+
+        // Outer pentagram circle
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR + 5, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(180, 0, 0, 0.15)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Pentagram star
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+            const ptx = Math.cos(angle) * outerR;
+            const pty = Math.sin(angle) * outerR;
+            if (i === 0) ctx.moveTo(ptx, pty);
+            else ctx.lineTo(ptx, pty);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = `rgba(200, 10, 10, ${0.18 + Math.sin(t / 1000) * 0.05})`;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#cc0000';
+        ctx.shadowBlur = 15;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.restore();
+
+        // --- Inner ritual circle at map center ---
+        const innerPulse = 0.12 + Math.sin(t / 500) * 0.04;
+        ctx.beginPath();
+        ctx.arc(centerSX, centerSY, 150, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(180, 30, 30, ${innerPulse})`;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#aa0000';
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Inner pentagram at center
+        ctx.save();
+        ctx.translate(centerSX, centerSY);
+        ctx.rotate(-t / 5000);
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+            const ptx = Math.cos(angle) * 120;
+            const pty = Math.sin(angle) * 120;
+            if (i === 0) ctx.moveTo(ptx, pty);
+            else ctx.lineTo(ptx, pty);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = `rgba(200, 20, 20, ${innerPulse + 0.05})`;
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.restore();
     }
 
     drawMapBorders() {
         const ctx = this.ctx;
+        const t = this.gameTime || Date.now();
         const { minX, maxX, minY, maxY } = this.mapBounds;
-        
+
         // Convert world bounds to screen coordinates
         const leftEdge = this.player.x + (minX - this.worldX);
         const rightEdge = this.player.x + (maxX - this.worldX);
         const topEdge = this.player.y + (minY - this.worldY);
         const bottomEdge = this.player.y + (maxY - this.worldY);
-        
+
         ctx.save();
-        
-        // Draw border glow effect
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 20;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
-        
-        // Draw visible border lines
+
+        // Demonic border glow
+        const borderPulse = 0.6 + Math.sin(t / 400) * 0.2;
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 25;
+        ctx.strokeStyle = `rgba(200, 20, 0, ${borderPulse})`;
+        ctx.lineWidth = 3;
+
+        // Outer border
         ctx.beginPath();
         ctx.moveTo(leftEdge, topEdge);
         ctx.lineTo(rightEdge, topEdge);
@@ -7181,66 +7467,101 @@ class DotsSurvivor {
         ctx.lineTo(leftEdge, bottomEdge);
         ctx.closePath();
         ctx.stroke();
-        
-        // Draw danger zone (edge warning area)
-        const warningDist = 100;
+
+        // Second inner border line
+        const inset = 6;
+        ctx.strokeStyle = `rgba(150, 10, 0, ${borderPulse * 0.5})`;
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.moveTo(leftEdge + inset, topEdge + inset);
+        ctx.lineTo(rightEdge - inset, topEdge + inset);
+        ctx.lineTo(rightEdge - inset, bottomEdge - inset);
+        ctx.lineTo(leftEdge + inset, bottomEdge - inset);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Demonic danger zone (crimson hellfire glow from edges)
+        const warningDist = 120;
         ctx.shadowBlur = 0;
-        
+
         // Left warning
         if (leftEdge > -50) {
             const gradient = ctx.createLinearGradient(leftEdge, 0, leftEdge + warningDist, 0);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            gradient.addColorStop(0, `rgba(180, 0, 0, ${0.35 * borderPulse})`);
+            gradient.addColorStop(0.5, 'rgba(100, 0, 0, 0.08)');
+            gradient.addColorStop(1, 'rgba(80, 0, 0, 0)');
             ctx.fillStyle = gradient;
             ctx.fillRect(leftEdge, Math.max(0, topEdge), warningDist, Math.min(this.canvas.height, bottomEdge - topEdge));
         }
-        
+
         // Right warning
         if (rightEdge < this.canvas.width + 50) {
             const gradient = ctx.createLinearGradient(rightEdge, 0, rightEdge - warningDist, 0);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            gradient.addColorStop(0, `rgba(180, 0, 0, ${0.35 * borderPulse})`);
+            gradient.addColorStop(0.5, 'rgba(100, 0, 0, 0.08)');
+            gradient.addColorStop(1, 'rgba(80, 0, 0, 0)');
             ctx.fillStyle = gradient;
             ctx.fillRect(rightEdge - warningDist, Math.max(0, topEdge), warningDist, Math.min(this.canvas.height, bottomEdge - topEdge));
         }
-        
+
         // Top warning
         if (topEdge > -50) {
             const gradient = ctx.createLinearGradient(0, topEdge, 0, topEdge + warningDist);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            gradient.addColorStop(0, `rgba(180, 0, 0, ${0.35 * borderPulse})`);
+            gradient.addColorStop(0.5, 'rgba(100, 0, 0, 0.08)');
+            gradient.addColorStop(1, 'rgba(80, 0, 0, 0)');
             ctx.fillStyle = gradient;
             ctx.fillRect(Math.max(0, leftEdge), topEdge, Math.min(this.canvas.width, rightEdge - leftEdge), warningDist);
         }
-        
+
         // Bottom warning
         if (bottomEdge < this.canvas.height + 50) {
             const gradient = ctx.createLinearGradient(0, bottomEdge, 0, bottomEdge - warningDist);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
+            gradient.addColorStop(0, `rgba(180, 0, 0, ${0.35 * borderPulse})`);
+            gradient.addColorStop(0.5, 'rgba(100, 0, 0, 0.08)');
+            gradient.addColorStop(1, 'rgba(80, 0, 0, 0)');
             ctx.fillStyle = gradient;
             ctx.fillRect(Math.max(0, leftEdge), bottomEdge - warningDist, Math.min(this.canvas.width, rightEdge - leftEdge), warningDist);
         }
-        
-        // Draw corner markers
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px Inter';
-        ctx.textAlign = 'center';
-        
-        // Only draw markers if visible on screen
-        if (leftEdge > 0 && topEdge > 0) {
-            ctx.fillText('⚠', leftEdge + 20, topEdge + 25);
-        }
-        if (rightEdge < this.canvas.width && topEdge > 0) {
-            ctx.fillText('⚠', rightEdge - 20, topEdge + 25);
-        }
-        if (leftEdge > 0 && bottomEdge < this.canvas.height) {
-            ctx.fillText('⚠', leftEdge + 20, bottomEdge - 10);
-        }
-        if (rightEdge < this.canvas.width && bottomEdge < this.canvas.height) {
-            ctx.fillText('⚠', rightEdge - 20, bottomEdge - 10);
-        }
-        
+
+        // Demonic corner pentagrams
+        const cornerR = 20;
+        const corners = [
+            { x: leftEdge, y: topEdge },
+            { x: rightEdge, y: topEdge },
+            { x: leftEdge, y: bottomEdge },
+            { x: rightEdge, y: bottomEdge }
+        ];
+        corners.forEach((c, ci) => {
+            if (c.x < -30 || c.x > this.canvas.width + 30 || c.y < -30 || c.y > this.canvas.height + 30) return;
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            ctx.rotate(t / 2000 + ci * Math.PI / 2);
+            // Corner pentagram
+            ctx.beginPath();
+            ctx.arc(0, 0, cornerR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 40, 40, ${borderPulse})`;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                const ptx = Math.cos(angle) * cornerR * 0.9;
+                const pty = Math.sin(angle) * cornerR * 0.9;
+                if (i === 0) ctx.moveTo(ptx, pty);
+                else ctx.lineTo(ptx, pty);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = `rgba(220, 30, 30, ${borderPulse * 0.8})`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        });
+
         ctx.restore();
     }
 
