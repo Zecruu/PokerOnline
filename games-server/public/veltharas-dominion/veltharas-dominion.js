@@ -1101,11 +1101,12 @@ const COSMETIC_STORE = {
 // ============================================
 const FADED_SIGILS = [
     { id: 'sigil_vitality', name: 'Faded Sigil of Vitality', icon: '❤️', desc: '+50 Max HP', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.maxHealth += 50; g.player.health += 50; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 50}` },
-    { id: 'sigil_might', name: 'Faded Sigil of Might', icon: '⚔️', desc: '+10 Damage', rarity: 'common', tier: 'FADED', effect: (g) => { g.weapons.bullet.damage += 10; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 10}` },
+    { id: 'sigil_might', name: 'Faded Sigil of Might', icon: '⚔️', desc: '+18 Damage', rarity: 'common', tier: 'FADED', effect: (g) => { g.weapons.bullet.damage += 18; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 18}` },
     { id: 'sigil_swiftness', name: 'Faded Sigil of Swiftness', icon: '💨', desc: '+5 Speed', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.speed += 5; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 5}` },
     { id: 'sigil_recovery', name: 'Faded Sigil of Recovery', icon: '💚', desc: '+1 HP per 5 seconds', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 1}` },
     { id: 'sigil_precision', name: 'Faded Sigil of Precision', icon: '🎯', desc: '+2% Crit Chance', rarity: 'common', tier: 'FADED', effect: (g) => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.02; }, getDesc: (g) => `Crit: +${Math.round((g.critChanceBonus || 0) * 100)}% → +${Math.round(((g.critChanceBonus || 0) + 0.02) * 100)}%` },
     { id: 'sigil_endurance', name: 'Faded Sigil of Endurance', icon: '🛡️', desc: '+25 HP, +3 Speed', rarity: 'common', tier: 'FADED', effect: (g) => { g.player.maxHealth += 25; g.player.health += 25; g.player.speed += 3; }, getDesc: (g) => `HP +25, Speed +3` },
+    { id: 'sigil_haste', name: 'Faded Sigil of Haste', icon: '⚡', desc: '+8% Attack Speed', rarity: 'common', tier: 'FADED', effect: (g) => { g.weapons.bullet.fireRate *= 0.92; }, getDesc: (g) => `Attack Speed +8%` },
 ];
 
 // Legacy alias for backward compatibility
@@ -1116,12 +1117,13 @@ const COMMON_RUNES = FADED_SIGILS;
 // ============================================
 const RUNED_SIGILS = [
     { id: 'sigil_greater_vitality', name: 'Runed Sigil of Vitality', icon: '❤️‍🔥', desc: '+100 Max HP', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 100}` },
-    { id: 'sigil_greater_might', name: 'Runed Sigil of Might', icon: '🗡️', desc: '+20 Damage', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.damage += 20; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 20}` },
+    { id: 'sigil_greater_might', name: 'Runed Sigil of Might', icon: '🗡️', desc: '+35 Damage', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.damage += 35; }, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 35}` },
     { id: 'sigil_greater_swiftness', name: 'Runed Sigil of Swiftness', icon: '🌪️', desc: '+10 Speed', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.speed += 10; }, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 10}` },
     { id: 'sigil_greater_recovery', name: 'Runed Sigil of Recovery', icon: '💖', desc: '+2 HP per 5 seconds', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; }, getDesc: (g) => `HP5: ${g.player.hpRegen || 0} → ${(g.player.hpRegen || 0) + 2}` },
-    { id: 'sigil_ferocity', name: 'Runed Sigil of Ferocity', icon: '🔥', desc: '+5% Fire Rate', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.fireRate *= 0.95; }, getDesc: (g) => `Fire Rate +5%` },
-    { id: 'sigil_fortitude', name: 'Runed Sigil of Fortitude', icon: '🏰', desc: '+75 HP, +5 Damage', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.maxHealth += 75; g.player.health += 75; g.weapons.bullet.damage += 5; }, getDesc: (g) => `HP +75, Damage +5` },
+    { id: 'sigil_ferocity', name: 'Runed Sigil of Ferocity', icon: '🔥', desc: '+12% Attack Speed', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.fireRate *= 0.88; }, getDesc: (g) => `Attack Speed +12%` },
+    { id: 'sigil_fortitude', name: 'Runed Sigil of Fortitude', icon: '🏰', desc: '+75 HP, +15 Damage', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.maxHealth += 75; g.player.health += 75; g.weapons.bullet.damage += 15; }, getDesc: (g) => `HP +75, Damage +15` },
     { id: 'sigil_agility', name: 'Runed Sigil of Agility', icon: '⚡', desc: '+8 Speed, +3% Crit', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.speed += 8; g.critChanceBonus = (g.critChanceBonus || 0) + 0.03; }, getDesc: (g) => `Speed +8, Crit +3%` },
+    { id: 'sigil_fury', name: 'Runed Sigil of Fury', icon: '💢', desc: '+20 Damage, +8% Attack Speed', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.damage += 20; g.weapons.bullet.fireRate *= 0.92; }, getDesc: (g) => `Damage +20, Attack Speed +8%` },
 ];
 
 // Legacy alias for backward compatibility
@@ -1138,6 +1140,7 @@ const EMPOWERED_SIGILS = [
     { id: 'sigil_devastation', name: 'Empowered Sigil of Devastation', icon: '💥', desc: '+30 Damage, +10% Fire Rate', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.damage += 30; g.weapons.bullet.fireRate *= 0.9; }, getDesc: (g) => `Damage +30, Fire Rate +10%` },
     { id: 'sigil_juggernaut', name: 'Empowered Sigil of Juggernaut', icon: '🦾', desc: '+150 HP, +15 Damage, +5 Speed', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; g.weapons.bullet.damage += 15; g.player.speed += 5; }, getDesc: (g) => `HP +150, Damage +15, Speed +5` },
     { id: 'sigil_assassin', name: 'Empowered Sigil of Assassin', icon: '🗡️', desc: '+25% Crit Damage, +5% Crit Chance', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25; g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; }, getDesc: (g) => `Crit Damage +25%, Crit Chance +5%` },
+    { id: 'sigil_pyroclasm', name: 'Empowered Sigil of Pyroclasm', icon: '🌋', desc: 'Every 8s: 800px explosion (500 dmg). +5% Attack Damage, +5% Burn Damage', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.05); g.burnDamageBonus = (g.burnDamageBonus || 1) * 1.05; g.boundSigils.push('pyroclasm'); g.pyroclasmCooldown = 0; g.pyroclasmRadius = 800; g.pyroclasmDamage = 500; }, getDesc: (g) => g.boundSigils?.includes('pyroclasm') ? 'Active ✓' : '+5% Damage, +5% Burn, Pyroclasm Explosion' },
 ];
 
 // Legacy alias for backward compatibility
@@ -4808,6 +4811,47 @@ class DotsSurvivor {
             this.lastPlayerX = this.player.x;
             this.lastPlayerY = this.player.y;
         }
+
+        // Pyroclasm Sigil: Every 8 seconds, trigger massive explosion
+        if (this.boundSigils?.includes('pyroclasm')) {
+            this.pyroclasmCooldown = (this.pyroclasmCooldown || 0) - dt;
+            if (this.pyroclasmCooldown <= 0) {
+                this.pyroclasmCooldown = 8; // Reset cooldown
+                const radius = this.pyroclasmRadius || 800;
+                const damage = this.pyroclasmDamage || 500;
+
+                // Damage all enemies in radius
+                let hitCount = 0;
+                for (const e of this.enemies) {
+                    if (e.dead) continue;
+                    const ex = this.player.x + (e.wx - this.worldX);
+                    const ey = this.player.y + (e.wy - this.worldY);
+                    const dist = Math.sqrt((this.player.x - ex) ** 2 + (this.player.y - ey) ** 2);
+                    if (dist <= radius) {
+                        e.health -= damage;
+                        e.hitFlash = 1;
+                        hitCount++;
+                        // Spawn fire particles on hit enemies
+                        this.spawnParticles(ex, ey, '#ff4400', 8);
+                    }
+                }
+
+                // Visual explosion effect
+                this.spawnParticles(this.player.x, this.player.y, '#ff6600', 30);
+                this.spawnParticles(this.player.x, this.player.y, '#ff0000', 20);
+                this.triggerScreenShake(8, 0.4);
+
+                // Show explosion message
+                this.damageNumbers.push({
+                    x: this.player.x,
+                    y: this.player.y - 60,
+                    value: `🌋 PYROCLASM! (${hitCount} hit)`,
+                    lifetime: 1.2,
+                    color: '#ff4400',
+                    scale: 1.3
+                });
+            }
+        }
     }
 
     // Game Juice - Screen shake, slowmo, kill streaks
@@ -6102,9 +6146,10 @@ class DotsSurvivor {
             // BALANCED for early game - lower base damage, scales with wave/difficulty
             // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
             // All damage values +10 for better early game challenge
-            swarm: { radius: 14, speed: 115, health: 100, damage: 25, xp: 2, color: '#ff66aa', icon: '' },
-            basic: { radius: 12, speed: 100, health: 150, damage: 35, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 16, speed: 160, health: 200, damage: 25, xp: 5, color: '#00ffff', icon: '💨' },
+            // Early game enemies have reduced speed so they don't overwhelm the player
+            swarm: { radius: 14, speed: 75, health: 100, damage: 25, xp: 2, color: '#ff66aa', icon: '' },
+            basic: { radius: 12, speed: 65, health: 150, damage: 35, xp: 6, color: '#ff4466', icon: '' },
+            runner: { radius: 16, speed: 120, health: 200, damage: 25, xp: 5, color: '#00ffff', icon: '💨' },
             tank: { radius: 28, speed: 60, health: 1750, damage: 60, xp: 25, color: '#8844ff', icon: '' },
             splitter: { radius: 20, speed: 85, health: 750, damage: 40, xp: 15, color: '#44ddff', icon: '💧', splits: true },
             bomber: { radius: 16, speed: 105, health: 375, damage: 30, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
@@ -8807,6 +8852,36 @@ class DotsSurvivor {
         if (classEl && this.selectedClass) {
             classEl.textContent = `${this.selectedClass.icon} ${this.selectedClass.name}`;
             classEl.style.color = this.selectedClass.color;
+        }
+
+        // Update stats panel
+        const statDamage = document.getElementById('stat-damage');
+        const statAtkSpd = document.getElementById('stat-atkspd');
+        const statSpeed = document.getElementById('stat-speed');
+        const statCrit = document.getElementById('stat-crit');
+        const statHp = document.getElementById('stat-hp');
+        const statRegen = document.getElementById('stat-regen');
+
+        if (statDamage && this.weapons?.bullet) {
+            statDamage.textContent = Math.floor(this.weapons.bullet.damage);
+        }
+        if (statAtkSpd && this.weapons?.bullet) {
+            // Fire rate is in seconds between shots, convert to attacks per second
+            const atkPerSec = (1 / this.weapons.bullet.fireRate).toFixed(1);
+            statAtkSpd.textContent = atkPerSec;
+        }
+        if (statSpeed && this.player) {
+            statSpeed.textContent = Math.floor(this.player.speed);
+        }
+        if (statCrit) {
+            const critChance = Math.round((this.critChanceBonus || 0) * 100 + 5); // Base 5% + bonus
+            statCrit.textContent = `${critChance}%`;
+        }
+        if (statHp && this.player) {
+            statHp.textContent = `${Math.floor(this.player.health)}/${Math.floor(this.player.maxHealth)}`;
+        }
+        if (statRegen && this.player) {
+            statRegen.textContent = Math.floor(this.player.hpRegen || 0);
         }
     }
 
