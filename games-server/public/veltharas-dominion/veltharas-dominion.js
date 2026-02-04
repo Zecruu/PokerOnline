@@ -3408,6 +3408,11 @@ class DotsSurvivor {
         this.worldX = 0; this.worldY = 0;
         this.player.x = this.canvas.width / 2; this.player.y = this.canvas.height / 2;
 
+        // Initialize procedural world generation system
+        if (typeof worldSystem !== 'undefined') {
+            worldSystem.init(); // New seed each run
+        }
+
         // Apply game settings to player
         const baseHealth = Math.floor(100 * GAME_SETTINGS.playerHealthMult);
         const baseSpeed = Math.floor(220 * (GAME_SETTINGS.playerSpeedMult || 1));
@@ -4639,6 +4644,11 @@ class DotsSurvivor {
     update(dt) {
         // Apply slowmo effect
         const effectiveDt = this.slowmo.active ? dt * this.slowmo.factor : dt;
+
+        // Update procedural world chunks based on player position
+        if (typeof worldSystem !== 'undefined') {
+            worldSystem.updateChunks(this.worldX, this.worldY);
+        }
 
         // Update spawn pause timer (after Consumer dies)
         if (this.spawnPauseTimer > 0) {
@@ -9284,7 +9294,16 @@ class DotsSurvivor {
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
 
-        this.drawGrid();
+        // Draw procedural world (biomes, props, landmarks)
+        if (typeof worldSystem !== 'undefined') {
+            // Calculate camera position in world coordinates
+            const cameraX = this.worldX - this.player.x;
+            const cameraY = this.worldY - this.player.y;
+            worldSystem.drawWorld(ctx, cameraX, cameraY, this.canvas.width, this.canvas.height, this.gameTime);
+        } else {
+            // Fallback to old grid if world system not loaded
+            this.drawGrid();
+        }
         this.drawMapBorders();
 
         // Draw events
