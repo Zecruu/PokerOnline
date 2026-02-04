@@ -202,6 +202,23 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
+
+                <div class="settings-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <label style="color:#ccc;font-size:1rem;">Player Glow Effect</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="glow-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" style="margin-bottom:1rem;">
+                    <label style="color:#ccc;font-size:1rem;display:block;margin-bottom:0.5rem;">Glow Color</label>
+                    <div style="display:flex;align-items:center;gap:1rem;">
+                        <input type="color" id="glow-color" value="#ffffff" style="width:50px;height:35px;border:none;border-radius:5px;cursor:pointer;">
+                        <span id="glow-color-label" style="color:#fff;font-size:0.9rem;">#ffffff</span>
+                        <button id="glow-color-reset" style="background:#444;color:#fff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:0.8rem;">Reset</button>
+                    </div>
+                </div>
             </div>
 
             <div class="settings-section" style="border-top:1px solid #333;padding-top:1rem;">

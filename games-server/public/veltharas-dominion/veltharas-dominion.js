@@ -2322,9 +2322,14 @@ class DotsSurvivor {
                 soundEnabled: true,
                 volume: 50,
                 screenShake: true,
-                slowMotion: true
+                slowMotion: true,
+                playerGlow: true,
+                playerGlowColor: '#ffffff'
             };
         }
+        // Ensure new settings exist for older saves
+        if (this.settings.playerGlow === undefined) this.settings.playerGlow = true;
+        if (this.settings.playerGlowColor === undefined) this.settings.playerGlowColor = '#ffffff';
     }
 
     saveSettings() {
@@ -2750,6 +2755,36 @@ class DotsSurvivor {
         slowmoToggle.addEventListener('change', (e) => {
             this.settings.slowMotion = e.target.checked;
         });
+
+        // Player glow toggle
+        const glowToggle = document.getElementById('glow-toggle');
+        const glowColor = document.getElementById('glow-color');
+        const glowColorLabel = document.getElementById('glow-color-label');
+        const glowColorReset = document.getElementById('glow-color-reset');
+
+        if (glowToggle) {
+            glowToggle.checked = this.settings.playerGlow;
+            glowToggle.addEventListener('change', (e) => {
+                this.settings.playerGlow = e.target.checked;
+            });
+        }
+
+        if (glowColor) {
+            glowColor.value = this.settings.playerGlowColor;
+            if (glowColorLabel) glowColorLabel.textContent = this.settings.playerGlowColor;
+            glowColor.addEventListener('input', (e) => {
+                this.settings.playerGlowColor = e.target.value;
+                if (glowColorLabel) glowColorLabel.textContent = e.target.value;
+            });
+        }
+
+        if (glowColorReset) {
+            glowColorReset.addEventListener('click', () => {
+                this.settings.playerGlowColor = '#ffffff';
+                if (glowColor) glowColor.value = '#ffffff';
+                if (glowColorLabel) glowColorLabel.textContent = '#ffffff';
+            });
+        }
 
         // Help/Info button
         const helpBtn = document.getElementById('help-btn');
@@ -6147,24 +6182,25 @@ class DotsSurvivor {
             // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
             // All damage values +10 for better early game challenge
             // Early game enemies have reduced speed so they don't overwhelm the player
-            swarm: { radius: 14, speed: 75, health: 100, damage: 25, xp: 2, color: '#ff66aa', icon: '' },
-            basic: { radius: 12, speed: 65, health: 150, damage: 35, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 16, speed: 120, health: 200, damage: 25, xp: 5, color: '#00ffff', icon: '💨' },
+            // Small enemies made bigger for better visibility (radius increases)
+            swarm: { radius: 20, speed: 75, health: 100, damage: 25, xp: 2, color: '#ff66aa', icon: '' },
+            basic: { radius: 18, speed: 65, health: 150, damage: 35, xp: 6, color: '#ff4466', icon: '' },
+            runner: { radius: 20, speed: 120, health: 200, damage: 25, xp: 5, color: '#00ffff', icon: '💨' },
             tank: { radius: 28, speed: 60, health: 1750, damage: 60, xp: 25, color: '#8844ff', icon: '' },
-            splitter: { radius: 20, speed: 85, health: 750, damage: 40, xp: 15, color: '#44ddff', icon: '💧', splits: true },
-            bomber: { radius: 16, speed: 105, health: 375, damage: 30, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
-            mini: { radius: 6, speed: 140, health: 125, damage: 22, xp: 3, color: '#44ddff', icon: '' },
+            splitter: { radius: 22, speed: 85, health: 750, damage: 40, xp: 15, color: '#44ddff', icon: '💧', splits: true },
+            bomber: { radius: 20, speed: 105, health: 375, damage: 30, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
+            mini: { radius: 12, speed: 140, health: 125, damage: 22, xp: 3, color: '#44ddff', icon: '' },
             // New enemy types
-            sticky: { radius: 12, speed: 120, health: 250, damage: 20, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
+            sticky: { radius: 18, speed: 120, health: 250, damage: 20, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
             ice: { radius: 32, speed: 55, health: 1000, damage: 50, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
-            poison: { radius: 14, speed: 90, health: 400, damage: 30, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
+            poison: { radius: 18, speed: 90, health: 400, damage: 30, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
             // Wave 5+ enemy types
-            goblin: { radius: 22, speed: 115, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
-            necromancer: { radius: 18, speed: 40, health: 600, damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
-            necro_sprite: { radius: 8, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
-            miniconsumer: { radius: 20, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true },
+            goblin: { radius: 24, speed: 115, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
+            necromancer: { radius: 22, speed: 40, health: 600, damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
+            necro_sprite: { radius: 14, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
+            miniconsumer: { radius: 24, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true },
             // Wave 6+ fire enemy - spawns Fire Zone on death
-            cinder_wretch: { radius: 14, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true }
+            cinder_wretch: { radius: 18, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -10634,6 +10670,37 @@ class DotsSurvivor {
         const ctx = this.ctx, p = this.player;
         const healthPercent = p.health / p.maxHealth;
         const level = p.level || 1;
+
+        // ============================================
+        // PLAYER GLOW EFFECT - Configurable in settings
+        // Makes player easier to see with radial glow
+        // ============================================
+        if (this.settings?.playerGlow) {
+            ctx.save();
+            const glowColor = this.settings.playerGlowColor || '#ffffff';
+            const pulse = Math.sin(this.gameTime * 2) * 0.15 + 0.85; // Subtle pulse 0.7-1.0
+            const glowRadius = p.radius + 30;
+
+            // Create radial gradient for smooth glow
+            const gradient = ctx.createRadialGradient(p.x, p.y, p.radius * 0.5, p.x, p.y, glowRadius);
+            gradient.addColorStop(0, `${glowColor}${Math.floor(pulse * 80).toString(16).padStart(2, '0')}`);
+            gradient.addColorStop(0.5, `${glowColor}${Math.floor(pulse * 40).toString(16).padStart(2, '0')}`);
+            gradient.addColorStop(1, `${glowColor}00`);
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, glowRadius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Add outer glow ring
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, glowRadius + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = `${glowColor}${Math.floor(pulse * 30).toString(16).padStart(2, '0')}`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.restore();
+        }
 
         // ============================================
         // FIRE MAGE AURA SYSTEM - REMOVED (user found it ugly)
