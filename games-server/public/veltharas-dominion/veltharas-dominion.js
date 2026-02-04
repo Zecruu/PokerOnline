@@ -9273,8 +9273,8 @@ class DotsSurvivor {
     render() {
         const ctx = this.ctx;
 
-        // Default background
-        ctx.fillStyle = '#0a0a0f';
+        // Default background - light grey
+        ctx.fillStyle = '#2a2a2a';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Apply camera zoom (centered on player) and screen shake
@@ -9294,16 +9294,9 @@ class DotsSurvivor {
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
 
-        // Draw procedural world (biomes, props, landmarks)
-        if (typeof worldSystem !== 'undefined') {
-            // Calculate camera position in world coordinates
-            const cameraX = this.worldX - this.player.x;
-            const cameraY = this.worldY - this.player.y;
-            worldSystem.drawWorld(ctx, cameraX, cameraY, this.canvas.width, this.canvas.height, this.gameTime);
-        } else {
-            // Fallback to old grid if world system not loaded
-            this.drawGrid();
-        }
+        // Simple light grey background - no procedural world rendering
+        // Just draw subtle grid for orientation
+        this.drawGrid();
         this.drawMapBorders();
 
         // Draw events
@@ -10599,21 +10592,21 @@ class DotsSurvivor {
     drawMapBorders() {
         const ctx = this.ctx;
         const { minX, maxX, minY, maxY } = this.mapBounds;
-        
+
         // Convert world bounds to screen coordinates
         const leftEdge = this.player.x + (minX - this.worldX);
         const rightEdge = this.player.x + (maxX - this.worldX);
         const topEdge = this.player.y + (minY - this.worldY);
         const bottomEdge = this.player.y + (maxY - this.worldY);
-        
+
         ctx.save();
-        
-        // Draw border glow effect
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 20;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
-        
+
+        // Draw subtle border glow effect (no red warning gradients)
+        ctx.shadowColor = '#6644aa';
+        ctx.shadowBlur = 15;
+        ctx.strokeStyle = '#8866cc';
+        ctx.lineWidth = 3;
+
         // Draw visible border lines
         ctx.beginPath();
         ctx.moveTo(leftEdge, topEdge);
@@ -10622,66 +10615,7 @@ class DotsSurvivor {
         ctx.lineTo(leftEdge, bottomEdge);
         ctx.closePath();
         ctx.stroke();
-        
-        // Draw danger zone (edge warning area)
-        const warningDist = 100;
-        ctx.shadowBlur = 0;
-        
-        // Left warning
-        if (leftEdge > -50) {
-            const gradient = ctx.createLinearGradient(leftEdge, 0, leftEdge + warningDist, 0);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(leftEdge, Math.max(0, topEdge), warningDist, Math.min(this.canvas.height, bottomEdge - topEdge));
-        }
-        
-        // Right warning
-        if (rightEdge < this.canvas.width + 50) {
-            const gradient = ctx.createLinearGradient(rightEdge, 0, rightEdge - warningDist, 0);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(rightEdge - warningDist, Math.max(0, topEdge), warningDist, Math.min(this.canvas.height, bottomEdge - topEdge));
-        }
-        
-        // Top warning
-        if (topEdge > -50) {
-            const gradient = ctx.createLinearGradient(0, topEdge, 0, topEdge + warningDist);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(Math.max(0, leftEdge), topEdge, Math.min(this.canvas.width, rightEdge - leftEdge), warningDist);
-        }
-        
-        // Bottom warning
-        if (bottomEdge < this.canvas.height + 50) {
-            const gradient = ctx.createLinearGradient(0, bottomEdge, 0, bottomEdge - warningDist);
-            gradient.addColorStop(0, 'rgba(255, 100, 100, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 100, 100, 0)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(Math.max(0, leftEdge), bottomEdge - warningDist, Math.min(this.canvas.width, rightEdge - leftEdge), warningDist);
-        }
-        
-        // Draw corner markers
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px Inter';
-        ctx.textAlign = 'center';
-        
-        // Only draw markers if visible on screen
-        if (leftEdge > 0 && topEdge > 0) {
-            ctx.fillText('⚠', leftEdge + 20, topEdge + 25);
-        }
-        if (rightEdge < this.canvas.width && topEdge > 0) {
-            ctx.fillText('⚠', rightEdge - 20, topEdge + 25);
-        }
-        if (leftEdge > 0 && bottomEdge < this.canvas.height) {
-            ctx.fillText('⚠', leftEdge + 20, bottomEdge - 10);
-        }
-        if (rightEdge < this.canvas.width && bottomEdge < this.canvas.height) {
-            ctx.fillText('⚠', rightEdge - 20, bottomEdge - 10);
-        }
-        
+
         ctx.restore();
     }
 
