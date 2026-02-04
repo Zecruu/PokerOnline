@@ -1,18 +1,12 @@
 // Velthara's Dominion - Complete Game with Classes, Items, Bosses & Infinite Map
-
-// ============================================
-// CDN CONFIGURATION - CloudFront Distribution
-// ============================================
-const CDN_CONFIG = {
-    enabled: true, // Set to false to use local assets for development
-    baseUrl: 'https://d2f5lfipdzhi8t.cloudfront.net/veltharas-dominion'
-};
+// CDN configuration is loaded from cdn-assets.js
 
 // Helper function to get full sprite path (CDN or local)
+// Uses CDN_CONFIG from cdn-assets.js
 function getSpritePath(filename) {
     // If already absolute or has protocol, return as is
     if (filename.startsWith('/') || filename.startsWith('http')) return filename;
-    if (CDN_CONFIG.enabled) {
+    if (typeof CDN_CONFIG !== 'undefined' && CDN_CONFIG.enabled) {
         return `${CDN_CONFIG.baseUrl}/${filename}`;
     }
     // Fallback to local path
