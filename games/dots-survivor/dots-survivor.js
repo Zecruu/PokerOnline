@@ -105,6 +105,25 @@ const SOUL_COLLECTOR_SPRITES = {
     complete: 'f3e8ed8c-0406-4cbe-a85b-4d925bffb445.jpg'
 };
 
+// Chest Sprites (Mystery Box)
+const CHEST_SPRITES = {
+    closed: 'chest-closed.jpg',
+    opened: 'chest-opened.jpg'
+};
+
+// Sigil Tier Sprites
+const SIGIL_SPRITES = {
+    tier_faded: 'tier_faded.jpg',
+    tier_runed: 'tier_runed.jpg',
+    tier_empowered: 'tier_empowered.jpg',
+    tier_ascendant: 'tier_ascendant.jpg',
+    tier_mythic: 'tier_mythic.jpg',
+    sigil_astral_host: 'sigil_astral_host.jpg',
+    sigil_bloodbound_throne: 'sigil_bloodbound_throne.jpg',
+    sigil_cataclysm: 'sigil_cataclysm.jpg',
+    sigil_infinite_echoes: 'sigil_infinite_echoes.jpg'
+};
+
 // Boots of Swiftness Sprites (stacking item icons)
 const BOOTS_SWIFTNESS_SPRITES = {
     base: 'b8ed813f-ac3d-4cfe-91c0-5e8b3c82cb84-removebg-preview.png',
@@ -302,6 +321,14 @@ function initSprites() {
     // Load Ability sprites
     for (const [type, path] of Object.entries(ABILITY_SPRITES)) {
         loadSprite('ability_' + type, path, true);
+    }
+    // Load Chest sprites
+    for (const [type, path] of Object.entries(CHEST_SPRITES)) {
+        loadSprite('chest_' + type, path, true);
+    }
+    // Load Sigil sprites
+    for (const [type, path] of Object.entries(SIGIL_SPRITES)) {
+        loadSprite('sigil_' + type, path, true);
     }
 }
 
@@ -613,6 +640,91 @@ const OCEAN_SET_PIECES = [
     { id: 'crown', name: 'Crown of the Deep', icon: '👑', desc: '+1000 Max HP' },
     { id: 'trident', name: 'Trident of Storms', icon: '🔱', desc: '+50% Damage' },
     { id: 'scales', name: 'Scales of Leviathan', icon: '🐚', desc: '+100 Move Speed' }
+];
+
+// ─── SIGIL SYSTEM ───
+// Sigils are stackable passive stat boosters that scale with wave
+const SIGIL_TIERS = {
+    1: { name: 'Faded', color: '#888888', spriteKey: 'sigil_tier_faded', rarity: 'common' },
+    2: { name: 'Runed', color: '#4488ff', spriteKey: 'sigil_tier_runed', rarity: 'rare' },
+    3: { name: 'Empowered', color: '#aa44ff', spriteKey: 'sigil_tier_empowered', rarity: 'epic' },
+    4: { name: 'Ascendant', color: '#ff8800', spriteKey: 'sigil_tier_ascendant', rarity: 'legendary' },
+    5: { name: 'Mythic', color: '#ff0044', spriteKey: 'sigil_tier_mythic', rarity: 'mythic' }
+};
+
+// Base stat ranges per tier [min, max] - multiplied by wave scaling
+const SIGIL_STATS = {
+    1: { hp: [30, 60],   damage: [8, 15],   speed: [3, 8],  critChance: [0.005, 0.015], fireRate: [0, 0.02] },
+    2: { hp: [80, 160],  damage: [25, 50],   speed: [8, 15], critChance: [0.02, 0.04],  fireRate: [0.03, 0.06] },
+    3: { hp: [160, 320], damage: [50, 100],  speed: [12, 22], critChance: [0.04, 0.07], fireRate: [0.06, 0.10] },
+    4: { hp: [320, 550], damage: [100, 170], speed: [18, 30], critChance: [0.06, 0.10], fireRate: [0.08, 0.14] },
+    5: { hp: [550, 900], damage: [150, 260], speed: [25, 40], critChance: [0.08, 0.14], fireRate: [0.12, 0.18] }
+};
+
+function getSigilWaveMultiplier(wave) {
+    return 1 + Math.floor(wave / 5) * 0.5;
+}
+
+function generateSigil(tier, wave) {
+    const tierData = SIGIL_TIERS[tier];
+    const stats = SIGIL_STATS[tier];
+    const mult = getSigilWaveMultiplier(wave);
+    return {
+        tier, name: `${tierData.name} Sigil`, color: tierData.color,
+        spriteKey: tierData.spriteKey, rarity: tierData.rarity,
+        hp: Math.floor((stats.hp[0] + Math.random() * (stats.hp[1] - stats.hp[0])) * mult),
+        damage: Math.floor((stats.damage[0] + Math.random() * (stats.damage[1] - stats.damage[0])) * mult),
+        speed: Math.floor(stats.speed[0] + Math.random() * (stats.speed[1] - stats.speed[0])),
+        critChance: +(stats.critChance[0] + Math.random() * (stats.critChance[1] - stats.critChance[0])).toFixed(3),
+        fireRate: +(stats.fireRate[0] + Math.random() * (stats.fireRate[1] - stats.fireRate[0])).toFixed(3)
+    };
+}
+
+// Named Sigil Set Pieces (ultra-powerful boss drops)
+const SIGIL_SET_PIECES = {
+    astralHost: {
+        name: 'Astral Host', tier: 5, color: '#00ffcc', spriteKey: 'sigil_sigil_astral_host',
+        desc: '+800 HP, +150 DMG, +3 Projectiles',
+        effect: (g) => { g.player.maxHealth += 800; g.player.health += 800; g.weapons.bullet.damage += 150; g.weapons.bullet.count += 3; }
+    },
+    bloodboundThrone: {
+        name: 'Bloodbound Throne', tier: 5, color: '#ff0044', spriteKey: 'sigil_sigil_bloodbound_throne',
+        desc: '+500 HP, +20% Lifesteal, +100 DMG',
+        effect: (g) => { g.player.maxHealth += 500; g.player.health += 500; g.stackingLifesteal = (g.stackingLifesteal || 0) + 0.20; g.weapons.bullet.damage += 100; }
+    },
+    cataclysm: {
+        name: 'Cataclysm', tier: 5, color: '#ff4400', spriteKey: 'sigil_sigil_cataclysm',
+        desc: '+200 DMG, +50% Fire Rate, Crit Explosions',
+        effect: (g) => { g.weapons.bullet.damage += 200; g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.5); g.bulletExplosion = true; g.explosionRadius = Math.max(g.explosionRadius || 0, 60); }
+    },
+    infiniteEchoes: {
+        name: 'Infinite Echoes', tier: 5, color: '#aa00ff', spriteKey: 'sigil_sigil_infinite_echoes',
+        desc: '+100 DMG, +3 Pierce, +10% Crit',
+        effect: (g) => { g.weapons.bullet.damage += 100; g.bulletPierce = (g.bulletPierce || 0) + 3; g.critChance = (g.critChance || 0) + 0.10; }
+    }
+};
+
+// Boss Loot Table
+const BOSS_LOOT_TABLE = [
+    { type: 'sigil', tier: 2, weight: 20 },
+    { type: 'sigil', tier: 3, weight: 25 },
+    { type: 'sigil', tier: 4, weight: 15 },
+    { type: 'sigil', tier: 5, weight: 8 },
+    { type: 'item', weight: 17 },
+    { type: 'sigilSet', weight: 10 },
+    { type: 'demonPiece', weight: 5 }
+];
+
+// Chest Loot Table
+const CHEST_LOOT_TABLE = [
+    { type: 'sigil', tier: 1, weight: 25, label: 'Faded Sigil' },
+    { type: 'sigil', tier: 2, weight: 22, label: 'Runed Sigil' },
+    { type: 'sigil', tier: 3, weight: 18, label: 'Empowered Sigil' },
+    { type: 'item', weight: 12, label: 'Stacking Item' },
+    { type: 'sigil', tier: 4, weight: 10, label: 'Ascendant Sigil' },
+    { type: 'sigil', tier: 5, weight: 5, label: 'Mythic Sigil' },
+    { type: 'sigilSet', weight: 3, label: 'Set Sigil' },
+    { type: 'demonPiece', weight: 5, label: 'Demon Set Piece' }
 ];
 
 class DotsSurvivor {
@@ -1625,9 +1737,23 @@ class DotsSurvivor {
         this.lastBossWave = 0;
         this.bossStatMultiplier = 1.0;
         this.consumerSpawned = false;
+        this.demonKingSpawned = false;
         this.bossGracePeriod = 0; // Seconds of reduced spawns after boss appears
         this.spawnSoulCollector();
         this.lastSoulCollectorWave = 1;
+
+        // Sigil System
+        this.sigils = []; // Collected sigils array
+        this.sigilBonusHP = 0;
+        this.sigilBonusDamage = 0;
+        this.sigilBonusSpeed = 0;
+        this.sigilBonusCrit = 0;
+        this.sigilBonusFireRate = 0;
+
+        // Chest System (Mystery Box)
+        this.chests = []; // Active chests on the map
+        this.lastChestWave = 0;
+        this.chestUIActive = false; // Whether chest opening UI is showing
 
         // Health packs (rare spawns)
         this.lastHealthPackSpawn = 0;
@@ -2714,9 +2840,45 @@ class DotsSurvivor {
                 this.bossesSpawnedThisWave = 0;
                 this.generalSpawnedThisWave = false;
 
+                // Consumer boss at wave 15 (guaranteed spawn in wave transition)
+                if (this.wave === 15 && !this.consumerSpawned) {
+                    this.spawnConsumer();
+                    this.consumerSpawned = true;
+                    this.bossGracePeriod = 5;
+                    this.playBossMusic();
+                }
+
+                // Demon King at wave 20 (guaranteed spawn in wave transition)
+                if (this.wave === 20 && !this.demonKingSpawned) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 500 + Math.random() * 200;
+                    const bwx = this.worldX + Math.cos(angle) * dist;
+                    const bwy = this.worldY + Math.sin(angle) * dist;
+                    this.enemies.push(this.createBoss(bwx, bwy, 'general'));
+                    this.demonKingSpawned = true;
+                    this.bossGracePeriod = 5;
+                    this.playBossMusic();
+                    // Clear 60% of non-boss enemies for breathing room
+                    let nbCount = 0;
+                    for (let j = 0; j < this.enemies.length; j++) { if (!this.enemies[j].isBoss) nbCount++; }
+                    let toRemoveBoss = Math.floor(nbCount * 0.6);
+                    for (let j = this.enemies.length - 1; j >= 0 && toRemoveBoss > 0; j--) {
+                        if (!this.enemies[j].isBoss) {
+                            this.enemies[j] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
+                            toRemoveBoss--;
+                        }
+                    }
+                }
+
                 // Cthulhu warning at wave 25
                 if (this.wave >= this.cthulhuSpawnWave && !this.cthulhuSpawned && !this.cthulhuWarning) {
                     this.startCthulhuWarning();
+                }
+
+                // Spawn mystery chests every 3-5 waves starting wave 3
+                if (this.wave >= 3 && this.wave - this.lastChestWave >= (3 + Math.floor(Math.random() * 3))) {
+                    this.spawnChest();
+                    this.lastChestWave = this.wave;
                 }
 
                 // Check for expired soul collectors (10 waves without completion)
@@ -3067,6 +3229,7 @@ class DotsSurvivor {
         this.updateWindPush(effectiveDt);
         this.checkHordeCompletion();
         this.updateConsumer(effectiveDt);
+        this.updateChests(effectiveDt);
         this.fireWeapons();
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
@@ -3949,10 +4112,12 @@ class DotsSurvivor {
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
-        // Consumer boss spawns at wave 15 (one time)
+        // Consumer boss spawns at wave 15 (backup check - primary is in wave transition)
         if (this.wave >= 15 && !this.consumerSpawned) {
             this.spawnConsumer();
             this.consumerSpawned = true;
+            this.bossGracePeriod = 5;
+            this.playBossMusic();
         }
 
         // Boss spawning logic - controlled per wave
@@ -3992,10 +4157,11 @@ class DotsSurvivor {
                 this.playBossMusic();
             }
 
-            // Spawn Demonic General (Demon King) at wave 20 only
-            if (isGeneralWave && !this.generalSpawnedThisWave) {
+            // Spawn Demonic General (Demon King) at wave 20 only (backup - primary is wave transition)
+            if (isGeneralWave && !this.generalSpawnedThisWave && !this.demonKingSpawned) {
                 this.enemies.push(this.createBoss(wx, wy, 'general'));
                 this.generalSpawnedThisWave = true;
+                this.demonKingSpawned = true;
                 this.bossesSpawnedThisWave++;
             } else if (this.bossesSpawnedThisWave < maxBossesThisWave) {
                 // Spawn normal boss
@@ -4628,8 +4794,9 @@ class DotsSurvivor {
             this.dropItem(e.wx, e.wy);
         }
 
-        // Boss drops item
+        // Boss drops - always drop something rewarding
         if (e.isBoss) {
+            // Demon King always drops a demon set piece first
             if (e.type === 'general') {
                 const missing = DEMON_SET_PIECES.filter(p => !this.demonSet[p.id]);
                 if (missing.length > 0) {
@@ -4639,12 +4806,10 @@ class DotsSurvivor {
                         radius: 12, color: '#ff0044',
                         isDemonPiece: true, pieceId: piece.id
                     });
-                } else {
-                    this.dropItem(e.wx, e.wy);
                 }
-            } else {
-                this.dropItem(e.wx, e.wy);
             }
+            // ALL bosses also drop from the boss loot table (sigils, items, set pieces)
+            this.dropBossLoot(e.wx, e.wy);
         }
         this.enemies[index] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
     }
@@ -5187,8 +5352,9 @@ class DotsSurvivor {
             const sy = this.player.y + (pk.wy - this.worldY);
             const dx = this.player.x - sx, dy = this.player.y - sy, dSq = dx * dx + dy * dy;
 
-            // Auto-collect with magnet king perk for XP
-            const magnetDist = this.autoCollect && !pk.isItem && !pk.isHealth ? Infinity : this.magnetRadius;
+            // Auto-collect with magnet king perk for XP (not for sigils/items/set pieces)
+            const isSpecialPickup = pk.isItem || pk.isHealth || pk.isSigil || pk.isSigilSet || pk.isDemonPiece || pk.isOceanPiece;
+            const magnetDist = this.autoCollect && !isSpecialPickup ? Infinity : this.magnetRadius;
             const magnetDistSq = magnetDist === Infinity ? Infinity : magnetDist * magnetDist;
 
             if (dSq < magnetDistSq) { const d = Math.sqrt(dSq); pk.wx += (dx / d) * 350 * dt; pk.wy += (dy / d) * 350 * dt; }
@@ -5261,6 +5427,12 @@ class DotsSurvivor {
                             });
                         }
                     }
+                } else if (pk.isSigil) {
+                    // Sigil pickup
+                    this.collectSigil(pk.sigil);
+                } else if (pk.isSigilSet) {
+                    // Sigil Set Piece pickup
+                    this.collectSigilSetPiece(pk.sigilSetKey);
                 } else {
                     this.player.xp += pk.xp;
                     this.playSound('xp'); // Play coin sound when collecting XP
@@ -5371,7 +5543,361 @@ class DotsSurvivor {
             this.playSound('levelup');
         };
     }
-    
+
+    // ─── SIGIL SYSTEM METHODS ───
+    collectSigil(sigil) {
+        this.sigils.push(sigil);
+        this.applySigilStats(sigil);
+        this.playSound('levelup');
+        const tierData = SIGIL_TIERS[sigil.tier];
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 80,
+            value: `✦ ${sigil.name} ✦`, lifetime: 3, color: sigil.color, scale: 1.8
+        });
+        const statText = `+${sigil.hp} HP  +${sigil.damage} DMG  +${sigil.speed} SPD`;
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 50,
+            value: statText, lifetime: 3, color: '#ffffff', scale: 1
+        });
+        this.triggerScreenShake(5 + sigil.tier * 2, 0.3);
+    }
+
+    applySigilStats(sigil) {
+        // Flat stat boosts
+        this.player.maxHealth += sigil.hp;
+        this.player.health += sigil.hp;
+        this.sigilBonusHP += sigil.hp;
+        this.weapons.bullet.damage += sigil.damage;
+        this.sigilBonusDamage += sigil.damage;
+        this.player.speed += sigil.speed;
+        this.sigilBonusSpeed += sigil.speed;
+        this.critChance = (this.critChance || 0) + sigil.critChance;
+        this.sigilBonusCrit += sigil.critChance;
+        if (sigil.fireRate > 0) {
+            this.weapons.bullet.fireRate = Math.floor(this.weapons.bullet.fireRate * (1 - sigil.fireRate));
+            this.sigilBonusFireRate += sigil.fireRate;
+        }
+    }
+
+    collectSigilSetPiece(key) {
+        const setPiece = SIGIL_SET_PIECES[key];
+        if (!setPiece) return;
+        setPiece.effect(this);
+        this.sigils.push({
+            tier: 5, name: setPiece.name, color: setPiece.color,
+            spriteKey: setPiece.spriteKey, rarity: 'mythic', isSetPiece: true,
+            hp: 0, damage: 0, speed: 0, critChance: 0, fireRate: 0
+        });
+        this.playSound('levelup');
+        this.triggerScreenShake(15, 0.5);
+        this.triggerSlowmo(0.3, 1.0);
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 80,
+            value: `★ ${setPiece.name} ★`, lifetime: 4, color: setPiece.color, scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 40,
+            value: setPiece.desc, lifetime: 4, color: '#ffffff', scale: 1.2
+        });
+    }
+
+    // ─── BOSS LOOT SYSTEM ───
+    dropBossLoot(wx, wy) {
+        // Roll on boss loot table
+        const totalWeight = BOSS_LOOT_TABLE.reduce((s, e) => s + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let chosen = BOSS_LOOT_TABLE[0];
+        for (const entry of BOSS_LOOT_TABLE) {
+            roll -= entry.weight;
+            if (roll <= 0) { chosen = entry; break; }
+        }
+
+        if (chosen.type === 'sigil') {
+            const sigil = generateSigil(chosen.tier, this.wave);
+            this.pickups.push({
+                wx, wy, radius: 14, color: sigil.color,
+                isSigil: true, sigil: sigil
+            });
+        } else if (chosen.type === 'item') {
+            // Force drop a stacking item (bypass cooldown)
+            const allKeys = Object.keys(STACKING_ITEMS);
+            const availableKeys = allKeys.filter(key => !this.droppedItems.includes(key));
+            if (availableKeys.length > 0) {
+                const itemKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
+                this.pickups.push({ wx, wy, xp: 0, radius: 15, color: '#fbbf24', isItem: true, itemKey });
+            } else {
+                // All items dropped, give a T3+ sigil instead
+                const sigil = generateSigil(3 + Math.floor(Math.random() * 3), this.wave);
+                this.pickups.push({ wx, wy, radius: 14, color: sigil.color, isSigil: true, sigil });
+            }
+        } else if (chosen.type === 'sigilSet') {
+            const keys = Object.keys(SIGIL_SET_PIECES);
+            const key = keys[Math.floor(Math.random() * keys.length)];
+            this.pickups.push({
+                wx, wy, radius: 16, color: SIGIL_SET_PIECES[key].color,
+                isSigilSet: true, sigilSetKey: key
+            });
+        } else if (chosen.type === 'demonPiece') {
+            const missing = DEMON_SET_PIECES.filter(p => !this.demonSet[p.id]);
+            if (missing.length > 0) {
+                const piece = missing[Math.floor(Math.random() * missing.length)];
+                this.pickups.push({ wx, wy, radius: 12, color: '#ff0044', isDemonPiece: true, pieceId: piece.id });
+            } else {
+                // Already have all demon pieces, drop a high-tier sigil
+                const sigil = generateSigil(4 + Math.floor(Math.random() * 2), this.wave);
+                this.pickups.push({ wx, wy, radius: 14, color: sigil.color, isSigil: true, sigil });
+            }
+        }
+    }
+
+    // ─── CHEST SYSTEM ───
+    spawnChest() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 300 + Math.random() * 600;
+        const wx = this.worldX + Math.cos(angle) * dist;
+        const wy = this.worldY + Math.sin(angle) * dist;
+        this.chests.push({
+            wx, wy, radius: 30, opened: false, openedTimer: 0,
+            glowAngle: 0
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+            value: '📦 A MYSTERIOUS CHEST APPEARED!', lifetime: 3,
+            color: '#aa44ff', scale: 1.5
+        });
+    }
+
+    updateChests(dt) {
+        if (this.chestUIActive) return;
+        for (let i = this.chests.length - 1; i >= 0; i--) {
+            const chest = this.chests[i];
+            chest.glowAngle += dt * 2;
+
+            if (chest.opened) {
+                chest.openedTimer += dt;
+                if (chest.openedTimer >= 5) {
+                    this.chests.splice(i, 1);
+                }
+                continue;
+            }
+
+            // Check player proximity
+            const dx = this.worldX - chest.wx;
+            const dy = this.worldY - chest.wy;
+            const distSq = dx * dx + dy * dy;
+            const interactDist = 60;
+            if (distSq < interactDist * interactDist) {
+                this.openChest(chest, i);
+            }
+        }
+    }
+
+    openChest(chest, index) {
+        chest.opened = true;
+        this.chestUIActive = true;
+        this.gamePaused = true;
+        this.playSound('levelup');
+
+        // Roll loot
+        const totalWeight = CHEST_LOOT_TABLE.reduce((s, e) => s + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let chosen = CHEST_LOOT_TABLE[0];
+        for (const entry of CHEST_LOOT_TABLE) {
+            roll -= entry.weight;
+            if (roll <= 0) { chosen = entry; break; }
+        }
+
+        // Generate the actual reward
+        let reward;
+        if (chosen.type === 'sigil') {
+            const sigil = generateSigil(chosen.tier, this.wave);
+            reward = { type: 'sigil', sigil, name: sigil.name, color: sigil.color, desc: `+${sigil.hp} HP, +${sigil.damage} DMG, +${sigil.speed} SPD` };
+        } else if (chosen.type === 'item') {
+            const allKeys = Object.keys(STACKING_ITEMS);
+            const availableKeys = allKeys.filter(key => !this.droppedItems.includes(key));
+            if (availableKeys.length > 0) {
+                const itemKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
+                const item = STACKING_ITEMS[itemKey];
+                reward = { type: 'item', itemKey, name: item.name, color: '#fbbf24', desc: item.desc };
+            } else {
+                const sigil = generateSigil(3, this.wave);
+                reward = { type: 'sigil', sigil, name: sigil.name, color: sigil.color, desc: `+${sigil.hp} HP, +${sigil.damage} DMG` };
+            }
+        } else if (chosen.type === 'sigilSet') {
+            const keys = Object.keys(SIGIL_SET_PIECES);
+            const key = keys[Math.floor(Math.random() * keys.length)];
+            const sp = SIGIL_SET_PIECES[key];
+            reward = { type: 'sigilSet', sigilSetKey: key, name: sp.name, color: sp.color, desc: sp.desc };
+        } else if (chosen.type === 'demonPiece') {
+            const missing = DEMON_SET_PIECES.filter(p => !this.demonSet[p.id]);
+            if (missing.length > 0) {
+                const piece = missing[Math.floor(Math.random() * missing.length)];
+                reward = { type: 'demonPiece', pieceId: piece.id, name: piece.name, color: '#ff0044', desc: piece.desc };
+            } else {
+                const sigil = generateSigil(3, this.wave);
+                reward = { type: 'sigil', sigil, name: sigil.name, color: sigil.color, desc: `+${sigil.hp} HP, +${sigil.damage} DMG` };
+            }
+        }
+
+        this.showChestOfTheDamned(reward, chest);
+    }
+
+    showChestOfTheDamned(reward, chest) {
+        const overlay = document.createElement('div');
+        overlay.id = 'chest-overlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 300;
+            animation: fadeIn 0.3s ease;
+        `;
+
+        // Build loot pool for rolling display
+        const lootPool = [];
+        for (let t = 1; t <= 5; t++) {
+            const s = generateSigil(t, this.wave);
+            lootPool.push({ name: s.name, color: SIGIL_TIERS[t].color, spriteKey: SIGIL_TIERS[t].spriteKey });
+        }
+        for (const key of Object.keys(SIGIL_SET_PIECES)) {
+            const sp = SIGIL_SET_PIECES[key];
+            lootPool.push({ name: sp.name, color: sp.color, spriteKey: sp.spriteKey });
+        }
+        for (const key of Object.keys(STACKING_ITEMS)) {
+            const item = STACKING_ITEMS[key];
+            lootPool.push({ name: item.name, color: '#fbbf24', spriteKey: null, icon: item.icon });
+        }
+        // Duplicate to fill the strip
+        while (lootPool.length < 30) {
+            lootPool.push(lootPool[Math.floor(Math.random() * lootPool.length)]);
+        }
+        // Shuffle
+        for (let i = lootPool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [lootPool[i], lootPool[j]] = [lootPool[j], lootPool[i]];
+        }
+        // Insert the actual reward near the end
+        const rewardIndex = lootPool.length - 5;
+        lootPool[rewardIndex] = { name: reward.name, color: reward.color, spriteKey: null, isReward: true };
+
+        // Build rolling strip items HTML
+        const itemWidth = 120;
+        const stripItems = lootPool.map((item, idx) => {
+            const bgColor = item.isReward ? 'rgba(255,215,0,0.3)' : 'rgba(255,255,255,0.05)';
+            const borderColor = item.color || '#444';
+            let iconHtml = '';
+            if (item.spriteKey && SPRITE_CACHE[item.spriteKey]) {
+                iconHtml = `<div style="width:50px;height:50px;background:url('${SPRITE_CACHE[item.spriteKey].src || ''}') center/cover;border-radius:8px;"></div>`;
+            } else if (item.icon) {
+                iconHtml = `<div style="font-size:2rem;">${item.icon}</div>`;
+            } else {
+                iconHtml = `<div style="width:50px;height:50px;border-radius:8px;background:${item.color};opacity:0.7;"></div>`;
+            }
+            return `<div style="min-width:${itemWidth}px;height:100px;display:flex;flex-direction:column;align-items:center;
+                justify-content:center;border:2px solid ${borderColor};border-radius:12px;margin:0 4px;
+                background:${bgColor};transition:all 0.3s;" data-idx="${idx}">
+                ${iconHtml}
+                <div style="color:${item.color};font-size:0.65rem;margin-top:4px;text-align:center;max-width:${itemWidth - 10}px;overflow:hidden;white-space:nowrap;">${item.name}</div>
+            </div>`;
+        }).join('');
+
+        // Calculate final scroll position so reward is centered
+        const totalStripWidth = lootPool.length * (itemWidth + 8);
+        const viewportWidth = Math.min(500, window.innerWidth - 40);
+        const finalOffset = (rewardIndex * (itemWidth + 8)) - (viewportWidth / 2) + (itemWidth / 2);
+
+        // Get chest image paths
+        const closedSrc = getSpritePath(CHEST_SPRITES.closed);
+        const openedSrc = getSpritePath(CHEST_SPRITES.opened);
+
+        overlay.innerHTML = `
+            <div style="text-align:center;margin-bottom:1.5rem;">
+                <img id="chest-img" src="${closedSrc}" style="width:120px;height:120px;border-radius:16px;border:3px solid #aa44ff;box-shadow:0 0 30px rgba(170,68,255,0.5);transition:all 0.5s;">
+            </div>
+            <h1 style="color:#aa44ff;font-size:1.8rem;text-shadow:0 0 20px rgba(170,68,255,0.8);margin-bottom:0.5rem;
+                font-family:'Inter',sans-serif;letter-spacing:2px;">CHEST OF THE DAMNED</h1>
+            <p style="color:#888;font-size:0.8rem;margin-bottom:1.5rem;">The void reveals its treasures...</p>
+
+            <div style="position:relative;width:${viewportWidth}px;height:110px;overflow:hidden;border:2px solid #aa44ff;
+                border-radius:16px;background:rgba(20,0,30,0.8);margin-bottom:1.5rem;">
+                <div style="position:absolute;left:50%;top:0;width:3px;height:100%;background:#ff00ff;z-index:10;box-shadow:0 0 10px #ff00ff;"></div>
+                <div id="chest-strip" style="display:flex;align-items:center;height:100%;padding:5px 0;
+                    transform:translateX(0px);transition:transform 5s cubic-bezier(0.15, 0.85, 0.35, 1);">
+                    ${stripItems}
+                </div>
+            </div>
+
+            <div id="chest-reward" style="display:none;text-align:center;animation:fadeIn 0.5s ease;">
+                <div style="font-size:1.2rem;color:${reward.color};font-weight:700;margin-bottom:0.5rem;" id="reward-name">${reward.name}</div>
+                <div style="font-size:0.85rem;color:#ccc;margin-bottom:1.5rem;" id="reward-desc">${reward.desc}</div>
+                <button id="chest-claim-btn" style="background:linear-gradient(135deg,#aa44ff,#8800cc);color:#fff;
+                    border:none;padding:1rem 3rem;font-size:1.1rem;font-weight:700;border-radius:12px;cursor:pointer;
+                    box-shadow:0 0 20px rgba(170,68,255,0.5);transition:transform 0.2s;">
+                    CLAIM REWARD
+                </button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        // Start rolling animation after short delay
+        setTimeout(() => {
+            const strip = document.getElementById('chest-strip');
+            if (strip) {
+                strip.style.transform = `translateX(-${finalOffset}px)`;
+            }
+        }, 300);
+
+        // After rolling stops, show reward
+        setTimeout(() => {
+            const chestImg = document.getElementById('chest-img');
+            if (chestImg) chestImg.src = openedSrc;
+
+            const rewardDiv = document.getElementById('chest-reward');
+            if (rewardDiv) rewardDiv.style.display = 'block';
+
+            // Highlight winning item
+            const items = overlay.querySelectorAll(`[data-idx="${rewardIndex}"]`);
+            items.forEach(el => {
+                el.style.border = `3px solid #ffd700`;
+                el.style.boxShadow = `0 0 20px rgba(255,215,0,0.5)`;
+                el.style.background = `rgba(255,215,0,0.15)`;
+            });
+        }, 5500);
+
+        // Claim button handler
+        const claimHandler = () => {
+            // Apply the reward
+            if (reward.type === 'sigil') {
+                this.collectSigil(reward.sigil);
+            } else if (reward.type === 'item') {
+                this.collectItem(reward.itemKey);
+            } else if (reward.type === 'sigilSet') {
+                this.collectSigilSetPiece(reward.sigilSetKey);
+            } else if (reward.type === 'demonPiece') {
+                if (!this.demonSet[reward.pieceId]) {
+                    this.demonSet[reward.pieceId] = true;
+                    const piece = DEMON_SET_PIECES.find(p => p.id === reward.pieceId);
+                    if (piece.id === 'helm') { this.player.maxHealth += 500; this.player.health += 500; }
+                    if (piece.id === 'boots') this.player.speed += 50;
+                    if (this.demonSet.helm && this.demonSet.chest && this.demonSet.boots && !this.demonSetBonusActive) {
+                        this.demonSetBonusActive = true;
+                    }
+                }
+            }
+            overlay.remove();
+            this.chestUIActive = false;
+            this.gamePaused = false;
+        };
+
+        // Wait for claim button to appear, then attach handler
+        const attachClaim = setInterval(() => {
+            const btn = document.getElementById('chest-claim-btn');
+            if (btn) {
+                btn.onclick = claimHandler;
+                clearInterval(attachClaim);
+            }
+        }, 100);
+    }
+
     updateStackingItems(type, amount) {
         // Called on kills, damage, or distance to add stacks to all collected stacking items
         for (const key in this.stackingItems) {
@@ -5787,6 +6313,11 @@ class DotsSurvivor {
         document.getElementById('xp-bar').style.width = `${(this.player.xp / this.player.xpToLevel) * 100}%`;
         document.getElementById('level-display').textContent = `Lv. ${this.player.level}`;
         document.getElementById('kill-count').textContent = `💀 ${this.player.kills}`;
+        // Sigil count in kill counter area
+        const sigilEl = document.getElementById('sigil-count');
+        if (sigilEl) {
+            sigilEl.textContent = `✦ ${this.sigils ? this.sigils.length : 0}`;
+        }
     }
 
     async gameOver() {
@@ -6322,6 +6853,18 @@ class DotsSurvivor {
             ctx.beginPath(); ctx.arc(sx, sy, pk.radius, 0, Math.PI * 2);
             ctx.fillStyle = pk.color; ctx.shadowBlur = 15; ctx.shadowColor = pk.color; ctx.fill(); ctx.shadowBlur = 0;
             if (pk.isItem && STACKING_ITEMS[pk.itemKey]) { ctx.font = '14px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(STACKING_ITEMS[pk.itemKey].icon, sx, sy + 5); }
+            // Sigil pickup glow
+            if (pk.isSigil) {
+                ctx.font = '16px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+                ctx.fillText('✦', sx, sy + 5);
+                // Tier label
+                ctx.font = 'bold 8px Inter'; ctx.fillStyle = pk.sigil.color;
+                ctx.fillText(`T${pk.sigil.tier}`, sx, sy + 16);
+            }
+            if (pk.isSigilSet) {
+                ctx.font = '18px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+                ctx.fillText('★', sx, sy + 5);
+            }
             // Health pack cross design
             if (pk.isHealth) {
                 ctx.fillStyle = '#ffffff';
@@ -6691,6 +7234,52 @@ class DotsSurvivor {
                 ctx.fillText('KILL NEARBY', sx, sy + 52);
             }
         });
+
+        // Mystery Chests
+        if (this.chests && this.chests.length > 0) {
+            this.chests.forEach(chest => {
+                const sx = this.player.x + (chest.wx - this.worldX);
+                const sy = this.player.y + (chest.wy - this.worldY);
+
+                ctx.save();
+
+                // Glow effect
+                const glowAlpha = 0.3 + Math.sin(chest.glowAngle) * 0.15;
+                const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, 60);
+                gradient.addColorStop(0, `rgba(170, 68, 255, ${glowAlpha})`);
+                gradient.addColorStop(1, 'rgba(170, 68, 255, 0)');
+                ctx.beginPath();
+                ctx.arc(sx, sy, 60, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Chest sprite
+                const spriteKey = chest.opened ? 'chest_opened' : 'chest_closed';
+                const sprite = SPRITE_CACHE[spriteKey];
+                const chestSize = 56;
+                if (sprite) {
+                    ctx.drawImage(sprite, sx - chestSize / 2, sy - chestSize / 2, chestSize, chestSize);
+                } else {
+                    // Fallback
+                    ctx.font = '32px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = chest.opened ? '#ff00ff' : '#aa44ff';
+                    ctx.fillText(chest.opened ? '✨' : '📦', sx, sy);
+                }
+
+                // Interaction hint (if not opened)
+                if (!chest.opened) {
+                    const bobY = Math.sin(chest.glowAngle * 2) * 4;
+                    ctx.font = 'bold 10px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = `rgba(170, 68, 255, ${0.6 + Math.sin(chest.glowAngle * 3) * 0.3})`;
+                    ctx.fillText('WALK TO OPEN', sx, sy + chestSize / 2 + 12 + bobY);
+                }
+
+                ctx.restore();
+            });
+        }
 
         // Elemental Skulls
         this.skulls.forEach(s => {

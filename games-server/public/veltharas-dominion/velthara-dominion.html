@@ -40,7 +40,7 @@
     </script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="veltharas-dominion.css">
+    <link rel="stylesheet" href="dots-survivor.css">
 </head>
 
 <body>
@@ -123,7 +123,6 @@
             <div id="user-info" style="position:absolute;top:1rem;right:1rem;text-align:right;"></div>
             <h1 class="game-title">VELTHARA'S<span>DOMINION</span></h1>
             <p class="game-subtitle">How long can you survive?</p>
-            <p class="alpha-tag">⚠️ ALPHA VERSION</p>
 
             <!-- Saved Game Notice -->
             <div id="saved-game-notice" class="hidden"
@@ -140,7 +139,6 @@
             <button id="settings-btn" class="menu-btn secondary" style="margin-top:0.5rem;">⚙️ SETTINGS</button>
             <button id="help-btn" class="menu-btn secondary" style="margin-top:0.5rem;">❓ GAME INFO</button>
             <a href="/" class="menu-btn secondary" style="margin-top:0.5rem;">🏠 EXIT TO HUB</a>
-            <p class="game-version">v0.1.0</p>
 
             <div class="controls-info">
                 <p>🎮 WASD or Arrow Keys to move</p>
@@ -290,6 +288,7 @@
             </div>
             <div class="stats-display">
                 <span id="kill-count">💀 0</span>
+                <span id="sigil-count" style="margin-left:12px;color:#aa44ff;">✦ 0</span>
             </div>
         </div>
     </div>
@@ -338,7 +337,7 @@
             <div id="new-record" class="hidden" style="color:#fbbf24;font-size:1.2rem;margin:1rem 0;">🏆 NEW PERSONAL
                 BEST!</div>
             <button id="restart-btn" class="menu-btn primary">PLAY AGAIN</button>
-            <button id="main-menu-btn" class="menu-btn secondary">BACK TO GAME MENU</button>
+            <a href="/" class="menu-btn secondary">BACK TO HUB</a>
         </div>
     </div>
 

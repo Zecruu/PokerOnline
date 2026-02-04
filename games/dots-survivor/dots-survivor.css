@@ -1350,3 +1350,27 @@ body {
     cursor: pointer;
     border: none;
 }
+
+/* Chest of the Damned UI */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes chestGlow {
+    0%, 100% { box-shadow: 0 0 20px rgba(170, 68, 255, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(170, 68, 255, 0.8), 0 0 60px rgba(255, 0, 255, 0.3); }
+}
+
+#chest-overlay h1 {
+    animation: chestGlow 2s ease-in-out infinite;
+}
+
+#chest-overlay button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(170, 68, 255, 0.7);
+}
+
+#chest-overlay button:active {
+    transform: scale(0.98);
+}
