@@ -205,6 +205,178 @@ const RARITY_TO_TIER = {
 };
 
 // ============================================
+// SEEDED PRNG - Mulberry32 (deterministic per-run sigil rolls)
+// ============================================
+function createSeededRNG(seed) {
+    let s = seed | 0;
+    return function() {
+        s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+// ============================================
+// SIGIL STAT ROLL RANGES - Per tier [min, max]
+// ============================================
+const SIGIL_ROLL_RANGES = {
+    FADED:     { flatDamage: [4,10],  fireRatePct: [3,8],   moveSpeedFlat: [4,10],  hpFlat: [40,90],   critChancePct: [1,3] },
+    RUNED:     { flatDamage: [10,22], fireRatePct: [7,15],  moveSpeedFlat: [8,16],  hpFlat: [90,170],  critChancePct: [3,6] },
+    EMPOWERED: { flatDamage: [22,42], fireRatePct: [12,22], moveSpeedFlat: [14,24], hpFlat: [170,300], critChancePct: [5,9] },
+    CURSED:    { cursedDamage: [28,55], cursedFireRatePct: [18,30], cursedHpFlat: [260,420] }
+};
+
+const SIGIL_QUALITY_TIERS = [
+    { name: 'low',     weight: 20, lo: 0.00, hi: 0.30, color: '#888888', label: '' },
+    { name: 'mid',     weight: 55, lo: 0.25, hi: 0.75, color: '#ffffff', label: '' },
+    { name: 'high',    weight: 20, lo: 0.70, hi: 1.00, color: '#00ccff', label: '▲ High Roll' },
+    { name: 'perfect', weight: 5,  lo: 1.00, hi: 1.00, color: '#ffaa00', label: '★ Perfect!' }
+];
+
+// ============================================
+// SIGIL ROLL CONFIG - Maps sigil ID → rollable stat descriptors
+// ============================================
+const SIGIL_ROLL_CONFIG = {
+    // TIER I (FADED)
+    'sigil_vitality':  [{ category: 'hpFlat',        label: 'Max HP',       apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; },  descFn: (g,v) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + v}` }],
+    'sigil_might':     [{ category: 'flatDamage',    label: 'Damage',       apply: (g,v) => { g.weapons.bullet.damage += v; },                   descFn: (g,v) => `Dmg: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + v}` }],
+    'sigil_swiftness': [{ category: 'moveSpeedFlat', label: 'Speed',        apply: (g,v) => { g.player.speed += v; },                            descFn: (g,v) => `Spd: ${g.player.speed} → ${g.player.speed + v}` }],
+    'sigil_precision': [{ category: 'critChancePct', label: 'Crit Chance',  apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; }, descFn: (g,v) => `Crit: +${Math.round((g.critChanceBonus||0)*100)}% → +${Math.round((g.critChanceBonus||0)*100 + v)}%` }],
+    'sigil_endurance': [
+        { category: 'hpFlat',        label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; }, descFn: (g,v) => `HP +${v}` },
+        { category: 'moveSpeedFlat', label: 'Speed',  apply: (g,v) => { g.player.speed += v; },                          descFn: (g,v) => `Spd +${v}` }
+    ],
+    'sigil_haste': [{ category: 'fireRatePct', label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); }, descFn: (g,v) => `AtkSpd +${v}%` }],
+
+    // TIER II (RUNED)
+    'sigil_greater_vitality':  [{ category: 'hpFlat',        label: 'Max HP',       apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; },  descFn: (g,v) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + v}` }],
+    'sigil_greater_might':     [{ category: 'flatDamage',    label: 'Damage',       apply: (g,v) => { g.weapons.bullet.damage += v; },                   descFn: (g,v) => `Dmg: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + v}` }],
+    'sigil_greater_swiftness': [{ category: 'moveSpeedFlat', label: 'Speed',        apply: (g,v) => { g.player.speed += v; },                            descFn: (g,v) => `Spd: ${g.player.speed} → ${g.player.speed + v}` }],
+    'sigil_ferocity':          [{ category: 'fireRatePct',   label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); },       descFn: (g,v) => `AtkSpd +${v}%` }],
+    'sigil_fortitude': [
+        { category: 'hpFlat',     label: 'Max HP',  apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; }, descFn: (g,v) => `HP +${v}` },
+        { category: 'flatDamage', label: 'Damage',  apply: (g,v) => { g.weapons.bullet.damage += v; },                  descFn: (g,v) => `Dmg +${v}` }
+    ],
+    'sigil_agility': [
+        { category: 'moveSpeedFlat', label: 'Speed',       apply: (g,v) => { g.player.speed += v; },                             descFn: (g,v) => `Spd +${v}` },
+        { category: 'critChancePct', label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; }, descFn: (g,v) => `Crit +${v}%` }
+    ],
+    'sigil_fury': [
+        { category: 'flatDamage',  label: 'Damage',       apply: (g,v) => { g.weapons.bullet.damage += v; },              descFn: (g,v) => `Dmg +${v}` },
+        { category: 'fireRatePct', label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); },  descFn: (g,v) => `AtkSpd +${v}%` }
+    ],
+
+    // TIER III (EMPOWERED)
+    'sigil_superior_vitality':  [{ category: 'hpFlat',        label: 'Max HP',       apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; },  descFn: (g,v) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + v}` }],
+    'sigil_superior_might':     [{ category: 'flatDamage',    label: 'Damage',       apply: (g,v) => { g.weapons.bullet.damage += v; },                   descFn: (g,v) => `Dmg: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + v}` }],
+    'sigil_superior_swiftness': [{ category: 'moveSpeedFlat', label: 'Speed',        apply: (g,v) => { g.player.speed += v; },                            descFn: (g,v) => `Spd: ${g.player.speed} → ${g.player.speed + v}` }],
+    'sigil_devastation': [
+        { category: 'flatDamage',  label: 'Damage',       apply: (g,v) => { g.weapons.bullet.damage += v; },              descFn: (g,v) => `Dmg +${v}` },
+        { category: 'fireRatePct', label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); },  descFn: (g,v) => `AtkSpd +${v}%` }
+    ],
+    'sigil_juggernaut': [
+        { category: 'hpFlat',        label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; }, descFn: (g,v) => `HP +${v}` },
+        { category: 'flatDamage',    label: 'Damage', apply: (g,v) => { g.weapons.bullet.damage += v; },                  descFn: (g,v) => `Dmg +${v}` },
+        { category: 'moveSpeedFlat', label: 'Speed',  apply: (g,v) => { g.player.speed += v; },                           descFn: (g,v) => `Spd +${v}` }
+    ],
+    'sigil_assassin': [
+        { category: 'critChancePct', label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; }, descFn: (g,v) => `Crit +${v}%` }
+    ],
+
+    // CORRUPTED (upside rolls in cursed bands)
+    'corrupted_vitality': [{ category: 'cursedHpFlat', label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; }, descFn: (g,v) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + v}` }],
+    'corrupted_fm_aura':  [{ category: 'cursedDamage', label: 'Aura DPS', apply: (g,v) => { if(g.auraFire) g.auraFire.damage += v; }, descFn: (g,v) => g.auraFire ? `Aura DPS +${v}` : 'Aura not active' }]
+};
+
+// ============================================
+// SIGIL ROLLING FUNCTIONS
+// ============================================
+function rollSigilQuality(rng) {
+    const r = rng() * 100;
+    let cum = 0;
+    for (const q of SIGIL_QUALITY_TIERS) {
+        cum += q.weight;
+        if (r < cum) return q;
+    }
+    return SIGIL_QUALITY_TIERS[1];
+}
+
+function rollSigilValue(rng, min, max, quality) {
+    if (quality.name === 'perfect') return max;
+    const lo = min + (max - min) * quality.lo;
+    const hi = min + (max - min) * quality.hi;
+    return Math.round(lo + rng() * (hi - lo));
+}
+
+function rollSigil(template, rng) {
+    const config = SIGIL_ROLL_CONFIG[template.id];
+    if (!config) return template;
+
+    const isCursed = !!template.isCorrupted;
+    const quality = rollSigilQuality(rng);
+
+    const rolledStats = [];
+    for (const def of config) {
+        let rangeTier;
+        if (isCursed && SIGIL_ROLL_RANGES.CURSED[def.category]) {
+            rangeTier = 'CURSED';
+        } else {
+            rangeTier = template.tier;
+            if (rangeTier === 'CORRUPTED_RUNED') rangeTier = 'RUNED';
+            if (rangeTier === 'CORRUPTED_EMPOWERED') rangeTier = 'EMPOWERED';
+        }
+        const range = SIGIL_ROLL_RANGES[rangeTier]?.[def.category];
+        if (!range) { rolledStats.push({ ...def, value: 0, quality }); continue; }
+        const value = rollSigilValue(rng, range[0], range[1], quality);
+        rolledStats.push({ ...def, value, quality });
+    }
+
+    const inst = Object.assign({}, template);
+    inst._rolled = rolledStats;
+    inst._quality = quality;
+
+    // Build rolled desc
+    const parts = [];
+    if (template.id === 'sigil_assassin') parts.push('+25% Crit Damage');
+    for (const s of rolledStats) {
+        const isPct = s.category.includes('Pct');
+        parts.push(isPct ? `+${s.value}% ${s.label}` : `+${s.value} ${s.label}`);
+    }
+    inst.desc = parts.join(', ');
+    if (isCursed) inst.upside = inst.desc;
+
+    // Build rolled effect
+    inst.effect = function(g) {
+        for (const s of rolledStats) s.apply(g, s.value);
+        if (template.id === 'sigil_assassin') {
+            g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25;
+        }
+        if (template.id === 'corrupted_vitality') {
+            g.corruptedDamageTaken = (g.corruptedDamageTaken || 1) * 1.15;
+            g.boundSigils.push('corrupted_vitality');
+            g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+        }
+        if (template.id === 'corrupted_fm_aura') {
+            if (g.auraFire) g.auraFire.radius += 25;
+            g.corruptedStillBurn = { threshold: 2, damage: 30, timer: 0 };
+            g.boundSigils.push('corrupted_fm_aura');
+            g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+        }
+    };
+
+    // Build rolled getDesc
+    inst.getDesc = function(g) {
+        const p = [];
+        if (template.id === 'sigil_assassin') p.push('Crit Dmg +25%');
+        for (const s of rolledStats) p.push(s.descFn(g, s.value));
+        return p.join(', ');
+    };
+
+    return inst;
+}
+
+// ============================================
 // CORRUPTED SIGILS SYSTEM
 // Rules:
 // - Only appear after Wave 8
@@ -3021,7 +3193,11 @@ class DotsSurvivor {
             impStats: this.impStats,
 
             // Boosts
-            startBoost: this.startBoost
+            startBoost: this.startBoost,
+
+            // Sigil RNG seed
+            runSeed: this.runSeed,
+            sigilRNGCalls: this._sigilRNGCalls || 0
         };
     }
 
@@ -3068,6 +3244,13 @@ class DotsSurvivor {
         const migratedSigils = oldAugments.map(id => migrateSigilId(id));
         this.boundSigils = state.boundSigils ? state.boundSigils.map(id => migrateSigilId(id)) : migratedSigils;
         this.augments = this.boundSigils; // Legacy alias
+
+        // Restore sigil RNG seed and fast-forward to correct position
+        this.runSeed = state.runSeed || ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0);
+        this._sigilRNG = createSeededRNG(this.runSeed);
+        this._sigilRNGCalls = 0;
+        for (let i = 0; i < (state.sigilRNGCalls || 0); i++) { this._sigilRNG(); this._sigilRNGCalls++; }
+        this.sigilRNG = () => { this._sigilRNGCalls++; return this._sigilRNG(); };
 
         this.perks.forEach(p => this.applyPerk(p));
 
@@ -3576,6 +3759,13 @@ class DotsSurvivor {
         // Sigils System (replaces Augments terminology)
         this.boundSigils = [];  // New: Bound Sigils array
         this.augments = this.boundSigils; // Legacy alias: points to same array
+
+        // Seeded RNG for deterministic sigil rolls
+        this.runSeed = (Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0;
+        this._sigilRNG = createSeededRNG(this.runSeed);
+        this._sigilRNGCalls = 0;
+        this.sigilRNG = () => { this._sigilRNGCalls++; return this._sigilRNG(); };
+
         this.titanKillerBonus = 0; // Colossus Bane sigil bonus damage to bosses/tanks
 
         // Dominion Sets tracking
@@ -8551,7 +8741,7 @@ class DotsSurvivor {
         const container = document.getElementById('upgrade-choices');
         if (!container) {
             // Fallback - auto-select a faded sigil
-            const randomRune = FADED_SIGILS[Math.floor(Math.random() * FADED_SIGILS.length)];
+            const randomRune = rollSigil(FADED_SIGILS[Math.floor(Math.random() * FADED_SIGILS.length)], this.sigilRNG);
             randomRune.effect(this);
             this.gamePaused = false;
             return;
@@ -8645,7 +8835,7 @@ class DotsSurvivor {
                 runePool = [...COMMON_RUNES]; // Allow duplicates if all used
             }
 
-            const rune = runePool[Math.floor(Math.random() * runePool.length)];
+            const rune = rollSigil(runePool[Math.floor(Math.random() * runePool.length)], this.sigilRNG);
             usedIds.add(rune.id);
             choices.push(rune);
         }
@@ -8667,7 +8857,7 @@ class DotsSurvivor {
                             matchingCorrupted = availableCorrupted;
                         }
                         if (matchingCorrupted.length > 0) {
-                            const corruptedSigil = matchingCorrupted[Math.floor(Math.random() * matchingCorrupted.length)];
+                            const corruptedSigil = rollSigil(matchingCorrupted[Math.floor(Math.random() * matchingCorrupted.length)], this.sigilRNG);
                             choices[i] = corruptedSigil;
                             break; // Only replace one slot per level-up
                         }
@@ -8752,13 +8942,31 @@ class DotsSurvivor {
                 <div class="reroll-btn" style="margin-top:8px;padding:4px 12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.25);border-radius:6px;cursor:pointer;color:#aaa;font-size:0.78em;text-align:center;transition:all 0.2s;">🔄 Reroll</div>
             ` : `<div style="margin-top:8px;padding:4px 8px;color:rgba(255,255,255,0.2);font-size:0.7em;text-align:center;">Already Rerolled</div>`;
 
+            // Build quality-colored description for rolled sigils
+            let descHtml;
+            if (rune._rolled && rune._rolled.length > 0) {
+                const qc = rune._quality.color;
+                const ql = rune._quality.label;
+                const parts = [];
+                if (rune.id === 'sigil_assassin') parts.push('<span style="color:#ddd">+25% Crit Damage</span>');
+                for (const s of rune._rolled) {
+                    const isPct = s.category.includes('Pct');
+                    const val = isPct ? `+${s.value}%` : `+${s.value}`;
+                    parts.push(`<span style="color:${qc};font-weight:bold">${val} ${s.label}</span>`);
+                }
+                descHtml = parts.join(', ');
+                if (ql) descHtml += ` <span style="color:${qc};font-size:0.75em;font-style:italic">${ql}</span>`;
+            } else {
+                descHtml = rune.desc;
+            }
+
             card.innerHTML = `
                 ${corruptedOverlayHtml}
                 ${setBadgeHtml}
                 <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' || tier === 'rare' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
                 ${tierImageHtml}
                 <div class="upgrade-name" style="color:${style.border};font-weight:bold;">${rune.name}</div>
-                <div class="upgrade-desc" style="color:#ddd;font-size:0.85em;">${rune.desc}</div>
+                <div class="upgrade-desc" style="color:#ddd;font-size:0.85em;">${descHtml}</div>
                 ${downsideHtml}
                 ${setData ? `<div class="sigil-set-info" style="color:${setData.color};font-size:0.75em;margin-top:4px;font-style:italic;">${setData.icon} ${setData.name}</div>` : ''}
                 <div class="upgrade-stats" style="color:#aaa;font-size:0.8em;">${rune.getDesc ? rune.getDesc(this) : ''}</div>
@@ -8843,7 +9051,7 @@ class DotsSurvivor {
                     if (runePool.length === 0) runePool = COMMON_RUNES.filter(r => !otherIds.has(r.id));
                     if (runePool.length === 0) runePool = [...COMMON_RUNES];
 
-                    const newRune = runePool[Math.floor(Math.random() * runePool.length)];
+                    const newRune = rollSigil(runePool[Math.floor(Math.random() * runePool.length)], this.sigilRNG);
                     choices[cardIndex] = newRune;
 
                     // Replace card in DOM
