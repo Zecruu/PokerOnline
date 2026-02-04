@@ -1,5 +1,40 @@
 // Velthara's Dominion - Complete Game with Classes, Items, Bosses & Infinite Map
 
+// Spatial Hash Grid for O(1) amortized collision lookups
+class SpatialGrid {
+    constructor(cellSize) {
+        this.cellSize = cellSize;
+        this.cells = new Map();
+    }
+    clear() { this.cells.clear(); }
+    _key(cx, cy) { return (cx * 73856093 ^ cy * 19349669) | 0; }
+    insert(entity) {
+        const cx = (entity.wx / this.cellSize) | 0;
+        const cy = (entity.wy / this.cellSize) | 0;
+        const key = this._key(cx, cy);
+        let bucket = this.cells.get(key);
+        if (!bucket) { bucket = []; this.cells.set(key, bucket); }
+        bucket.push(entity);
+    }
+    getNearby(wx, wy, radius) {
+        const results = [];
+        const cs = this.cellSize;
+        const minCx = ((wx - radius) / cs) | 0;
+        const maxCx = ((wx + radius) / cs) | 0;
+        const minCy = ((wy - radius) / cs) | 0;
+        const maxCy = ((wy + radius) / cs) | 0;
+        for (let cx = minCx; cx <= maxCx; cx++) {
+            for (let cy = minCy; cy <= maxCy; cy++) {
+                const bucket = this.cells.get(this._key(cx, cy));
+                if (bucket) {
+                    for (let i = 0; i < bucket.length; i++) results.push(bucket[i]);
+                }
+            }
+        }
+        return results;
+    }
+}
+
 // Get base path for sprites (works on both desktop and mobile)
 const SPRITE_BASE_PATH = 'https://d2f5lfipdzhi8t.cloudfront.net/dots-survivor/';
 
@@ -622,6 +657,7 @@ class DotsSurvivor {
 
         // Enemies
         this.enemies = [];
+        this.enemyGrid = new SpatialGrid(150);
         this.enemySpawnRate = 1200;
         this.lastEnemySpawn = 0;
 
@@ -1976,7 +2012,8 @@ class DotsSurvivor {
 
             // Remove when reached center
             if (newDist < consumer.radius * 0.2) {
-                consumer.vacuumParticles.splice(i, 1);
+                consumer.vacuumParticles[i] = consumer.vacuumParticles[consumer.vacuumParticles.length - 1];
+                consumer.vacuumParticles.pop();
             }
         }
 
@@ -1995,16 +2032,19 @@ class DotsSurvivor {
         }
 
         // ENHANCED: Suck and consume nearby non-boss enemies
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            const e = this.enemies[i];
+        const consumerNearby = this.enemyGrid.getNearby(consumer.wx, consumer.wy, consumer.consumeRadius);
+        for (let ci = 0; ci < consumerNearby.length; ci++) {
+            const e = consumerNearby[ci];
             if (e === consumer || e.isBoss) continue;
 
             const edx = consumer.wx - e.wx;
             const edy = consumer.wy - e.wy;
-            const edist = Math.sqrt(edx * edx + edy * edy);
+            const edistSq = edx * edx + edy * edy;
+            const cRadiusSq = consumer.consumeRadius * consumer.consumeRadius;
 
             // Pull enemies within consume radius with strong suction
-            if (edist < consumer.consumeRadius) {
+            if (edistSq < cRadiusSq) {
+                const edist = Math.sqrt(edistSq);
                 // Stronger pull - scales with proximity (closer = stronger pull)
                 const pullMult = 1 + (1 - edist / consumer.consumeRadius) * 2;
                 const pullStrength = (consumer.suckStrength || 400) * pullMult * dt;
@@ -2034,8 +2074,12 @@ class DotsSurvivor {
                     this.spawnParticles(sx, sy, '#8800ff', 12);
                     this.spawnParticles(sx, sy, '#ff00ff', 6);
 
-                    // Remove consumed enemy
-                    this.enemies.splice(i, 1);
+                    // Remove consumed enemy (swap-and-pop via indexOf - cold path, one consumer)
+                    const eidx = this.enemies.indexOf(e);
+                    if (eidx !== -1) {
+                        this.enemies[eidx] = this.enemies[this.enemies.length - 1];
+                        this.enemies.pop();
+                    }
 
                     // Announce growth every 5 consumed
                     if (consumer.consumedCount % 5 === 0) {
@@ -2252,7 +2296,7 @@ class DotsSurvivor {
 
             // Remove if off screen
             if (c.x < -100 || c.x > this.canvas.width + 100 || c.y < -100 || c.y > this.canvas.height + 100) {
-                this.swimmingCreatures.splice(i, 1);
+                this.swimmingCreatures[i] = this.swimmingCreatures[this.swimmingCreatures.length - 1]; this.swimmingCreatures.pop();
             }
         }
 
@@ -2262,7 +2306,7 @@ class DotsSurvivor {
             r.radius += 80 * dt;
             r.alpha -= 0.3 * dt;
             if (r.alpha <= 0 || r.radius >= r.maxRadius) {
-                this.waterRipples.splice(i, 1);
+                this.waterRipples[i] = this.waterRipples[this.waterRipples.length - 1]; this.waterRipples.pop();
             }
         }
 
@@ -2331,12 +2375,15 @@ class DotsSurvivor {
         this.oceanBackground.transitioning = true;
         this.oceanBackground.targetColor = '#0a2a6a';  // Deeper blue for fight
 
-        // Clear nearby enemies
-        const nonBossEnemies = this.enemies.filter(e => !e.isBoss);
-        const enemiesToRemove = Math.floor(nonBossEnemies.length * 0.8);
-        for (let i = 0; i < enemiesToRemove; i++) {
-            const idx = this.enemies.findIndex(e => !e.isBoss);
-            if (idx !== -1) this.enemies.splice(idx, 1);
+        // Clear nearby enemies (batch backward removal)
+        let nonBossCount = 0;
+        for (let i = 0; i < this.enemies.length; i++) { if (!this.enemies[i].isBoss) nonBossCount++; }
+        let toRemove = Math.floor(nonBossCount * 0.8);
+        for (let i = this.enemies.length - 1; i >= 0 && toRemove > 0; i--) {
+            if (!this.enemies[i].isBoss) {
+                this.enemies[i] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
+                toRemove--;
+            }
         }
 
         // Epic entrance
@@ -2476,7 +2523,7 @@ class DotsSurvivor {
 
             // Remove expired holes
             if (hole.lifetime <= 0) {
-                this.waterHoles.splice(i, 1);
+                this.waterHoles[i] = this.waterHoles[this.waterHoles.length - 1]; this.waterHoles.pop();
                 continue;
             }
 
@@ -2487,9 +2534,10 @@ class DotsSurvivor {
             // Check if player is standing in the water hole
             const dx = this.player.x - sx;
             const dy = this.player.y - sy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const distSq = dx * dx + dy * dy;
+            const threshWH = hole.radius + this.player.radius - 10;
 
-            if (dist < hole.radius + this.player.radius - 10 && hole.damageTimer <= 0) {
+            if (distSq < threshWH * threshWH && hole.damageTimer <= 0) {
                 // Damage player
                 this.player.health -= hole.damage;
                 hole.damageTimer = 0.5;  // Damage every 0.5 seconds
@@ -2541,7 +2589,7 @@ class DotsSurvivor {
             t.damageTimer += dt;
 
             if (t.lifetime <= 0) {
-                this.waterTornadoes.splice(i, 1);
+                this.waterTornadoes[i] = this.waterTornadoes[this.waterTornadoes.length - 1]; this.waterTornadoes.pop();
                 continue;
             }
 
@@ -2654,7 +2702,7 @@ class DotsSurvivor {
             if (this.waveTimer >= this.waveDuration) {
                 this.wave++;
                 this.waveTimer = 0;
-                this.enemySpawnRate = Math.max(400, this.enemySpawnRate - 60);
+                this.enemySpawnRate = Math.max(300, this.enemySpawnRate - 60);
 
                 // Spawn soul collectors every 5 waves
                 if (this.wave % 5 === 0 || this.wave - this.lastSoulCollectorWave >= 5) {
@@ -2676,7 +2724,7 @@ class DotsSurvivor {
                     const sc = this.soulCollectors[i];
                     if (!sc.complete && this.wave - sc.spawnWave >= 10) {
                         // Despawn and trigger horde
-                        this.soulCollectors.splice(i, 1);
+                        this.soulCollectors[i] = this.soulCollectors[this.soulCollectors.length - 1]; this.soulCollectors.pop();
                         this.damageNumbers.push({
                             x: this.canvas.width / 2,
                             y: this.canvas.height / 2 - 100,
@@ -2888,12 +2936,11 @@ class DotsSurvivor {
             );
 
             // Damage player if outside the circle
-            const distFromCenter = Math.sqrt(
-                Math.pow(this.worldX - this.circleOfDoom.centerX, 2) +
-                Math.pow(this.worldY - this.circleOfDoom.centerY, 2)
-            );
+            const codDx = this.worldX - this.circleOfDoom.centerX, codDy = this.worldY - this.circleOfDoom.centerY;
+            const distFromCenterSqCoD = codDx * codDx + codDy * codDy;
+            const codRadSq = this.circleOfDoom.currentRadius * this.circleOfDoom.currentRadius;
 
-            if (distFromCenter > this.circleOfDoom.currentRadius) {
+            if (distFromCenterSqCoD > codRadSq) {
                 const damage = Math.floor(this.circleOfDoom.damagePerSecond * dt);
                 if (damage > 0 && this.player.invincibleTime <= 0) {
                     this.player.health -= damage;
@@ -2963,10 +3010,11 @@ class DotsSurvivor {
 
         const dx = newWorldX - this.circleOfDoom.centerX;
         const dy = newWorldY - this.circleOfDoom.centerY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const distSq = dx * dx + dy * dy;
+        const codRSq = this.circleOfDoom.currentRadius * this.circleOfDoom.currentRadius;
 
         // If within circle, allow movement
-        if (dist <= this.circleOfDoom.currentRadius) {
+        if (distSq <= codRSq) {
             return { x: newWorldX, y: newWorldY };
         }
 
@@ -3001,6 +3049,9 @@ class DotsSurvivor {
         this.updateEvents(effectiveDt);
         this.spawnEnemies();
         this.spawnHealthPacks();
+        // Rebuild spatial grid for fast collision lookups
+        this.enemyGrid.clear();
+        for (let i = 0; i < this.enemies.length; i++) this.enemyGrid.insert(this.enemies[i]);
         this.updateSoulCollectors(effectiveDt);
         this.updateEnemies(effectiveDt);
         this.updateSkulls(effectiveDt);
@@ -3081,27 +3132,33 @@ class DotsSurvivor {
     updateAuraFire(dt) {
         if (!this.auraFire) return;
 
-        for (const e of this.enemies) {
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
-            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+        const auraQueryRadius = this.auraFire.radius + 60;
+        const auraNearby = this.enemyGrid.getNearby(this.worldX, this.worldY, auraQueryRadius);
+        for (let ni = 0; ni < auraNearby.length; ni++) {
+            const e = auraNearby[ni];
+            const adx = e.wx - this.worldX, ady = e.wy - this.worldY;
+            const distSq = adx * adx + ady * ady;
+            const threshold = this.auraFire.radius + e.radius;
 
-            if (dist < this.auraFire.radius + e.radius) {
+            if (distSq < threshold * threshold) {
                 // Apply burn if not already burning from aura
                 if (!e.auraBurn) {
                     e.auraBurn = { timer: this.auraFire.burnDuration, dps: this.auraFire.damage };
                     e.hitFlash = 0.5;
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#ff4400', 3);
                 }
             }
         }
 
-        // Process aura burns
-        for (const e of this.enemies) {
+        // Process aura burns (must iterate all enemies since burns persist)
+        for (let ei = 0; ei < this.enemies.length; ei++) {
+            const e = this.enemies[ei];
             if (e.auraBurn && e.auraBurn.timer > 0) {
                 e.auraBurn.timer -= dt;
                 e.health -= this.auraFire.damage * dt;
-                
+
                 // Visual burn effect
                 if (Math.random() < 0.1) {
                     const sx = this.player.x + (e.wx - this.worldX);
@@ -3132,12 +3189,15 @@ class DotsSurvivor {
             this.nuclearBlastWave.alpha -= dt * 0.8;  // Fade out
 
             // Damage enemies in the wave ring
-            for (const e of this.enemies) {
+            const waveInner = this.nuclearBlastWave.radius - 30;
+            const waveOuter = this.nuclearBlastWave.radius + 30;
+            const waveNearby = this.enemyGrid.getNearby(this.nuclearBlastWave.wx, this.nuclearBlastWave.wy, waveOuter);
+            for (let ni = 0; ni < waveNearby.length; ni++) {
+                const e = waveNearby[ni];
                 if (e.nuclearBlastHit) continue; // Already hit by this blast
 
-                const edist = Math.sqrt((e.wx - this.nuclearBlastWave.wx) ** 2 + (e.wy - this.nuclearBlastWave.wy) ** 2);
-                const waveInner = this.nuclearBlastWave.radius - 30;
-                const waveOuter = this.nuclearBlastWave.radius + 30;
+                const edx = e.wx - this.nuclearBlastWave.wx, edy = e.wy - this.nuclearBlastWave.wy;
+                const edist = Math.sqrt(edx * edx + edy * edy);
 
                 if (edist >= waveInner && edist <= waveOuter) {
                     // Hit by wave - deal massive damage
@@ -3313,13 +3373,20 @@ class DotsSurvivor {
         const maxTargets = this.beamDespair.chains;
         const range = this.beamDespair.range;
 
-        // Sort enemies by distance to player
-        const sortedEnemies = [...this.enemies].map(e => {
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
-            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-            return { enemy: e, sx, sy, dist };
-        }).filter(e => e.dist < range).sort((a, b) => a.dist - b.dist);
+        // Sort enemies by distance to player via spatial grid
+        const beamNearby = this.enemyGrid.getNearby(this.worldX, this.worldY, range);
+        const sortedEnemies = [];
+        for (let ni = 0; ni < beamNearby.length; ni++) {
+            const e = beamNearby[ni];
+            const bdx = e.wx - this.worldX, bdy = e.wy - this.worldY;
+            const distSq = bdx * bdx + bdy * bdy;
+            if (distSq < range * range) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                sortedEnemies.push({ enemy: e, sx, sy, dist: Math.sqrt(distSq) });
+            }
+        }
+        sortedEnemies.sort((a, b) => a.dist - b.dist);
 
         // First target: closest enemy to player
         if (sortedEnemies.length > 0) {
@@ -3392,14 +3459,15 @@ class DotsSurvivor {
             const pushRange = 350; // Range of wind push
             const basePushForce = 400; // Base knockback force
 
-            for (const e of this.enemies) {
-                const sx = this.player.x + (e.wx - this.worldX);
-                const sy = this.player.y + (e.wy - this.worldY);
-                const dx = sx - this.player.x;
-                const dy = sy - this.player.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+            const windNearby = this.enemyGrid.getNearby(this.worldX, this.worldY, pushRange);
+            for (let ni = 0; ni < windNearby.length; ni++) {
+                const e = windNearby[ni];
+                const dx = e.wx - this.worldX;
+                const dy = e.wy - this.worldY;
+                const distSq = dx * dx + dy * dy;
 
-                if (dist < pushRange && dist > 0) {
+                if (distSq < 122500 && distSq > 0) { // 350^2
+                    const dist = Math.sqrt(distSq);
                     // Calculate knockback resistance based on enemy size
                     // Bigger enemies (larger radius) resist more
                     const sizeResistance = Math.min(0.9, e.radius / 100); // Max 90% resistance for huge enemies
@@ -3414,6 +3482,8 @@ class DotsSurvivor {
                     e.wy += pushY * 0.5;
 
                     // Visual feedback
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#88ccff', 3);
                 }
             }
@@ -3588,7 +3658,7 @@ class DotsSurvivor {
             if (sc.complete) {
                 sc.completeTimer -= dt;
                 if (sc.completeTimer <= 0) {
-                    this.soulCollectors.splice(i, 1);
+                    this.soulCollectors[i] = this.soulCollectors[this.soulCollectors.length - 1]; this.soulCollectors.pop();
                 }
                 continue;
             }
@@ -3601,11 +3671,11 @@ class DotsSurvivor {
             if (sc.complete) continue;
 
             // Check if enemy died within collection radius
-            const dx = enemyWx - sc.wx;
-            const dy = enemyWy - sc.wy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const scDx = enemyWx - sc.wx;
+            const scDy = enemyWy - sc.wy;
+            const scDistSq = scDx * scDx + scDy * scDy;
 
-            if (dist <= sc.radius) {
+            if (scDistSq <= sc.radius * sc.radius) {
                 // Add souls (bosses give 5 souls)
                 const soulsGained = isBoss ? 5 : 1;
                 sc.soulsCollected += soulsGained;
@@ -3720,7 +3790,7 @@ class DotsSurvivor {
         for (let i = this.iceZones.length - 1; i >= 0; i--) {
             this.iceZones[i].timer -= dt;
             if (this.iceZones[i].timer <= 0) {
-                this.iceZones.splice(i, 1);
+                this.iceZones[i] = this.iceZones[this.iceZones.length - 1]; this.iceZones.pop();
             }
         }
 
@@ -3734,8 +3804,9 @@ class DotsSurvivor {
         // Check if player is in an ice zone (movement slow)
         let iceSlowMult = 1;
         for (const zone of this.iceZones) {
-            const distToZone = Math.sqrt((this.worldX - zone.wx) ** 2 + (this.worldY - zone.wy) ** 2);
-            if (distToZone < zone.radius) {
+            const dxIce = this.worldX - zone.wx, dyIce = this.worldY - zone.wy;
+            const distToZoneSq = dxIce * dxIce + dyIce * dyIce;
+            if (distToZoneSq < zone.radius * zone.radius) {
                 iceSlowMult = 0.5; // 50% movement slow in ice zones
                 break;
             }
@@ -3767,12 +3838,11 @@ class DotsSurvivor {
                 this.ringOfFire.centerY = this.worldY;
             }
 
-            const distFromCenter = Math.sqrt(
-                (newWorldX - this.ringOfFire.centerX) ** 2 +
-                (newWorldY - this.ringOfFire.centerY) ** 2
-            );
+            const rfDx = newWorldX - this.ringOfFire.centerX, rfDy = newWorldY - this.ringOfFire.centerY;
+            const distFromCenterSq = rfDx * rfDx + rfDy * rfDy;
+            const ringRadSq = this.ringOfFire.radius * this.ringOfFire.radius;
 
-            if (distFromCenter > this.ringOfFire.radius) {
+            if (distFromCenterSq > ringRadSq) {
                 // Player is crossing the ring - apply burn and push back
                 this.ringOfFire.burnTimer = this.ringOfFire.burnDuration;
 
@@ -3843,13 +3913,13 @@ class DotsSurvivor {
 
         // DYNAMIC MINIMUM: Start at 10, +1 per wave, gradual ramp
         // BOSS GRACE PERIOD: Reduce minimum enemies when boss just spawned
-        let MIN_ENEMIES = Math.min(35, 10 + this.wave - 1);
+        let MIN_ENEMIES = Math.min(60, 10 + this.wave - 1);
         if (this.bossGracePeriod > 0) {
             MIN_ENEMIES = Math.floor(MIN_ENEMIES * 0.3); // Only 30% of normal during grace period
         }
 
         // HARD CAP: Never exceed 80 total enemies to prevent browser crash
-        if (this.enemies.length >= 80) return;
+        if (this.enemies.length >= 200) return;
 
         const needsEmergencySpawn = this.enemies.length < MIN_ENEMIES;
 
@@ -3905,13 +3975,14 @@ class DotsSurvivor {
             // BOSS SPAWN: Clear nearby enemies and start grace period
             // This gives player breathing room when boss appears
             if (this.bossesSpawnedThisWave === 0) {
-                // First boss of the wave - clear 60% of non-boss enemies
-                const nonBossEnemies = this.enemies.filter(e => !e.isBoss);
-                const enemiesToRemove = Math.floor(nonBossEnemies.length * 0.6);
-                for (let i = 0; i < enemiesToRemove; i++) {
-                    const idx = this.enemies.findIndex(e => !e.isBoss);
-                    if (idx !== -1) {
-                        this.enemies.splice(idx, 1);
+                // First boss of the wave - clear 60% of non-boss enemies (batch backward removal)
+                let nbCount = 0;
+                for (let j = 0; j < this.enemies.length; j++) { if (!this.enemies[j].isBoss) nbCount++; }
+                let toRemoveBoss = Math.floor(nbCount * 0.6);
+                for (let j = this.enemies.length - 1; j >= 0 && toRemoveBoss > 0; j--) {
+                    if (!this.enemies[j].isBoss) {
+                        this.enemies[j] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
+                        toRemoveBoss--;
                     }
                 }
                 // Start grace period - reduced spawns for 5 seconds
@@ -4072,6 +4143,12 @@ class DotsSurvivor {
     }
 
     updateEnemies(dt) {
+        // Cache necro sprite count for this frame
+        this._necroSpriteCount = 0;
+        for (let i = 0; i < this.enemies.length; i++) {
+            if (this.enemies[i].type === 'necro_sprite') this._necroSpriteCount++;
+        }
+
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i];
 
@@ -4128,10 +4205,10 @@ class DotsSurvivor {
                         const psy = this.player.y + (pickup.wy - this.worldY);
                         const gsx = this.player.x + (e.wx - this.worldX);
                         const gsy = this.player.y + (e.wy - this.worldY);
-                        const dist = Math.sqrt((psx - gsx) ** 2 + (psy - gsy) ** 2);
-                        if (dist < 60) { // Goblin steal radius
+                        const gobDistSq = (psx - gsx) ** 2 + (psy - gsy) ** 2;
+                        if (gobDistSq < 3600) { // Goblin steal radius (60^2)
                             e.stolenXP += pickup.value;
-                            this.pickups.splice(p, 1);
+                            this.pickups[p] = this.pickups[this.pickups.length - 1]; this.pickups.pop();
                             this.spawnParticles(gsx, gsy, '#44aa44', 3);
                         }
                     }
@@ -4143,10 +4220,10 @@ class DotsSurvivor {
                 e.lastSpriteSpawn += dt;
                 // Count existing necro sprites to prevent unbounded growth
                 if (!e.spritesCapped) e.spritesCapped = 0;
-                if (e.lastSpriteSpawn >= 3 && this.enemies.length < 70) { // Spawn sprite every 3 seconds, respect cap
+                if (e.lastSpriteSpawn >= 3 && this.enemies.length < 180) { // Spawn sprite every 3 seconds, respect cap
                     e.lastSpriteSpawn = 0;
                     // Cap at 4 sprites per necromancer
-                    const currentSprites = this.enemies.filter(en => en.type === 'necro_sprite').length;
+                    const currentSprites = this._necroSpriteCount;
                     if (currentSprites < 8) {
                         const angle = Math.random() * Math.PI * 2;
                         const spriteDist = 30 + Math.random() * 20;
@@ -4154,6 +4231,7 @@ class DotsSurvivor {
                         const spriteWy = e.wy + Math.sin(angle) * spriteDist;
                         const sprite = this.createEnemy(spriteWx, spriteWy, 'necro_sprite');
                         this.enemies.push(sprite);
+                        this._necroSpriteCount++;
                         // Visual effect when spawning
                         const necroSx = this.player.x + (e.wx - this.worldX);
                         const necroSy = this.player.y + (e.wy - this.worldY);
@@ -4174,8 +4252,9 @@ class DotsSurvivor {
             }
 
             // Collision with player (use updated position)
-            const pd = Math.sqrt((sxMoved - this.player.x) ** 2 + (syMoved - this.player.y) ** 2);
-            if (pd < e.radius + this.player.radius && this.player.invincibleTime <= 0 && e.attackCooldown <= 0) {
+            const pdSq = (sxMoved - this.player.x) ** 2 + (syMoved - this.player.y) ** 2;
+            const collThresh = e.radius + this.player.radius;
+            if (pdSq < collThresh * collThresh && this.player.invincibleTime <= 0 && e.attackCooldown <= 0) {
                 // Set attack cooldown - enemies can attack again after this time
                 // Swarm attacks faster, bosses attack slower
                 const baseAttackSpeed = e.isBoss ? 1.5 : (e.type === 'swarm' ? 0.4 : 0.8);
@@ -4213,7 +4292,7 @@ class DotsSurvivor {
             }
 
             // Inferno aura damage
-            if (this.inferno && pd < 100) {
+            if (this.inferno && pdSq < 10000) {
                 e.health -= 5 * dt;
             }
 
@@ -4376,12 +4455,12 @@ class DotsSurvivor {
         if (this.necroExplosion && !e.isBoss) {
             this.spawnParticles(sx, sy, '#aa44ff', 15);
             // Damage nearby enemies
-            for (const other of this.enemies) {
+            const necroNearby = this.enemyGrid.getNearby(e.wx, e.wy, 60);
+            for (let ni = 0; ni < necroNearby.length; ni++) {
+                const other = necroNearby[ni];
                 if (other === e) continue;
-                const osx = this.player.x + (other.wx - this.worldX);
-                const osy = this.player.y + (other.wy - this.worldY);
-                const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
-                if (od < 60) {
+                const odx = other.wx - e.wx, ody = other.wy - e.wy;
+                if (odx * odx + ody * ody < 3600) {
                     other.health -= 30;
                     other.hitFlash = 1;
                 }
@@ -4421,8 +4500,8 @@ class DotsSurvivor {
                 }
             }
             
-            const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-            if (pd < explosionRadius) {
+            const bombPdSq = (sx - this.player.x) ** 2 + (sy - this.player.y) ** 2;
+            if (bombPdSq < explosionRadius * explosionRadius) {
                 const dmg = Math.floor(e.damage * (e.isPoisonous ? 2 : 1.5));
                 this.player.health -= dmg;
                 this.combatTimer = 0; // Reset combat timer
@@ -4486,8 +4565,8 @@ class DotsSurvivor {
         // MINI CONSUMER: Green mucus screen effect on death if player in radius
         if (e.isMiniConsumer) {
             const effectRadius = e.radius * 4; // Effect radius based on size
-            const playerDist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-            if (playerDist < effectRadius) {
+            const mcDistSq = (sx - this.player.x) ** 2 + (sy - this.player.y) ** 2;
+            if (mcDistSq < effectRadius * effectRadius) {
                 // Apply green screen effect
                 this.greenMucusEffect = {
                     active: true,
@@ -4506,12 +4585,12 @@ class DotsSurvivor {
         }
 
         // MINI CONSUMER GROWTH: When any enemy dies, nearby mini consumers grow (capped)
-        for (const mc of this.enemies) {
+        const mcNearby = this.enemyGrid.getNearby(e.wx, e.wy, 200);
+        for (let ni = 0; ni < mcNearby.length; ni++) {
+            const mc = mcNearby[ni];
             if (mc.isMiniConsumer && mc !== e) {
-                const mcSx = this.player.x + (mc.wx - this.worldX);
-                const mcSy = this.player.y + (mc.wy - this.worldY);
-                const dist = Math.sqrt((sx - mcSx) ** 2 + (sy - mcSy) ** 2);
-                if (dist < 200 && mc.absorbedKills < 30) { // Within growth radius, cap at 30 absorbs
+                const mdx = mc.wx - e.wx, mdy = mc.wy - e.wy;
+                if (mdx * mdx + mdy * mdy < 40000 && mc.absorbedKills < 30) { // Within growth radius, cap at 30 absorbs
                     mc.absorbedKills++;
                     // Grow every 3 kills absorbed
                     if (mc.absorbedKills % 3 === 0) {
@@ -4519,6 +4598,8 @@ class DotsSurvivor {
                         mc.health += 50;
                         mc.maxHealth += 50;
                         mc.damage += 5;
+                        const mcSx = this.player.x + (mc.wx - this.worldX);
+                        const mcSy = this.player.y + (mc.wy - this.worldY);
                         this.spawnParticles(mcSx, mcSy, '#00ff44', 5);
                     }
                 }
@@ -4528,12 +4609,12 @@ class DotsSurvivor {
         // Nuclear perk - enemies explode
         if (this.nuclear) {
             this.spawnParticles(sx, sy, '#ffff00', 15);
-            for (const other of this.enemies) {
+            const nukeNearby = this.enemyGrid.getNearby(e.wx, e.wy, 60);
+            for (let ni = 0; ni < nukeNearby.length; ni++) {
+                const other = nukeNearby[ni];
                 if (other === e) continue;
-                const osx = this.player.x + (other.wx - this.worldX);
-                const osy = this.player.y + (other.wy - this.worldY);
-                const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
-                if (od < 60) other.health -= 15;
+                const odx = other.wx - e.wx, ody = other.wy - e.wy;
+                if (odx * odx + ody * ody < 3600) other.health -= 15;
             }
         }
 
@@ -4565,7 +4646,7 @@ class DotsSurvivor {
                 this.dropItem(e.wx, e.wy);
             }
         }
-        this.enemies.splice(index, 1);
+        this.enemies[index] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
     }
 
     dropItem(wx, wy) {
@@ -4592,12 +4673,19 @@ class DotsSurvivor {
             const sx = this.player.x + Math.cos(s.angle) * s.radius;
             const sy = this.player.y + Math.sin(s.angle) * s.radius;
 
-            // Check collision with enemies
-            for (const e of this.enemies) {
+            // Check collision with enemies via spatial grid
+            const skullWx = this.worldX + Math.cos(s.angle) * s.radius;
+            const skullWy = this.worldY + Math.sin(s.angle) * s.radius;
+            const skullQueryR = s.size + 60; // max enemy radius ~60
+            const skullNearby = this.enemyGrid.getNearby(skullWx, skullWy, skullQueryR);
+            for (let ni = 0; ni < skullNearby.length; ni++) {
+                const e = skullNearby[ni];
                 const ex = this.player.x + (e.wx - this.worldX);
                 const ey = this.player.y + (e.wy - this.worldY);
-                const d = Math.sqrt((sx - ex) ** 2 + (sy - ey) ** 2);
-                if (d < s.size + e.radius) {
+                const sdx = sx - ex, sdy = sy - ey;
+                const dSq = sdx * sdx + sdy * sdy;
+                const hitR = s.size + e.radius;
+                if (dSq < hitR * hitR) {
                     // Diminishing returns system: track hits per enemy per skull
                     if (!e.skullHitId) e.skullHitId = Math.random();
                     const hitKey = `skull${sIndex}_${e.skullHitId}`;
@@ -4635,14 +4723,15 @@ class DotsSurvivor {
                     } else if (s.element === 'lightning') {
                         // Lightning: Chain to nearby enemies
                         let chainTarget = null;
-                        let chainDist = 150;
-                        for (const other of this.enemies) {
+                        let chainDistSq = 22500; // 150^2
+                        const chainNearby = this.enemyGrid.getNearby(e.wx, e.wy, 150);
+                        for (let ci = 0; ci < chainNearby.length; ci++) {
+                            const other = chainNearby[ci];
                             if (other === e) continue;
-                            const otherEx = this.player.x + (other.wx - this.worldX);
-                            const otherEy = this.player.y + (other.wy - this.worldY);
-                            const chainD = Math.sqrt((ex - otherEx) ** 2 + (ey - otherEy) ** 2);
-                            if (chainD < chainDist) {
-                                chainDist = chainD;
+                            const cdx = other.wx - e.wx, cdy = other.wy - e.wy;
+                            const cDistSq = cdx * cdx + cdy * cdy;
+                            if (cDistSq < chainDistSq) {
+                                chainDistSq = cDistSq;
                                 chainTarget = other;
                             }
                         }
@@ -4741,16 +4830,22 @@ class DotsSurvivor {
         for (let i = this.imps.length - 1; i >= 0; i--) {
             const imp = this.imps[i];
             imp.lifetime -= dt;
-            if (imp.lifetime <= 0) { this.imps.splice(i, 1); continue; }
+            if (imp.lifetime <= 0) { this.imps[i] = this.imps[this.imps.length - 1]; this.imps.pop(); continue; }
 
-            // Seek nearest
-            let nearest = null, nd = Infinity;
-            for (const e of this.enemies) {
+            // Seek nearest via spatial grid
+            const impWx = this.worldX + (imp.x - this.player.x);
+            const impWy = this.worldY + (imp.y - this.player.y);
+            let nearest = null, ndSq = Infinity;
+            const impNearby = this.enemyGrid.getNearby(impWx, impWy, 400);
+            for (let ni = 0; ni < impNearby.length; ni++) {
+                const e = impNearby[ni];
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
-                const d = Math.sqrt((imp.x - sx) ** 2 + (imp.y - sy) ** 2);
-                if (d < nd) { nd = d; nearest = { e, sx, sy }; }
+                const idx = imp.x - sx, idy = imp.y - sy;
+                const dSq = idx * idx + idy * idy;
+                if (dSq < ndSq) { ndSq = dSq; nearest = { e, sx, sy }; }
             }
+            const nd = ndSq < Infinity ? Math.sqrt(ndSq) : Infinity;
 
             if (nearest && nd < 400) {
                 const dx = nearest.sx - imp.x, dy = nearest.sy - imp.y;
@@ -4776,7 +4871,8 @@ class DotsSurvivor {
                         dps: nearest.e.maxHealth * 0.01 // 1% max hp per second
                     };
 
-                    this.imps.splice(i, 1);
+                    this.imps[i] = this.imps[this.imps.length - 1];
+                    this.imps.pop();
                 }
             } else {
                 // Follow player
@@ -4801,7 +4897,8 @@ class DotsSurvivor {
 
             if (m.health <= 0) {
                 this.spawnParticles(m.x, m.y, m.color, 10);
-                this.minions.splice(i, 1);
+                this.minions[i] = this.minions[this.minions.length - 1];
+                this.minions.pop();
                 continue;
             }
 
@@ -4810,14 +4907,20 @@ class DotsSurvivor {
             let target = null;
             let moveTarget = null;
 
-            // Find nearest enemy in range
+            // Find nearest enemy in range via spatial grid
+            const mWx = this.worldX + (m.x - this.player.x);
+            const mWy = this.worldY + (m.y - this.player.y);
             let nd = Infinity;
-            for (const e of this.enemies) {
+            const wolfNearby = this.enemyGrid.getNearby(mWx, mWy, 350);
+            for (let ni = 0; ni < wolfNearby.length; ni++) {
+                const e = wolfNearby[ni];
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
-                const d = Math.sqrt((m.x - sx) ** 2 + (m.y - sy) ** 2);
-                if (d < 350 && d < nd) { nd = d; target = e; moveTarget = { x: sx, y: sy }; }
+                const wdx = m.x - sx, wdy = m.y - sy;
+                const dSq = wdx * wdx + wdy * wdy;
+                if (dSq < 122500 && dSq < nd) { nd = dSq; target = e; moveTarget = { x: sx, y: sy }; }
             }
+            nd = nd < Infinity ? Math.sqrt(nd) : Infinity;
 
             // Move logic with howl speed bonus
             const effectiveSpeed = m.speed * howlSpeedMult;
@@ -4852,12 +4955,13 @@ class DotsSurvivor {
         w.lastFired = now;
 
         // Auto-aim at nearest enemy with PREDICTIVE targeting
-        let nearestEnemy = null, nd = Infinity;
-        for (const e of this.enemies) {
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
-            const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-            if (d < nd) { nd = d; nearestEnemy = e; }
+        let nearestEnemy = null, ndSq = Infinity;
+        const aimNearby = this.enemyGrid.getNearby(this.worldX, this.worldY, 600);
+        for (let ni = 0; ni < aimNearby.length; ni++) {
+            const e = aimNearby[ni];
+            const adx = e.wx - this.worldX, ady = e.wy - this.worldY;
+            const dSq = adx * adx + ady * ady;
+            if (dSq < ndSq) { ndSq = dSq; nearestEnemy = e; }
         }
         if (!nearestEnemy) return;
 
@@ -4917,13 +5021,16 @@ class DotsSurvivor {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
 
-            // HOMING MISSILES: Find and track nearest enemy
-            let nearestEnemy = null, minDist = Infinity;
-            for (const e of this.enemies) {
-                const sx = this.player.x + (e.wx - this.worldX);
-                const sy = this.player.y + (e.wy - this.worldY);
-                const dist = Math.sqrt((p.x - sx) ** 2 + (p.y - sy) ** 2);
-                if (dist < minDist) { minDist = dist; nearestEnemy = e; }
+            // HOMING MISSILES: Find nearest enemy via spatial grid
+            let nearestEnemy = null, minDistSq = Infinity;
+            const pwx = this.worldX + (p.x - this.player.x);
+            const pwy = this.worldY + (p.y - this.player.y);
+            const nearbyHome = this.enemyGrid.getNearby(pwx, pwy, 500);
+            for (let ni = 0; ni < nearbyHome.length; ni++) {
+                const e = nearbyHome[ni];
+                const ddx = e.wx - pwx, ddy = e.wy - pwy;
+                const distSq = ddx * ddx + ddy * ddy;
+                if (distSq < minDistSq) { minDistSq = distSq; nearestEnemy = e; }
             }
 
             if (nearestEnemy) {
@@ -4953,13 +5060,19 @@ class DotsSurvivor {
             const baseRange = 260; // Base range (was 220, +18% buff for more reach)
             const rangeBonus = this.projectileRangeBonus || 1;
             const maxRange = baseRange * rangeBonus;
-            if (Math.abs(p.x - this.player.x) > maxRange || Math.abs(p.y - this.player.y) > maxRange) { this.projectiles.splice(i, 1); continue; }
-            for (const e of this.enemies) {
+            if (Math.abs(p.x - this.player.x) > maxRange || Math.abs(p.y - this.player.y) > maxRange) { this.projectiles[i] = this.projectiles[this.projectiles.length - 1]; this.projectiles.pop(); continue; }
+            const pwx2 = this.worldX + (p.x - this.player.x);
+            const pwy2 = this.worldY + (p.y - this.player.y);
+            const nearbyCol = this.enemyGrid.getNearby(pwx2, pwy2, p.radius + 60);
+            for (let ci = 0; ci < nearbyCol.length; ci++) {
+                const e = nearbyCol[ci];
                 if (p.hitEnemies.includes(e)) continue;
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
-                const d = Math.sqrt((p.x - sx) ** 2 + (p.y - sy) ** 2);
-                if (d < p.radius + e.radius) {
+                const ddx = p.x - sx, ddy = p.y - sy;
+                const dSq = ddx * ddx + ddy * ddy;
+                const radSum = p.radius + e.radius;
+                if (dSq < radSum * radSum) {
                     // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
 
@@ -5042,22 +5155,25 @@ class DotsSurvivor {
                     if (p.canExplode && this.bulletExplosion) {
                         const expRadius = this.explosionRadius || 40;
                         this.spawnParticles(sx, sy, '#ff8800', 15);
-                        // Damage all nearby enemies
-                        for (const other of this.enemies) {
+                        // Damage nearby enemies via spatial grid
+                        const nearbyExp = this.enemyGrid.getNearby(e.wx, e.wy, expRadius);
+                        const expRadSq = expRadius * expRadius;
+                        for (let ei = 0; ei < nearbyExp.length; ei++) {
+                            const other = nearbyExp[ei];
                             if (other === e) continue;
-                            const osx = this.player.x + (other.wx - this.worldX);
-                            const osy = this.player.y + (other.wy - this.worldY);
-                            const od = Math.sqrt((sx - osx) ** 2 + (sy - osy) ** 2);
-                            if (od < expRadius) {
+                            const odx = e.wx - other.wx, ody = e.wy - other.wy;
+                            if (odx * odx + ody * ody < expRadSq) {
                                 const splashDmg = Math.floor(damage * 0.5);
                                 other.health -= splashDmg;
                                 other.hitFlash = 1;
+                                const osx = this.player.x + (other.wx - this.worldX);
+                                const osy = this.player.y + (other.wy - this.worldY);
                                 this.addDamageNumber(osx, osy, splashDmg, '#ff8800', { enemyId: other.id });
                             }
                         }
                     }
 
-                    if (p.hitEnemies.length >= p.pierce) { this.projectiles.splice(i, 1); break; }
+                    if (p.hitEnemies.length >= p.pierce) { this.projectiles[i] = this.projectiles[this.projectiles.length - 1]; this.projectiles.pop(); break; }
                 }
             }
 
@@ -5069,13 +5185,15 @@ class DotsSurvivor {
             const pk = this.pickups[i];
             const sx = this.player.x + (pk.wx - this.worldX);
             const sy = this.player.y + (pk.wy - this.worldY);
-            const dx = this.player.x - sx, dy = this.player.y - sy, d = Math.sqrt(dx * dx + dy * dy);
+            const dx = this.player.x - sx, dy = this.player.y - sy, dSq = dx * dx + dy * dy;
 
             // Auto-collect with magnet king perk for XP
             const magnetDist = this.autoCollect && !pk.isItem && !pk.isHealth ? Infinity : this.magnetRadius;
+            const magnetDistSq = magnetDist === Infinity ? Infinity : magnetDist * magnetDist;
 
-            if (d < magnetDist) { pk.wx += (dx / d) * 350 * dt; pk.wy += (dy / d) * 350 * dt; }
-            if (d < this.player.radius + pk.radius) {
+            if (dSq < magnetDistSq) { const d = Math.sqrt(dSq); pk.wx += (dx / d) * 350 * dt; pk.wy += (dy / d) * 350 * dt; }
+            const collectThresh = this.player.radius + pk.radius;
+            if (dSq < collectThresh * collectThresh) {
                 if (pk.isItem) {
                     this.collectItem(pk.itemKey);
                 } else if (pk.isHealth) {
@@ -5148,7 +5266,7 @@ class DotsSurvivor {
                     this.playSound('xp'); // Play coin sound when collecting XP
                     this.checkLevelUp();
                 }
-                this.pickups.splice(i, 1);
+                this.pickups[i] = this.pickups[this.pickups.length - 1]; this.pickups.pop();
             }
         }
     }
@@ -5641,7 +5759,7 @@ class DotsSurvivor {
     updateDamageNumbers(dt) {
         // Limit max active numbers
         if (this.damageNumbers.length > 50) {
-            this.damageNumbers.splice(0, this.damageNumbers.length - 50);
+            this.damageNumbers = this.damageNumbers.slice(-50);
         }
 
         for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
@@ -5654,13 +5772,13 @@ class DotsSurvivor {
                 d.pulseTimer -= dt;
             }
 
-            if (d.lifetime <= 0) this.damageNumbers.splice(i, 1);
+            if (d.lifetime <= 0) { this.damageNumbers[i] = this.damageNumbers[this.damageNumbers.length - 1]; this.damageNumbers.pop(); }
         }
     }
 
 
 
-    updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) this.particles.splice(i, 1); } }
+    updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) { this.particles[i] = this.particles[this.particles.length - 1]; this.particles.pop(); } } }
 
     updateHUD() {
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
@@ -6246,15 +6364,18 @@ class DotsSurvivor {
                     ctx.save();
                     ctx.translate(sx, sy);
 
-                    // Hit flash effect - draw white overlay
-                    if (e.hitFlash > 0) {
-                        ctx.globalAlpha = 0.7;
-                        ctx.filter = 'brightness(3)';
-                    }
-
                     // Draw the sprite centered and scaled to enemy radius
                     const size = e.radius * 2;
                     ctx.drawImage(sprite, -size/2, -size/2, size, size);
+
+                    // Hit flash effect - additive blend overlay
+                    if (e.hitFlash > 0) {
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = 0.6;
+                        ctx.drawImage(sprite, -size/2, -size/2, size, size);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = 1;
+                    }
 
                     ctx.restore();
                 } else {
@@ -6277,13 +6398,17 @@ class DotsSurvivor {
                 // Try to use Cthulhu sprite first
                 const cthulhuSprite = SPRITE_CACHE['cthulhu'];
                 if (cthulhuSprite) {
-                    // Hit flash effect
-                    if (e.hitFlash > 0) {
-                        ctx.globalAlpha = 0.7;
-                        ctx.filter = 'brightness(3)';
-                    }
                     const size = e.radius * 3;
                     ctx.drawImage(cthulhuSprite, -size/2, -size/2, size, size);
+
+                    // Hit flash effect - additive blend overlay
+                    if (e.hitFlash > 0) {
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = 0.6;
+                        ctx.drawImage(cthulhuSprite, -size/2, -size/2, size, size);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = 1;
+                    }
                 } else {
                     // Fallback rendering - dark tentacle creature
                     // Outer glow
@@ -6401,14 +6526,16 @@ class DotsSurvivor {
                 if (consumerSprite) {
                     ctx.save();
                     ctx.rotate(e.rotationAngle * 0.3); // Slow rotation
-                    // Hit flash effect
-                    if (e.hitFlash > 0) {
-                        ctx.globalAlpha = 0.7;
-                        ctx.filter = 'brightness(2)';
-                    }
                     ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-                    ctx.filter = 'none';
-                    ctx.globalAlpha = 1;
+
+                    // Hit flash effect - additive blend overlay
+                    if (e.hitFlash > 0) {
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = 0.6;
+                        ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = 1;
+                    }
                     ctx.restore();
                 } else {
                     // Fallback: dark void circle if sprite not loaded
