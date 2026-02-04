@@ -36,7 +36,7 @@ class SpatialGrid {
 }
 
 // Get base path for sprites (works on both desktop and mobile)
-const SPRITE_BASE_PATH = 'https://d2f5lfipdzhi8t.cloudfront.net/dots-survivor/';
+const SPRITE_BASE_PATH = '';
 
 // Helper function to get full sprite path
 function getSpritePath(filename) {

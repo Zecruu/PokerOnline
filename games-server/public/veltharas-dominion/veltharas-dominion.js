@@ -37,7 +37,7 @@ class SpatialGrid {
 }
 
 // CloudFront CDN base path for all assets
-const SPRITE_BASE_PATH = 'https://d2f5lfipdzhi8t.cloudfront.net/dots-survivor/';
+const SPRITE_BASE_PATH = '';
 
 // Helper function to get full sprite path (CDN)
 function getSpritePath(filename) {
@@ -3308,7 +3308,7 @@ class DotsSurvivor {
             return;
         }
 
-        const CDN_BASE = 'https://d2f5lfipdzhi8t.cloudfront.net/veltharas-dominion/';
+        const CDN_BASE = '';
 
         content.innerHTML = `
             <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;">
