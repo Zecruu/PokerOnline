@@ -9,6 +9,40 @@ const API_BASE = window.location.hostname === 'localhost'
 class AuthManager {
     constructor() {
         this.user = null;
+
+        // PRIORITY 0: Check for tokens passed via URL (cross-domain from hub)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('auth_token');
+        const urlRememberToken = urlParams.get('remember_token');
+        const urlUserData = urlParams.get('user_data');
+
+        if (urlToken) {
+            // Store tokens from URL to localStorage
+            localStorage.setItem('auth_token', urlToken);
+            localStorage.setItem('ds_token', urlToken);
+            console.log('✅ Auth token received from hub via URL');
+
+            if (urlRememberToken) {
+                localStorage.setItem('remember_token', urlRememberToken);
+                localStorage.setItem('ds_remember_token', urlRememberToken);
+                console.log('✅ Remember token received from hub via URL');
+            }
+
+            if (urlUserData) {
+                try {
+                    const userData = JSON.parse(decodeURIComponent(urlUserData));
+                    localStorage.setItem('user_data', JSON.stringify(userData));
+                    console.log('✅ User data received from hub via URL');
+                } catch (e) {
+                    console.log('Could not parse user data from URL');
+                }
+            }
+
+            // Clean URL to remove tokens (security)
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+
         // Check both game token and hub token
         this.token = localStorage.getItem('ds_token') || localStorage.getItem('auth_token');
         this.rememberToken = localStorage.getItem('ds_remember_token') || localStorage.getItem('remember_token');

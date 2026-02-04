@@ -66,6 +66,31 @@ export function Navbar() {
     window.location.reload();
   };
 
+  // Build game URL with auth tokens for cross-domain authentication
+  const buildGameUrl = (baseUrl: string) => {
+    const token = localStorage.getItem("auth_token");
+    const rememberToken = localStorage.getItem("remember_token");
+    const userData = localStorage.getItem("user_data");
+
+    if (!token) return baseUrl;
+
+    const url = new URL(baseUrl);
+    url.searchParams.set("auth_token", token);
+    if (rememberToken) {
+      url.searchParams.set("remember_token", rememberToken);
+    }
+    if (userData) {
+      url.searchParams.set("user_data", encodeURIComponent(userData));
+    }
+    return url.toString();
+  };
+
+  const handleGameClick = (e: React.MouseEvent, baseUrl: string) => {
+    e.preventDefault();
+    const gameUrl = buildGameUrl(baseUrl);
+    window.location.href = gameUrl;
+  };
+
   return (
     <>
       <nav className={`navbar-glass px-4 lg:px-8 py-4 flex justify-between items-center sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'py-3' : ''}`}>
@@ -196,7 +221,14 @@ export function Navbar() {
 
           <p className="text-xs text-white/40 uppercase tracking-wider px-3 mb-2">Games</p>
           <div className="space-y-1">
-            <SidebarLink href="https://games.zecrugames.com/veltharas-dominion/" icon="🎮" onClick={() => setSidebarOpen(false)}>Velthara&apos;s Dominion</SidebarLink>
+            <a
+              href="https://games.zecrugames.com/veltharas-dominion/"
+              onClick={(e) => { handleGameClick(e, "https://games.zecrugames.com/veltharas-dominion/"); setSidebarOpen(false); }}
+              className="flex items-center gap-3 px-3 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+            >
+              <span className="text-lg">🎮</span>
+              <span className="font-medium">Velthara&apos;s Dominion</span>
+            </a>
             <SidebarLink href="/games/poker/poker.html" icon="🃏" onClick={() => setSidebarOpen(false)}>Poker Online</SidebarLink>
           </div>
 

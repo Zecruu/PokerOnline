@@ -7976,6 +7976,53 @@ class DotsSurvivor {
                         }
                     }
 
+                    // ============ TEMPEST'S WRATH: Every 5th hit triggers chain lightning ============
+                    if (this.boundSigils.includes('tempest_chain') && !p.isChainLightning) {
+                        this.tempestCounter = (this.tempestCounter || 0) + 1;
+                        if (this.tempestCounter >= 5) {
+                            this.tempestCounter = 0;
+                            // Trigger chain lightning to 3 targets
+                            const chainTargets = 3;
+                            const chainDamage = Math.floor(damage * 0.6); // 60% of hit damage
+                            const chainRange = 180;
+
+                            const chainedEnemies = [e];
+                            let lastPoint = { x: sx, y: sy };
+                            const lightningPoints = [{ x: sx, y: sy }];
+
+                            for (let c = 0; c < chainTargets; c++) {
+                                let nearest = null, nearestDist = Infinity;
+                                for (const other of this.enemies) {
+                                    if (chainedEnemies.includes(other) || other.dead) continue;
+                                    const osx = this.player.x + (other.wx - this.worldX);
+                                    const osy = this.player.y + (other.wy - this.worldY);
+                                    const dist = Math.sqrt((lastPoint.x - osx) ** 2 + (lastPoint.y - osy) ** 2);
+                                    if (dist < chainRange && dist < nearestDist) {
+                                        nearestDist = dist;
+                                        nearest = { enemy: other, sx: osx, sy: osy };
+                                    }
+                                }
+
+                                if (nearest) {
+                                    chainedEnemies.push(nearest.enemy);
+                                    nearest.enemy.health -= chainDamage;
+                                    nearest.enemy.hitFlash = 0.5;
+                                    lightningPoints.push({ x: nearest.sx, y: nearest.sy });
+                                    lastPoint = { x: nearest.sx, y: nearest.sy };
+                                    this.addDamageNumber(nearest.sx, nearest.sy, chainDamage, '#00ddff', { enemyId: nearest.enemy.id });
+                                    this.spawnParticles(nearest.sx, nearest.sy, '#00ddff', 5);
+                                }
+                            }
+
+                            // Store lightning chain for visual rendering
+                            if (lightningPoints.length > 1) {
+                                if (!this.lightningChains) this.lightningChains = [];
+                                this.lightningChains.push({ points: lightningPoints, lifetime: 0.3, color: '#00ddff' });
+                                this.damageNumbers.push({ x: sx, y: sy - 25, value: '⛈️ TEMPEST!', lifetime: 0.8, color: '#00ddff', scale: 1.0 });
+                            }
+                        }
+                    }
+
                     // ============ THUNDER GOD: Chain lightning to nearby enemies ============
                     if ((this.thunderGod || this.thunderChain) && !p.isChainLightning) {
                         const chainTargets = this.lightningChainCount || this.thunderChain?.targets || 3;
@@ -8361,15 +8408,41 @@ class DotsSurvivor {
 
         container.innerHTML = '';
 
-        // Sigil tier selection with weighted probabilities
-        // Faded: 50%, Runed: 30%, Empowered: 15%, Ascendant: 4%, Mythic: 1%
+        // Sigil tier selection with wave-based probabilities for tier 3+
+        // Wave 1-5: 0.01% chance for tier 3+ (Empowered, Ascendant, Mythic)
+        // Wave 6-10: 5% chance for tier 3+
+        // Wave 10+: 10% chance for tier 3+
+        // Within tier 3+ bracket: Mythic ~6%, Ascendant ~27%, Empowered ~67% (relative)
         const selectRuneTier = () => {
+            const currentWave = this.wave || 1;
+
+            // Determine tier 3+ base chance based on wave
+            let tier3PlusChance;
+            if (currentWave <= 5) {
+                tier3PlusChance = 0.01; // 0.01%
+            } else if (currentWave <= 10) {
+                tier3PlusChance = 5; // 5%
+            } else {
+                tier3PlusChance = 10; // 10%
+            }
+
+            // First roll: do we get tier 3+ at all?
+            const tier3Roll = Math.random() * 100;
+            if (tier3Roll < tier3PlusChance) {
+                // We got tier 3+! Now distribute within tier 3+
+                // Mythic: 5% of tier3+, Ascendant: 20% of tier3+, Empowered: 75% of tier3+
+                // Additionally reduce chances per tier (mythic hardest, empowered easiest)
+                const subRoll = Math.random() * 100;
+                if (subRoll < 5) return 'mythic';      // 5% of tier 3+ bracket
+                if (subRoll < 25) return 'legendary';  // 20% of tier 3+ bracket (Ascendant)
+                return 'purple';                        // 75% of tier 3+ bracket (Empowered)
+            }
+
+            // Not tier 3+, pick between Faded and Runed
+            // Faded: ~62%, Runed: ~38% of tier 1-2 bracket
             const roll = Math.random() * 100;
-            if (roll < 1) return 'mythic';        // 1% chance
-            if (roll < 5) return 'legendary';     // 4% chance (Ascendant)
-            if (roll < 20) return 'purple';       // 15% chance (Empowered)
-            if (roll < 50) return 'silver';       // 30% chance (Runed)
-            return 'common';                       // 50% chance (Faded)
+            if (roll < 38) return 'silver';  // Runed
+            return 'common';                  // Faded
         };
 
         // Pick 3 random sigils (each with independent tier roll)

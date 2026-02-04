@@ -81,6 +81,31 @@ export default function Home() {
     });
   };
 
+  // Build game URL with auth tokens for cross-domain authentication
+  const buildGameUrl = (baseUrl: string) => {
+    const token = localStorage.getItem("auth_token");
+    const rememberToken = localStorage.getItem("remember_token");
+    const userData = localStorage.getItem("user_data");
+
+    if (!token) return baseUrl;
+
+    const url = new URL(baseUrl);
+    url.searchParams.set("auth_token", token);
+    if (rememberToken) {
+      url.searchParams.set("remember_token", rememberToken);
+    }
+    if (userData) {
+      url.searchParams.set("user_data", encodeURIComponent(userData));
+    }
+    return url.toString();
+  };
+
+  const handlePlayClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const gameUrl = buildGameUrl("https://games.zecrugames.com/veltharas-dominion/");
+    window.location.href = gameUrl;
+  };
+
   const inCart = isInCart("veltharas-dominion");
   return (
     <div className="min-h-screen">
@@ -131,12 +156,13 @@ export default function Home() {
 
               <div className="flex gap-4 flex-wrap">
                 {ownsVelthara ? (
-                  <Link
+                  <a
                     href="https://games.zecrugames.com/veltharas-dominion/"
+                    onClick={handlePlayClick}
                     className="btn-glass btn-glass-primary text-base sm:text-lg px-8 sm:px-10 py-4"
                   >
                     <span className="mr-2">▶</span> Play Now
-                  </Link>
+                  </a>
                 ) : inCart ? (
                   <div className="btn-glass text-base sm:text-lg px-8 sm:px-10 py-4 bg-white/10 text-white/70 cursor-default">
                     ✓ Added to Cart

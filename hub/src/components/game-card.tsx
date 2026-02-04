@@ -70,12 +70,39 @@ export function GameCard({ game }: { game: Game }) {
 
   const inCart = isInCart(game.id);
 
-  // For free games or owned paid games, show as a link
+  // Build game URL with auth tokens for cross-domain authentication
+  const buildGameUrl = (baseUrl: string) => {
+    const token = localStorage.getItem("auth_token");
+    const rememberToken = localStorage.getItem("remember_token");
+    const userData = localStorage.getItem("user_data");
+
+    // Only add tokens for external game URLs
+    if (!baseUrl.includes("games.zecrugames.com")) return baseUrl;
+    if (!token) return baseUrl;
+
+    const url = new URL(baseUrl);
+    url.searchParams.set("auth_token", token);
+    if (rememberToken) {
+      url.searchParams.set("remember_token", rememberToken);
+    }
+    if (userData) {
+      url.searchParams.set("user_data", encodeURIComponent(userData));
+    }
+    return url.toString();
+  };
+
+  const handlePlayClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const gameUrl = buildGameUrl(game.href);
+    window.location.href = gameUrl;
+  };
+
+  // For free games or owned paid games, show as a clickable card
   if (game.isFree || ownsGame) {
     return (
-      <Link href={game.href} className="group card-glass overflow-hidden block">
+      <a href={game.href} onClick={handlePlayClick} className="group card-glass overflow-hidden block">
         <GameCardContent game={game} ownsGame={ownsGame} isFree={game.isFree} />
-      </Link>
+      </a>
     );
   }
 
