@@ -1187,7 +1187,7 @@ const ASCENDANT_SIGILS = [
     { id: 'sigil_vampire', name: 'Ascendant Sigil: Vampire\'s Embrace', icon: '🧛', desc: '+200 HP, +35 Damage. PASSIVE: Heal 3% of damage dealt (reduced in combat)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 35; g.vampireHeal = 0.03; }, getDesc: (g) => `HP +200, Damage +35, 3% Lifesteal` },
     { id: 'sigil_doubler', name: 'Ascendant Sigil: Doubling', icon: '✖️', desc: '+100 HP, +20 Damage. PASSIVE: All item stacks count as DOUBLE', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; g.weapons.bullet.damage += 20; g.stackDoubler = true; }, getDesc: (g) => g.stackDoubler ? 'Active ✓ (Stacks 2x)' : '+100 HP, +20 Damage, Double Stacks' },
     { id: 'sigil_momentum', name: 'Ascendant Sigil: Momentum\'s Edge', icon: '🏃', desc: '+30 Speed, +30 Damage. PASSIVE: Gain +1% damage per second moving (max 50%)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.speed += 30; g.weapons.bullet.damage += 30; g.boundSigils.push('momentum'); g.momentumBonus = 0; }, getDesc: (g) => g.boundSigils?.includes('momentum') ? `Active ✓ (+${Math.floor((g.momentumBonus || 0) * 100)}% dmg)` : '+30 Speed, +30 Damage, Momentum Passive' },
-    { id: 'sigil_ring_mastery', name: 'Ascendant Sigil: Ring of Fire Mastery', icon: '🔥', desc: '+200 HP, +40 Damage. PASSIVE: Ring of Fire radius +100, damage +80 DPS, burn enemies for 5s', rarity: 'legendary', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 40; if (!g.playerRingOfFire) { g.playerRingOfFire = { radius: 100, damage: 50, rotation: 0, rotationSpeed: 2, burnDuration: 3 }; } g.playerRingOfFire.radius += 100; g.playerRingOfFire.damage += 80; g.playerRingOfFire.burnDuration = 5; g.boundSigils.push('ring_mastery'); }, getDesc: (g) => g.boundSigils?.includes('ring_mastery') ? 'Active ✓' : '+200 HP, +40 Damage, Ring Upgrade' },
+    { id: 'sigil_ring_mastery', name: 'Ascendant Sigil: Ring of Fire Mastery', icon: '🔥', desc: '+200 HP, +40 Damage. PASSIVE: Ring of Fire radius +100, damage +100 DPS, burn enemies for 5s', rarity: 'legendary', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 40; if (!g.playerRingOfFire) { g.playerRingOfFire = { radius: 100, damage: 80, rotation: 0, rotationSpeed: 2, burnDuration: 4 }; } g.playerRingOfFire.radius += 100; g.playerRingOfFire.damage += 100; g.playerRingOfFire.burnDuration = 5; g.boundSigils.push('ring_mastery'); }, getDesc: (g) => g.boundSigils?.includes('ring_mastery') ? 'Active ✓' : '+200 HP, +40 Damage, Ring Upgrade' },
 ];
 
 // Legacy alias for backward compatibility
@@ -1460,7 +1460,7 @@ const MYTHIC_SIGILS = [
             g.devilRingOfFire = {
                 rings: 3,
                 radius: 200,
-                damage: 200,
+                damage: 275,
                 rotation: 0,
                 rotationSpeed: 3,
                 burnDuration: 10,
@@ -1890,7 +1890,7 @@ const BUILD_SETS = {
 const GAME_SETTINGS = {
     enemyHealthMult: 0.35,       // Lower base health for easier early game
     enemyDamageMult: 1.0,
-    enemySpeedMult: 1.2,         // REBALANCED: 1.3 -> 1.2
+    enemySpeedMult: 1.5,         // Faster enemies - can't stand still and win
     // spawnRateMult is now dynamic - see getSpawnRateMultByWave()
     scalingPerWaveEarly: 0.05,   // +5% per wave for waves 1-9
     scalingPerWaveMid: 0.16,     // +16% per wave for waves 10-15
@@ -1920,22 +1920,22 @@ function getDifficultyTier(wave) {
 // Get spawn rate multiplier by wave (lower = more frequent spawns)
 // Base spawn rate = 500ms * this multiplier
 function getSpawnRateMultByWave(wave) {
-    if (wave <= 3) return 1.10;   // Waves 1-3: slower spawns
-    if (wave <= 6) return 0.90;   // Waves 4-6: slightly faster
-    if (wave <= 9) return 0.75;   // Waves 7-9: faster
-    if (wave <= 12) return 0.65;  // Waves 10-12: moderate
-    if (wave <= 15) return 0.55;  // Waves 13-15: fast
-    return 0.50;                  // Waves 16+: maximum spawn rate
+    if (wave <= 3) return 1.00;   // Waves 1-3: normal spawns
+    if (wave <= 6) return 0.75;   // Waves 4-6: faster
+    if (wave <= 9) return 0.55;   // Waves 7-9: fast
+    if (wave <= 12) return 0.45;  // Waves 10-12: very fast
+    if (wave <= 15) return 0.35;  // Waves 13-15: intense
+    return 0.30;                  // Waves 16+: maximum spawn rate
 }
 
 // Get max alive enemy cap by wave
 function getMaxAliveByWave(wave) {
-    if (wave <= 3) return 25;     // Waves 1-3: low cap
-    if (wave <= 6) return 35;     // Waves 4-6: medium cap
-    if (wave <= 9) return 50;     // Waves 7-9: higher cap
-    if (wave <= 12) return 60;    // Waves 10-12: high cap
-    if (wave <= 15) return 70;    // Waves 13-15: very high cap
-    return 80;                    // Waves 16+: maximum cap
+    if (wave <= 3) return 40;     // Waves 1-3: low cap
+    if (wave <= 6) return 65;     // Waves 4-6: medium cap
+    if (wave <= 9) return 100;    // Waves 7-9: higher cap
+    if (wave <= 12) return 140;   // Waves 10-12: high cap
+    if (wave <= 15) return 180;   // Waves 13-15: very high cap
+    return 220;                   // Waves 16+: maximum cap
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
@@ -3637,7 +3637,7 @@ class DotsSurvivor {
 
         // ========== FIRE MAGE ========== SCALED 5x (halved from 10x)
         if (this.selectedClass.bonuses.hasAuraFire) {
-            this.auraFire = { radius: 120, damage: 40, burnDuration: 3 };  // 40 dps = 120 dmg over 3s (swarm has 100 HP)
+            this.auraFire = { radius: 120, damage: 65, burnDuration: 4 };  // 65 dps = 260 dmg over 4s
             this.boundSigils.push('aura_fire');
         }
         if (this.selectedClass.bonuses.hasFireballs) {
@@ -5008,16 +5008,23 @@ class DotsSurvivor {
                     if (Math.random() < 0.15) {
                         this.spawnParticles(sx, sy, '#ff6600', 2);
                     }
+                    if (Math.random() < 0.03) {
+                        this.damageNumbers.push({ x: sx, y: sy - 15, value: Math.ceil(totalDamage / dt), lifetime: 0.5, color: '#ff6600', scale: 0.6 });
+                    }
                 }
             }
             // Process single burn (standard behavior)
             else if (e.auraBurn && e.auraBurn.timer > 0) {
                 e.auraBurn.timer -= dt;
-                e.health -= this.auraFire.damage * dt * ampBoost;
+                const auraBurnDmg = this.auraFire.damage * ampBoost;
+                e.health -= auraBurnDmg * dt;
 
                 // Visual burn effect
                 if (Math.random() < 0.1) {
                     this.spawnParticles(sx, sy, '#ff6600', 1);
+                }
+                if (Math.random() < 0.03) {
+                    this.damageNumbers.push({ x: sx, y: sy - 15, value: Math.ceil(auraBurnDmg), lifetime: 0.5, color: '#ff6600', scale: 0.6 });
                 }
             }
         }
@@ -5089,15 +5096,22 @@ class DotsSurvivor {
                     if (Math.random() < 0.15) {
                         this.spawnParticles(sx, sy, '#ff4400', 2);
                     }
+                    if (Math.random() < 0.03) {
+                        this.damageNumbers.push({ x: sx, y: sy - 15, value: Math.ceil(totalDamage / dt), lifetime: 0.5, color: '#ff4400', scale: 0.6 });
+                    }
                 }
             }
             // Process single burn (standard behavior)
             else if (e.ringBurn && e.ringBurn.timer > 0) {
                 e.ringBurn.timer -= dt;
-                e.health -= e.ringBurn.dps * dt * ampBoost * fireDmgBonus;
+                const ringBurnDmg = e.ringBurn.dps * ampBoost * fireDmgBonus;
+                e.health -= ringBurnDmg * dt;
 
                 if (Math.random() < 0.15) {
                     this.spawnParticles(sx, sy, '#ff4400', 2);
+                }
+                if (Math.random() < 0.03) {
+                    this.damageNumbers.push({ x: sx, y: sy - 15, value: Math.ceil(ringBurnDmg), lifetime: 0.5, color: '#ff4400', scale: 0.6 });
                 }
             }
         }
@@ -5169,12 +5183,16 @@ class DotsSurvivor {
                 e.devilRingBurn.timer -= dt;
                 const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
                 const fireDmgBonus = this.fireDamageBonus || 1;
-                e.health -= e.devilRingBurn.dps * dt * ampBoost * fireDmgBonus;
+                const devilBurnDmg = e.devilRingBurn.dps * ampBoost * fireDmgBonus;
+                e.health -= devilBurnDmg * dt;
 
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
                 if (Math.random() < 0.2) {
-                    const sx = this.player.x + (e.wx - this.worldX);
-                    const sy = this.player.y + (e.wy - this.worldY);
                     this.spawnParticles(sx, sy, '#ff0000', 3);
+                }
+                if (Math.random() < 0.03) {
+                    this.damageNumbers.push({ x: sx, y: sy - 15, value: Math.ceil(devilBurnDmg), lifetime: 0.5, color: '#ff0000', scale: 0.6 });
                 }
             }
         }
@@ -8679,19 +8697,20 @@ class DotsSurvivor {
             corrupted_empowered: { border: '#4a0080', bg: 'linear-gradient(135deg, #0a0515, #150a20)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#4a0080,#2a0050)', glow: 'rgba(74,0,128,0.6)', tierKey: 'CORRUPTED_EMPOWERED', isCorrupted: true }
         };
 
-        choices.forEach(rune => {
+        // Reroll tracking: 1 reroll per card per level-up
+        const rerollsUsed = [false, false, false];
+
+        const renderSigilCard = (rune, cardIndex) => {
             const tierRaw = rune.tier || rune.rarity || 'common';
-            const tier = tierRaw.toLowerCase(); // Normalize to lowercase for tierStyles lookup
+            const tier = tierRaw.toLowerCase();
             const style = tierStyles[tier] || tierStyles.common;
             const isMythic = tier === 'mythic';
             const isLegendary = tier === 'legendary';
             const isCorrupted = rune.isCorrupted || style.isCorrupted;
 
-            // Get tier image from SIGIL_TIERS
             const sigilTierData = SIGIL_TIERS[style.tierKey];
             const tierImageUrl = sigilTierData && sigilTierData.image ? getSpritePath(sigilTierData.image) : null;
 
-            // Check if sigil belongs to a Dominion Set
             const setData = rune.setKey ? DOMINION_SETS[rune.setKey] : null;
             const setImageUrl = setData && setData.image ? getSpritePath(setData.image) : null;
 
@@ -8700,12 +8719,11 @@ class DotsSurvivor {
             card.style.borderColor = style.border;
             card.style.boxShadow = `0 0 20px ${style.glow}`;
             card.style.background = style.bg;
-            card.style.position = 'relative'; // For set badge positioning
+            card.style.position = 'relative';
             if (isMythic) card.style.animation = 'mythicPulse 2s ease-in-out infinite';
             if (isLegendary) card.style.animation = 'legendaryShine 3s ease-in-out infinite';
             if (isCorrupted) card.style.animation = 'corruptedFlicker 1.5s ease-in-out infinite';
 
-            // Build corrupted overlay HTML for corrupted sigils
             const corruptedOverlayHtml = isCorrupted ? `
                 <div class="corrupted-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;border-radius:inherit;overflow:hidden;">
                     <div style="position:absolute;top:5px;left:5px;font-size:16px;">☠️</div>
@@ -8713,7 +8731,6 @@ class DotsSurvivor {
                 </div>
             ` : '';
 
-            // Build set badge HTML if this sigil belongs to a set
             const setBadgeHtml = setData ? `
                 <div class="sigil-set-badge" style="position:absolute;top:5px;right:5px;display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:8px;background:${setData.color}33;border:1px solid ${setData.color};">
                     ${setImageUrl ? `<img src="${setImageUrl}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;" crossorigin="anonymous">` : ''}
@@ -8721,17 +8738,19 @@ class DotsSurvivor {
                 </div>
             ` : '';
 
-            // Build tier image HTML - shows the sigil tier artwork
             const tierImageHtml = tierImageUrl ? `
                 <div class="sigil-tier-image" style="width:60px;height:60px;margin:0 auto 8px;border-radius:8px;overflow:hidden;border:2px solid ${style.border};box-shadow:0 0 10px ${style.glow};">
                     <img src="${tierImageUrl}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous">
                 </div>
             ` : `<div class="upgrade-icon" style="font-size:2.5rem;">${rune.icon}</div>`;
 
-            // Build downside warning for corrupted sigils
             const downsideHtml = isCorrupted && rune.downside ? `
                 <div class="corrupted-downside" style="color:#ff4444;font-size:0.75em;margin-top:4px;padding:2px 4px;background:rgba(139,0,0,0.2);border-radius:4px;">⚠️ ${rune.downside}</div>
             ` : '';
+
+            const rerollBtnHtml = !rerollsUsed[cardIndex] ? `
+                <div class="reroll-btn" style="margin-top:8px;padding:4px 12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.25);border-radius:6px;cursor:pointer;color:#aaa;font-size:0.78em;text-align:center;transition:all 0.2s;">🔄 Reroll</div>
+            ` : `<div style="margin-top:8px;padding:4px 8px;color:rgba(255,255,255,0.2);font-size:0.7em;text-align:center;">Already Rerolled</div>`;
 
             card.innerHTML = `
                 ${corruptedOverlayHtml}
@@ -8743,19 +8762,18 @@ class DotsSurvivor {
                 ${downsideHtml}
                 ${setData ? `<div class="sigil-set-info" style="color:${setData.color};font-size:0.75em;margin-top:4px;font-style:italic;">${setData.icon} ${setData.name}</div>` : ''}
                 <div class="upgrade-stats" style="color:#aaa;font-size:0.8em;">${rune.getDesc ? rune.getDesc(this) : ''}</div>
+                ${rerollBtnHtml}
             `;
 
+            // Select sigil on card click
             card.onclick = () => {
                 rune.effect(this);
-
-                // Recalculate Dominion Set bonuses after binding a sigil/rune
                 recalculateDominionSets(this);
 
                 document.getElementById('levelup-menu').classList.add('hidden');
                 this.upgradeMenuShowing = false;
                 this.gamePaused = false;
 
-                // Show what they picked with tier-appropriate color
                 const tierColors = { common: '#cd7f32', bronze: '#cd7f32', silver: '#c0c0c0', purple: '#9966ff', epic: '#9966ff', legendary: '#fbbf24', mythic: '#ff6600' };
                 this.damageNumbers.push({
                     x: this.canvas.width / 2,
@@ -8770,7 +8788,6 @@ class DotsSurvivor {
                     this.triggerScreenShake(15, 0.5);
                 }
 
-                // Show Dominion Set progress if applicable
                 if (rune.setKey && this.dominionSetPieces[rune.setKey]) {
                     const setData = DOMINION_SETS[rune.setKey];
                     const pieces = this.dominionSetPieces[rune.setKey];
@@ -8782,12 +8799,64 @@ class DotsSurvivor {
                     });
                 }
 
-                // Handle multiple pending upgrades
                 if (this.pendingUpgrades > 0) {
                     this.pendingUpgrades--;
                 }
             };
-            container.appendChild(card);
+
+            // Reroll button handler
+            const rerollBtn = card.querySelector('.reroll-btn');
+            if (rerollBtn) {
+                rerollBtn.onmouseenter = () => { rerollBtn.style.background = 'rgba(255,255,255,0.18)'; rerollBtn.style.color = '#fff'; };
+                rerollBtn.onmouseleave = () => { rerollBtn.style.background = 'rgba(255,255,255,0.08)'; rerollBtn.style.color = '#aaa'; };
+                rerollBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (rerollsUsed[cardIndex]) return;
+                    rerollsUsed[cardIndex] = true;
+
+                    // Get IDs of other choices to avoid duplicates
+                    const otherIds = new Set();
+                    choices.forEach((c, i) => { if (i !== cardIndex) otherIds.add(c.id); });
+
+                    // Roll a new tier
+                    let newTier = selectRuneTier();
+
+                    // Filter sigils for the new tier
+                    const rerollFilter = (r) => {
+                        if (otherIds.has(r.id)) return false;
+                        if (r.id === rune.id) return false; // Don't give the same sigil back
+                        if (r.classReq && r.classReq !== this.selectedClass?.id) return false;
+                        if (r.req && r.req !== 'demonSet' && !this.boundSigils?.includes(r.req)) return false;
+                        if (r.req === 'demonSet' && !this.demonSetBonusActive) return false;
+                        return true;
+                    };
+
+                    let runePool;
+                    switch (newTier) {
+                        case 'mythic': runePool = MYTHIC_RUNES.filter(r => !this.augments.includes(r.id) && rerollFilter(r)); break;
+                        case 'legendary': runePool = LEGENDARY_RUNES.filter(rerollFilter); break;
+                        case 'purple': runePool = PURPLE_RUNES.filter(rerollFilter); break;
+                        case 'silver': runePool = SILVER_RUNES.filter(rerollFilter); break;
+                        default: runePool = COMMON_RUNES.filter(rerollFilter); break;
+                    }
+                    if (runePool.length === 0) runePool = COMMON_RUNES.filter(rerollFilter);
+                    if (runePool.length === 0) runePool = COMMON_RUNES.filter(r => !otherIds.has(r.id));
+                    if (runePool.length === 0) runePool = [...COMMON_RUNES];
+
+                    const newRune = runePool[Math.floor(Math.random() * runePool.length)];
+                    choices[cardIndex] = newRune;
+
+                    // Replace card in DOM
+                    const newCard = renderSigilCard(newRune, cardIndex);
+                    container.replaceChild(newCard, card);
+                };
+            }
+
+            return card;
+        };
+
+        choices.forEach((rune, cardIndex) => {
+            container.appendChild(renderSigilCard(rune, cardIndex));
         });
 
         document.getElementById('levelup-menu').classList.remove('hidden');
