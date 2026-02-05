@@ -53,15 +53,13 @@ const PLAYER_SPRITES = {
     dead: 'characters/necromancer-dead.png'
 };
 
-// Fire Mage level progression sprites
+// Fire Sovereign level progression sprites
 const PLAYER_LEVEL_SPRITES = {
-    level1: 'characters/fire-mage-lv1.png',      // Level 1-4
-    level5: 'characters/fire-mage-lv5.png',      // Level 5-9
-    level10: 'characters/fire-mage-lv10.png',    // Level 10-14
-    level15: 'characters/fire-mage-lv15.png',    // Level 15-19
-    level20: 'characters/fire-mage-lv20.png',    // Level 20-24
-    level25: 'characters/fire-mage-lv25.png',    // Level 25-29
-    level30: 'characters/necromancer-idle.png'   // Level 30+
+    level1:  'characters/fire-mage-lv1.png',          // Level 1-5
+    level6:  'characters/fire-sovereign-lv6.png',      // Level 6-10
+    level11: 'characters/fire-sovereign-lv11.png',     // Level 11-15
+    level16: 'characters/fire-sovereign-lv16.png',     // Level 16-20
+    level21: 'characters/fire-sovereign-lv21.png',     // Level 21+
 };
 
 // Shadow Monarch level progression sprites
@@ -70,6 +68,15 @@ const SHADOW_MONARCH_SPRITES = {
     level5: 'characters/shadow-monarch-lv5.png',
     level10: 'characters/shadow-monarch-lv10.png',
     level15: 'characters/shadow-monarch-lv15.png'
+};
+
+// Void Blade (Azura) level progression sprites
+const VOID_BLADE_SPRITES = {
+    level1:  'characters/void-blade-lv1.png',    // Lv 1-5: Blindfold Wretch
+    level6:  'characters/void-blade-lv6.png',    // Lv 6-10: Awakening Cut
+    level11: 'characters/void-blade-lv11.png',   // Lv 11-15: Blood-Seer
+    level16: 'characters/void-blade-lv16.png',   // Lv 16-20: Crimson Disciple
+    level21: 'characters/void-blade-lv21.png',   // Lv 21+: Void Blade Ascendant
 };
 
 const WOLF_SPRITES = {
@@ -1083,9 +1090,9 @@ function initSprites() {
     for (const [anim, path] of Object.entries(PLAYER_SPRITES)) {
         loadSprite('player_' + anim, path, true);
     }
-    // Load player level progression sprites
+    // Load player level progression sprites (via CDN)
     for (const [level, path] of Object.entries(PLAYER_LEVEL_SPRITES)) {
-        loadSprite('player_' + level, path, true);
+        loadSprite('player_' + level, getAssetUrl(path), true);
     }
     // Load wolf sprites (standing, running1, running2, biting)
     for (const [anim, path] of Object.entries(WOLF_SPRITES)) {
@@ -1144,6 +1151,10 @@ function initSprites() {
     loadSprite('player_shadow_monarch', getAssetUrl('characters/shadow-monarch-main.png'), true);
     for (const [level, path] of Object.entries(SHADOW_MONARCH_SPRITES)) {
         loadSprite('sm_' + level, getAssetUrl(path), true);
+    }
+    // Void Blade (Azura) sprites
+    for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
+        loadSprite('vb_' + level, getAssetUrl(path), true);
     }
     // Shadow Monarch orb sprite
     loadSprite('sm_orb', getAssetUrl('minions/sm-orb.png'), true);
@@ -1377,8 +1388,53 @@ const SHADOW_MONARCH_CLASS = {
     augments: []
 };
 
+// ========== VOID BLADE (AZURA) CLASS ==========
+const VOID_BLADE_CLASS = {
+    id: 'void_blade',
+    name: 'Azura, The Void Blade',
+    icon: '⚔️',
+    color: '#8B0000',
+    description: 'Blind swordmaster. Bleeds enemies with true damage, forges Blood Swords from kills, and executes the weak.',
+    bonuses: {
+        noProjectiles: true,
+        hasMeleeSlash: true,
+        hasBloodSwords: true,
+        hasBleedSystem: true,
+        damage: 1.3,
+        fireRate: 1,
+    },
+    skills: {
+        crescentVoidSlash: { name: 'Crescent Void Slash', icon: '🌙', desc: 'Wide melee arc slash that bleeds all enemies hit' },
+        bladesOfTheSlain: { name: 'Blades of the Slain', icon: '🗡️', desc: 'Kill enemies to forge floating Blood Swords' },
+        scarletVerdict: { name: 'Scarlet Verdict', icon: '💀', desc: 'Execute low-HP enemies instantly. Bosses take burst true damage instead' },
+    },
+    passive: {
+        name: 'Crimson Sense',
+        icon: '👁️',
+        desc: 'Bleeding enemies take +15% damage from Azura. Attacks prioritize bleeding targets.',
+        effect: (g) => { g.crimsonSenseActive = true; g.crimsonSenseDmgBonus = 0.15; }
+    },
+    abilities: {},
+    sigils: [
+        // Tier 1 (Faded) — 2 sigils
+        { id: 'vb_deep_cuts', name: 'Deep Cuts', icon: '🩸', desc: '+2 max bleed stacks', tier: 'FADED', rarity: 'common', effect: (g) => { g.maxBleedStacks = (g.maxBleedStacks || 8) + 2; }, getDesc: (g) => `Stacks: ${g.maxBleedStacks || 8} → ${(g.maxBleedStacks || 8) + 2}` },
+        { id: 'vb_blood_scent', name: 'Blood Scent', icon: '👃', desc: '+25% bleed DPS', tier: 'FADED', rarity: 'common', effect: (g) => { g.voidBleedDPSMult = (g.voidBleedDPSMult || 1) * 1.25; }, getDesc: (g) => `Bleed DPS +25%` },
+        // Tier 2 (Runed) — 2 sigils
+        { id: 'vb_crimson_edge', name: 'Crimson Edge', icon: '🗡️', desc: '+30% slash range, +1 Blood Sword cap', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.slashRange = Math.floor((g.slashRange || 130) * 1.3); g.maxBloodSwords = (g.maxBloodSwords || 5) + 1; }, getDesc: (g) => `Range +30%, +1 Sword` },
+        { id: 'vb_sanguine_flow', name: 'Sanguine Flow', icon: '🌊', desc: 'Blood Swords attack 40% faster, sword hits spread bleed', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.bloodSwordAttackRate = (g.bloodSwordAttackRate || 1.2) * 0.6; g.bloodSwordSpreadBleed = true; }, getDesc: (g) => `Sword AtkSpd +40%, Bleed spreads` },
+        // Tier 3 (Empowered) — 3 sigils
+        { id: 'vb_void_riposte', name: 'Void Riposte', icon: '⚡', desc: 'Voidstep cooldown resets on kill within 2s of dash', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'crescentVoidSlash', effect: (g) => { g.voidRiposteActive = true; g.boundSigils.push('void_riposte'); }, getDesc: (g) => g.voidRiposteActive ? 'Active' : 'Dash resets on kill' },
+        { id: 'vb_exsanguinate', name: 'Exsanguinate', icon: '💉', desc: 'Execute threshold +3%. Executions heal 5% max HP', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'scarletVerdict', effect: (g) => { g.executeThreshold = (g.executeThreshold || 0.05) + 0.03; g.executeHealPercent = 0.05; g.boundSigils.push('exsanguinate'); }, getDesc: (g) => `Execute: ${Math.round((g.executeThreshold || 0.05) * 100)}% → ${Math.round(((g.executeThreshold || 0.05) + 0.03) * 100)}%` },
+        { id: 'vb_blood_arsenal', name: 'Blood Arsenal', icon: '🗡️', desc: '+2 max Blood Swords, swords deal +50% damage', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'bladesOfTheSlain', effect: (g) => { g.maxBloodSwords = (g.maxBloodSwords || 5) + 2; g.bloodSwordDmgMult = (g.bloodSwordDmgMult || 1) * 1.5; g.boundSigils.push('blood_arsenal'); }, getDesc: (g) => `+2 Swords, Dmg +50%` },
+        // Tier 4 (Ascendant) — 2 sigils
+        { id: 'vb_hemorrhage', name: 'Hemorrhage', icon: '💔', desc: 'Max-stacked bleed explodes for 200% bleed DPS as burst true damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'crescentVoidSlash', effect: (g) => { g.hemorrhageActive = true; g.boundSigils.push('hemorrhage'); }, getDesc: (g) => g.hemorrhageActive ? 'Active ✓' : 'Bleed explosion' },
+        { id: 'vb_crimson_ascendant', name: 'Crimson Ascendant', icon: '👑', desc: 'Crimson Catastrophe leaves Blood Storm for 5s. Swords reform instantly empowered', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'bladesOfTheSlain', effect: (g) => { g.crimsonAscendantActive = true; g.boundSigils.push('crimson_ascendant'); }, getDesc: (g) => g.crimsonAscendantActive ? 'Active ✓' : 'Blood Storm + instant reform' },
+    ],
+    augments: []
+};
+
 // All playable classes for character select
-const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS];
+const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
 
 // ============================================
 // COSMETIC STORE SYSTEM (Stripe Prices in cents for easy conversion)
@@ -3561,11 +3617,11 @@ class DotsSurvivor {
         const content = menu.querySelector('.menu-content');
 
         // Build character cards HTML
-        // Disabled classes: shadow_master, necromancer (Coming Soon)
-        const isAdminOrTester = window.game?.authManager?.isAdmin?.() || window.game?.authManager?.isTester?.();
+        // Disabled classes: shadow_master, necromancer (Coming Soon), void_blade (Coming Soon for non-admin/tester)
+        const isAdminOrTester = (typeof authManager !== 'undefined' && authManager.user) ? (authManager.isAdmin() || authManager.isTester()) : false;
         const DISABLED_CLASSES = isAdminOrTester
             ? ['shadow_master', 'necromancer']
-            : ['shadow_master', 'necromancer', 'shadow_monarch'];
+            : ['shadow_master', 'necromancer', 'shadow_monarch', 'void_blade'];
 
         const characterCardsHTML = PLAYABLE_CLASSES.map((charClass, index) => {
             const isDisabled = DISABLED_CLASSES.includes(charClass.id);
@@ -3596,7 +3652,7 @@ class DotsSurvivor {
                     ${comingSoonOverlay}
                     <div style="font-size:3rem;margin-bottom:0.3rem;">${charClass.icon}</div>
                     <div style="font-weight:700;color:${charClass.color};font-size:1.3rem;margin:0.3rem 0;">${charClass.name}</div>
-                    <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.8rem;line-height:1.3;">${charClass.desc}</div>
+                    <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.8rem;line-height:1.3;">${charClass.description || charClass.desc}</div>
 
                     <div style="text-align:left;margin-top:0.8rem;">
                         <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:0.3rem;">⚔️ Skills</div>
@@ -4139,6 +4195,63 @@ class DotsSurvivor {
         }
         if (this.selectedClass.id === 'shadow_monarch') {
             this.characterAbilities.q.maxCooldown = 10;
+            this.characterAbilities.e.maxCooldown = 45;
+        }
+
+        // ========== VOID BLADE (AZURA) ==========
+        if (this.selectedClass.id === 'void_blade') {
+            this.hasMeleeSlash = true;
+            this.noProjectiles = true;
+            // Bleed system (TRUE DAMAGE)
+            this.voidBleedDPS = 12;
+            this.voidBleedDPSMult = 1;
+            this.maxBleedStacks = 8;
+            this.bleedStackDuration = 3;
+            this.bleedBossReduction = 0.4;
+            // Crimson Sense passive
+            this.crimsonSenseActive = true;
+            this.crimsonSenseDmgBonus = 0.15;
+            // Blood Swords (Blades of the Slain)
+            this.bloodEssence = 0;
+            this.bloodEssencePerKill = 1;
+            this.bloodSwordThreshold = 8;
+            this.bloodSwords = [];
+            this.maxBloodSwords = 5;
+            this.bloodSwordBaseDmg = 20;
+            this.bloodSwordDmgMult = 1;
+            this.bloodSwordAttackRate = 1.2;
+            this.bloodSwordOrbitRadius = 90;
+            this.bloodSwordOrbitSpeed = 1.5;
+            this.bloodSwordDecayTimer = 0;
+            this.bloodSwordDecayRate = 6;
+            this.bloodSwordMomentum = 0;
+            this.bloodSwordSpreadBleed = false;
+            // Scarlet Verdict (Execution)
+            this.executeThreshold = 0.05;
+            this.executeBossBurstDmg = 200;
+            this.executeHealPercent = 0;
+            // Melee Slash
+            this.slashArc = Math.PI * 0.7;
+            this.slashRange = 130;
+            this.slashCooldown = 0;
+            this.slashRate = 0.4;
+            this.slashVisual = null;
+            this.slashFacingAngle = 0;
+            // Voidstep Dash
+            this.voidstepIframes = 0;
+            this.voidstepTrail = null;
+            this.voidRiposteActive = false;
+            this.voidRiposteTimer = 0;
+            // Crimson Catastrophe (Ultimate)
+            this.crimsonCatastropheActive = false;
+            this.crimsonCatastropheVisual = null;
+            this.crimsonCatastropheSwords = [];
+            this.crimsonAscendantActive = false;
+            this.bloodStormZones = [];
+            // Hemorrhage sigil
+            this.hemorrhageActive = false;
+            // Ability cooldowns
+            this.characterAbilities.q.maxCooldown = 6;
             this.characterAbilities.e.maxCooldown = 45;
         }
 
@@ -5269,6 +5382,12 @@ class DotsSurvivor {
         this.updatePyreMomentum(effectiveDt);    // Fire Sovereign pyre momentum
         this.updateSolarCataclysm(effectiveDt);  // Fire Sovereign solar cataclysm
         this.updateConflagration(effectiveDt);   // Fire Sovereign conflagration sigil
+        this.updateVoidBleed(effectiveDt);        // Void Blade bleed ticks
+        this.updateMeleeSlash(effectiveDt);       // Void Blade melee slash
+        this.updateBloodSwords(effectiveDt);      // Void Blade blood swords
+        this.updateVoidstepIframes(effectiveDt);  // Void Blade dash iframes
+        this.updateBloodStormZones(effectiveDt);  // Void Blade blood storm zones
+        this.updateCrimsonCatastrophe(effectiveDt); // Void Blade ultimate
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
         this.updatePlayerRingOfFire(effectiveDt);  // Ring of Fire augment
@@ -7253,6 +7372,9 @@ class DotsSurvivor {
         // Blood Lord: Lifesteal (5% of damage dealt heals)
         // Note: This is handled in damage dealing functions
 
+        // Void Blade: Blood Essence from kills
+        this.onVoidBladeKill(e);
+
         // Stacking items - add kills
         this.updateStackingItems('kill', e.isBoss ? 5 : 1);
 
@@ -8662,6 +8784,414 @@ class DotsSurvivor {
         }
     }
 
+    // ============================================
+    // VOID BLADE (AZURA) — CORE UPDATE SYSTEMS
+    // ============================================
+
+    // Bleed System: TRUE DAMAGE ticks on enemies
+    updateVoidBleed(dt) {
+        if (this.selectedClass?.id !== 'void_blade') return;
+        const bleedMult = this.voidBleedDPSMult || 1;
+        for (const e of this.enemies) {
+            if (!e.voidBleed || e.voidBleed.stacks <= 0) continue;
+            const bleed = e.voidBleed;
+            // Tick TRUE DAMAGE (ignores armor)
+            let dps = bleed.stacks * bleed.dpsPerStack * bleedMult;
+            // Boss reduction
+            if (e.isBoss) dps *= (this.bleedBossReduction || 0.4);
+            const dmg = Math.floor(dps * dt);
+            if (dmg > 0) {
+                e.health -= dmg; // TRUE DAMAGE — direct HP reduction
+                e.hitFlash = 0.1;
+                // Hemorrhage: max stacks explode
+                if (this.hemorrhageActive && bleed.stacks >= (this.maxBleedStacks || 8)) {
+                    const burstDmg = Math.floor(dps * 2);
+                    e.health -= burstDmg;
+                    bleed.stacks = 0;
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.spawnParticles(sx, sy, '#8B0000', 8);
+                    this.addDamageNumber(sx, sy, burstDmg, '#ff0000');
+                }
+            }
+            // Decay timer
+            bleed.timer -= dt;
+            if (bleed.timer <= 0) {
+                bleed.stacks--;
+                if (bleed.stacks > 0) bleed.timer = this.bleedStackDuration || 3;
+                else bleed.stacks = 0;
+            }
+            // Execution check (Scarlet Verdict)
+            if (e.health > 0 && e.health / (e.maxHealth || e.health) <= (this.executeThreshold || 0.05)) {
+                if (!e.isBoss) {
+                    // Instant execute
+                    e.health = 0;
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.addDamageNumber(sx, sy, 'EXECUTED', '#ff0044', { isText: true, scale: 1.3, lifetime: 1.5 });
+                    this.spawnParticles(sx, sy, '#8B0000', 12);
+                    // Generate blood essence
+                    this.bloodEssence = (this.bloodEssence || 0) + (this.bloodEssencePerKill || 1);
+                    this.bloodSwordDecayTimer = 0;
+                    this.bloodSwordMomentum = Math.min((this.bloodSwordMomentum || 0) + 0.15, 2.0);
+                    // Heal on execute (Exsanguinate sigil)
+                    if (this.executeHealPercent > 0) {
+                        const heal = Math.floor(this.player.maxHealth * this.executeHealPercent);
+                        this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    }
+                    // Void Riposte: reset dash cooldown
+                    if (this.voidRiposteActive && this.voidRiposteTimer > 0) {
+                        this.characterAbilities.q.cooldown = 0;
+                        this.characterAbilities.q.ready = true;
+                        this.voidRiposteTimer = 0;
+                    }
+                } else {
+                    // Boss: burst TRUE DAMAGE instead of execute
+                    if (!e._voidBurstApplied) {
+                        const burstDmg = this.executeBossBurstDmg || 200;
+                        e.health -= burstDmg;
+                        e._voidBurstApplied = true;
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        this.addDamageNumber(sx, sy, burstDmg, '#ff0044');
+                        this.spawnParticles(sx, sy, '#ff0044', 10);
+                    }
+                }
+            }
+        }
+    }
+
+    // Melee Slash: Auto-fires crescent arc slash
+    updateMeleeSlash(dt) {
+        if (!this.hasMeleeSlash) return;
+        this.slashCooldown = (this.slashCooldown || 0) - dt;
+        if (this.slashCooldown > 0) return;
+
+        // Find nearest enemy (prioritize bleeding if Crimson Sense)
+        let target = null, nd = Infinity;
+        const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, this.slashRange + 50);
+        for (const e of nearby) {
+            if (e.health <= 0) continue;
+            const dx = e.wx - this.worldX;
+            const dy = e.wy - this.worldY;
+            const d = dx * dx + dy * dy;
+            // Crimson Sense: prioritize bleeding targets (distance halved for priority)
+            const priority = (this.crimsonSenseActive && e.voidBleed && e.voidBleed.stacks > 0) ? d * 0.5 : d;
+            if (priority < nd) { nd = priority; target = e; }
+        }
+        if (!target) return;
+
+        // Calculate slash direction toward target
+        const angle = Math.atan2(target.wy - this.worldY, target.wx - this.worldX);
+        this.slashFacingAngle = angle;
+
+        // Slash all enemies in cone
+        const slashRange = this.slashRange || 130;
+        const slashArc = this.slashArc || (Math.PI * 0.7);
+        let hitCount = 0;
+        const slashDmg = Math.floor(this.weapons.bullet.damage * (this.damageMultiplier || 1));
+        const crimsonBonus = this.crimsonSenseDmgBonus || 0.15;
+
+        for (const e of nearby) {
+            if (e.health <= 0) continue;
+            const dx = e.wx - this.worldX;
+            const dy = e.wy - this.worldY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > slashRange) continue;
+
+            // Check if in cone
+            const enemyAngle = Math.atan2(dy, dx);
+            let angleDiff = enemyAngle - angle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            if (Math.abs(angleDiff) > slashArc / 2) continue;
+
+            // Calculate damage
+            let dmg = slashDmg;
+            // Crimson Sense: bonus damage to bleeding targets
+            if (this.crimsonSenseActive && e.voidBleed && e.voidBleed.stacks > 0) {
+                dmg = Math.floor(dmg * (1 + crimsonBonus));
+            }
+            // Crit check
+            const critChance = (this.critChance || 0) + (this.critChanceBonus || 0) + (this.weapons.bullet.critChance || 0.05);
+            if (Math.random() < critChance) {
+                dmg = Math.floor(dmg * (this.weapons.bullet.critMultiplier || 2.0));
+            }
+
+            e.health -= dmg;
+            e.hitFlash = 0.2;
+            hitCount++;
+
+            // Apply Bleed stack
+            if (!e.voidBleed) e.voidBleed = { stacks: 0, timer: 0, dpsPerStack: this.voidBleedDPS || 12 };
+            if (e.voidBleed.stacks < (this.maxBleedStacks || 8)) {
+                e.voidBleed.stacks++;
+            }
+            e.voidBleed.timer = this.bleedStackDuration || 3;
+            e.voidBleed.dpsPerStack = (this.voidBleedDPS || 12) * (this.voidBleedDPSMult || 1);
+
+            // Damage number
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            this.addDamageNumber(sx, sy, dmg, '#8B0000');
+        }
+
+        if (hitCount > 0) {
+            this.playSound('shoot');
+            this.triggerScreenShake(2, 0.08);
+            // Slash visual
+            this.slashVisual = {
+                angle: angle,
+                timer: 0.15,
+                range: slashRange,
+                arc: slashArc
+            };
+        }
+
+        this.slashCooldown = this.slashRate || 0.4;
+    }
+
+    // Apply bleed to an enemy (helper)
+    applyVoidBleed(enemy, stacks) {
+        if (!enemy || enemy.health <= 0) return;
+        if (!enemy.voidBleed) enemy.voidBleed = { stacks: 0, timer: 0, dpsPerStack: this.voidBleedDPS || 12 };
+        enemy.voidBleed.stacks = Math.min((enemy.voidBleed.stacks || 0) + (stacks || 1), this.maxBleedStacks || 8);
+        enemy.voidBleed.timer = this.bleedStackDuration || 3;
+        enemy.voidBleed.dpsPerStack = (this.voidBleedDPS || 12) * (this.voidBleedDPSMult || 1);
+    }
+
+    // Blood Swords: Orbit, attack, charge, decay
+    updateBloodSwords(dt) {
+        if (this.selectedClass?.id !== 'void_blade') return;
+
+        // Check if we should conjure a new sword
+        while (this.bloodEssence >= (this.bloodSwordThreshold || 8) && this.bloodSwords.length < (this.maxBloodSwords || 5)) {
+            this.bloodEssence -= this.bloodSwordThreshold || 8;
+            this.bloodSwords.push(this.createBloodSword());
+            this.spawnParticles(this.player.x, this.player.y, '#8B0000', 8);
+        }
+
+        // Momentum decay
+        this.bloodSwordMomentum = Math.max(0, (this.bloodSwordMomentum || 0) - dt * 0.15);
+
+        // Decay timer (no kills → swords weaken)
+        this.bloodSwordDecayTimer = (this.bloodSwordDecayTimer || 0) + dt;
+
+        const orbitRadius = this.bloodSwordOrbitRadius || 90;
+        const baseSpeed = (this.bloodSwordOrbitSpeed || 1.5) + (this.bloodSwordMomentum || 0) * 0.5;
+        const attackRate = (this.bloodSwordAttackRate || 1.2);
+        const baseDmg = (this.bloodSwordBaseDmg || 20) * (this.bloodSwordDmgMult || 1);
+
+        for (let i = this.bloodSwords.length - 1; i >= 0; i--) {
+            const sword = this.bloodSwords[i];
+
+            // Orbit movement
+            sword.angle += baseSpeed * dt;
+            sword.x = this.player.x + Math.cos(sword.angle) * orbitRadius;
+            sword.y = this.player.y + Math.sin(sword.angle) * orbitRadius;
+
+            // Charge decay when no momentum
+            if (this.bloodSwordDecayTimer > (this.bloodSwordDecayRate || 6)) {
+                sword.charge = Math.max(0, sword.charge - dt * 15);
+                if (sword.charge <= 0 && !sword.empowered) {
+                    // Sword dissipates
+                    this.spawnParticles(sword.x, sword.y, '#660000', 5);
+                    this.bloodSwords.splice(i, 1);
+                    continue;
+                }
+            } else {
+                // Charge up from momentum
+                sword.charge = Math.min(100, sword.charge + dt * 20);
+            }
+
+            // Attack nearby enemies
+            sword.attackCooldown = (sword.attackCooldown || 0) - dt;
+            if (sword.attackCooldown <= 0) {
+                const swordWX = this.worldX + (sword.x - this.player.x);
+                const swordWY = this.worldY + (sword.y - this.player.y);
+                const targets = this.enemyGrid.getNearby(swordWX, swordWY, 120);
+                let hitTarget = null;
+                let hitDist = Infinity;
+                for (const e of targets) {
+                    if (e.health <= 0) continue;
+                    const dx = e.wx - swordWX;
+                    const dy = e.wy - swordWY;
+                    const d = dx * dx + dy * dy;
+                    if (d < hitDist) { hitDist = d; hitTarget = e; }
+                }
+                if (hitTarget) {
+                    const levelMult = 1 + ((this.player.level || 1) - 1) * 0.12;
+                    const dmg = Math.floor(baseDmg * levelMult * (sword.empowered ? 1.5 : 1));
+                    hitTarget.health -= dmg;
+                    hitTarget.hitFlash = 0.2;
+                    // Apply bleed
+                    this.applyVoidBleed(hitTarget, 1);
+                    // Spread bleed (Sanguine Flow sigil)
+                    if (this.bloodSwordSpreadBleed) {
+                        const spreadNearby = this.enemyGrid.getNearby(hitTarget.wx, hitTarget.wy, 80);
+                        for (const other of spreadNearby) {
+                            if (other === hitTarget || other.health <= 0) continue;
+                            this.applyVoidBleed(other, 1);
+                            break; // Spread to 1 nearby
+                        }
+                    }
+                    const sx = this.player.x + (hitTarget.wx - this.worldX);
+                    const sy = this.player.y + (hitTarget.wy - this.worldY);
+                    this.addDamageNumber(sx, sy, dmg, '#cc0000');
+                    sword.attackCooldown = attackRate;
+                    // Visual: sword strike line
+                    sword.strikeTarget = { x: sx, y: sy, timer: 0.1 };
+                }
+            }
+
+            // Update strike visual timer
+            if (sword.strikeTarget) {
+                sword.strikeTarget.timer -= dt;
+                if (sword.strikeTarget.timer <= 0) sword.strikeTarget = null;
+            }
+        }
+    }
+
+    createBloodSword() {
+        const angle = Math.random() * Math.PI * 2;
+        return {
+            angle: angle,
+            x: this.player.x + Math.cos(angle) * (this.bloodSwordOrbitRadius || 90),
+            y: this.player.y + Math.sin(angle) * (this.bloodSwordOrbitRadius || 90),
+            charge: 50,
+            attackCooldown: 0,
+            empowered: false,
+            strikeTarget: null
+        };
+    }
+
+    // Voidstep iframe tracking
+    updateVoidstepIframes(dt) {
+        if (this.selectedClass?.id !== 'void_blade') return;
+        if (this.voidstepIframes > 0) {
+            this.voidstepIframes -= dt;
+            this.player.invincibleTime = Math.max(this.player.invincibleTime || 0, this.voidstepIframes);
+        }
+        // Void Riposte timer (2s window after dash to get a kill)
+        if (this.voidRiposteTimer > 0) {
+            this.voidRiposteTimer -= dt;
+        }
+        // Voidstep trail decay
+        if (this.voidstepTrail) {
+            this.voidstepTrail.timer -= dt;
+            if (this.voidstepTrail.timer <= 0) this.voidstepTrail = null;
+        }
+    }
+
+    // Blood Storm Zones (Crimson Ascendant sigil)
+    updateBloodStormZones(dt) {
+        if (!this.bloodStormZones || this.bloodStormZones.length === 0) return;
+        for (let i = this.bloodStormZones.length - 1; i >= 0; i--) {
+            const zone = this.bloodStormZones[i];
+            zone.timer -= dt;
+            if (zone.timer <= 0) {
+                this.bloodStormZones.splice(i, 1);
+                continue;
+            }
+            // Damage enemies in zone
+            zone.tickTimer = (zone.tickTimer || 0) + dt;
+            if (zone.tickTimer >= 0.5) {
+                zone.tickTimer = 0;
+                const nearby = this.enemyGrid.getNearby(zone.wx, zone.wy, zone.radius);
+                for (const e of nearby) {
+                    if (e.health <= 0) continue;
+                    const dx = e.wx - zone.wx;
+                    const dy = e.wy - zone.wy;
+                    if (dx * dx + dy * dy > zone.radius * zone.radius) continue;
+                    this.applyVoidBleed(e, 1);
+                    e.health -= zone.damage;
+                    e.hitFlash = 0.1;
+                }
+            }
+        }
+    }
+
+    // Crimson Catastrophe Ultimate Visual Update
+    updateCrimsonCatastrophe(dt) {
+        if (!this.crimsonCatastropheActive) return;
+        const vis = this.crimsonCatastropheVisual;
+        if (!vis) { this.crimsonCatastropheActive = false; return; }
+
+        vis.timer -= dt;
+        vis.radius += vis.expandSpeed * dt;
+
+        // Damage enemies in expanding ring
+        const ringThickness = 80;
+        for (const e of this.enemies) {
+            if (e.health <= 0 || e._crimsonCatHit) continue;
+            const dx = e.wx - vis.wx;
+            const dy = e.wy - vis.wy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist >= vis.radius - ringThickness && dist <= vis.radius) {
+                // Hit by expanding ring
+                const dmg = Math.floor(vis.damage);
+                e.health -= dmg; // TRUE DAMAGE
+                e.hitFlash = 0.3;
+                e._crimsonCatHit = true;
+                this.applyVoidBleed(e, 3);
+                // Execute check
+                if (!e.isBoss && e.health > 0 && e.health / (e.maxHealth || e.health) <= (this.executeThreshold || 0.05)) {
+                    e.health = 0;
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.addDamageNumber(sx, sy, 'EXECUTED', '#ff0044', { isText: true, scale: 1.2, lifetime: 1 });
+                }
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                this.addDamageNumber(sx, sy, dmg, '#ff0000');
+            }
+        }
+
+        // Handle spiral swords visual
+        for (const s of this.crimsonCatastropheSwords) {
+            s.angle += s.speed * dt;
+            s.dist += 200 * dt;
+        }
+
+        if (vis.timer <= 0) {
+            this.crimsonCatastropheActive = false;
+            this.crimsonCatastropheVisual = null;
+            this.crimsonCatastropheSwords = [];
+            // Clear hit markers
+            for (const e of this.enemies) delete e._crimsonCatHit;
+            // Reform swords (Crimson Ascendant: instant, otherwise 2s delay)
+            if (this.crimsonAscendantActive) {
+                // Instant reform empowered swords
+                const reformCount = Math.min(3, this.maxBloodSwords || 5);
+                this.bloodSwords = [];
+                for (let i = 0; i < reformCount; i++) {
+                    const sword = this.createBloodSword();
+                    sword.empowered = true;
+                    sword.charge = 100;
+                    this.bloodSwords.push(sword);
+                }
+            } else {
+                // Reform 2 swords after 2s (handled by blood sword system via essence)
+                this.bloodEssence = (this.bloodEssence || 0) + (this.bloodSwordThreshold || 8) * 2;
+            }
+        }
+    }
+
+    // Handle Void Blade kills (called from enemy death)
+    onVoidBladeKill(enemy) {
+        if (this.selectedClass?.id !== 'void_blade') return;
+        this.bloodEssence = (this.bloodEssence || 0) + (this.bloodEssencePerKill || 1);
+        this.bloodSwordDecayTimer = 0;
+        this.bloodSwordMomentum = Math.min((this.bloodSwordMomentum || 0) + 0.1, 2.0);
+        // Void Riposte check
+        if (this.voidRiposteActive && this.voidRiposteTimer > 0) {
+            this.characterAbilities.q.cooldown = 0;
+            this.characterAbilities.q.ready = true;
+            this.voidRiposteTimer = 0;
+            this.addDamageNumber(this.player.x, this.player.y - 30, 'RIPOSTE!', '#ff4444', { isText: true, scale: 1.0, lifetime: 1 });
+        }
+    }
+
     // Activate character-specific ability (Q or E)
     activateCharacterAbility(abilityKey) {
         if (!this.characterAbilities) return;
@@ -8889,6 +9419,160 @@ class DotsSurvivor {
                     ability.ready = false;
                     ability.cooldown = ability.maxCooldown;
                 }
+            }
+        }
+        // ========== VOID BLADE (AZURA) ABILITIES ==========
+        else if (classId === 'void_blade') {
+            if (abilityKey === 'q') {
+                // VOIDSTEP DASH: Dash in chosen direction, slash enemies, apply bleed, iframes
+                const dashDist = 200;
+                let dx = 0, dy = 0;
+                if (this.keys['w'] || this.keys['arrowup']) dy = -1;
+                if (this.keys['s'] || this.keys['arrowdown']) dy = 1;
+                if (this.keys['a'] || this.keys['arrowleft']) dx = -1;
+                if (this.keys['d'] || this.keys['arrowright']) dx = 1;
+
+                // If not moving, dash toward nearest enemy
+                if (dx === 0 && dy === 0) {
+                    let nearest = null, nd = Infinity;
+                    const nearbyAim = this.enemyGrid.getNearby(this.worldX, this.worldY, 400);
+                    for (const e of nearbyAim) {
+                        if (e.health <= 0) continue;
+                        const ddx = e.wx - this.worldX;
+                        const ddy = e.wy - this.worldY;
+                        const d = ddx * ddx + ddy * ddy;
+                        if (d < nd) { nd = d; nearest = e; }
+                    }
+                    if (nearest) {
+                        dx = nearest.wx - this.worldX;
+                        dy = nearest.wy - this.worldY;
+                    } else {
+                        dx = Math.cos(this.slashFacingAngle || 0);
+                        dy = Math.sin(this.slashFacingAngle || 0);
+                    }
+                }
+
+                if (dx !== 0 || dy !== 0) {
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const ndx = dx / dist;
+                    const ndy = dy / dist;
+
+                    // Store start position for trail
+                    const startWX = this.worldX;
+                    const startWY = this.worldY;
+
+                    // Move player
+                    this.worldX += ndx * dashDist;
+                    this.worldY += ndy * dashDist;
+
+                    // Slash all enemies in the dash path
+                    const dashDmg = Math.floor(this.weapons.bullet.damage * 1.8 * (this.damageMultiplier || 1));
+                    const pathMidWX = (startWX + this.worldX) / 2;
+                    const pathMidWY = (startWY + this.worldY) / 2;
+                    const nearby = this.enemyGrid.getNearby(pathMidWX, pathMidWY, dashDist / 2 + 60);
+
+                    for (const e of nearby) {
+                        if (e.health <= 0) continue;
+                        // Check if enemy is within dash path (line segment distance)
+                        const ex = e.wx - startWX;
+                        const ey = e.wy - startWY;
+                        const proj = ex * ndx + ey * ndy;
+                        if (proj < -30 || proj > dashDist + 30) continue;
+                        const perpDist = Math.abs(ex * (-ndy) + ey * ndx);
+                        if (perpDist > 60) continue;
+
+                        // Hit!
+                        e.health -= dashDmg;
+                        e.hitFlash = 0.3;
+                        this.applyVoidBleed(e, 2);
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        this.addDamageNumber(sx, sy, dashDmg, '#ff0044');
+                    }
+
+                    // Grant invulnerability frames
+                    this.voidstepIframes = 0.3;
+                    this.player.invincibleTime = Math.max(this.player.invincibleTime || 0, 0.3);
+
+                    // Void Riposte: start 2s window for cooldown reset on kill
+                    if (this.voidRiposteActive) {
+                        this.voidRiposteTimer = 2;
+                    }
+
+                    // Voidstep trail visual
+                    this.voidstepTrail = {
+                        startX: this.player.x - ndx * dashDist,
+                        startY: this.player.y - ndy * dashDist,
+                        endX: this.player.x,
+                        endY: this.player.y,
+                        timer: 0.3,
+                        color: '#8B0000'
+                    };
+
+                    this.spawnParticles(this.player.x, this.player.y, '#8B0000', 15);
+                    this.playSound('shoot');
+                    this.triggerScreenShake(6, 0.15);
+                }
+
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+            else if (abilityKey === 'e') {
+                // CRIMSON CATASTROPHE: Unleash all stored blood swords
+                if (this.bloodSwords.length === 0) return; // Need at least 1 sword
+
+                const swordCount = this.bloodSwords.length;
+                const levelMult = 1 + ((this.player.level || 1) - 1) * 0.15;
+                const baseDamage = Math.floor(80 * swordCount * levelMult * (this.damageMultiplier || 1));
+
+                // Create expanding ring of destruction
+                this.crimsonCatastropheActive = true;
+                this.crimsonCatastropheVisual = {
+                    wx: this.worldX,
+                    wy: this.worldY,
+                    x: this.player.x,
+                    y: this.player.y,
+                    radius: 0,
+                    maxRadius: 400 + swordCount * 40,
+                    expandSpeed: 350,
+                    timer: 1.2,
+                    damage: baseDamage
+                };
+
+                // Detach swords as spiral projectiles
+                this.crimsonCatastropheSwords = [];
+                for (let i = 0; i < swordCount; i++) {
+                    this.crimsonCatastropheSwords.push({
+                        angle: (i / swordCount) * Math.PI * 2,
+                        dist: 30,
+                        speed: 4 + Math.random() * 2
+                    });
+                }
+
+                // Consume all blood swords
+                this.bloodSwords = [];
+                this.bloodSwordMomentum = 0;
+
+                // Blood Storm zone (Crimson Ascendant sigil)
+                if (this.crimsonAscendantActive) {
+                    this.bloodStormZones.push({
+                        wx: this.worldX,
+                        wy: this.worldY,
+                        radius: 200,
+                        timer: 5,
+                        tickTimer: 0,
+                        damage: Math.floor(baseDamage * 0.15)
+                    });
+                }
+
+                this.playSound('levelup');
+                this.triggerScreenShake(12, 0.4);
+                this.spawnParticles(this.player.x, this.player.y, '#8B0000', 30);
+                this.spawnParticles(this.player.x, this.player.y, '#ff0000', 20);
+                this.addDamageNumber(this.player.x, this.player.y - 40, '⚔️ CRIMSON CATASTROPHE!', '#ff0000', { isText: true, scale: 1.5, lifetime: 2 });
+
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
             }
         }
     }
@@ -11534,6 +12218,252 @@ class DotsSurvivor {
             ctx.restore();
         }
 
+        // ========== VOID BLADE (AZURA) RENDERING ==========
+
+        // Melee Slash Arc Visual
+        if (this.slashVisual && this.slashVisual.timer > 0) {
+            const sv = this.slashVisual;
+            const alpha = sv.timer / 0.15;
+            ctx.save();
+            ctx.translate(this.player.x, this.player.y);
+            ctx.rotate(sv.angle);
+            // Crimson arc slash
+            ctx.beginPath();
+            ctx.arc(0, 0, sv.range, -sv.arc / 2, sv.arc / 2);
+            ctx.strokeStyle = `rgba(139, 0, 0, ${alpha * 0.9})`;
+            ctx.lineWidth = 8;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff0000';
+            ctx.stroke();
+            // Inner glow
+            ctx.beginPath();
+            ctx.arc(0, 0, sv.range * 0.7, -sv.arc / 2.5, sv.arc / 2.5);
+            ctx.strokeStyle = `rgba(255, 50, 50, ${alpha * 0.6})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+            sv.timer -= 0.016; // Approximate frame time
+        }
+
+        // Blood Swords (orbiting)
+        if (this.bloodSwords && this.bloodSwords.length > 0) {
+            ctx.save();
+            for (const sword of this.bloodSwords) {
+                const isFilled = sword.charge >= 50;
+                const sx = sword.x;
+                const sy = sword.y;
+
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(sword.angle + Math.PI / 2);
+
+                // Sword glow
+                ctx.shadowBlur = isFilled ? 20 : 8;
+                ctx.shadowColor = isFilled ? '#ff0000' : '#660000';
+
+                // Sword blade shape
+                ctx.beginPath();
+                ctx.moveTo(0, -18);
+                ctx.lineTo(-4, 0);
+                ctx.lineTo(0, 20);
+                ctx.lineTo(4, 0);
+                ctx.closePath();
+
+                if (isFilled) {
+                    // Blood-filled: solid deep red with glow
+                    const gradient = ctx.createLinearGradient(0, -18, 0, 20);
+                    gradient.addColorStop(0, '#ff2222');
+                    gradient.addColorStop(0.5, '#8B0000');
+                    gradient.addColorStop(1, '#440000');
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                    ctx.strokeStyle = '#ff4444';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                } else {
+                    // Base: translucent crimson outline
+                    ctx.fillStyle = `rgba(139, 0, 0, ${0.3 + sword.charge / 200})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `rgba(200, 50, 50, ${0.5 + sword.charge / 200})`;
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+
+                ctx.shadowBlur = 0;
+
+                // Empowered indicator
+                if (sword.empowered) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 200, 0, 0.6)';
+                    ctx.fill();
+                }
+
+                ctx.restore();
+
+                // Strike line to target
+                if (sword.strikeTarget) {
+                    const st = sword.strikeTarget;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy);
+                    ctx.lineTo(st.x, st.y);
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${st.timer / 0.1})`;
+                    ctx.lineWidth = 2;
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    ctx.restore();
+                }
+            }
+            ctx.restore();
+        }
+
+        // Bleed stack indicators on enemies (Void Blade)
+        if (this.selectedClass?.id === 'void_blade') {
+            ctx.save();
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            for (const e of this.enemies) {
+                if (e.voidBleed && e.voidBleed.stacks > 0) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    ctx.fillStyle = '#ff0044';
+                    ctx.fillText(`🩸${e.voidBleed.stacks}`, sx, sy - e.radius - 8);
+                    // Blood drip particle (subtle)
+                    if (Math.random() < 0.15) {
+                        this.particles.push({
+                            x: sx + (Math.random() - 0.5) * 10,
+                            y: sy,
+                            vx: (Math.random() - 0.5) * 20,
+                            vy: 30 + Math.random() * 20,
+                            color: '#8B0000',
+                            lifetime: 0.5,
+                            size: 2
+                        });
+                    }
+                }
+            }
+            ctx.restore();
+        }
+
+        // Voidstep Dash Trail
+        if (this.voidstepTrail) {
+            const trail = this.voidstepTrail;
+            const alpha = trail.timer / 0.3;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(trail.startX, trail.startY);
+            ctx.lineTo(trail.endX, trail.endY);
+            ctx.strokeStyle = `rgba(139, 0, 0, ${alpha * 0.8})`;
+            ctx.lineWidth = 12;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff0000';
+            ctx.stroke();
+            // Inner white core
+            ctx.beginPath();
+            ctx.moveTo(trail.startX, trail.startY);
+            ctx.lineTo(trail.endX, trail.endY);
+            ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.5})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        // Crimson Catastrophe Visual (expanding blood ring + spiral swords)
+        if (this.crimsonCatastropheActive && this.crimsonCatastropheVisual) {
+            const cc = this.crimsonCatastropheVisual;
+            ctx.save();
+            // Expanding blood ring
+            ctx.beginPath();
+            ctx.arc(cc.x, cc.y, cc.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(139, 0, 0, ${cc.timer / 1.2 * 0.9})`;
+            ctx.lineWidth = 15;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#ff0000';
+            ctx.stroke();
+            // Inner ring
+            ctx.beginPath();
+            ctx.arc(cc.x, cc.y, cc.radius * 0.85, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 50, 50, ${cc.timer / 1.2 * 0.5})`;
+            ctx.lineWidth = 25;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            // Spiral swords
+            for (const s of this.crimsonCatastropheSwords) {
+                const sx = cc.x + Math.cos(s.angle) * s.dist;
+                const sy = cc.y + Math.sin(s.angle) * s.dist;
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(s.angle + Math.PI / 4);
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.lineTo(-3, 0);
+                ctx.lineTo(0, 10);
+                ctx.lineTo(3, 0);
+                ctx.closePath();
+                ctx.fillStyle = `rgba(255, 0, 0, ${cc.timer / 1.2})`;
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        // Blood Storm Zones (Crimson Ascendant sigil)
+        if (this.bloodStormZones && this.bloodStormZones.length > 0) {
+            for (const zone of this.bloodStormZones) {
+                const zoneX = this.player.x + (zone.wx - this.worldX);
+                const zoneY = this.player.y + (zone.wy - this.worldY);
+                const alpha = Math.min(1, zone.timer / 2) * 0.4;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(zoneX, zoneY, zone.radius, 0, Math.PI * 2);
+                const gradient = ctx.createRadialGradient(zoneX, zoneY, 0, zoneX, zoneY, zone.radius);
+                gradient.addColorStop(0, `rgba(139, 0, 0, ${alpha})`);
+                gradient.addColorStop(0.7, `rgba(100, 0, 0, ${alpha * 0.5})`);
+                gradient.addColorStop(1, `rgba(50, 0, 0, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                // Swirling particles
+                const time = this.gameTime / 1000;
+                for (let i = 0; i < 6; i++) {
+                    const a = time * 2 + i * Math.PI / 3;
+                    const r = zone.radius * 0.5 + Math.sin(time * 3 + i) * zone.radius * 0.3;
+                    const px = zoneX + Math.cos(a) * r;
+                    const py = zoneY + Math.sin(a) * r;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 50, 50, ${alpha * 1.5})`;
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // Void Blade Blood Sword Count + Momentum bar
+        if (this.selectedClass?.id === 'void_blade' && this.bloodSwords) {
+            ctx.save();
+            const barWidth = 50;
+            const barHeight = 4;
+            const barX = this.player.x - barWidth / 2;
+            const barY = this.player.y + this.player.radius + 8;
+            // Blood Essence bar (progress to next sword)
+            const essenceProgress = (this.bloodEssence || 0) / (this.bloodSwordThreshold || 8);
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(barX, barY, barWidth * Math.min(1, essenceProgress), barHeight);
+            // Sword count
+            ctx.font = '9px Inter';
+            ctx.fillStyle = '#ff4444';
+            ctx.textAlign = 'center';
+            ctx.fillText(`⚔${this.bloodSwords.length}/${this.maxBloodSwords || 5}`, this.player.x, barY + barHeight + 10);
+            ctx.restore();
+        }
+
         // Pyre Momentum indicator (Fire Sovereign passive)
         if (this.pyreMomentumBonus > 0) {
             ctx.save();
@@ -12670,13 +13600,19 @@ class DotsSurvivor {
             else levelSpriteKey = 'sm_level1';
             // Fallback to main shadow monarch sprite if tier sprite not available
             if (!SPRITE_CACHE[levelSpriteKey]) levelSpriteKey = 'player_shadow_monarch';
+        } else if (this.selectedClass?.id === 'void_blade') {
+            // Void Blade (Azura) uses its own sprite progression
+            if (level >= 21) levelSpriteKey = 'vb_level21';
+            else if (level >= 16) levelSpriteKey = 'vb_level16';
+            else if (level >= 11) levelSpriteKey = 'vb_level11';
+            else if (level >= 6) levelSpriteKey = 'vb_level6';
+            else levelSpriteKey = 'vb_level1';
         } else {
-            if (level >= 30) levelSpriteKey = 'player_level30';
-            else if (level >= 25) levelSpriteKey = 'player_level25';
-            else if (level >= 20) levelSpriteKey = 'player_level20';
-            else if (level >= 15) levelSpriteKey = 'player_level15';
-            else if (level >= 10) levelSpriteKey = 'player_level10';
-            else if (level >= 5) levelSpriteKey = 'player_level5';
+            // Fire Sovereign sprite progression
+            if (level >= 21) levelSpriteKey = 'player_level21';
+            else if (level >= 16) levelSpriteKey = 'player_level16';
+            else if (level >= 11) levelSpriteKey = 'player_level11';
+            else if (level >= 6) levelSpriteKey = 'player_level6';
             else levelSpriteKey = 'player_level1';
         }
 

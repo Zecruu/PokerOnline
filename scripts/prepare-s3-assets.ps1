@@ -24,14 +24,20 @@ Write-Host "Created directory structure" -ForegroundColor Green
 
 # Define file mappings: source -> destination
 $mappings = @{
-    # Characters - Fire Mage
+    # Characters - Fire Sovereign
     "Level1Mage.png" = "characters/fire-mage-lv1.png"
-    "Level2Mage.png" = "characters/fire-mage-lv5.png"
-    "Level3.png" = "characters/fire-mage-lv10.png"
-    "Level4Mage.png" = "characters/fire-mage-lv15.png"
-    "Level5Mage.png" = "characters/fire-mage-lv20.png"
-    "Level6Mage.png" = "characters/fire-mage-lv25.png"
-    
+    "Level6FireSoverign.png" = "characters/fire-sovereign-lv6.png"
+    "Level11FireSoverign.png" = "characters/fire-sovereign-lv11.png"
+    "Level16FireSoverign.png" = "characters/fire-sovereign-lv16.png"
+    "Level21FireSoverign.png" = "characters/fire-sovereign-lv21.png"
+
+    # Characters - Void Blade (Azura)
+    "Level1Azura.png" = "characters/void-blade-lv1.png"
+    "Level6Azura.png" = "characters/void-blade-lv6.png"
+    "Level11Azura.png" = "characters/void-blade-lv11.png"
+    "Level16Azura.png" = "characters/void-blade-lv16.png"
+    "Level21Azura.png" = "characters/void-blade-lv21.png"
+
     # Characters - Shadow Monarch
     "shadow_monarch_level1.png" = "characters/shadow-monarch-lv1.png"
     "shadow_monarch_level5.png" = "characters/shadow-monarch-lv5.png"

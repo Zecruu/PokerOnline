@@ -20,15 +20,14 @@ function getAssetUrl(path) {
 // ============================================
 
 const CDN_ASSETS = {
-    // ========== CHARACTERS - FIRE MAGE ==========
+    // ========== CHARACTERS - FIRE SOVEREIGN ==========
     characters: {
-        fireMage: {
-            lv1: 'characters/fire-mage-lv1.png',      // Level1Mage.png
-            lv5: 'characters/fire-mage-lv5.png',      // Level2Mage.png
-            lv10: 'characters/fire-mage-lv10.png',    // Level3.png
-            lv15: 'characters/fire-mage-lv15.png',    // Level4Mage.png
-            lv20: 'characters/fire-mage-lv20.png',    // Level5Mage.png
-            lv25: 'characters/fire-mage-lv25.png',    // Level6Mage.png
+        fireSovereign: {
+            lv1: 'characters/fire-mage-lv1.png',           // Level1Mage.png (unchanged)
+            lv6: 'characters/fire-sovereign-lv6.png',       // Level6FireSoverign.png
+            lv11: 'characters/fire-sovereign-lv11.png',     // Level11FireSoverign.png
+            lv16: 'characters/fire-sovereign-lv16.png',     // Level16FireSoverign.png
+            lv21: 'characters/fire-sovereign-lv21.png',     // Level21FireSoverign.png
         },
         shadowMonarch: {
             main: 'characters/shadow-monarch-main.png',
@@ -36,6 +35,13 @@ const CDN_ASSETS = {
             lv5: 'characters/shadow-monarch-lv5.png',
             lv10: 'characters/shadow-monarch-lv10.png',
             lv15: 'characters/shadow-monarch-lv15.png',
+        },
+        voidBlade: {
+            lv1: 'characters/void-blade-lv1.png',          // Level1Azura.png
+            lv6: 'characters/void-blade-lv6.png',          // Level6Azura.png
+            lv11: 'characters/void-blade-lv11.png',        // Level11Azura.png
+            lv16: 'characters/void-blade-lv16.png',        // Level16Azura.png
+            lv21: 'characters/void-blade-lv21.png',        // Level21Azura.png
         },
         necromancer: {
             idle: 'characters/necromancer-idle.png',
