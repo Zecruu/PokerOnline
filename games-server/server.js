@@ -75,6 +75,33 @@ const cacheOptions = {
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public'), cacheOptions));
 
+// SEO: robots.txt
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /stripe-test/
+
+Sitemap: https://games.zecrugames.com/sitemap.xml
+`);
+});
+
+// SEO: sitemap.xml
+app.get('/sitemap.xml', (req, res) => {
+    res.type('application/xml');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://games.zecrugames.com/veltharas-dominion/</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+</urlset>
+`);
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'games-server' });

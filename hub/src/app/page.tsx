@@ -258,7 +258,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img src="/logo.jpg" alt="Zecruu Games" className="h-8 w-8 rounded-lg" />
-              <span className="text-white/40 text-sm">© 2025 Zecruu Games. All rights reserved.</span>
+              <span className="text-white/40 text-sm">© 2026 Zecruu Games. All rights reserved.</span>
             </div>
             <div className="flex items-center gap-6 text-white/40 text-sm">
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
