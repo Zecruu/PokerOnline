@@ -10648,6 +10648,23 @@ class DotsSurvivor {
             choices.push(rune);
         }
 
+        // Every 10 waves (10, 20, 30...): guarantee 1 class skill upgrade sigil in slot 0
+        if (this.wave > 0 && this.wave % 10 === 0 && this.selectedClass?.sigils) {
+            const ownedIds = new Set(this.boundSigils || []);
+            const availableClassSigils = this.selectedClass.sigils.filter(s => {
+                if (ownedIds.has(s.id)) return false;
+                if (usedIds.has(s.id)) return false;
+                // Check prerequisite
+                if (s.req && !ownedIds.has(s.req)) return false;
+                return true;
+            });
+            if (availableClassSigils.length > 0) {
+                const classSigil = availableClassSigils[Math.floor(Math.random() * availableClassSigils.length)];
+                choices[0] = classSigil;
+                usedIds.add(classSigil.id);
+            }
+        }
+
         // After Wave 8: 15% chance per slot to offer a corrupted sigil instead (max 2 corrupted per run)
         if (this.wave >= 8 && (this.corruptedSigilCount || 0) < 2) {
             const availableCorrupted = getAvailableCorruptedSigils(this);
