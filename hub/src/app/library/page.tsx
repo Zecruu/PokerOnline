@@ -25,6 +25,7 @@ const ALL_GAMES = [
     badgeColor: "green" as const,
     isFree: false,
     price: 5,
+    trailerUrl: "https://games.zecrugames.com/veltharas-dominion/game-trailer.mp4",
   },
   {
     id: "stripe-test",

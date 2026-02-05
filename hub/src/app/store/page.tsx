@@ -27,6 +27,7 @@ const ALL_GAMES = [
     isFree: false,
     price: 5,
     category: "action",
+    trailerUrl: "https://games.zecrugames.com/veltharas-dominion/game-trailer.mp4",
   },
   {
     id: "stripe-test",

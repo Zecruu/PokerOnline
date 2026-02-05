@@ -16,6 +16,7 @@ const GAMES: Array<{
   badgeColor: "gold" | "green";
   isFree: boolean;
   price?: number;
+  trailerUrl?: string;
 }> = [
   {
     id: "veltharas-dominion",
@@ -27,6 +28,7 @@ const GAMES: Array<{
     badgeColor: "green",
     isFree: false,
     price: 5,
+    trailerUrl: "https://games.zecrugames.com/veltharas-dominion/game-trailer.mp4",
   },
   {
     id: "poker",

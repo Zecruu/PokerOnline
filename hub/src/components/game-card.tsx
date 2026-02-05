@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/context/cart-context";
 
 interface Game {
@@ -14,6 +14,7 @@ interface Game {
   badgeColor?: "gold" | "green";
   isFree?: boolean;
   price?: number;
+  trailerUrl?: string;
 }
 
 export function GameCard({ game }: { game: Game }) {
@@ -136,6 +137,19 @@ function GameCardContent({
   inCart?: boolean;
   isLoggedIn?: boolean;
 }) {
+  const [showTrailer, setShowTrailer] = useState(false);
+  const trailerRef = useRef<HTMLVideoElement>(null);
+
+  const handleTrailerToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowTrailer(!showTrailer);
+    if (!showTrailer && trailerRef.current) {
+      trailerRef.current.currentTime = 0;
+      trailerRef.current.play();
+    }
+  };
+
   return (
     <>
       <div className="relative h-44 overflow-hidden">
@@ -161,12 +175,62 @@ function GameCardContent({
             </span>
           </div>
         )}
+        {/* Trailer play button overlay */}
+        {game.trailerUrl && !showTrailer && (
+          <button
+            onClick={handleTrailerToggle}
+            className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          >
+            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 hover:bg-white/30 hover:scale-110 transition-all">
+              <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </button>
+        )}
       </div>
+
+      {/* Game Trailer Section */}
+      {game.trailerUrl && showTrailer && (
+        <div className="relative bg-black">
+          <video
+            ref={trailerRef}
+            src={game.trailerUrl}
+            controls
+            autoPlay
+            className="w-full aspect-video"
+            onEnded={() => setShowTrailer(false)}
+          />
+          <button
+            onClick={handleTrailerToggle}
+            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white hover:bg-black/80 transition-all z-10"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       <div className="p-5">
         <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[rgb(0,212,170)] transition-colors">
           {game.title}
         </h3>
-        <p className="text-white/50 text-sm mb-5 line-clamp-2 leading-relaxed">{game.description}</p>
+        <p className="text-white/50 text-sm mb-3 line-clamp-2 leading-relaxed">{game.description}</p>
+
+        {/* Watch Trailer link */}
+        {game.trailerUrl && !showTrailer && (
+          <button
+            onClick={handleTrailerToggle}
+            className="text-[rgb(0,212,170)]/70 hover:text-[rgb(0,212,170)] text-xs font-medium mb-3 flex items-center gap-1.5 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+            </svg>
+            Watch Trailer
+          </button>
+        )}
+
         <div className="relative">
           {isFree || ownsGame ? (
             <div className="btn-glass btn-glass-primary w-full justify-center group-hover:shadow-lg group-hover:shadow-[rgba(0,212,170,0.2)]">
