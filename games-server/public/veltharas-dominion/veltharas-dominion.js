@@ -64,10 +64,11 @@ const PLAYER_LEVEL_SPRITES = {
 
 // Shadow Monarch level progression sprites
 const SHADOW_MONARCH_SPRITES = {
-    level1: 'characters/shadow-monarch-lv1.png',
-    level5: 'characters/shadow-monarch-lv5.png',
-    level10: 'characters/shadow-monarch-lv10.png',
-    level15: 'characters/shadow-monarch-lv15.png'
+    level1:  'characters/shadow-monarch-lv1.png',    // Level 1-5
+    level6:  'characters/shadow-monarch-lv6.png',    // Level 6-10
+    level11: 'characters/shadow-monarch-lv11.png',   // Level 11-15
+    level16: 'characters/shadow-monarch-lv16.png',   // Level 16-20
+    level21: 'characters/shadow-monarch-lv21.png',   // Level 21+
 };
 
 // Void Blade (Azura) level progression sprites
@@ -236,7 +237,7 @@ function createSeededRNG(seed) {
 const SIGIL_ROLL_RANGES = {
     FADED:     { flatDamage: [8,18],   fireRatePct: [3,8],   moveSpeedFlat: [4,10],  hpFlat: [40,90],   critChancePct: [1,3] },
     RUNED:     { flatDamage: [25,50],  fireRatePct: [10,20], moveSpeedFlat: [10,20], hpFlat: [120,220],  critChancePct: [4,8], ccReductionPct: [10,25] },
-    EMPOWERED: { flatDamage: [50,100], fireRatePct: [18,30], moveSpeedFlat: [18,30], hpFlat: [220,400], critChancePct: [7,12] },
+    EMPOWERED: { flatDamage: [65,130], fireRatePct: [22,35], moveSpeedFlat: [22,35], hpFlat: [300,500], critChancePct: [9,15], ccReductionPct: [8,18] },
     CURSED:    { cursedDamage: [55,110], cursedFireRatePct: [22,38], cursedHpFlat: [320,520] }
 };
 
@@ -1148,7 +1149,6 @@ function initSprites() {
         loadSprite('chest_' + type, path, true);
     }
     // Load Shadow Monarch sprites (via CloudFront CDN)
-    loadSprite('player_shadow_monarch', getAssetUrl('characters/shadow-monarch-main.png'), true);
     for (const [level, path] of Object.entries(SHADOW_MONARCH_SPRITES)) {
         loadSprite('sm_' + level, getAssetUrl(path), true);
     }
@@ -1365,10 +1365,19 @@ const SHADOW_MONARCH_CLASS = {
         dominionBond: { name: 'Dominion Bond', icon: '🔗', desc: 'Thrall damage empowers the Monarch', level: 1 },
     },
     passive: {
-        name: 'Living Shadow',
+        name: 'Shadow Void',
         icon: '🌑',
-        desc: 'Thrall inherits 40% damage, 50% HP, 100% speed bonuses',
-        effect: (g) => { /* Applied dynamically via thrall stat recalc */ }
+        desc: 'Emits a dark void aura (120px). Enemies inside take shadow tick damage (15 + 10% ATK DPS, scaling with wave). Thrall inherits 40% damage, 50% HP, 100% speed bonuses.',
+        effect: (g) => {
+            g.shadowVoid = {
+                radius: 120,
+                baseDPS: 15,
+                atkScaling: 0.10,
+                waveScaling: 2,
+                tickTimer: 0,
+                tickInterval: 0.5
+            };
+        }
     },
     abilities: {},
     sigils: [
@@ -4192,6 +4201,15 @@ class DotsSurvivor {
             this.monarchUntargetableTimer = 0;
             this.corruptedOrbDrain = 0;
             this.corruptedThrallVulnerability = 1;
+            // Shadow Void passive - dark aura dealing tick damage
+            this.shadowVoid = {
+                radius: 120,
+                baseDPS: 15,
+                atkScaling: 0.10,
+                waveScaling: 2,
+                tickTimer: 0,
+                tickInterval: 0.5
+            };
         }
         if (this.selectedClass.id === 'shadow_monarch') {
             this.characterAbilities.q.maxCooldown = 10;
@@ -5390,6 +5408,7 @@ class DotsSurvivor {
         this.updateCrimsonCatastrophe(effectiveDt); // Void Blade ultimate
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
+        this.updateShadowVoid(effectiveDt);        // Shadow Monarch passive aura
         this.updatePlayerRingOfFire(effectiveDt);  // Ring of Fire augment
         this.updateDevilRingOfFire(effectiveDt);   // Devil Ring of Fire mythic
         this.updateMythicAugments(effectiveDt);  // Mythic augment effects
@@ -5740,6 +5759,46 @@ class DotsSurvivor {
                 }
                 if (Math.random() < 0.03) {
                     this.damageNumbers.push({ x: sx, y: sy - 15, value: Math.ceil(auraBurnDmg), lifetime: 0.5, color: '#ff6600', scale: 0.6 });
+                }
+            }
+        }
+    }
+
+    // ============ SHADOW VOID (SHADOW MONARCH PASSIVE) ============
+    updateShadowVoid(dt) {
+        if (!this.shadowVoid || this.selectedClass?.id !== 'shadow_monarch') return;
+
+        this.shadowVoid.tickTimer += dt;
+        if (this.shadowVoid.tickTimer < this.shadowVoid.tickInterval) return;
+        this.shadowVoid.tickTimer -= this.shadowVoid.tickInterval;
+
+        // DPS = baseDPS + (atkScaling * weapon damage) + (waveScaling * wave)
+        const atkDmg = this.weapons?.bullet?.damage || 0;
+        const wave = this.wave || 1;
+        const totalDPS = this.shadowVoid.baseDPS + (this.shadowVoid.atkScaling * atkDmg) + (this.shadowVoid.waveScaling * wave);
+        const tickDamage = totalDPS * this.shadowVoid.tickInterval;
+        const radius = this.shadowVoid.radius;
+
+        for (const e of this.enemies) {
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+
+            if (dist < radius + e.radius) {
+                e.health -= tickDamage;
+                // Purple damage particles
+                if (Math.random() < 0.25) {
+                    this.spawnParticles(sx, sy, '#9932cc', 2);
+                }
+                if (Math.random() < 0.08) {
+                    this.damageNumbers.push({
+                        x: sx + (Math.random() - 0.5) * 20,
+                        y: sy - 15,
+                        value: Math.ceil(tickDamage),
+                        lifetime: 0.5,
+                        color: '#bb44ff',
+                        scale: 0.6
+                    });
                 }
             }
         }
@@ -10524,8 +10583,15 @@ class DotsSurvivor {
             // Not tier 3+, pick between Faded and Runed
             // Faded: ~62%, Runed: ~38% of tier 1-2 bracket
             const roll = Math.random() * 100;
-            if (roll < 38) return 'silver';  // Runed
-            return 'common';                  // Faded
+            let picked = (roll < 38) ? 'silver' : 'common';
+
+            // Wave-based tier restrictions:
+            // Wave 10+: Faded sigils no longer roll, upgrade to Runed
+            if (currentWave >= 10 && picked === 'common') picked = 'silver';
+            // Wave 20+: Runed sigils no longer roll, upgrade to Empowered
+            if (currentWave >= 20 && picked === 'silver') picked = 'purple';
+
+            return picked;
         };
 
         // Pick 3 random sigils (each with independent tier roll)
@@ -12766,6 +12832,64 @@ class DotsSurvivor {
         // Inferno aura
         if (this.inferno) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 100, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,100,0,0.3)'; ctx.lineWidth = 2; ctx.stroke(); }
 
+        // ============ SHADOW VOID (SHADOW MONARCH PASSIVE AURA) ============
+        if (this.shadowVoid && this.selectedClass?.id === 'shadow_monarch') {
+            ctx.save();
+            const voidRadius = this.shadowVoid.radius;
+            const pulse = 1 + Math.sin(this.gameTime / 300) * 0.04;
+            const drawRadius = voidRadius * pulse;
+
+            // Dark void fill
+            const voidGrad = ctx.createRadialGradient(
+                this.player.x, this.player.y, 0,
+                this.player.x, this.player.y, drawRadius
+            );
+            voidGrad.addColorStop(0, 'rgba(20, 0, 40, 0.25)');
+            voidGrad.addColorStop(0.5, 'rgba(40, 0, 80, 0.15)');
+            voidGrad.addColorStop(0.85, 'rgba(100, 0, 180, 0.10)');
+            voidGrad.addColorStop(1, 'rgba(153, 50, 204, 0.0)');
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, drawRadius, 0, Math.PI * 2);
+            ctx.fillStyle = voidGrad;
+            ctx.fill();
+
+            // Outer edge glow (purple)
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, drawRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(153, 50, 204, 0.35)';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#7b00cc';
+            ctx.stroke();
+
+            // Inner edge (darker)
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, drawRadius - 4, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(80, 0, 120, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            // Animated shadow wisps around the edge
+            const numWisps = 10;
+            const rotOffset = this.gameTime / 700;
+            for (let i = 0; i < numWisps; i++) {
+                const angle = (i / numWisps) * Math.PI * 2 + rotOffset;
+                const wobble = Math.sin(this.gameTime / 150 + i * 1.7) * 5;
+                const wx = this.player.x + Math.cos(angle) * (drawRadius + wobble);
+                const wy = this.player.y + Math.sin(angle) * (drawRadius + wobble);
+                const wispSize = 3 + Math.sin(this.gameTime / 100 + i) * 1.5;
+                const alpha = 0.4 + Math.sin(this.gameTime / 80 + i * 2.5) * 0.25;
+
+                ctx.beginPath();
+                ctx.arc(wx, wy, wispSize, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(120, 0, 200, ${alpha})`;
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
         // ============ BASE AURA FIRE (FIRE MAGE STARTING SKILL) ============
         // Only draw if we have auraFire but NOT the upgraded ring versions
         if (this.auraFire && !this.playerRingOfFire && !this.devilRingOfFire) {
@@ -13594,12 +13718,11 @@ class DotsSurvivor {
         let levelSpriteKey;
         if (this.selectedClass?.id === 'shadow_monarch') {
             // Shadow Monarch uses its own sprite progression
-            if (level >= 15) levelSpriteKey = 'sm_level15';
-            else if (level >= 10) levelSpriteKey = 'sm_level10';
-            else if (level >= 5) levelSpriteKey = 'sm_level5';
+            if (level >= 21) levelSpriteKey = 'sm_level21';
+            else if (level >= 16) levelSpriteKey = 'sm_level16';
+            else if (level >= 11) levelSpriteKey = 'sm_level11';
+            else if (level >= 6) levelSpriteKey = 'sm_level6';
             else levelSpriteKey = 'sm_level1';
-            // Fallback to main shadow monarch sprite if tier sprite not available
-            if (!SPRITE_CACHE[levelSpriteKey]) levelSpriteKey = 'player_shadow_monarch';
         } else if (this.selectedClass?.id === 'void_blade') {
             // Void Blade (Azura) uses its own sprite progression
             if (level >= 21) levelSpriteKey = 'vb_level21';

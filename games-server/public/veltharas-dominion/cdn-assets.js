@@ -30,11 +30,11 @@ const CDN_ASSETS = {
             lv21: 'characters/fire-sovereign-lv21.png',     // Level21FireSoverign.png
         },
         shadowMonarch: {
-            main: 'characters/shadow-monarch-main.png',
-            lv1: 'characters/shadow-monarch-lv1.png',
-            lv5: 'characters/shadow-monarch-lv5.png',
-            lv10: 'characters/shadow-monarch-lv10.png',
-            lv15: 'characters/shadow-monarch-lv15.png',
+            lv1:  'characters/shadow-monarch-lv1.png',    // Level 1-5
+            lv6:  'characters/shadow-monarch-lv6.png',    // Level 6-10
+            lv11: 'characters/shadow-monarch-lv11.png',   // Level 11-15
+            lv16: 'characters/shadow-monarch-lv16.png',   // Level 16-20
+            lv21: 'characters/shadow-monarch-lv21.png',   // Level 21+
         },
         voidBlade: {
             lv1: 'characters/void-blade-lv1.png',          // Level1Azura.png
