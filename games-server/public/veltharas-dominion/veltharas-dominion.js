@@ -227,10 +227,10 @@ function createSeededRNG(seed) {
 // SIGIL STAT ROLL RANGES - Per tier [min, max]
 // ============================================
 const SIGIL_ROLL_RANGES = {
-    FADED:     { flatDamage: [4,10],  fireRatePct: [3,8],   moveSpeedFlat: [4,10],  hpFlat: [40,90],   critChancePct: [1,3] },
-    RUNED:     { flatDamage: [15,30], fireRatePct: [10,20],  moveSpeedFlat: [10,20],  hpFlat: [120,220],  critChancePct: [4,8] },
-    EMPOWERED: { flatDamage: [30,60], fireRatePct: [18,30], moveSpeedFlat: [18,30], hpFlat: [220,400], critChancePct: [7,12] },
-    CURSED:    { cursedDamage: [35,70], cursedFireRatePct: [22,38], cursedHpFlat: [320,520] }
+    FADED:     { flatDamage: [8,18],   fireRatePct: [3,8],   moveSpeedFlat: [4,10],  hpFlat: [40,90],   critChancePct: [1,3] },
+    RUNED:     { flatDamage: [25,50],  fireRatePct: [10,20], moveSpeedFlat: [10,20], hpFlat: [120,220],  critChancePct: [4,8], ccReductionPct: [10,25] },
+    EMPOWERED: { flatDamage: [50,100], fireRatePct: [18,30], moveSpeedFlat: [18,30], hpFlat: [220,400], critChancePct: [7,12] },
+    CURSED:    { cursedDamage: [55,110], cursedFireRatePct: [22,38], cursedHpFlat: [320,520] }
 };
 
 const SIGIL_QUALITY_TIERS = [
@@ -283,6 +283,10 @@ const SIGIL_ROLL_CONFIG = {
     'sigil_fury': [
         { category: 'flatDamage',  label: 'Damage',       apply: (g,v) => { g.weapons.bullet.damage += v; },              descFn: (g,v) => `Dmg +${v}` },
         { category: 'fireRatePct', label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); },  descFn: (g,v) => `AtkSpd +${v}%` }
+    ],
+    'sigil_tenacity': [
+        { category: 'ccReductionPct', label: 'CC Duration', apply: (g,v) => { g.ccReduction = Math.min(0.75, (g.ccReduction || 0) + v/100); }, descFn: (g,v) => `CC Duration -${v}%` },
+        { category: 'hpFlat',         label: 'Max HP',      apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; },                descFn: (g,v) => `HP +${v}` }
     ],
 
     // TIER III (EMPOWERED)
@@ -1347,6 +1351,7 @@ const RUNED_SIGILS = [
     { id: 'sigil_fortitude', name: 'Runed Sigil of Fortitude', icon: '🏰', desc: '+75 HP, +15 Damage', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.maxHealth += 75; g.player.health += 75; g.weapons.bullet.damage += 15; }, getDesc: (g) => `HP +75, Damage +15` },
     { id: 'sigil_agility', name: 'Runed Sigil of Agility', icon: '⚡', desc: '+8 Speed, +3% Crit', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.player.speed += 8; g.critChanceBonus = (g.critChanceBonus || 0) + 0.03; }, getDesc: (g) => `Speed +8, Crit +3%` },
     { id: 'sigil_fury', name: 'Runed Sigil of Fury', icon: '💢', desc: '+20 Damage, +8% Attack Speed', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.weapons.bullet.damage += 20; g.weapons.bullet.fireRate *= 0.92; }, getDesc: (g) => `Damage +20, Attack Speed +8%` },
+    { id: 'sigil_tenacity', name: 'Runed Sigil of Tenacity', icon: '🛡️', desc: '-20% CC Duration, +75 HP', rarity: 'rare', tier: 'RUNED', effect: (g) => { g.ccReduction = Math.min(0.75, (g.ccReduction || 0) + 0.20); g.player.maxHealth += 75; g.player.health += 75; }, getDesc: (g) => `CC Duration -${Math.round((g.ccReduction || 0) * 100)}% → -${Math.round(Math.min(75, ((g.ccReduction || 0) + 0.20) * 100))}%, HP +75` },
 ];
 
 // Legacy alias for backward compatibility
@@ -3718,6 +3723,7 @@ class DotsSurvivor {
         this.regenTimer = 0;            // Timer for regen
         this.thornDamage = 0;           // Damage reflection percentage
         this.stickyTimer = 0;
+        this.ccReduction = 0; // CC duration reduction (0-0.75, e.g. 0.20 = -20% CC duration)
 
         // Minimum enemies (scales up over time)
         this.minEnemies = 20;
@@ -5231,6 +5237,10 @@ class DotsSurvivor {
     updateAuraFire(dt) {
         if (!this.auraFire) return;
 
+        // Fire ring scales off 5% of attack damage
+        const atkDmgBonus = Math.floor((this.weapons.bullet.damage || 0) * 0.15);
+        const effectiveAuraDPS = this.auraFire.damage + atkDmgBonus;
+
         // Calculate burn duration with starter item multiplier
         const baseBurnDuration = this.auraFire.burnDuration;
         const burnDurationMult = 1 + (this.starterBurnDurationMult || 0);
@@ -5250,14 +5260,14 @@ class DotsSurvivor {
                     if (!e.auraBurnStacks) e.auraBurnStacks = [];
                     // Add new burn stack if under cap
                     if (e.auraBurnStacks.length < burnStacksCap) {
-                        e.auraBurnStacks.push({ timer: effectiveBurnDuration, dps: this.auraFire.damage });
+                        e.auraBurnStacks.push({ timer: effectiveBurnDuration, dps: effectiveAuraDPS });
                         e.hitFlash = 0.5;
                         this.spawnParticles(sx, sy, '#ff4400', 3);
                     }
                 } else {
                     // Standard single burn behavior
                     if (!e.auraBurn) {
-                        e.auraBurn = { timer: effectiveBurnDuration, dps: this.auraFire.damage };
+                        e.auraBurn = { timer: effectiveBurnDuration, dps: effectiveAuraDPS };
                         e.hitFlash = 0.5;
                         this.spawnParticles(sx, sy, '#ff4400', 3);
                     }
@@ -5296,7 +5306,7 @@ class DotsSurvivor {
             // Process single burn (standard behavior)
             else if (e.auraBurn && e.auraBurn.timer > 0) {
                 e.auraBurn.timer -= dt;
-                const auraBurnDmg = this.auraFire.damage * ampBoost;
+                const auraBurnDmg = effectiveAuraDPS * ampBoost;
                 e.health -= auraBurnDmg * dt;
 
                 // Visual burn effect
@@ -5316,6 +5326,10 @@ class DotsSurvivor {
 
         // Update rotation
         this.playerRingOfFire.rotation += this.playerRingOfFire.rotationSpeed * dt;
+
+        // Ring of Fire scales off 5% of attack damage
+        const atkDmgBonus = Math.floor((this.weapons.bullet.damage || 0) * 0.15);
+        const effectiveRingDPS = this.playerRingOfFire.damage + atkDmgBonus;
 
         // Calculate burn duration with starter item multiplier
         const baseBurnDuration = this.playerRingOfFire.burnDuration || 3;
@@ -5337,14 +5351,14 @@ class DotsSurvivor {
                 if (burnStacksCap > 0) {
                     if (!e.ringBurnStacks) e.ringBurnStacks = [];
                     if (e.ringBurnStacks.length < burnStacksCap) {
-                        e.ringBurnStacks.push({ timer: effectiveBurnDuration, dps: this.playerRingOfFire.damage });
+                        e.ringBurnStacks.push({ timer: effectiveBurnDuration, dps: effectiveRingDPS });
                         e.hitFlash = 0.3;
                         this.spawnParticles(sx, sy, '#ff6600', 4);
                     }
                 } else {
                     // Standard single burn behavior
                     if (!e.ringBurn) {
-                        e.ringBurn = { timer: effectiveBurnDuration, dps: this.playerRingOfFire.damage };
+                        e.ringBurn = { timer: effectiveBurnDuration, dps: effectiveRingDPS };
                         e.hitFlash = 0.3;
                         this.spawnParticles(sx, sy, '#ff6600', 4);
                     }
@@ -5404,6 +5418,9 @@ class DotsSurvivor {
         // Update rotation
         this.devilRingOfFire.rotation += this.devilRingOfFire.rotationSpeed * dt;
 
+        // Devil Ring scales off 5% of attack damage
+        const atkDmgBonus = Math.floor((this.weapons.bullet.damage || 0) * 0.15);
+
         // Update explosion timer
         this.devilRingOfFire.explosionTimer += dt;
 
@@ -5419,7 +5436,7 @@ class DotsSurvivor {
 
                 if (dist < this.devilRingOfFire.explosionRadius) {
                     const fireDmgBonus = this.fireDamageBonus || 1;
-                    e.health -= this.devilRingOfFire.explosionDamage * fireDmgBonus;
+                    e.health -= (this.devilRingOfFire.explosionDamage + atkDmgBonus * 3) * fireDmgBonus;
                     e.hitFlash = 1.0;
                     this.spawnParticles(sx, sy, '#ff0000', 10);
                 }
@@ -5449,7 +5466,7 @@ class DotsSurvivor {
                 if (!e.devilRingBurn) {
                     e.devilRingBurn = {
                         timer: this.devilRingOfFire.burnDuration,
-                        dps: this.devilRingOfFire.damage * this.devilRingOfFire.rings // 3 rings = 3x damage
+                        dps: (this.devilRingOfFire.damage + atkDmgBonus) * this.devilRingOfFire.rings // 3 rings = 3x damage
                     };
                     e.hitFlash = 0.5;
                     this.spawnParticles(sx, sy, '#ff0000', 6);
@@ -6205,12 +6222,14 @@ class DotsSurvivor {
             dy = 0;
         }
 
-        // Check if player is in an ice zone (movement slow)
+        // Check if player is in an ice zone (movement slow, reduced by CC Duration)
         let iceSlowMult = 1;
         for (const zone of this.iceZones) {
             const distToZone = Math.sqrt((this.worldX - zone.wx) ** 2 + (this.worldY - zone.wy) ** 2);
             if (distToZone < zone.radius) {
-                iceSlowMult = 0.5; // 50% movement slow in ice zones
+                const baseSlow = 0.5; // 50% movement slow base
+                const ccReduce = this.ccReduction || 0;
+                iceSlowMult = baseSlow + (1 - baseSlow) * ccReduce; // CC reduction recovers some speed
                 break;
             }
         }
@@ -6809,9 +6828,9 @@ class DotsSurvivor {
                         this.spawnParticles(sxMoved, syMoved, '#ff66aa', 5);
                     }
 
-                    // Sticky enemy effect: immobilize player for 1.5 seconds
+                    // Sticky enemy effect: immobilize player (reduced by CC Duration stat)
                     if (e.stickies && this.stickyTimer <= 0) {
-                        this.stickyTimer = 1.5; // 1.5 seconds immobilized
+                        this.stickyTimer = 1.5 * (1 - (this.ccReduction || 0)); // CC reduction applies
                         this.damageNumbers.push({
                             x: this.player.x, y: this.player.y - 50,
                             value: '🍯 STUCK!', lifetime: 2, color: '#88ff00', scale: 1.5, isText: true
