@@ -29,18 +29,6 @@ const ALL_GAMES = [
     category: "action",
     trailerUrl: "https://games.zecrugames.com/veltharas-dominion/game-trailer.mp4",
   },
-  {
-    id: "stripe-test",
-    title: "Stripe Test Game",
-    description: "A 50 cent test game to verify Stripe checkout and ownership verification works correctly.",
-    thumbnail: "/games/poker/poker_thumbnail.png",
-    href: "https://games.zecrugames.com/stripe-test/",
-    badge: "TEST",
-    badgeColor: "gold" as const,
-    isFree: false,
-    price: 0.50,
-    category: "action",
-  },
 ];
 
 const CATEGORIES = [
@@ -115,26 +103,6 @@ export default function StorePage() {
           </div>
         )}
 
-        {/* Coming Soon Section */}
-        <section className="mt-16">
-          <h2 className="text-2xl font-bold mb-6">Coming Soon</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {["Blackjack Royale", "Slots Bonanza", "Roulette Master"].map((title) => (
-              <div key={title} className="bg-slate-800/50 rounded-2xl overflow-hidden opacity-60 border border-slate-700">
-                <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-700 flex items-center justify-center text-slate-500">
-                  Coming Soon
-                </div>
-                <div className="p-5">
-                  <h3 className="text-lg font-bold mb-2">{title}</h3>
-                  <p className="text-slate-400 text-sm mb-4">Stay tuned for more amazing games!</p>
-                  <span className="block w-full py-3 bg-slate-700 text-slate-400 text-center rounded-lg font-bold">
-                    Coming Soon
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
       </main>
     </div>
   );

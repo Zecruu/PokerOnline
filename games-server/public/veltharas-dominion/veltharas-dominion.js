@@ -2854,6 +2854,7 @@ class DotsSurvivor {
             this.keys[e.key.toLowerCase()] = false;
         });
         this.setupTouch();
+        this.initStatsPanel();
 
         // Set default class
         this.selectedClass = SURVIVOR_CLASS;
@@ -9368,6 +9369,39 @@ class DotsSurvivor {
         if (statRegen && this.player) {
             statRegen.textContent = Math.floor(this.player.hpRegen || 0);
         }
+
+        // Update CC Reduction stat
+        const statCCReduction = document.getElementById('stat-ccreduction');
+        if (statCCReduction) {
+            const ccReductionPct = Math.round((this.ccReduction || 0) * 100);
+            statCCReduction.textContent = `${ccReductionPct}%`;
+        }
+    }
+
+    initStatsPanel() {
+        const header = document.getElementById('stats-panel-header');
+        const body = document.getElementById('stats-panel-body');
+        const panel = document.getElementById('stats-panel');
+        if (!header || !body || !panel) return;
+
+        // On mobile, start collapsed
+        if (this.isMobile || window.innerWidth <= 768) {
+            body.style.display = 'none';
+            header.textContent = '📊';
+            panel.style.minWidth = 'auto';
+        }
+
+        header.addEventListener('click', () => {
+            if (body.style.display === 'none') {
+                body.style.display = 'flex';
+                header.textContent = '📊 STATS';
+                panel.style.minWidth = '';
+            } else {
+                body.style.display = 'none';
+                header.textContent = '📊';
+                panel.style.minWidth = 'auto';
+            }
+        });
     }
 
     // Load equipped cosmetics at game start
@@ -11666,8 +11700,8 @@ class DotsSurvivor {
 
     drawItems() {
         const ctx = this.ctx;
-        let y = 50;
         const compact = this.canvas.width < 768;
+        let y = compact ? 40 : 50;
 
         // Helper to format large numbers
         const formatNum = (n) => {

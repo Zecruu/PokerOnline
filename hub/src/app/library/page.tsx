@@ -27,17 +27,6 @@ const ALL_GAMES = [
     price: 5,
     trailerUrl: "https://games.zecrugames.com/veltharas-dominion/game-trailer.mp4",
   },
-  {
-    id: "stripe-test",
-    title: "Stripe Test Game",
-    description: "A 50 cent test game to verify Stripe checkout and ownership verification works correctly.",
-    thumbnail: "/games/poker/poker_thumbnail.png",
-    href: "https://games.zecrugames.com/stripe-test/",
-    badge: "TEST",
-    badgeColor: "gold" as const,
-    isFree: false,
-    price: 0.50,
-  },
 ];
 
 export default function LibraryPage() {
