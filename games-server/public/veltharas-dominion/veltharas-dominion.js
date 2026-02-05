@@ -540,56 +540,54 @@ const CORRUPTED_SIGILS = {
             getDesc: (g) => `Crit: ${Math.round((g.critChance || 0.05) * 100)}% → ${Math.round(((g.critChance || 0.05) + 0.20) * 100)}%`
         }
     ],
-    // Fire Mage Corrupted Sigils (2)
-    fire_mage: [
+    // Fire Sovereign Corrupted Sigils (2)
+    fire_sovereign: [
         {
-            id: 'corrupted_fm_orbs',
-            name: 'Hellfire Incandescence',
-            icon: '🔮',
+            id: 'corrupted_fs_burn',
+            name: 'Pyroclastic Agony',
+            icon: '🔥',
             tier: 'CORRUPTED_EMPOWERED',
             rarity: 'corrupted_empowered',
             isCorrupted: true,
-            classRestriction: 'fire_mage',
-            baseSigil: 'fm_orb_incandescence',
-            desc: '+2 orbs, +25% orb damage. Orbs drain 1 HP/s each.',
-            flavor: 'Each flame is a piece of your soul.',
-            tags: ['fire', 'orbs'],
-            upside: '+2 orbiting orbs (vs +1), orbs deal +25% damage',
-            downside: 'Orbs drain 1 HP per second each',
+            classRestriction: 'fire_sovereign',
+            baseSigil: 'fs_ember_touch',
+            desc: 'Burn DPS +50%, but take 5 fire DPS per burning enemy.',
+            flavor: 'Their agony feeds yours.',
+            tags: ['fire', 'burn'],
+            upside: '+50% burn DPS',
+            downside: '5 DPS per burning enemy',
             effect: (g) => {
-                if (g.skulls.length < 6) g.skulls.push(g.createSkull());
-                if (g.skulls.length < 6) g.skulls.push(g.createSkull());
-                g.skulls.forEach(s => s.damage *= 1.25);
-                g.corruptedOrbDrain = (g.corruptedOrbDrain || 0) + 1;
-                g.boundSigils.push('corrupted_fm_orbs');
+                g.sovereignBurnDPSMult = (g.sovereignBurnDPSMult || 1) * 1.5;
+                g.corruptedBurnSelfDamage = 5;
+                g.boundSigils.push('corrupted_fs_burn');
                 g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
             },
-            getDesc: (g) => `Orbs: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 2)}`
+            getDesc: (g) => `Burn DPS +50%`
         },
         {
-            id: 'corrupted_fm_aura',
-            name: 'Pyroclastic Inferno',
-            icon: '🔥',
+            id: 'corrupted_fs_homing',
+            name: 'Unrelenting Blaze',
+            icon: '🎯',
             tier: 'CORRUPTED_RUNED',
             rarity: 'corrupted_runed',
             isCorrupted: true,
-            classRestriction: 'fire_mage',
-            baseSigil: 'fm_inferno_radius',
-            desc: 'Aura +25 radius, +100 DPS. Standing still burns you.',
-            flavor: 'The fire demands you keep moving.',
-            tags: ['fire', 'aura'],
-            upside: 'Aura +25 radius, +100 DPS (vs +10, +60)',
-            downside: 'Standing still for 2s burns you for 30 DPS',
+            classRestriction: 'fire_sovereign',
+            baseSigil: 'fs_blazing_pursuit',
+            desc: '+80% fireball speed, +2 pierce. -15% max HP.',
+            flavor: 'Speed comes at a cost.',
+            tags: ['fire', 'projectile'],
+            upside: '+80% speed, +2 pierce',
+            downside: '-15% max HP',
             effect: (g) => {
-                if (g.auraFire) {
-                    g.auraFire.radius += 25;
-                    g.auraFire.damage += 100;
-                }
-                g.corruptedStillBurn = { threshold: 2, damage: 30, timer: 0 };
-                g.boundSigils.push('corrupted_fm_aura');
+                g.weapons.bullet.speed = Math.floor(g.weapons.bullet.speed * 1.8);
+                g.weapons.bullet.pierce += 2;
+                const hpLoss = Math.floor(g.player.maxHealth * 0.15);
+                g.player.maxHealth -= hpLoss;
+                g.player.health = Math.min(g.player.health, g.player.maxHealth);
+                g.boundSigils.push('corrupted_fs_homing');
                 g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
             },
-            getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 25}` : 'Aura not active'
+            getDesc: (g) => `Speed +80%, Pierce +2`
         }
     ],
     // Shadow Master Corrupted Sigils (2)
@@ -689,6 +687,44 @@ const CORRUPTED_SIGILS = {
             },
             getDesc: (g) => `Siphon: +80% heal, +2 chains`
         }
+    ],
+    shadow_monarch: [
+        {
+            id: 'corrupted_sm_orb_overload',
+            name: 'Orb Overload',
+            icon: '🔮', tier: 'CORRUPTED_RUNED', rarity: 'corrupted_runed',
+            isCorrupted: true, classRestriction: 'shadow_monarch',
+            baseSigil: 'sm_orb_focus',
+            desc: '+1 Umbral Orb, +40% orb damage. Orbs drain 2 HP/s each.',
+            upside: '+1 Orb, +40% orb damage', downside: 'Orbs drain 2 HP/s each',
+            effect: (g) => {
+                g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.40;
+                g.umbralOrbCount = (g.umbralOrbCount || 1) + 1;
+                g.umbralOrbs.push(g.createUmbralOrb());
+                g.corruptedOrbDrain = (g.corruptedOrbDrain || 0) + 2;
+                g.boundSigils.push('corrupted_sm_orb_overload');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `+1 Orb, +40% orb damage`
+        },
+        {
+            id: 'corrupted_sm_thrall_frenzy',
+            name: 'Thrall Frenzy',
+            icon: '👤', tier: 'CORRUPTED_RUNED', rarity: 'corrupted_runed',
+            isCorrupted: true, classRestriction: 'shadow_monarch',
+            baseSigil: 'sm_thrall_might',
+            desc: '+80% Thrall damage, +30% attack speed. Thrall takes 25% more damage.',
+            upside: '+80% Thrall damage, +30% AtkSpd', downside: 'Thrall takes 25% more damage',
+            effect: (g) => {
+                g.thrallDamageBonus = (g.thrallDamageBonus || 1) * 1.80;
+                g.thrallAttackSpeedBonus = (g.thrallAttackSpeedBonus || 1) * 1.30;
+                g.corruptedThrallVulnerability = 1.25;
+                if (g.shadowThrall) g.recalcThrallStats();
+                g.boundSigils.push('corrupted_sm_thrall_frenzy');
+                g.corruptedSigilCount = (g.corruptedSigilCount || 0) + 1;
+            },
+            getDesc: (g) => `Thrall Dmg +80%, AtkSpd +30%`
+        }
     ]
 };
 
@@ -698,14 +734,17 @@ function getAvailableCorruptedSigils(game) {
     if ((game.corruptedSigilCount || 0) >= 2) return [];
 
     const available = [...CORRUPTED_SIGILS.universal];
+    const classId = game.selectedClass?.id || game.selectedClass;
 
     // Add class-specific corrupted sigils
-    if (game.selectedClass === 'fire_mage') {
-        available.push(...CORRUPTED_SIGILS.fire_mage);
-    } else if (game.selectedClass === 'shadow_master') {
+    if (classId === 'fire_sovereign') {
+        available.push(...CORRUPTED_SIGILS.fire_sovereign);
+    } else if (classId === 'shadow_master') {
         available.push(...CORRUPTED_SIGILS.shadow_master);
-    } else if (game.selectedClass === 'necromancer') {
+    } else if (classId === 'necromancer') {
         available.push(...CORRUPTED_SIGILS.necromancer);
+    } else if (classId === 'shadow_monarch') {
+        available.push(...CORRUPTED_SIGILS.shadow_monarch);
     }
 
     // Filter out already bound corrupted sigils
@@ -781,12 +820,17 @@ const DOMINION_SETS = {
 
 // ID mapping for save compatibility (old augment IDs -> new sigil IDs)
 const SIGIL_ID_MAP = {
-    // Fire Mage Class Sigils
-    'fm_speed': 'fm_emberstep', 'fm_hp': 'fm_cinder_ward',
-    'fm_orb': 'fm_orb_incandescence', 'fm_fire_rate': 'fm_accelerant_flame',
-    'fm_aura_expand': 'fm_inferno_radius', 'fm_fireball_size': 'fm_meteor_aspect',
-    'fm_blast_radius': 'fm_solar_flare', 'fm_orb_frenzy': 'fm_orb_singularity',
-    'fm_burn_spread': 'fm_wild_pyre', 'fm_amp_persist': 'fm_everburn',
+    // Fire Sovereign Class Sigils (backward compat from old fire_mage IDs)
+    'fm_speed': 'fs_ember_touch', 'fm_hp': 'fs_kindling',
+    'fm_emberstep': 'fs_ember_touch', 'fm_cinder_ward': 'fs_kindling',
+    'fm_orb': 'fs_conflagration', 'fm_orb_incandescence': 'fs_conflagration',
+    'fm_fire_rate': 'fs_blazing_pursuit', 'fm_accelerant_flame': 'fs_blazing_pursuit',
+    'fm_aura_expand': 'fs_molten_core', 'fm_inferno_radius': 'fs_molten_core',
+    'fm_fireball_size': 'fs_phoenix_ascendancy', 'fm_meteor_aspect': 'fs_phoenix_ascendancy',
+    'fm_blast_radius': 'fs_eternal_pyre', 'fm_solar_flare': 'fs_eternal_pyre',
+    'fm_orb_frenzy': 'fs_inferno_sovereign', 'fm_orb_singularity': 'fs_inferno_sovereign',
+    'fm_burn_spread': 'fs_flame_reach', 'fm_wild_pyre': 'fs_flame_reach',
+    'fm_amp_persist': 'fs_ember_touch', 'fm_everburn': 'fs_ember_touch',
     // Shadow Master Class Sigils
     'sm_speed': 'sm_shade_step', 'sm_hp': 'sm_umbral_skin',
     'sm_monster': 'sm_caller_shades', 'sm_sentinel': 'sm_sentinel_binding',
@@ -1096,6 +1140,18 @@ function initSprites() {
     for (const [type, path] of Object.entries(CHEST_SPRITES)) {
         loadSprite('chest_' + type, path, true);
     }
+    // Load Shadow Monarch sprites (via CloudFront CDN)
+    loadSprite('player_shadow_monarch', getAssetUrl('characters/shadow-monarch-main.png'), true);
+    for (const [level, path] of Object.entries(SHADOW_MONARCH_SPRITES)) {
+        loadSprite('sm_' + level, getAssetUrl(path), true);
+    }
+    // Shadow Monarch orb sprite
+    loadSprite('sm_orb', getAssetUrl('minions/sm-orb.png'), true);
+    // Shadow Monarch thrall tier sprites
+    loadSprite('sm_thrall_t1', getAssetUrl('minions/sm-thrall-t1.png'), true);
+    loadSprite('sm_thrall_t2', getAssetUrl('minions/sm-thrall-t2.png'), true);
+    loadSprite('sm_thrall_t3', getAssetUrl('minions/sm-thrall-t3.png'), true);
+    loadSprite('sm_thrall_t4', getAssetUrl('minions/sm-thrall-t4.png'), true);
 }
 
 // Call init when DOM is ready
@@ -1133,53 +1189,43 @@ const SURVIVOR_CLASS = {
 // 🔥 FIRE MAGE - Elemental destruction specialist
 // Skills: Fireballs, Aura Ring, Elemental Orbs
 // PASSIVE: +15% fire damage
-const FIRE_MAGE_CLASS = {
-    id: 'fire_mage',
-    name: 'Fire Mage',
+const FIRE_SOVEREIGN_CLASS = {
+    id: 'fire_sovereign',
+    name: 'Fire Sovereign',
     icon: '🔥',
     color: '#ff4400',
-    desc: 'Master of flames. Burns enemies with fireballs, aura ring, and elemental orbs.',
-    // Starting state
+    description: 'Master of homing flames. Burns enemies with stacking fire that ramps into cataclysmic destruction.',
     bonuses: {
-        hasFireballs: true,    // Skill 1: Fireballs (projectiles)
-        hasAuraFire: true,     // Skill 2: Aura Ring
-        hasElementalOrbs: true, // Skill 3: Elemental Orbs
-        elementalOrbCount: 2,   // Starts with 2 orbs
-        damage: 1.1,           // +10% base damage
+        hasHomingFireballs: true,
+        damage: 1.0,
         fireRate: 1
     },
     skills: {
-        fireball: { name: 'Fireballs', icon: '🔥', desc: 'Homing fireballs that seek enemies', level: 1 },
-        auraRing: { name: 'Aura Ring', icon: '🔵', desc: 'Burning ring damages nearby enemies', level: 1 },
-        elementalOrbs: { name: 'Elemental Orbs', icon: '🔮', desc: 'Orbiting orbs that cycle elements', level: 1 }
+        homingFireballs: { name: 'Homing Fireballs', icon: '🔥', desc: 'Guaranteed-hit fireballs that home on enemies' },
+        infernoVolley: { name: 'Inferno Volley', icon: '💥', desc: 'Burst of 5 enhanced homing fireballs (Q)' },
+        solarCataclysm: { name: 'Solar Cataclysm', icon: '☀️', desc: 'Devastating fire nova ultimate (E)' }
     },
-    // CLASS PASSIVE - Replaces abilities
     passive: {
-        name: 'Pyromaniac',
+        name: 'Sovereign Flame',
         icon: '🔥',
-        desc: '+15% fire damage (fireballs, aura, orbs)',
-        effect: (g) => { g.fireDamageBonus = 0.15; }
+        desc: 'Living Flame: +1% dmg/burn stack. Heat Conduction: 5s pulse refreshes burns. Pyre Momentum: +3%/s fire rate while unhit (max +30%).',
+        effect: (g) => {}
     },
-    // Legacy abilities - REMOVED (kept for reference)
     abilities: {},
-    // Class Sigils for leveling up - REBALANCED
     sigils: [
-        // Tier 1 (Faded) - REBALANCED
-        { id: 'fm_emberstep', name: 'Emberstep Sigil', icon: '💨', desc: '+8% movement speed', tier: 'FADED', rarity: 'common', effect: (g) => g.player.speed *= 1.08, getDesc: (g) => `Speed: ${g.player.speed} → ${Math.floor(g.player.speed * 1.08)}` },
-        { id: 'fm_cinder_ward', name: 'Cinder Ward', icon: '🛡️', desc: '+200 max HP', tier: 'FADED', rarity: 'common', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; }, getDesc: (g) => `HP: ${g.player.maxHealth} → ${g.player.maxHealth + 200}` },
-        // Tier 2 (Runed) - REBALANCED
-        { id: 'fm_orb_incandescence', name: 'Orb of Incandescence', icon: '🔮', desc: '+1 orbiting orb (max 6)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Orbs: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
-        { id: 'fm_accelerant_flame', name: 'Accelerant Flame', icon: '🔥', desc: '+12% fire rate', tier: 'RUNED', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate *= 0.88, getDesc: (g) => `Fire Rate: +12%` },
-        // Tier 3 (Empowered) - REBALANCED
-        { id: 'fm_inferno_radius', name: 'Inferno Radius', icon: '🔵', desc: 'Aura +10 radius, +60 DPS', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { if(g.auraFire) { g.auraFire.radius += 10; g.auraFire.damage += 60; } }, getDesc: (g) => g.auraFire ? `Radius: ${g.auraFire.radius} → ${g.auraFire.radius + 10}` : 'Aura not active' },
-        { id: 'fm_meteor_aspect', name: 'Meteor Aspect', icon: '☄️', desc: 'Fireballs +30% size, +15% damage', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'fireball', effect: (g) => { g.weapons.bullet.size = Math.floor(g.weapons.bullet.size * 1.3); g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.15); }, getDesc: (g) => `Size +30%, Damage +15%` },
-        { id: 'fm_solar_flare', name: 'Solar Flare', icon: '💥', desc: 'Fire Blast radius +80px, +20% damage', tier: 'EMPOWERED', rarity: 'epic', isAbilityUpgrade: true, ability: 'fireBlast', effect: (g) => { g.fireBlastRadius = (g.fireBlastRadius || 800) + 80; g.fireBlastDamage = (g.fireBlastDamage || 1) * 1.20; }, getDesc: (g) => `Radius: ${g.fireBlastRadius || 800} → ${(g.fireBlastRadius || 800) + 80}` },
-        // Tier 4 (Ascendant) - REBALANCED
-        { id: 'fm_orb_singularity', name: 'Orb Singularity', icon: '🌀', desc: 'Orbs spin 1.75x faster, +40% damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'elementalOrbs', effect: (g) => { g.skulls.forEach(s => { s.speed *= 1.75; s.damage *= 1.4; }); }, getDesc: (g) => `Orb Speed x1.75, Damage +40%` },
-        { id: 'fm_wild_pyre', name: 'Wild Pyre', icon: '🌋', desc: 'Burn spreads at 60% damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'auraRing', effect: (g) => { g.boundSigils.push('burn_spread'); g.burnSpreadDamage = 0.6; }, getDesc: (g) => g.boundSigils?.includes('burn_spread') ? 'Active ✓' : 'Activate' },
-        { id: 'fm_everburn', name: 'Everburn Sigil', icon: '🔥', desc: 'Fire Amp +2s, +35% damage', tier: 'ASCENDANT', rarity: 'legendary', isAbilityUpgrade: true, ability: 'fireAmp', effect: (g) => { g.fireAmpDuration = (g.fireAmpDuration || 5) + 2; g.fireAmpBoost = (g.fireAmpBoost || 1.5) + 0.35; }, getDesc: (g) => `Duration +2s, Boost +35%` },
+        // FADED (Tier I) — 3 sigils
+        { id: 'fs_ember_touch', name: 'Ember Touch', icon: '🔥', desc: '+15% burn DPS', tier: 'FADED', rarity: 'common', effect: (g) => { g.sovereignBurnDPSMult = (g.sovereignBurnDPSMult || 1) * 1.15; }, getDesc: (g) => `Burn DPS +15%` },
+        { id: 'fs_kindling', name: 'Kindling', icon: '🪵', desc: '+1 max burn stack', tier: 'FADED', rarity: 'common', effect: (g) => { g.maxBurnStacks = (g.maxBurnStacks || 10) + 1; }, getDesc: (g) => `Max Stacks: ${g.maxBurnStacks || 10} → ${(g.maxBurnStacks || 10) + 1}` },
+        { id: 'fs_flame_reach', name: 'Flame Reach', icon: '🎯', desc: '+20% homing range', tier: 'FADED', rarity: 'common', effect: (g) => { g.homingRange = (g.homingRange || 500) * 1.2; }, getDesc: (g) => `Range: ${g.homingRange || 500} → ${Math.floor((g.homingRange || 500) * 1.2)}` },
+        // RUNED (Tier II) — 3 sigils
+        { id: 'fs_conflagration', name: 'Conflagration', icon: '🌋', desc: 'Max-stacked enemies spread 1 burn stack to nearby enemies every 2s', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.conflagrationActive = true; g.conflagrationTimer = 0; }, getDesc: (g) => g.conflagrationActive ? 'Active' : 'Burn spreads' },
+        { id: 'fs_molten_core', name: 'Molten Core', icon: '💎', desc: 'Heat Conduction pulse deals 30% burn DPS as instant damage', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.moltenCoreActive = true; }, getDesc: (g) => g.moltenCoreActive ? 'Active' : '30% instant burn dmg' },
+        { id: 'fs_blazing_pursuit', name: 'Blazing Pursuit', icon: '💨', desc: '+40% fireball speed, +1 pierce', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.weapons.bullet.speed = Math.floor(g.weapons.bullet.speed * 1.4); g.weapons.bullet.pierce += 1; }, getDesc: (g) => `Speed +40%, Pierce +1` },
+        // EMPOWERED (Tier III) — 3 sigils, only 1 active
+        { id: 'fs_phoenix_ascendancy', name: 'Phoenix Ascendancy', icon: '🐦‍🔥', desc: 'On death, revive at 30% HP + trigger Solar Cataclysm (once)', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'solarCataclysm', effect: (g) => { g.phoenixAscendancyAvailable = true; g.boundSigils.push('phoenix_ascendancy'); }, getDesc: (g) => g.phoenixAscendancyAvailable ? 'Ready' : 'Used' },
+        { id: 'fs_eternal_pyre', name: 'Eternal Pyre', icon: '♾️', desc: 'Burn stacks never expire, +25% burn DPS', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'homingFireballs', effect: (g) => { g.eternalPyre = true; g.sovereignBurnDPSMult = (g.sovereignBurnDPSMult || 1) * 1.25; g.boundSigils.push('eternal_pyre'); }, getDesc: (g) => g.eternalPyre ? 'Active' : 'Infinite burns +25% DPS' },
+        { id: 'fs_inferno_sovereign', name: 'Inferno Sovereign', icon: '👑', desc: '+2 max stacks, Living Flame doubled (+2%/stack, max +24%)', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'homingFireballs', effect: (g) => { g.maxBurnStacks = (g.maxBurnStacks || 10) + 2; g.livingFlameBonusPerStack = 0.02; g.livingFlameMaxBonus = 0.24; g.boundSigils.push('inferno_sovereign'); }, getDesc: (g) => `+2 stacks, Living Flame x2` },
     ],
-    // Legacy augments array (for backward compatibility)
     augments: []
 };
 
@@ -1287,8 +1333,52 @@ const NECROMANCER_CLASS = {
     augments: []
 };
 
+// ========== SHADOW MONARCH CLASS ==========
+const SHADOW_MONARCH_CLASS = {
+    id: 'shadow_monarch',
+    name: 'Shadow Monarch',
+    icon: '👑',
+    color: '#1a0033',
+    desc: 'Dark commander. Fights with Umbral Orb lasers and a Shadow Thrall companion that evolves as you level.',
+    bonuses: {
+        noProjectiles: true,
+        hasUmbralOrbs: true,
+        umbralOrbCount: 1,
+        hasShadowThrall: true,
+        damage: 1.2,
+        fireRate: 1,
+    },
+    skills: {
+        umbralOrbs: { name: 'Umbral Orbs', icon: '🔮', desc: 'Floating orbs fire shadow lances at enemies', level: 1 },
+        shadowThrall: { name: 'Shadow Thrall', icon: '👤', desc: 'Evolving companion that fights independently', level: 1 },
+        dominionBond: { name: 'Dominion Bond', icon: '🔗', desc: 'Thrall damage empowers the Monarch', level: 1 },
+    },
+    passive: {
+        name: 'Living Shadow',
+        icon: '🌑',
+        desc: 'Thrall inherits 40% damage, 50% HP, 100% speed bonuses',
+        effect: (g) => { /* Applied dynamically via thrall stat recalc */ }
+    },
+    abilities: {},
+    sigils: [
+        // Tier 1 (Faded)
+        { id: 'sm_orb_focus', name: 'Faded Sigil: Orb Focus', icon: '🔮', desc: '+15% Orb damage', tier: 'FADED', rarity: 'common', effect: (g) => { g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.15; }, getDesc: (g) => `Orb Dmg +15%` },
+        { id: 'sm_thrall_might', name: 'Faded Sigil: Thrall Might', icon: '👤', desc: '+20% Thrall damage', tier: 'FADED', rarity: 'common', effect: (g) => { g.thrallDamageBonus = (g.thrallDamageBonus || 1) * 1.20; if (g.shadowThrall) g.recalcThrallStats(); }, getDesc: (g) => `Thrall Dmg +20%` },
+        // Tier 2 (Runed)
+        { id: 'sm_lance_pierce', name: 'Runed Sigil: Piercing Lance', icon: '🏹', desc: 'Shadow Lance pierces 1 extra enemy', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.lancePierce = (g.lancePierce || 0) + 1; }, getDesc: (g) => `Pierce: ${g.lancePierce || 0} → ${(g.lancePierce || 0) + 1}` },
+        { id: 'sm_thrall_vigor', name: 'Runed Sigil: Thrall Vigor', icon: '💜', desc: '+40% Thrall HP, +15% attack speed', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.thrallHPBonus = (g.thrallHPBonus || 1) * 1.40; g.thrallAttackSpeedBonus = (g.thrallAttackSpeedBonus || 1) * 1.15; if (g.shadowThrall) g.recalcThrallStats(); }, getDesc: (g) => `Thrall HP +40%, AtkSpd +15%` },
+        // Tier 3 (Empowered)
+        { id: 'sm_dual_orbs', name: 'Empowered Sigil: Dual Orbs', icon: '🔮', desc: '+1 Umbral Orb', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'umbralOrbs', effect: (g) => { g.umbralOrbCount = (g.umbralOrbCount || 1) + 1; g.umbralOrbs.push(g.createUmbralOrb()); }, getDesc: (g) => `Orbs: ${g.umbralOrbs?.length || 1} → ${(g.umbralOrbs?.length || 1) + 1}` },
+        { id: 'sm_thrall_ascend', name: 'Empowered Sigil: Dark Ascendancy', icon: '👑', desc: 'Thrall gains +30% AoE radius, shadow explosions on kill', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowThrall', effect: (g) => { g.thrallAoEBonus = (g.thrallAoEBonus || 1) * 1.30; g.thrallExplosionsOnKill = true; }, getDesc: (g) => `Thrall AoE +30%, kills explode` },
+        // Tier 4 (Ascendant)
+        { id: 'sm_void_lance', name: 'Ascendant Sigil: Void Lance', icon: '⚫', desc: 'Orbs fire double beams. +50% orb damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'umbralOrbs', effect: (g) => { g.doubleBeam = true; g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.50; g.boundSigils.push('void_lance'); }, getDesc: (g) => g.boundSigils?.includes('void_lance') ? 'Active ✓' : 'Double beams, +50% dmg' },
+        { id: 'sm_eternal_thrall', name: 'Ascendant Sigil: Eternal Thrall', icon: '💀', desc: 'Thrall respawns instantly. +100% Thrall damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowThrall', effect: (g) => { g.thrallInstantRespawn = true; g.thrallDamageBonus = (g.thrallDamageBonus || 1) * 2.0; if (g.shadowThrall) g.recalcThrallStats(); g.boundSigils.push('eternal_thrall'); }, getDesc: (g) => g.boundSigils?.includes('eternal_thrall') ? 'Active ✓' : 'Instant respawn, +100% dmg' },
+    ],
+    augments: []
+};
+
 // All playable classes for character select
-const PLAYABLE_CLASSES = [FIRE_MAGE_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS];
+const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS];
 
 // ============================================
 // COSMETIC STORE SYSTEM (Stripe Prices in cents for easy conversion)
@@ -1386,7 +1476,7 @@ const ASCENDANT_SIGILS = [
     { id: 'sigil_vampire', name: 'Ascendant Sigil: Vampire\'s Embrace', icon: '🧛', desc: '+200 HP, +35 Damage. PASSIVE: Heal 3% of damage dealt (reduced in combat)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 35; g.vampireHeal = 0.03; }, getDesc: (g) => `HP +200, Damage +35, 3% Lifesteal` },
     { id: 'sigil_doubler', name: 'Ascendant Sigil: Doubling', icon: '✖️', desc: '+100 HP, +20 Damage. PASSIVE: All item stacks count as DOUBLE', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; g.weapons.bullet.damage += 20; g.stackDoubler = true; }, getDesc: (g) => g.stackDoubler ? 'Active ✓ (Stacks 2x)' : '+100 HP, +20 Damage, Double Stacks' },
     { id: 'sigil_momentum', name: 'Ascendant Sigil: Momentum\'s Edge', icon: '🏃', desc: '+30 Speed, +30 Damage. PASSIVE: Gain +1% damage per second moving (max 50%)', rarity: 'legendary', tier: 'ASCENDANT', effect: (g) => { g.player.speed += 30; g.weapons.bullet.damage += 30; g.boundSigils.push('momentum'); g.momentumBonus = 0; }, getDesc: (g) => g.boundSigils?.includes('momentum') ? `Active ✓ (+${Math.floor((g.momentumBonus || 0) * 100)}% dmg)` : '+30 Speed, +30 Damage, Momentum Passive' },
-    { id: 'sigil_ring_mastery', name: 'Ascendant Sigil: Ring of Fire Mastery', icon: '🔥', desc: '+200 HP, +40 Damage. PASSIVE: Ring of Fire radius +100, damage +100 DPS, burn enemies for 5s', rarity: 'legendary', tier: 'ASCENDANT', classReq: 'fire_mage', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 40; if (!g.playerRingOfFire) { g.playerRingOfFire = { radius: 100, damage: 80, rotation: 0, rotationSpeed: 2, burnDuration: 4 }; } g.playerRingOfFire.radius += 100; g.playerRingOfFire.damage += 100; g.playerRingOfFire.burnDuration = 5; g.boundSigils.push('ring_mastery'); }, getDesc: (g) => g.boundSigils?.includes('ring_mastery') ? 'Active ✓' : '+200 HP, +40 Damage, Ring Upgrade' },
+    { id: 'sigil_ring_mastery', name: 'Ascendant Sigil: Ring of Fire Mastery', icon: '🔥', desc: '+200 HP, +40 Damage. PASSIVE: Ring of Fire radius +100, damage +100 DPS, burn enemies for 5s', rarity: 'legendary', tier: 'ASCENDANT', classReq: 'fire_sovereign', effect: (g) => { g.player.maxHealth += 200; g.player.health += 200; g.weapons.bullet.damage += 40; if (!g.playerRingOfFire) { g.playerRingOfFire = { radius: 100, damage: 80, rotation: 0, rotationSpeed: 2, burnDuration: 4 }; } g.playerRingOfFire.radius += 100; g.playerRingOfFire.damage += 100; g.playerRingOfFire.burnDuration = 5; g.boundSigils.push('ring_mastery'); }, getDesc: (g) => g.boundSigils?.includes('ring_mastery') ? 'Active ✓' : '+200 HP, +40 Damage, Ring Upgrade' },
 ];
 
 // Legacy alias for backward compatibility
@@ -1646,7 +1736,7 @@ const MYTHIC_SIGILS = [
         icon: '😈',
         tier: 'MYTHIC',
         rarity: 'mythic',
-        classReq: 'fire_mage',
+        classReq: 'fire_sovereign',
         setKey: 'cataclysm', // Counts as 2 pieces for Cataclysm set
         hasSprite: true,
         spriteKey: 'devil_ring_of_fire',
@@ -1844,7 +1934,7 @@ const STARTER_ITEMS = {
     // =========================================
     fm_cinderbrand_focus: {
         id: 'fm_cinderbrand_focus',
-        classLock: 'fire_mage',
+        classLock: 'fire_sovereign',
         name: 'Cinderbrand Focus',
         evolvedName: 'Infernal Cinderbrand',
         icon: 'starters/cinderbrand_focus.jpg',
@@ -1864,7 +1954,7 @@ const STARTER_ITEMS = {
     },
     fm_emberstep_sandals: {
         id: 'fm_emberstep_sandals',
-        classLock: 'fire_mage',
+        classLock: 'fire_sovereign',
         name: 'Emberstep Sandals',
         evolvedName: 'Ashen Emberstep',
         icon: 'starters/emberstep_sandals.jpg',
@@ -1891,7 +1981,7 @@ const STARTER_ITEMS = {
     },
     fm_kindled_aegis: {
         id: 'fm_kindled_aegis',
-        classLock: 'fire_mage',
+        classLock: 'fire_sovereign',
         name: 'Kindled Aegis',
         evolvedName: 'Blazing Aegis',
         icon: 'starters/kindled_aegis.jpg',
@@ -1917,7 +2007,7 @@ const STARTER_ITEMS = {
     },
     fm_sparkcaller_tome: {
         id: 'fm_sparkcaller_tome',
-        classLock: 'fire_mage',
+        classLock: 'fire_sovereign',
         name: 'Sparkcaller Tome',
         evolvedName: 'Tome of Wildfire',
         icon: 'starters/sparkcaller_tome.jpg',
@@ -2838,8 +2928,13 @@ class DotsSurvivor {
             if ((e.key === 'Escape' || key === 'p') && this.gameRunning) {
                 this.togglePause();
             }
-            // CLASS ABILITIES REMOVED - Classes now have passives instead
-            // Q and E keys are no longer used for character abilities
+            // Character abilities (Q and E keys)
+            if (key === 'q' && this.gameRunning && !this.gamePaused) {
+                this.activateCharacterAbility('q');
+            }
+            if (key === 'e' && this.gameRunning && !this.gamePaused) {
+                this.activateCharacterAbility('e');
+            }
 
             // Item ability activation - 1 and 2 keys
             if (key === '1' && this.gameRunning && !this.gamePaused) {
@@ -3225,7 +3320,23 @@ class DotsSurvivor {
 
             // Sigil RNG seed
             runSeed: this.runSeed,
-            sigilRNGCalls: this._sigilRNGCalls || 0
+            sigilRNGCalls: this._sigilRNGCalls || 0,
+
+            // Shadow Monarch state
+            shadowThrallAlive: this.shadowThrall?.alive || false,
+            dominionStacks: this.dominionStacks || 0,
+            thrallDamageBonus: this.thrallDamageBonus || 1,
+            thrallHPBonus: this.thrallHPBonus || 1,
+            thrallAttackSpeedBonus: this.thrallAttackSpeedBonus || 1,
+            thrallAoEBonus: this.thrallAoEBonus || 1,
+            thrallExplosionsOnKill: this.thrallExplosionsOnKill || false,
+            thrallInstantRespawn: this.thrallInstantRespawn || false,
+            umbralOrbCount: this.umbralOrbCount || 0,
+            umbralOrbDamageBonus: this.umbralOrbDamageBonus || 1,
+            lancePierce: this.lancePierce || 0,
+            doubleBeam: this.doubleBeam || false,
+            corruptedOrbDrain: this.corruptedOrbDrain || 0,
+            corruptedThrallVulnerability: this.corruptedThrallVulnerability || 1
         };
     }
 
@@ -3298,6 +3409,39 @@ class DotsSurvivor {
 
         // Recalculate Dominion Set bonuses based on loaded sigils
         recalculateDominionSets(this);
+
+        // Shadow Monarch state restoration
+        if (this.selectedClass?.id === 'shadow_monarch') {
+            this.dominionStacks = state.dominionStacks || 0;
+            this.thrallDamageBonus = state.thrallDamageBonus || 1;
+            this.thrallHPBonus = state.thrallHPBonus || 1;
+            this.thrallAttackSpeedBonus = state.thrallAttackSpeedBonus || 1;
+            this.thrallAoEBonus = state.thrallAoEBonus || 1;
+            this.thrallExplosionsOnKill = state.thrallExplosionsOnKill || false;
+            this.thrallInstantRespawn = state.thrallInstantRespawn || false;
+            this.umbralOrbDamageBonus = state.umbralOrbDamageBonus || 1;
+            this.lancePierce = state.lancePierce || 0;
+            this.doubleBeam = state.doubleBeam || false;
+            this.corruptedOrbDrain = state.corruptedOrbDrain || 0;
+            this.corruptedThrallVulnerability = state.corruptedThrallVulnerability || 1;
+            this.dominionDamageBonus = 1 + (this.dominionStacks * 0.02);
+
+            // Recreate umbral orbs
+            if (this.umbralOrbs) {
+                const orbCount = state.umbralOrbCount || this.selectedClass.bonuses.umbralOrbCount || 1;
+                this.umbralOrbCount = orbCount;
+                this.umbralOrbs = [];
+                for (let i = 0; i < orbCount; i++) {
+                    this.umbralOrbs.push(this.createUmbralOrb());
+                }
+            }
+
+            // Recreate thrall
+            if (this.shadowThrall !== undefined) {
+                this.shadowThrall = this.createShadowThrall();
+                this.recalcThrallStats();
+            }
+        }
 
         return true;
     }
@@ -3418,7 +3562,10 @@ class DotsSurvivor {
 
         // Build character cards HTML
         // Disabled classes: shadow_master, necromancer (Coming Soon)
-        const DISABLED_CLASSES = ['shadow_master', 'necromancer'];
+        const isAdminOrTester = window.game?.authManager?.isAdmin?.() || window.game?.authManager?.isTester?.();
+        const DISABLED_CLASSES = isAdminOrTester
+            ? ['shadow_master', 'necromancer']
+            : ['shadow_master', 'necromancer', 'shadow_monarch'];
 
         const characterCardsHTML = PLAYABLE_CLASSES.map((charClass, index) => {
             const isDisabled = DISABLED_CLASSES.includes(charClass.id);
@@ -3605,7 +3752,7 @@ class DotsSurvivor {
             this.pendingCharacterClass = null;
         } else {
             // Fallback to Fire Mage if no class selected
-            this.selectedClass = FIRE_MAGE_CLASS;
+            this.selectedClass = FIRE_SOVEREIGN_CLASS;
         }
         this.player.color = this.selectedClass.color;
 
@@ -3863,20 +4010,51 @@ class DotsSurvivor {
             }
         }
 
-        // ========== FIRE MAGE ========== SCALED 5x (halved from 10x)
-        if (this.selectedClass.bonuses.hasAuraFire) {
-            this.auraFire = { radius: 120, damage: 65, burnDuration: 4 };  // 65 dps = 260 dmg over 4s
-            this.boundSigils.push('aura_fire');
+        // ========== FIRE SOVEREIGN ==========
+        if (this.selectedClass.id === 'fire_sovereign') {
+            this.hasHomingFireballs = true;
+            // Burn stack system
+            this.sovereignBurnDPS = 15;
+            this.sovereignBurnDPSMult = 1;
+            this.maxBurnStacks = 10;
+            this.burnStackDuration = 4;
+            // Living Flame passive
+            this.livingFlameActive = true;
+            this.livingFlameBonusPerStack = 0.01;
+            this.livingFlameMaxBonus = 0.10;
+            // Heat Conduction passive
+            this.heatConductionActive = true;
+            this.heatConductionTimer = 0;
+            this.heatConductionInterval = 5;
+            this.heatConductionRadius = 300;
+            this.heatConductionPulseVisual = null;
+            // Pyre Momentum passive
+            this.pyreMomentumActive = true;
+            this.pyreMomentumBonus = 0;
+            this.pyreMomentumMax = 0.30;
+            this.pyreMomentumRate = 0.03;
+            this.pyreMomentumTimer = 0;
+            // Solar Cataclysm state
+            this.solarCataclysmActive = false;
+            this.solarCataclysmVisual = null;
+            this.doubleBurnActive = false;
+            this.doubleBurnTimer = 0;
+            // Sigil states
+            this.conflagrationActive = false;
+            this.conflagrationTimer = 0;
+            this.moltenCoreActive = false;
+            this.eternalPyre = false;
+            this.phoenixAscendancyAvailable = false;
+            // Homing params
+            this.homingRange = 500;
+            this.homingStrength = 12;
+            // Fireball color
+            this.weapons.bullet.color = '#ff6600';
+            // Ability cooldowns
+            this.characterAbilities.q.maxCooldown = 12;
+            this.characterAbilities.e.maxCooldown = 50;
         }
-        if (this.selectedClass.bonuses.hasFireballs) {
-            // Fire Mage uses fireballs (default projectile system)
-            this.hasFireballs = true;
-        }
-        // Fire Mage abilities
-        this.fireBlastRadius = 800;
-        this.fireBlastDamage = 1;
-        this.fireAmpDuration = 5;
-        this.fireAmpBoost = 1.5;
+        // Legacy fire mage vars (keep for backward compat with other systems)
         this.fireAmpActive = false;
         this.fireAmpTimer = 0;
 
@@ -3926,6 +4104,44 @@ class DotsSurvivor {
         if (this.selectedClass.bonuses.noProjectiles) {
             this.noProjectiles = true;
         }
+
+        // ========== SHADOW MONARCH ==========
+        if (this.selectedClass.bonuses.hasUmbralOrbs) {
+            this.umbralOrbs = [];
+            this.umbralOrbCount = this.selectedClass.bonuses.umbralOrbCount || 1;
+            this.umbralOrbDamageBonus = 1;
+            this.lancePierce = 0;
+            this.doubleBeam = false;
+            this.shadowLances = [];
+            for (let i = 0; i < this.umbralOrbCount; i++) {
+                this.umbralOrbs.push(this.createUmbralOrb());
+            }
+        }
+        if (this.selectedClass.bonuses.hasShadowThrall) {
+            this.thrallDamageBonus = 1;
+            this.thrallHPBonus = 1;
+            this.thrallAttackSpeedBonus = 1;
+            this.thrallAoEBonus = 1;
+            this.thrallExplosionsOnKill = false;
+            this.thrallInstantRespawn = false;
+            this.thrallRespawnTimer = 0;
+            this.thrallDeathBurst = false;
+            this.shadowThrall = this.createShadowThrall();
+            this.dominionStacks = 0;
+            this.dominionMaxStacks = 10;
+            this.dominionDecayTimer = 0;
+            this.dominionDamageBonus = 1;
+            this.monarchDecreeActive = false;
+            this.monarchDecreeTimer = 0;
+            this.monarchUntargetableTimer = 0;
+            this.corruptedOrbDrain = 0;
+            this.corruptedThrallVulnerability = 1;
+        }
+        if (this.selectedClass.id === 'shadow_monarch') {
+            this.characterAbilities.q.maxCooldown = 10;
+            this.characterAbilities.e.maxCooldown = 45;
+        }
+
         // Necromancer abilities
         this.bonePitRadius = 100;
         this.bonePits = [];
@@ -4522,6 +4738,74 @@ class DotsSurvivor {
         };
     }
 
+    // ========== SHADOW MONARCH FACTORY METHODS ==========
+    createUmbralOrb() {
+        const idx = this.umbralOrbs ? this.umbralOrbs.length : 0;
+        return {
+            angle: idx * (Math.PI * 2 / Math.max(1, (this.umbralOrbCount || 1))),
+            radius: 80 + idx * 20,
+            speed: 1.8,
+            size: 14,
+            color: '#7700cc',
+            fireCooldown: 0,
+            fireRate: 0.8,
+            targetEnemy: null,
+        };
+    }
+
+    getThrallTier() {
+        const lvl = this.player?.level || 1;
+        if (lvl >= 15) return { name: 'Abyssal Monarch', tier: 4, radius: 28, speed: 260, baseDamage: 400, baseHP: 8000, color: '#1a0033', icon: '👑', hasAura: true, hasTaunt: true, aoeRadius: 50 };
+        if (lvl >= 10) return { name: 'Dread Revenant', tier: 3, radius: 22, speed: 270, baseDamage: 300, baseHP: 6000, color: '#220044', icon: '💀', hasAura: false, hasTaunt: false, aoeRadius: 35 };
+        if (lvl >= 5)  return { name: 'Shadow Stalker', tier: 2, radius: 18, speed: 280, baseDamage: 200, baseHP: 4000, color: '#330055', icon: '👤', hasAura: false, hasTaunt: false, aoeRadius: 20 };
+        return { name: 'Lesser Shade', tier: 1, radius: 14, speed: 300, baseDamage: 130, baseHP: 2500, color: '#440066', icon: '👻', hasAura: false, hasTaunt: false, aoeRadius: 0 };
+    }
+
+    createShadowThrall() {
+        const tier = this.getThrallTier();
+        const levelMult = 1 + (this.player.level * 0.18);
+        const dmgBonus = this.thrallDamageBonus || 1;
+        const hpBonus = this.thrallHPBonus || 1;
+        return {
+            x: this.player.x + 60, y: this.player.y,
+            radius: tier.radius,
+            speed: tier.speed + ((this.player.speed - 200) * 1.0),
+            damage: tier.baseDamage * levelMult * dmgBonus,
+            health: tier.baseHP * levelMult * hpBonus,
+            maxHealth: tier.baseHP * levelMult * hpBonus,
+            color: tier.color, icon: tier.icon,
+            tierName: tier.name, tier: tier.tier,
+            hasAura: tier.hasAura, hasTaunt: tier.hasTaunt,
+            aoeRadius: tier.aoeRadius * (this.thrallAoEBonus || 1),
+            attackCooldown: 0,
+            attackRate: 0.9 / (this.thrallAttackSpeedBonus || 1),
+            priorityTarget: null,
+            alive: true,
+            ascended: false, ascendTimer: 0,
+            tauntTimer: 0, tauntCooldown: 0,
+            auraTimer: 0,
+        };
+    }
+
+    recalcThrallStats() {
+        if (!this.shadowThrall || !this.shadowThrall.alive) return;
+        const tier = this.getThrallTier();
+        const levelMult = 1 + (this.player.level * 0.18);
+        const dmgBonus = (this.thrallDamageBonus || 1);
+        const hpBonus = (this.thrallHPBonus || 1);
+        const monarchBonusDmg = (this.weapons.bullet.damage - 50) * 0.40;
+        this.shadowThrall.damage = tier.baseDamage * levelMult * dmgBonus + Math.max(0, monarchBonusDmg);
+        const monarchBonusHP = (this.player.maxHealth - 500) * 0.50;
+        const newMax = tier.baseHP * levelMult * hpBonus + Math.max(0, monarchBonusHP);
+        const hpRatio = this.shadowThrall.health / this.shadowThrall.maxHealth;
+        this.shadowThrall.maxHealth = newMax;
+        this.shadowThrall.health = Math.min(newMax, hpRatio * newMax);
+        this.shadowThrall.speed = tier.speed + ((this.player.speed - 200) * 1.0);
+        this.shadowThrall.attackRate = 0.9 / (this.thrallAttackSpeedBonus || 1);
+        this.shadowThrall.aoeRadius = tier.aoeRadius * (this.thrallAoEBonus || 1);
+        if (this.shadowThrall.ascended) this.shadowThrall.attackRate *= 0.67;
+    }
+
     gameLoop(t) {
         if (!this.gameRunning) return;
         const dt = (t - this.lastTime) / 1000; this.lastTime = t;
@@ -4973,10 +5257,18 @@ class DotsSurvivor {
         this.updateDeathDrain(effectiveDt);      // Necromancer death drain beam
         this.updateBonePits(effectiveDt);        // Necromancer bone pits
         this.updateSoulShield(effectiveDt);      // Necromancer soul shield
+        this.updateUmbralOrbs(effectiveDt);       // Shadow Monarch orbs
+        this.updateShadowThrall(effectiveDt);     // Shadow Monarch thrall
+        this.updateDominionBond(effectiveDt);     // Shadow Monarch stacks
+        this.updateShadowLances(effectiveDt);     // Shadow Monarch laser cleanup
+        this.updateMonarchDecree(effectiveDt);    // Shadow Monarch ultimate
         this.updateCharacterAbilities(effectiveDt); // Q/E ability cooldowns
         this.updateInvisibility(effectiveDt);    // Shadow Master invisibility
-        this.updateFireAmp(effectiveDt);         // Fire Mage fire amp zone
-        this.updateFireBlast(effectiveDt);       // Fire Mage fire blast ability
+        this.updateSovereignBurns(effectiveDt);   // Fire Sovereign burn stacks
+        this.updateHeatConduction(effectiveDt);  // Fire Sovereign heat conduction
+        this.updatePyreMomentum(effectiveDt);    // Fire Sovereign pyre momentum
+        this.updateSolarCataclysm(effectiveDt);  // Fire Sovereign solar cataclysm
+        this.updateConflagration(effectiveDt);   // Fire Sovereign conflagration sigil
         this.updateImps(effectiveDt);
         this.updateAuraFire(effectiveDt);
         this.updatePlayerRingOfFire(effectiveDt);  // Ring of Fire augment
@@ -4998,6 +5290,19 @@ class DotsSurvivor {
         this.updateCorruptedSigilDownsides(effectiveDt); // Corrupted Sigil downsides
         this.updateStarterPassives(effectiveDt); // Starter item evolved passives
         this.updateChests(effectiveDt); // Mystery chest system
+        // Fire Sovereign: Phoenix Ascendancy revive
+        if (this.player.health <= 0 && this.phoenixAscendancyAvailable) {
+            this.phoenixAscendancyAvailable = false;
+            this.player.health = Math.floor(this.player.maxHealth * 0.3);
+            this.player.invincibleTime = 2;
+            this.solarCataclysmActive = true;
+            this.solarCataclysmVisual = { x: this.player.x, y: this.player.y, radius: 0, maxRadius: 500, timer: 1.0, expandSpeed: 600 };
+            this.doubleBurnActive = true;
+            this.doubleBurnTimer = 5;
+            this.triggerScreenShake(15, 0.5);
+            this.spawnParticles(this.player.x, this.player.y, '#ff4400', 50);
+            this.addDamageNumber(this.player.x, this.player.y - 40, '🐦‍🔥 PHOENIX!', '#ffcc00', { isText: true, scale: 1.5, lifetime: 2 });
+        }
         if (this.player.health <= 0) this.gameOver();
         this.updateHUD();
     }
@@ -5278,7 +5583,7 @@ class DotsSurvivor {
 
         // Process aura burns
         for (const e of this.enemies) {
-            const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+            const ampBoost = this.doubleBurnActive ? 2 : 1;
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
 
@@ -5369,7 +5674,7 @@ class DotsSurvivor {
 
         // Process ring burns
         for (const e of this.enemies) {
-            const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+            const ampBoost = this.doubleBurnActive ? 2 : 1;
             const fireDmgBonus = this.fireDamageBonus || 1;
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
@@ -5479,7 +5784,7 @@ class DotsSurvivor {
         for (const e of this.enemies) {
             if (e.devilRingBurn && e.devilRingBurn.timer > 0) {
                 e.devilRingBurn.timer -= dt;
-                const ampBoost = this.fireAmpActive ? (this.fireAmpBoost || 1.5) : 1;
+                const ampBoost = this.doubleBurnActive ? 2 : 1;
                 const fireDmgBonus = this.fireDamageBonus || 1;
                 const devilBurnDmg = e.devilRingBurn.dps * ampBoost * fireDmgBonus;
                 e.health -= devilBurnDmg * dt;
@@ -6673,6 +6978,17 @@ class DotsSurvivor {
                 continue; // Skip movement and collision for frozen enemies
             }
 
+            // Shadow Monarch: Orb mark timer decay
+            if (e.orbMarked) {
+                e.orbMarkTimer -= dt;
+                if (e.orbMarkTimer <= 0) { e.orbMarked = false; }
+            }
+
+            // Taunt override (Shadow Monarch thrall tier 4)
+            if (e.tauntTimer > 0) {
+                e.tauntTimer -= dt;
+            }
+
             // PASSIVE ENEMIES: Goblin and Necromancer don't chase player directly
             const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
             const d = Math.sqrt(dx * dx + dy * dy);
@@ -6680,7 +6996,7 @@ class DotsSurvivor {
             // Bone Pit slow effect (Necromancer Q ability) - 60% slow
             let speedMult = 1;
             if (e.bonePitSlow) {
-                speedMult = 0.4; // 60% slow
+                speedMult = e.bonePitSlowStrength || 0.4; // Configurable slow (default 60%)
                 if (e.bonePitSlowTimer !== undefined) {
                     e.bonePitSlowTimer -= dt;
                     if (e.bonePitSlowTimer <= 0) {
@@ -6705,6 +7021,12 @@ class DotsSurvivor {
                 }
                 e.wx += Math.cos(e.wanderAngle) * e.speed * dt * 0.5 * speedMult;
                 e.wy += Math.sin(e.wanderAngle) * e.speed * dt * 0.5 * speedMult;
+            } else if (e.tauntTarget && e.tauntTimer > 0) {
+                // Taunted - move towards taunt target (Shadow Monarch thrall)
+                const tdx = e.tauntTarget.x - e.wx;
+                const tdy = e.tauntTarget.y - e.wy;
+                const td = Math.sqrt(tdx * tdx + tdy * tdy);
+                if (td > 0) { e.wx += (tdx / td) * e.speed * dt * speedMult; e.wy += (tdy / td) * e.speed * dt * speedMult; }
             } else {
                 // Normal enemy - Move towards player (world coords)
                 if (d > 0) { e.wx += (dx / d) * e.speed * dt * speedMult; e.wy += (dy / d) * e.speed * dt * speedMult; }
@@ -6813,6 +7135,12 @@ class DotsSurvivor {
                         this.combatTimer = 0; // Reset combat timer - healing reduced for 3s
                         this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -remainingDamage, lifetime: 1, color: '#ff4444', isText: true });
                         this.playSound('hit');
+
+                        // Fire Sovereign: Pyre Momentum reset on hit
+                        if (this.pyreMomentumActive) {
+                            this.pyreMomentumBonus = 0;
+                            this.pyreMomentumTimer = 0;
+                        }
 
                         // Starter Passive: Flame Pulse (Kindled Aegis evolved)
                         if (this.starterEvolved && this.starterFlamePulse) {
@@ -7794,6 +8122,354 @@ class DotsSurvivor {
         }
     }
 
+    // ========== SHADOW MONARCH UPDATE METHODS ==========
+    updateUmbralOrbs(dt) {
+        if (!this.umbralOrbs) return;
+        for (const orb of this.umbralOrbs) {
+            orb.angle += orb.speed * dt;
+            orb.fireCooldown -= dt;
+
+            // Always track nearest enemy for eye rendering
+            const orbScreenX = this.player.x + Math.cos(orb.angle) * orb.radius;
+            const orbScreenY = this.player.y + Math.sin(orb.angle) * orb.radius;
+            const orbWX = this.worldX + (orbScreenX - this.player.x);
+            const orbWY = this.worldY + (orbScreenY - this.player.y);
+
+            let eyeNearest = null, eyeND = Infinity;
+            const eyeNearby = this.enemyGrid ? this.enemyGrid.getNearby(orbWX, orbWY, 500) : this.enemies;
+            for (const e of eyeNearby) {
+                if (e.health <= 0) continue;
+                const dx = e.wx - orbWX;
+                const dy = e.wy - orbWY;
+                const d = dx * dx + dy * dy;
+                if (d < eyeND) { eyeND = d; eyeNearest = e; }
+            }
+            // Store target direction for eye rendering
+            if (eyeNearest && eyeND < 500 * 500) {
+                const tSX = this.player.x + (eyeNearest.wx - this.worldX);
+                const tSY = this.player.y + (eyeNearest.wy - this.worldY);
+                orb.eyeDirX = tSX - orbScreenX;
+                orb.eyeDirY = tSY - orbScreenY;
+                orb.eyeDist = Math.sqrt(orb.eyeDirX * orb.eyeDirX + orb.eyeDirY * orb.eyeDirY);
+            } else {
+                orb.eyeDirX = 0;
+                orb.eyeDirY = 0;
+                orb.eyeDist = 0;
+            }
+
+            if (orb.fireCooldown <= 0) {
+                const orbWorldX = orbScreenX;
+                const orbWorldY = orbScreenY;
+
+                let nearest = eyeNearest, nd = eyeND;
+                const nearby = eyeNearby;
+
+                if (nearest && nd < 500 * 500) {
+                    const baseDmg = (this.weapons.bullet.damage || 50) * (this.umbralOrbDamageBonus || 1) * (this.dominionDamageBonus || 1);
+                    const targetSX = this.player.x + (nearest.wx - this.worldX);
+                    const targetSY = this.player.y + (nearest.wy - this.worldY);
+
+                    // Fire main beam
+                    this.shadowLances.push({ sx: orbWorldX, sy: orbWorldY, ex: targetSX, ey: targetSY, timer: 0.12, damage: baseDmg, color: '#7700cc' });
+                    nearest.health -= baseDmg;
+                    nearest.hitFlash = 0.15;
+                    this.addDamageNumber(targetSX, targetSY, Math.floor(baseDmg), '#bb66ff');
+                    nearest.orbMarked = true;
+                    nearest.orbMarkTimer = 3;
+
+                    // Pierce extra enemies
+                    if (this.lancePierce > 0) {
+                        const dx = nearest.wx - orbWX;
+                        const dy = nearest.wy - orbWY;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const dirX = dx / dist;
+                        const dirY = dy / dist;
+                        let pierced = 0;
+                        for (const e2 of nearby) {
+                            if (e2 === nearest || e2.health <= 0 || pierced >= this.lancePierce) continue;
+                            const pdx = e2.wx - nearest.wx;
+                            const pdy = e2.wy - nearest.wy;
+                            const dot = pdx * dirX + pdy * dirY;
+                            if (dot > 0 && dot < 200) {
+                                const cross = Math.abs(pdx * dirY - pdy * dirX);
+                                if (cross < 40) {
+                                    const pierceDmg = baseDmg * 0.7;
+                                    e2.health -= pierceDmg;
+                                    e2.hitFlash = 0.15;
+                                    const e2sx = this.player.x + (e2.wx - this.worldX);
+                                    const e2sy = this.player.y + (e2.wy - this.worldY);
+                                    this.addDamageNumber(e2sx, e2sy, Math.floor(pierceDmg), '#9944dd');
+                                    this.shadowLances.push({ sx: targetSX, sy: targetSY, ex: e2sx, ey: e2sy, timer: 0.10, damage: pierceDmg, color: '#5500aa' });
+                                    pierced++;
+                                }
+                            }
+                        }
+                    }
+
+                    // Double beam
+                    if (this.doubleBeam) {
+                        let secondTarget = null, sd = Infinity;
+                        for (const e of nearby) {
+                            if (e === nearest || e.health <= 0) continue;
+                            const dx2 = e.wx - orbWX;
+                            const dy2 = e.wy - orbWY;
+                            const d2 = dx2 * dx2 + dy2 * dy2;
+                            if (d2 < sd) { sd = d2; secondTarget = e; }
+                        }
+                        if (secondTarget && sd < 500 * 500) {
+                            const dmg2 = baseDmg * 0.8;
+                            const sx2 = this.player.x + (secondTarget.wx - this.worldX);
+                            const sy2 = this.player.y + (secondTarget.wy - this.worldY);
+                            this.shadowLances.push({ sx: orbWorldX, sy: orbWorldY, ex: sx2, ey: sy2, timer: 0.12, damage: dmg2, color: '#5500aa' });
+                            secondTarget.health -= dmg2;
+                            secondTarget.hitFlash = 0.15;
+                            this.addDamageNumber(sx2, sy2, Math.floor(dmg2), '#9944dd');
+                        }
+                    }
+
+                    orb.fireCooldown = orb.fireRate;
+                }
+            }
+        }
+
+        // Corrupted orb drain
+        if (this.corruptedOrbDrain > 0 && this.umbralOrbs) {
+            const drain = this.corruptedOrbDrain * this.umbralOrbs.length * dt;
+            this.player.health -= drain;
+        }
+    }
+
+    updateShadowThrall(dt) {
+        if (!this.shadowThrall) return;
+
+        if (!this.shadowThrall.alive) {
+            this.thrallRespawnTimer += dt;
+            const respawnTime = this.thrallInstantRespawn ? 0 : 3;
+            if (this.thrallRespawnTimer >= respawnTime) {
+                this.shadowThrall = this.createShadowThrall();
+                // Shadow burst on respawn
+                const burstWX = this.worldX + (this.shadowThrall.x - this.player.x);
+                const burstWY = this.worldY + (this.shadowThrall.y - this.player.y);
+                const burstNearby = this.enemyGrid ? this.enemyGrid.getNearby(burstWX, burstWY, 120) : this.enemies;
+                for (const e of burstNearby) {
+                    const dx = e.wx - burstWX;
+                    const dy = e.wy - burstWY;
+                    if (dx * dx + dy * dy < 120 * 120) {
+                        e.health -= this.shadowThrall.damage * 0.5;
+                        e.hitFlash = 0.2;
+                        e.bonePitSlow = true;
+                        e.bonePitSlowTimer = 1.5;
+                    }
+                }
+                this.spawnParticles(this.shadowThrall.x, this.shadowThrall.y, '#7700cc', 8);
+                this.thrallRespawnTimer = 0;
+            }
+            return;
+        }
+
+        const thrall = this.shadowThrall;
+        const thrallWX = this.worldX + (thrall.x - this.player.x);
+        const thrallWY = this.worldY + (thrall.y - this.player.y);
+
+        // Targeting: prefer orb-marked enemies
+        let target = null;
+        let targetDist = Infinity;
+        const searchNearby = this.enemyGrid ? this.enemyGrid.getNearby(thrallWX, thrallWY, 400) : this.enemies;
+        for (const e of searchNearby) {
+            if (e.health <= 0) continue;
+            const dx = e.wx - thrallWX;
+            const dy = e.wy - thrallWY;
+            const d = dx * dx + dy * dy;
+            if (e.orbMarked && d < 400 * 400) {
+                if (!target || !target.orbMarked || d < targetDist) {
+                    target = e; targetDist = d;
+                }
+            } else if (!target || (!target.orbMarked && d < targetDist)) {
+                if (d < 400 * 400) { target = e; targetDist = d; }
+            }
+        }
+
+        if (target) {
+            const tsx = this.player.x + (target.wx - this.worldX);
+            const tsy = this.player.y + (target.wy - this.worldY);
+            const dx = tsx - thrall.x;
+            const dy = tsy - thrall.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > thrall.radius + 10) {
+                thrall.x += (dx / dist) * thrall.speed * dt;
+                thrall.y += (dy / dist) * thrall.speed * dt;
+            }
+
+            // Attack
+            thrall.attackCooldown -= dt;
+            if (thrall.attackCooldown <= 0 && dist < thrall.radius + 30) {
+                let dmg = thrall.damage;
+                if (thrall.ascended) dmg *= 1.75;
+
+                target.health -= dmg;
+                target.hitFlash = 0.2;
+                this.addDamageNumber(tsx, tsy, Math.floor(dmg), '#aa44ff');
+
+                // Dominion Bond stack
+                this.dominionStacks = Math.min(this.dominionMaxStacks, this.dominionStacks + 1);
+                this.dominionDecayTimer = 0;
+
+                // Ascended lifesteal
+                if (thrall.ascended) {
+                    const heal = dmg * 0.15;
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                }
+
+                // AoE cleave (tier 2+)
+                if (thrall.aoeRadius > 0) {
+                    for (const e of searchNearby) {
+                        if (e === target || e.health <= 0) continue;
+                        const aeDx = e.wx - target.wx;
+                        const aeDy = e.wy - target.wy;
+                        if (aeDx * aeDx + aeDy * aeDy < thrall.aoeRadius * thrall.aoeRadius) {
+                            const aeDmg = dmg * 0.5;
+                            e.health -= aeDmg;
+                            e.hitFlash = 0.15;
+                        }
+                    }
+                }
+
+                // Explosions on kill
+                if (this.thrallExplosionsOnKill && target.health <= 0) {
+                    const exNearby = this.enemyGrid ? this.enemyGrid.getNearby(target.wx, target.wy, 50) : this.enemies;
+                    for (const e of exNearby) {
+                        if (e === target || e.health <= 0) continue;
+                        const exDx = e.wx - target.wx;
+                        const exDy = e.wy - target.wy;
+                        if (exDx * exDx + exDy * exDy < 50 * 50) {
+                            e.health -= dmg * 0.5;
+                            e.hitFlash = 0.2;
+                        }
+                    }
+                    this.spawnParticles(tsx, tsy, '#7700cc', 4);
+                }
+
+                thrall.attackCooldown = thrall.attackRate;
+            }
+        } else {
+            // Return to player
+            const dx = this.player.x - thrall.x;
+            const dy = this.player.y - thrall.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 80) {
+                thrall.x += (dx / dist) * thrall.speed * dt;
+                thrall.y += (dy / dist) * thrall.speed * dt;
+            }
+        }
+
+        // Tier 4: Slow aura
+        if (thrall.hasAura) {
+            thrall.auraTimer += dt;
+            if (thrall.auraTimer >= 0.5) {
+                thrall.auraTimer = 0;
+                const auraNearby = this.enemyGrid ? this.enemyGrid.getNearby(thrallWX, thrallWY, 120) : this.enemies;
+                for (const e of auraNearby) {
+                    const dx = e.wx - thrallWX;
+                    const dy = e.wy - thrallWY;
+                    if (dx * dx + dy * dy < 120 * 120) {
+                        e.bonePitSlow = true;
+                        e.bonePitSlowTimer = Math.max(e.bonePitSlowTimer || 0, 0.6);
+                    }
+                }
+            }
+        }
+
+        // Tier 4: Taunt
+        if (thrall.hasTaunt) {
+            thrall.tauntCooldown -= dt;
+            if (thrall.tauntCooldown <= 0) {
+                const tauntNearby = this.enemyGrid ? this.enemyGrid.getNearby(thrallWX, thrallWY, 200) : this.enemies;
+                for (const e of tauntNearby) {
+                    const dx = e.wx - thrallWX;
+                    const dy = e.wy - thrallWY;
+                    if (dx * dx + dy * dy < 200 * 200) {
+                        e.tauntTarget = { x: thrallWX, y: thrallWY };
+                        e.tauntTimer = 2;
+                    }
+                }
+                thrall.tauntCooldown = 8;
+                this.spawnParticles(thrall.x, thrall.y, '#1a0033', 3);
+            }
+        }
+
+        // Ascended timer countdown
+        if (thrall.ascended) {
+            thrall.ascendTimer -= dt;
+            if (thrall.ascendTimer <= 0) {
+                thrall.ascended = false;
+                this.recalcThrallStats();
+            }
+        }
+
+        // Take damage from enemies (collision)
+        for (const e of searchNearby) {
+            if (e.health <= 0) continue;
+            const dx = e.wx - thrallWX;
+            const dy = e.wy - thrallWY;
+            if (dx * dx + dy * dy < (thrall.radius + (e.radius || 10)) * (thrall.radius + (e.radius || 10))) {
+                const dmgToThrall = (e.damage || 10) * dt * (this.corruptedThrallVulnerability || 1);
+                thrall.health -= dmgToThrall;
+                if (thrall.health <= 0) {
+                    thrall.alive = false;
+                    this.thrallRespawnTimer = 0;
+                    this.spawnParticles(thrall.x, thrall.y, '#440066', 6);
+                    break;
+                }
+            }
+        }
+    }
+
+    updateDominionBond(dt) {
+        if (!this.shadowThrall) return;
+        if (this.dominionStacks > 0) {
+            this.dominionDecayTimer += dt;
+            if (this.dominionDecayTimer >= 2) {
+                this.dominionDecayTimer = 0;
+                if (!this.shadowThrall.alive) {
+                    this.dominionStacks = Math.max(0, this.dominionStacks - 1);
+                }
+            }
+        }
+        this.dominionDamageBonus = 1 + (this.dominionStacks * 0.02);
+    }
+
+    updateShadowLances(dt) {
+        if (!this.shadowLances) return;
+        for (let i = this.shadowLances.length - 1; i >= 0; i--) {
+            this.shadowLances[i].timer -= dt;
+            if (this.shadowLances[i].timer <= 0) {
+                this.shadowLances[i] = this.shadowLances[this.shadowLances.length - 1];
+                this.shadowLances.pop();
+            }
+        }
+    }
+
+    updateMonarchDecree(dt) {
+        if (!this.monarchDecreeActive) {
+            if (this.monarchUntargetableTimer > 0) {
+                this.monarchUntargetableTimer -= dt;
+            }
+            return;
+        }
+        this.monarchDecreeTimer -= dt;
+        if (this.monarchUntargetableTimer > 0) {
+            this.monarchUntargetableTimer -= dt;
+        }
+        if (this.monarchDecreeTimer <= 0) {
+            this.monarchDecreeActive = false;
+            if (this.shadowThrall && this.shadowThrall.alive) {
+                this.shadowThrall.ascended = false;
+                this.recalcThrallStats();
+            }
+        }
+    }
+
     // Character Abilities: Update cooldowns
     updateCharacterAbilities(dt) {
         if (!this.characterAbilities) return;
@@ -7843,49 +8519,145 @@ class DotsSurvivor {
         }
     }
 
-    // Fire Mage: Fire Amp zone
-    updateFireAmp(dt) {
-        if (!this.fireAmpActive) return;
+    // Legacy stubs (Fire Mage removed)
+    updateFireAmp(dt) { return; }
+    updateFireBlast(dt) { return; }
 
-        this.fireAmpTimer -= dt;
-        if (this.fireAmpTimer <= 0) {
-            this.fireAmpActive = false;
+    // ========== FIRE SOVEREIGN UPDATE METHODS ==========
+
+    updateSovereignBurns(dt) {
+        if (this.selectedClass?.id !== 'fire_sovereign') return;
+        const doubleBurn = this.doubleBurnActive ? 2 : 1;
+        const burnMult = this.sovereignBurnDPSMult || 1;
+        for (let i = 0; i < this.enemies.length; i++) {
+            const e = this.enemies[i];
+            if (!e.sovereignBurn || e.sovereignBurn.stacks <= 0) continue;
+            const burn = e.sovereignBurn;
+            if (!this.eternalPyre) {
+                burn.timer -= dt;
+                if (burn.timer <= 0) { burn.stacks = 0; burn.timer = 0; continue; }
+            } else {
+                burn.timer = this.burnStackDuration || 4;
+            }
+            const totalDPS = burn.stacks * burn.dpsPerStack * doubleBurn * burnMult;
+            e.health -= totalDPS * dt;
+            // Corrupted self-damage
+            if (this.corruptedBurnSelfDamage) {
+                this.player.health -= this.corruptedBurnSelfDamage * dt;
+            }
+            // Visual effects
+            if (Math.random() < 0.05) {
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                this.spawnParticles(sx, sy, '#ff4400', 2);
+            }
         }
     }
 
-    // Fire Mage: Fire Blast (expanding damage circle)
-    updateFireBlast(dt) {
-        if (!this.fireBlast) return;
-
-        const fb = this.fireBlast;
-        fb.timer += dt;
-        fb.radius = Math.min(fb.radius + fb.expandSpeed * dt, fb.maxRadius);
-
-        // Deal damage to enemies caught in the expanding wave
-        const waveThickness = 40;
-        for (const e of this.enemies) {
-            if (e.hitByFireBlast) continue;  // Don't hit same enemy twice
-
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
-            const d = Math.sqrt((fb.x - sx) ** 2 + (fb.y - sy) ** 2);
-
-            // Check if enemy is within the expanding ring
-            if (d <= fb.radius && d >= fb.radius - waveThickness) {
-                e.health -= fb.damage;
-                e.hitFlash = 1;
-                e.hitByFireBlast = true;
-                this.damageNumbers.push({ x: sx, y: sy - 15, value: fb.damage, lifetime: 0.5, color: '#ff4400', scale: 1.2 });
-                this.spawnParticles(sx, sy, '#ff4400', 5);
+    updateHeatConduction(dt) {
+        if (!this.heatConductionActive) return;
+        this.heatConductionTimer += dt;
+        if (this.heatConductionTimer >= this.heatConductionInterval) {
+            this.heatConductionTimer = 0;
+            this.heatConductionPulseVisual = { x: this.player.x, y: this.player.y, radius: 0, maxRadius: this.heatConductionRadius, timer: 0.5 };
+            const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, this.heatConductionRadius);
+            for (const e of nearby) {
+                if (e.sovereignBurn && e.sovereignBurn.stacks > 0) {
+                    e.sovereignBurn.timer = this.burnStackDuration || 4;
+                    // Molten Core: instant damage
+                    if (this.moltenCoreActive) {
+                        const instantDmg = Math.floor(e.sovereignBurn.stacks * e.sovereignBurn.dpsPerStack * 0.3);
+                        e.health -= instantDmg;
+                        e.hitFlash = 0.5;
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        this.addDamageNumber(sx, sy, instantDmg, '#ff8800', { enemyId: e.id });
+                        this.spawnParticles(sx, sy, '#ff8800', 5);
+                    }
+                }
             }
         }
+        // Animate pulse visual
+        if (this.heatConductionPulseVisual) {
+            const pulse = this.heatConductionPulseVisual;
+            pulse.timer -= dt;
+            pulse.radius = pulse.maxRadius * (1 - pulse.timer / 0.5);
+            if (pulse.timer <= 0) this.heatConductionPulseVisual = null;
+        }
+    }
 
-        // Finish when max radius reached
-        if (fb.radius >= fb.maxRadius) {
-            this.fireBlast = null;
-            // Clear hitByFireBlast flags
-            for (const e of this.enemies) {
-                e.hitByFireBlast = false;
+    updatePyreMomentum(dt) {
+        if (!this.pyreMomentumActive) return;
+        this.pyreMomentumTimer += dt;
+        if (this.pyreMomentumTimer >= 1) {
+            this.pyreMomentumBonus = Math.min(this.pyreMomentumMax, this.pyreMomentumBonus + this.pyreMomentumRate);
+            this.pyreMomentumTimer -= 1;
+        }
+    }
+
+    updateSolarCataclysm(dt) {
+        // Double burn timer
+        if (this.doubleBurnActive) {
+            this.doubleBurnTimer -= dt;
+            if (this.doubleBurnTimer <= 0) this.doubleBurnActive = false;
+        }
+        if (!this.solarCataclysmActive || !this.solarCataclysmVisual) return;
+        const sc = this.solarCataclysmVisual;
+        sc.timer -= dt;
+        sc.radius = Math.min(sc.radius + sc.expandSpeed * dt, sc.maxRadius);
+        const waveThickness = 60;
+        for (const e of this.enemies) {
+            if (e.hitBySolarCataclysm) continue;
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const d = Math.sqrt((sc.x - sx) ** 2 + (sc.y - sy) ** 2);
+            if (d <= sc.radius && d >= sc.radius - waveThickness) {
+                const cataDmg = Math.floor(this.weapons.bullet.damage * 3);
+                e.health -= cataDmg;
+                e.hitFlash = 1;
+                e.hitBySolarCataclysm = true;
+                this.addDamageNumber(sx, sy, cataDmg, '#ff4400', { enemyId: e.id, scale: 1.3 });
+                this.spawnParticles(sx, sy, '#ff4400', 10);
+                this.spawnParticles(sx, sy, '#ffaa00', 5);
+                // Apply MAX burn stacks
+                if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
+                e.sovereignBurn.stacks = this.maxBurnStacks || 10;
+                e.sovereignBurn.timer = this.burnStackDuration || 4;
+                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1);
+                // 40% slow for 3s
+                e.bonePitSlow = true;
+                e.bonePitSlowTimer = 3;
+                e.bonePitSlowStrength = 0.6;
+            }
+        }
+        if (sc.radius >= sc.maxRadius || sc.timer <= 0) {
+            this.solarCataclysmActive = false;
+            this.solarCataclysmVisual = null;
+            for (const e of this.enemies) e.hitBySolarCataclysm = false;
+        }
+    }
+
+    updateConflagration(dt) {
+        if (!this.conflagrationActive) return;
+        this.conflagrationTimer = (this.conflagrationTimer || 0) + dt;
+        if (this.conflagrationTimer < 2) return;
+        this.conflagrationTimer = 0;
+        const maxStacks = this.maxBurnStacks || 10;
+        for (const e of this.enemies) {
+            if (!e.sovereignBurn || e.sovereignBurn.stacks < maxStacks) continue;
+            const nearby = this.enemyGrid.getNearby(e.wx, e.wy, 150);
+            for (const other of nearby) {
+                if (other === e) continue;
+                if (!other.sovereignBurn) other.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
+                if (other.sovereignBurn.stacks < maxStacks) {
+                    other.sovereignBurn.stacks++;
+                    other.sovereignBurn.timer = this.burnStackDuration || 4;
+                    other.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1);
+                    const sx = this.player.x + (other.wx - this.worldX);
+                    const sy = this.player.y + (other.wy - this.worldY);
+                    this.spawnParticles(sx, sy, '#ff6600', 3);
+                    break;
+                }
             }
         }
     }
@@ -7898,34 +8670,63 @@ class DotsSurvivor {
 
         const classId = this.selectedClass?.id;
 
-        // ========== FIRE MAGE ABILITIES ==========
-        if (classId === 'fire_mage') {
+        // ========== FIRE SOVEREIGN ABILITIES ==========
+        if (classId === 'fire_sovereign') {
             if (abilityKey === 'q') {
-                // Fire Blast: Expanding damage circle - SCALED 5x
-                this.fireBlast = {
-                    x: this.player.x,
-                    y: this.player.y,
-                    radius: 0,
-                    maxRadius: this.fireBlastRadius || 800,
-                    damage: Math.floor(250 * this.fireBlastDamage),
-                    timer: 0,
-                    expandSpeed: 800  // pixels per second
-                };
+                // Inferno Volley: Burst of 5 enhanced homing fireballs
+                const nearbyEnemies = [];
+                const nearbyAim = this.enemyGrid.getNearby(this.worldX, this.worldY, 600);
+                for (const e of nearbyAim) {
+                    if (e.health > 0) nearbyEnemies.push(e);
+                }
+                if (nearbyEnemies.length === 0) return;
+                nearbyEnemies.sort((a, b) => {
+                    const da = (a.wx - this.worldX) ** 2 + (a.wy - this.worldY) ** 2;
+                    const db = (b.wx - this.worldX) ** 2 + (b.wy - this.worldY) ** 2;
+                    return da - db;
+                });
+                const volleyCount = 5;
+                const volleyDamage = Math.floor(this.weapons.bullet.damage * 1.5 * (this.damageMultiplier || 1));
+                for (let i = 0; i < volleyCount; i++) {
+                    const target = nearbyEnemies[i % nearbyEnemies.length];
+                    const tx = this.player.x + (target.wx - this.worldX);
+                    const ty = this.player.y + (target.wy - this.worldY);
+                    const angle = Math.atan2(ty - this.player.y, tx - this.player.x) + (i - 2) * 0.1;
+                    this.projectiles.push({
+                        x: this.player.x, y: this.player.y,
+                        vx: Math.cos(angle) * this.weapons.bullet.speed * 1.2,
+                        vy: Math.sin(angle) * this.weapons.bullet.speed * 1.2,
+                        radius: this.weapons.bullet.size * 1.3,
+                        damage: volleyDamage,
+                        pierce: this.weapons.bullet.pierce + 1,
+                        color: '#ff2200',
+                        hitEnemies: [],
+                        isFireSovereign: true,
+                        homingStrength: 15,
+                        homingRange: 600,
+                        canExplode: this.bulletExplosion || false,
+                        canFreeze: false
+                    });
+                }
                 this.playSound('shoot');
-                this.triggerScreenShake(8, 0.2);
+                this.triggerScreenShake(6, 0.2);
+                this.spawnParticles(this.player.x, this.player.y, '#ff4400', 15);
                 ability.ready = false;
                 ability.cooldown = ability.maxCooldown;
             }
             else if (abilityKey === 'e') {
-                // Fire Amp: Damage boost zone
-                this.fireAmpActive = true;
-                this.fireAmpTimer = this.fireAmpDuration || 5;
-                this.fireAmpZone = {
-                    x: this.player.x,
-                    y: this.player.y,
-                    radius: 120
+                // Solar Cataclysm: Massive fire nova
+                this.solarCataclysmActive = true;
+                this.solarCataclysmVisual = {
+                    x: this.player.x, y: this.player.y,
+                    radius: 0, maxRadius: 500, timer: 1.0, expandSpeed: 600
                 };
+                this.doubleBurnActive = true;
+                this.doubleBurnTimer = 5;
                 this.playSound('shoot');
+                this.triggerScreenShake(12, 0.4);
+                this.spawnParticles(this.player.x, this.player.y, '#ff4400', 30);
+                this.spawnParticles(this.player.x, this.player.y, '#ffaa00', 20);
                 ability.ready = false;
                 ability.cooldown = ability.maxCooldown;
             }
@@ -8017,6 +8818,79 @@ class DotsSurvivor {
                 ability.cooldown = ability.maxCooldown;
             }
         }
+        // ========== SHADOW MONARCH ABILITIES ==========
+        else if (classId === 'shadow_monarch') {
+            if (abilityKey === 'q') {
+                // Shadow Command: Teleport thrall to nearest enemy
+                if (this.shadowThrall && this.shadowThrall.alive) {
+                    let nearest = null, nd = Infinity;
+                    const thrallWX = this.worldX + (this.shadowThrall.x - this.player.x);
+                    const thrallWY = this.worldY + (this.shadowThrall.y - this.player.y);
+                    for (const e of this.enemies) {
+                        if (e.health <= 0) continue;
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+                        if (d < nd) { nd = d; nearest = { x: sx, y: sy, wx: e.wx, wy: e.wy }; }
+                    }
+
+                    if (nearest) {
+                        // Teleport thrall
+                        this.shadowThrall.x = nearest.x;
+                        this.shadowThrall.y = nearest.y;
+                        const teleWX = nearest.wx;
+                        const teleWY = nearest.wy;
+
+                        // AoE stun + damage on arrival
+                        const stunDmg = this.shadowThrall.damage * 1.5;
+                        const stunNearby = this.enemyGrid ? this.enemyGrid.getNearby(teleWX, teleWY, 80) : this.enemies;
+                        for (const e of stunNearby) {
+                            const dx = e.wx - teleWX;
+                            const dy = e.wy - teleWY;
+                            if (dx * dx + dy * dy < 80 * 80) {
+                                e.health -= stunDmg;
+                                e.hitFlash = 0.3;
+                                e.frozen = true;
+                                e.frozenTimer = 0.5;
+                                const esx = this.player.x + (e.wx - this.worldX);
+                                const esy = this.player.y + (e.wy - this.worldY);
+                                this.addDamageNumber(esx, esy, Math.floor(stunDmg), '#bb66ff');
+                            }
+                        }
+                        this.spawnParticles(nearest.x, nearest.y, '#7700cc', 10);
+                        this.playSound('shoot');
+                        this.triggerScreenShake(4, 0.1);
+                    }
+
+                    ability.ready = false;
+                    ability.cooldown = ability.maxCooldown;
+                }
+            }
+            else if (abilityKey === 'e') {
+                // Monarch's Decree: Ascend thrall for 8s
+                if (this.shadowThrall && this.shadowThrall.alive) {
+                    this.monarchDecreeActive = true;
+                    this.monarchDecreeTimer = 8;
+                    this.monarchUntargetableTimer = 1;
+                    this.player.invincibleTime = Math.max(this.player.invincibleTime || 0, 1);
+
+                    this.shadowThrall.ascended = true;
+                    this.shadowThrall.ascendTimer = 8;
+                    this.shadowThrall.radius *= 1.3;
+                    this.recalcThrallStats();
+
+                    // Visual effects
+                    this.spawnParticles(this.shadowThrall.x, this.shadowThrall.y, '#7700cc', 15);
+                    this.spawnParticles(this.player.x, this.player.y, '#1a0033', 10);
+                    this.playSound('levelup');
+                    this.triggerScreenShake(8, 0.3);
+                    this.addDamageNumber(this.shadowThrall.x, this.shadowThrall.y - 30, '👑 ASCENDED!', '#bb66ff', { isText: true, scale: 1.5, lifetime: 2 });
+
+                    ability.ready = false;
+                    ability.cooldown = ability.maxCooldown;
+                }
+            }
+        }
     }
 
     updateActiveMinions(dt) {
@@ -8084,6 +8958,10 @@ class DotsSurvivor {
             // Reduce fire rate (faster shooting) by buff percentage
             effectiveFireRate = w.fireRate * (1 - this.starterMomentumBuff.buffFireRateMult);
         }
+        // Fire Sovereign: Pyre Momentum fire rate bonus
+        if (this.pyreMomentumBonus > 0) {
+            effectiveFireRate = effectiveFireRate * (1 - this.pyreMomentumBonus);
+        }
 
         if (now - w.lastFired < effectiveFireRate) return;
         w.lastFired = now;
@@ -8146,7 +9024,7 @@ class DotsSurvivor {
         for (let i = 0; i < totalBullets; i++) {
             const offset = (i - (totalBullets - 1) / 2) * 0.15;
             const a = baseAngle + offset;
-            this.projectiles.push({
+            const proj = {
                 x: this.player.x,
                 y: this.player.y,
                 vx: Math.cos(a) * w.speed,
@@ -8158,7 +9036,14 @@ class DotsSurvivor {
                 hitEnemies: [],
                 canExplode: this.bulletExplosion || false,
                 canFreeze: (this.freezeChance || 0) > 0
-            });
+            };
+            // Fire Sovereign: Enhanced homing fireballs
+            if (this.hasHomingFireballs) {
+                proj.isFireSovereign = true;
+                proj.homingStrength = this.homingStrength || 12;
+                proj.homingRange = this.homingRange || 500;
+            }
+            this.projectiles.push(proj);
         }
     }
 
@@ -8247,9 +9132,11 @@ class DotsSurvivor {
             let nearestEnemy = null, minDistSq = Infinity;
             const pwx = this.worldX + (p.x - this.player.x);
             const pwy = this.worldY + (p.y - this.player.y);
-            const nearbyHome = this.enemyGrid.getNearby(pwx, pwy, 500);
+            const searchRange = p.homingRange || 500;
+            const nearbyHome = this.enemyGrid.getNearby(pwx, pwy, searchRange);
             for (let ni = 0; ni < nearbyHome.length; ni++) {
                 const e = nearbyHome[ni];
+                if (e.health <= 0) continue; // Skip dead — retarget to alive enemies
                 const ddx = e.wx - pwx, ddy = e.wy - pwy;
                 const distSq = ddx * ddx + ddy * ddy;
                 if (distSq < minDistSq) { minDistSq = distSq; nearestEnemy = e; }
@@ -8261,8 +9148,8 @@ class DotsSurvivor {
                 const dx = sx - p.x, dy = sy - p.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > 0) {
-                    // Strong homing - turn toward target
-                    const homingStrength = 8; // Higher = faster turning
+                    // Per-projectile homing strength (Fire Sovereign uses 12, default 8)
+                    const homingStrength = p.homingStrength || 8;
                     const targetVx = (dx / dist) * this.weapons.bullet.speed;
                     const targetVy = (dy / dist) * this.weapons.bullet.speed;
                     // Lerp toward target velocity
@@ -8275,6 +9162,11 @@ class DotsSurvivor {
                         p.vy = (p.vy / currentSpeed) * this.weapons.bullet.speed;
                     }
                 }
+            }
+
+            // Fire Sovereign: fire trail particles
+            if (p.isFireSovereign && Math.random() < 0.3) {
+                this.spawnParticles(p.x, p.y, '#ff4400', 1);
             }
 
             p.x += p.vx * dt; p.y += p.vy * dt;
@@ -8298,9 +9190,10 @@ class DotsSurvivor {
                     // Crit Calculation - also check critRing item bonus
                     let damage = p.damage;
 
-                    // Fire Mage: Fire Amp boost (applies to fireballs)
-                    if (this.fireAmpActive && this.hasFireballs) {
-                        damage = Math.floor(damage * (this.fireAmpBoost || 1.5));
+                    // Fire Sovereign: Living Flame — bonus damage per burn stack on target
+                    if (this.livingFlameActive && e.sovereignBurn && e.sovereignBurn.stacks > 0) {
+                        const lfBonus = Math.min(e.sovereignBurn.stacks * (this.livingFlameBonusPerStack || 0.01), this.livingFlameMaxBonus || 0.10);
+                        damage = Math.floor(damage * (1 + lfBonus));
                     }
 
                     // Pack Tactics: +5% damage per wolf
@@ -8319,7 +9212,7 @@ class DotsSurvivor {
                     }
 
                     // Starter Passive: Damage vs Burning Enemies (Cinderbrand Focus evolved)
-                    if (this.starterDamageVsBurningMult > 0 && (e.burn || e.auraBurn || e.ringBurn || e.impBurn)) {
+                    if (this.starterDamageVsBurningMult > 0 && (e.burn || e.auraBurn || e.ringBurn || e.impBurn || (e.sovereignBurn && e.sovereignBurn.stacks > 0))) {
                         damage = Math.floor(damage * (1 + this.starterDamageVsBurningMult));
                     }
 
@@ -8346,6 +9239,14 @@ class DotsSurvivor {
 
                     e.health -= damage; e.hitFlash = 1;
                     p.hitEnemies.push(e);
+
+                    // Fire Sovereign: Apply burn stack on hit
+                    if (this.selectedClass?.id === 'fire_sovereign') {
+                        if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
+                        if (e.sovereignBurn.stacks < (this.maxBurnStacks || 10)) e.sovereignBurn.stacks++;
+                        e.sovereignBurn.timer = this.burnStackDuration || 4;
+                        e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1);
+                    }
 
                     // Track damage for stacking items
                     this.updateStackingItems('damage', damage);
@@ -8427,7 +9328,7 @@ class DotsSurvivor {
                     }
 
                     // ============ FLAME CASCADE: Every 3rd fireball splits into 3 ============
-                    if (this.augments.includes('flame_cascade') && this.hasFireballs && !p.isSplitProjectile) {
+                    if (this.augments.includes('flame_cascade') && (this.hasFireballs || this.hasHomingFireballs) && !p.isSplitProjectile) {
                         this.flameCascadeCounter = (this.flameCascadeCounter || 0) + 1;
                         if (this.flameCascadeCounter >= 3) {
                             this.flameCascadeCounter = 0;
@@ -8841,6 +9742,26 @@ class DotsSurvivor {
         while (this.player.xp >= this.player.xpToLevel) {
             this.player.xp -= this.player.xpToLevel;
             this.player.level++;
+
+            // Shadow Monarch: Thrall evolution on level-up
+            if (this.shadowThrall && this.shadowThrall.alive) {
+                const newTier = this.getThrallTier();
+                if (newTier.tier !== this.shadowThrall.tier) {
+                    this.shadowThrall.radius = newTier.radius;
+                    this.shadowThrall.hasAura = newTier.hasAura;
+                    this.shadowThrall.hasTaunt = newTier.hasTaunt;
+                    this.shadowThrall.aoeRadius = newTier.aoeRadius * (this.thrallAoEBonus || 1);
+                    this.shadowThrall.tier = newTier.tier;
+                    this.shadowThrall.tierName = newTier.name;
+                    this.shadowThrall.icon = newTier.icon;
+                    this.shadowThrall.color = newTier.color;
+                    this.recalcThrallStats();
+                    this.addDamageNumber(this.shadowThrall.x, this.shadowThrall.y - 20, `${newTier.icon} ${newTier.name}!`, '#7700cc', { isText: true, scale: 1.5, lifetime: 2 });
+                    this.spawnParticles(this.shadowThrall.x, this.shadowThrall.y, '#7700cc', 5);
+                } else {
+                    this.recalcThrallStats();
+                }
+            }
 
             // Spawn rate is now controlled by wave (getSpawnRateMultByWave), not by level
 
@@ -10342,41 +11263,290 @@ class DotsSurvivor {
             });
         }
 
-        // Fire Blast (Fire Mage Q ability) - Expanding orange ring
-        if (this.fireBlast) {
-            const fb = this.fireBlast;
-            ctx.beginPath();
-            ctx.arc(fb.x, fb.y, fb.radius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 136, 0, 0.8)';
-            ctx.lineWidth = 8;
-            ctx.shadowBlur = 20; ctx.shadowColor = '#ff4400';
-            ctx.stroke();
-            ctx.shadowBlur = 0;
+        // ========== SHADOW MONARCH RENDERING ==========
+        // Umbral Orbs (with sprite + eye tracking)
+        if (this.umbralOrbs) {
+            const orbSprite = SPRITE_CACHE['sm_orb'];
+            this.umbralOrbs.forEach(orb => {
+                const ox = this.player.x + Math.cos(orb.angle) * orb.radius;
+                const oy = this.player.y + Math.sin(orb.angle) * orb.radius;
+                ctx.save();
+                ctx.translate(ox, oy);
 
-            // Inner glow
-            ctx.beginPath();
-            ctx.arc(fb.x, fb.y, fb.radius * 0.95, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 200, 100, 0.4)';
-            ctx.lineWidth = 15;
-            ctx.stroke();
+                // Purple glow behind orb
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#7700cc';
+
+                if (orbSprite) {
+                    const spriteSize = orb.size * 3.5;
+                    ctx.drawImage(orbSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+                    ctx.shadowBlur = 0;
+
+                    // Eye that tracks nearest enemy (consumer boss style)
+                    const eyeSize = orb.size * 0.38;
+
+                    // Eye glow (purple for Shadow Monarch)
+                    ctx.beginPath();
+                    ctx.arc(0, 0, eyeSize * 1.3, 0, Math.PI * 2);
+                    const eyeGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize * 1.3);
+                    eyeGlow.addColorStop(0, 'rgba(119, 0, 204, 0.8)');
+                    eyeGlow.addColorStop(0.7, 'rgba(80, 0, 160, 0.4)');
+                    eyeGlow.addColorStop(1, 'rgba(50, 0, 100, 0)');
+                    ctx.fillStyle = eyeGlow;
+                    ctx.fill();
+
+                    // Main eye ellipse (purple)
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, eyeSize, eyeSize * 0.55, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = '#7700cc';
+                    ctx.fill();
+                    ctx.strokeStyle = '#bb66ff';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    // Pupil - tracks nearest enemy
+                    let pupilX = 0, pupilY = 0;
+                    if (orb.eyeDist > 0) {
+                        const pupilOffset = Math.min(eyeSize * 0.35, orb.eyeDist * 0.04);
+                        pupilX = (orb.eyeDirX / orb.eyeDist) * pupilOffset;
+                        pupilY = (orb.eyeDirY / orb.eyeDist) * pupilOffset * 0.55;
+                    }
+
+                    // Dark pupil
+                    ctx.beginPath();
+                    ctx.ellipse(pupilX, pupilY, eyeSize * 0.28, eyeSize * 0.18, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000';
+                    ctx.fill();
+
+                    // Inner highlight (makes eye look alive)
+                    ctx.beginPath();
+                    ctx.arc(pupilX - eyeSize * 0.1, pupilY - eyeSize * 0.06, eyeSize * 0.08, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(200, 150, 255, 0.7)';
+                    ctx.fill();
+                } else {
+                    // Fallback: circle with emoji
+                    ctx.beginPath();
+                    ctx.arc(0, 0, orb.size, 0, Math.PI * 2);
+                    ctx.fillStyle = orb.color;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.font = `${orb.size + 2}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🔮', 0, 0);
+                }
+
+                ctx.restore();
+            });
         }
 
-        // Fire Amp Zone (Fire Mage E ability) - Orange ground circle
-        if (this.fireAmpActive && this.fireAmpZone) {
-            const faz = this.fireAmpZone;
-            ctx.globalAlpha = 0.3;
-            ctx.beginPath();
-            ctx.arc(faz.x, faz.y, faz.radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#ff6600'; ctx.shadowBlur = 15; ctx.shadowColor = '#ff4400'; ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.globalAlpha = 1;
+        // Shadow Lances (laser beams)
+        if (this.shadowLances && this.shadowLances.length > 0) {
+            ctx.save();
+            for (const lance of this.shadowLances) {
+                const alpha = Math.min(1, lance.timer / 0.06);
+                const gradient = ctx.createLinearGradient(lance.sx, lance.sy, lance.ex, lance.ey);
+                gradient.addColorStop(0, `rgba(119, 0, 204, ${alpha})`);
+                gradient.addColorStop(1, `rgba(51, 0, 102, ${alpha * 0.7})`);
+                ctx.beginPath();
+                ctx.moveTo(lance.sx, lance.sy);
+                ctx.lineTo(lance.ex, lance.ey);
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#7700cc';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
 
-            // Border ring
+                // Impact flash at hit point
+                ctx.beginPath();
+                ctx.arc(lance.ex, lance.ey, 6 * alpha, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(187, 102, 255, ${alpha})`;
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // Shadow Thrall (with tier sprites)
+        if (this.shadowThrall) {
+            const thrall = this.shadowThrall;
+            if (thrall.alive) {
+                ctx.save();
+
+                // Ascended glow
+                if (thrall.ascended) {
+                    ctx.beginPath();
+                    ctx.arc(thrall.x, thrall.y, thrall.radius * 2.5, 0, Math.PI * 2);
+                    const pulse = 0.3 + Math.sin(this.gameTime / 150) * 0.15;
+                    ctx.fillStyle = `rgba(119, 0, 204, ${pulse})`;
+                    ctx.fill();
+                }
+
+                // Tier 4 aura indicator
+                if (thrall.hasAura) {
+                    ctx.beginPath();
+                    ctx.arc(thrall.x, thrall.y, 120, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(26, 0, 51, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Get tier sprite
+                const thrallSpriteKey = 'sm_thrall_t' + thrall.tier;
+                const thrallSprite = SPRITE_CACHE[thrallSpriteKey];
+
+                if (thrallSprite) {
+                    ctx.save();
+                    ctx.translate(thrall.x, thrall.y);
+
+                    // Purple shadow glow
+                    ctx.shadowBlur = thrall.ascended ? 30 : 15;
+                    ctx.shadowColor = thrall.ascended ? '#bb66ff' : '#7700cc';
+
+                    // Scale sprite based on tier + ascended
+                    const baseSize = thrall.radius * 4;
+                    const ascendScale = thrall.ascended ? 1.3 : 1;
+                    const spriteSize = baseSize * ascendScale;
+
+                    // Flip sprite based on movement direction (track last direction)
+                    if (!thrall._lastX) thrall._lastX = thrall.x;
+                    const movingRight = thrall.x >= thrall._lastX;
+                    thrall._lastX = thrall.x;
+
+                    if (!movingRight) {
+                        ctx.scale(-1, 1);
+                    }
+
+                    ctx.drawImage(thrallSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+                    ctx.shadowBlur = 0;
+                    ctx.restore();
+                } else {
+                    // Fallback: circle with icon
+                    ctx.beginPath();
+                    ctx.arc(thrall.x, thrall.y, thrall.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = thrall.color;
+                    ctx.shadowBlur = thrall.ascended ? 25 : 12;
+                    ctx.shadowColor = '#7700cc';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.font = `${thrall.radius + 8}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(thrall.icon, thrall.x, thrall.y);
+                }
+
+                // Health bar
+                const barW = thrall.radius * 3;
+                const barH = 4;
+                const barY = thrall.y - thrall.radius * 2 - 10;
+                const hp = thrall.health / thrall.maxHealth;
+                ctx.fillStyle = '#222';
+                ctx.fillRect(thrall.x - barW / 2, barY, barW, barH);
+                ctx.fillStyle = thrall.ascended ? '#bb66ff' : '#7700cc';
+                ctx.fillRect(thrall.x - barW / 2, barY, barW * hp, barH);
+
+                // Tier name
+                ctx.font = '9px Inter';
+                ctx.fillStyle = '#bb88ff';
+                ctx.textAlign = 'center';
+                ctx.fillText(thrall.tierName, thrall.x, barY - 4);
+
+                ctx.restore();
+            } else {
+                // Dead thrall ghost - use tier 1 sprite faded
+                const respawnTime = this.thrallInstantRespawn ? 0 : 3;
+                const remaining = Math.max(0, respawnTime - this.thrallRespawnTimer);
+                if (remaining > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.2 + Math.sin(this.gameTime / 200) * 0.1;
+                    const ghostSprite = SPRITE_CACHE['sm_thrall_t1'];
+                    if (ghostSprite) {
+                        const ghostSize = 40;
+                        ctx.drawImage(ghostSprite, this.player.x + 60 - ghostSize / 2, this.player.y - ghostSize / 2, ghostSize, ghostSize);
+                    } else {
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = '#7700cc';
+                        ctx.fillText('👻', this.player.x + 60, this.player.y);
+                    }
+                    ctx.font = '10px Inter';
+                    ctx.fillStyle = '#aa88cc';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`${remaining.toFixed(1)}s`, this.player.x + 60, this.player.y + 25);
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+                }
+            }
+        }
+
+        // Heat Conduction Pulse (Fire Sovereign passive)
+        if (this.heatConductionPulseVisual) {
+            const pulse = this.heatConductionPulseVisual;
+            ctx.save();
             ctx.beginPath();
-            ctx.arc(faz.x, faz.y, faz.radius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 100, 0, 0.7)';
-            ctx.lineWidth = 3;
+            ctx.arc(pulse.x, pulse.y, pulse.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 140, 0, ${0.6 * (pulse.timer / 0.5)})`;
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff6600';
             ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        // Solar Cataclysm Nova (Fire Sovereign E ability)
+        if (this.solarCataclysmActive && this.solarCataclysmVisual) {
+            const sc = this.solarCataclysmVisual;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(sc.x, sc.y, sc.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 68, 0, 0.9)';
+            ctx.lineWidth = 10;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#ff4400';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(sc.x, sc.y, sc.radius * 0.92, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 200, 50, 0.5)';
+            ctx.lineWidth = 20;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        // Burn stack indicators on enemies (Fire Sovereign)
+        if (this.selectedClass?.id === 'fire_sovereign') {
+            ctx.save();
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            for (const e of this.enemies) {
+                if (e.sovereignBurn && e.sovereignBurn.stacks > 0) {
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    ctx.fillStyle = '#ff6600';
+                    ctx.fillText(`🔥${e.sovereignBurn.stacks}`, sx, sy - e.radius - 8);
+                }
+            }
+            ctx.restore();
+        }
+
+        // Pyre Momentum indicator (Fire Sovereign passive)
+        if (this.pyreMomentumBonus > 0) {
+            ctx.save();
+            const barWidth = 40;
+            const barHeight = 4;
+            const barX = this.player.x - barWidth / 2;
+            const barY = this.player.y + this.player.radius + 8;
+            const fillPercent = this.pyreMomentumBonus / this.pyreMomentumMax;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            ctx.fillStyle = '#ff8800';
+            ctx.fillRect(barX, barY, barWidth * fillPercent, barHeight);
+            ctx.restore();
         }
 
         // Bone Pits (Necromancer Q ability) - Bone-colored slow zones
@@ -10882,8 +12052,10 @@ class DotsSurvivor {
         this.drawItems();
         // Abilities UI (bottom right) - Item abilities only (1, 2 keys)
         this.drawAbilities();
-        // Character abilities UI REMOVED - class abilities replaced with passives
-        // this.drawCharacterAbilities();
+        // Character abilities UI (Q/E)
+        this.drawCharacterAbilities();
+        // Dominion Stacks (Shadow Monarch)
+        this.drawDominionStacks();
         // Joystick
         if (this.isMobile && this.joystick.active) this.drawJoystick();
 
@@ -11438,13 +12610,13 @@ class DotsSurvivor {
         // FIRE MAGE AURA SYSTEM - REMOVED (user found it ugly)
         // The orange gradient fire effect has been disabled
         // ============================================
-        // if (this.selectedClass?.id === 'fire_mage') {
+        // if (this.selectedClass?.id === 'fire_sovereign') {
         //     this.drawFireMageAura(ctx, p.x, p.y, level);
         // }
 
         // Cosmetic Skin Glow Effect (for non-Fire Mage or additional effects)
         const skinColor = this.getCosmeticSkinColor();
-        if (skinColor && skinColor !== 'rainbow' && this.selectedClass?.id !== 'fire_mage') {
+        if (skinColor && skinColor !== 'rainbow' && this.selectedClass?.id !== 'fire_sovereign') {
             ctx.save();
             const pulse = Math.sin(this.gameTime * 3) * 0.2 + 0.4;
             ctx.beginPath();
@@ -11490,13 +12662,23 @@ class DotsSurvivor {
 
         // Determine which level sprite to use based on player level
         let levelSpriteKey;
-        if (level >= 30) levelSpriteKey = 'player_level30';
-        else if (level >= 25) levelSpriteKey = 'player_level25';
-        else if (level >= 20) levelSpriteKey = 'player_level20';
-        else if (level >= 15) levelSpriteKey = 'player_level15';
-        else if (level >= 10) levelSpriteKey = 'player_level10';
-        else if (level >= 5) levelSpriteKey = 'player_level5';
-        else levelSpriteKey = 'player_level1';
+        if (this.selectedClass?.id === 'shadow_monarch') {
+            // Shadow Monarch uses its own sprite progression
+            if (level >= 15) levelSpriteKey = 'sm_level15';
+            else if (level >= 10) levelSpriteKey = 'sm_level10';
+            else if (level >= 5) levelSpriteKey = 'sm_level5';
+            else levelSpriteKey = 'sm_level1';
+            // Fallback to main shadow monarch sprite if tier sprite not available
+            if (!SPRITE_CACHE[levelSpriteKey]) levelSpriteKey = 'player_shadow_monarch';
+        } else {
+            if (level >= 30) levelSpriteKey = 'player_level30';
+            else if (level >= 25) levelSpriteKey = 'player_level25';
+            else if (level >= 20) levelSpriteKey = 'player_level20';
+            else if (level >= 15) levelSpriteKey = 'player_level15';
+            else if (level >= 10) levelSpriteKey = 'player_level10';
+            else if (level >= 5) levelSpriteKey = 'player_level5';
+            else levelSpriteKey = 'player_level1';
+        }
 
         // Get the level-based sprite
         const playerSprite = SPRITE_CACHE[levelSpriteKey];
@@ -11914,15 +13096,18 @@ class DotsSurvivor {
         let qAbility, eAbility;
 
         // Get ability info based on class
-        if (classId === 'fire_mage') {
-            qAbility = { name: 'Fire Blast', icon: '💥', key: 'Q', color: '#ff4400' };
-            eAbility = { name: 'Fire Amp', icon: '🔥', key: 'E', color: '#ff6600' };
+        if (classId === 'fire_sovereign') {
+            qAbility = { name: 'Inferno Volley', icon: '💥', key: 'Q', color: '#ff4400' };
+            eAbility = { name: 'Solar Cataclysm', icon: '☀️', key: 'E', color: '#ff6600' };
         } else if (classId === 'shadow_master') {
             qAbility = { name: 'Shadow Cloak', icon: '👤', key: 'Q', color: '#6600aa' };
             eAbility = { name: 'Shadow Step', icon: '💨', key: 'E', color: '#9944ff' };
         } else if (classId === 'necromancer') {
             qAbility = { name: 'Bone Pit', icon: '🦴', key: 'Q', color: '#888866' };
             eAbility = { name: 'Soul Shield', icon: '🛡️', key: 'E', color: '#00cc66' };
+        } else if (classId === 'shadow_monarch') {
+            qAbility = { name: 'Shadow Command', icon: '👤', key: 'Q', color: '#7700cc' };
+            eAbility = { name: "Monarch's Decree", icon: '👑', key: 'E', color: '#1a0033' };
         } else {
             return; // No character abilities for this class
         }
@@ -11988,6 +13173,52 @@ class DotsSurvivor {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillText(abilityInfo.key, x + size / 2, y + size - 2);
+    }
+
+    // Shadow Monarch: Dominion Stacks HUD
+    drawDominionStacks() {
+        if (!this.shadowThrall || this.selectedClass?.id !== 'shadow_monarch') return;
+        const ctx = this.ctx;
+        const stacks = this.dominionStacks || 0;
+        const max = this.dominionMaxStacks || 10;
+
+        const x = 15;
+        const y = this.canvas.height - 90;
+        const barW = 100;
+        const barH = 8;
+
+        // Label
+        ctx.font = 'bold 10px Inter';
+        ctx.fillStyle = '#bb88ff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`🔗 Dominion ${stacks}/${max}`, x, y - 3);
+
+        // Background bar
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(x, y, barW, barH);
+
+        // Fill
+        const fillW = (stacks / max) * barW;
+        if (stacks > 0) {
+            const grad = ctx.createLinearGradient(x, y, x + fillW, y);
+            grad.addColorStop(0, '#5500aa');
+            grad.addColorStop(1, '#bb66ff');
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, fillW, barH);
+        }
+
+        // Border
+        ctx.strokeStyle = '#7700cc';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, barW, barH);
+
+        // Damage bonus text
+        if (stacks > 0) {
+            ctx.font = '9px Inter';
+            ctx.fillStyle = '#cc99ff';
+            ctx.fillText(`+${stacks * 2}% dmg`, x, y + barH + 11);
+        }
     }
 
     // ============================================

@@ -37,6 +37,14 @@ $mappings = @{
     "shadow_monarch_level5.png" = "characters/shadow-monarch-lv5.png"
     "shadow_monarch_level10.png" = "characters/shadow-monarch-lv10.png"
     "shadow_monarch_level15.png" = "characters/shadow-monarch-lv15.png"
+    "ShadowMonarch.png" = "characters/shadow-monarch-main.png"
+
+    # Shadow Monarch - Orb & Thrall Sprites
+    "ShadowMonarchEye.png" = "minions/sm-orb.png"
+    "Tier1ShadowMonster.png" = "minions/sm-thrall-t1.png"
+    "Tier2ShadowMonster.png" = "minions/sm-thrall-t2.png"
+    "Tier3ShadowMonster.png" = "minions/sm-thrall-t3.png"
+    "Tier4ShadowMonster.png" = "minions/sm-thrall-t4.png"
     
     # Characters - Necromancer
     "Standing-removebg-preview.png" = "characters/necromancer-idle.png"

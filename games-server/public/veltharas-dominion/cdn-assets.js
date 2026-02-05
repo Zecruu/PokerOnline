@@ -31,6 +31,7 @@ const CDN_ASSETS = {
             lv25: 'characters/fire-mage-lv25.png',    // Level6Mage.png
         },
         shadowMonarch: {
+            main: 'characters/shadow-monarch-main.png',
             lv1: 'characters/shadow-monarch-lv1.png',
             lv5: 'characters/shadow-monarch-lv5.png',
             lv10: 'characters/shadow-monarch-lv10.png',
@@ -70,6 +71,11 @@ const CDN_ASSETS = {
         wolfRun: 'minions/wolf-run.png',
         wolfRunAlt: 'minions/wolf-run-alt.png',
         wolfAttack: 'minions/wolf-attack.png',
+        smOrb: 'minions/sm-orb.png',
+        smThrallT1: 'minions/sm-thrall-t1.png',
+        smThrallT2: 'minions/sm-thrall-t2.png',
+        smThrallT3: 'minions/sm-thrall-t3.png',
+        smThrallT4: 'minions/sm-thrall-t4.png',
     },
 
     // ========== EFFECTS & PROJECTILES ==========
