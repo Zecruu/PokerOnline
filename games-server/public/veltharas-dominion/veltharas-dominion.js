@@ -64,6 +64,27 @@ class SpatialGrid {
     }
 }
 
+// ============ ENEMY OBJECT POOL ============
+class EnemyPool {
+    constructor(maxSize = 300) {
+        this._pool = [];
+        this._maxSize = maxSize;
+    }
+    acquire() {
+        return this._pool.length > 0 ? this._pool.pop() : null;
+    }
+    release(enemy) {
+        if (this._pool.length < this._maxSize) this._pool.push(enemy);
+    }
+    clear() { this._pool.length = 0; }
+    get size() { return this._pool.length; }
+}
+
+// ============ LOD CONSTANTS ============
+const LOD_TIER_0_DIST = 800;   // Full detail
+const LOD_TIER_1_DIST = 1500;  // Reduced detail (sprite/circle, update every 2nd frame)
+// Beyond 1500 = Tier 2 (tiny circle, update every 4th frame)
+
 // CloudFront CDN base path for all assets
 const SPRITE_BASE_PATH = '';
 
@@ -2852,6 +2873,7 @@ class DotsSurvivor {
         // Enemies
         this.enemies = [];
         this.enemyGrid = new SpatialGrid(150);
+        this.enemyPool = new EnemyPool(300);
         this.enemySpawnRate = 1200;
         this.lastEnemySpawn = 0;
 
@@ -4076,6 +4098,9 @@ class DotsSurvivor {
         if (this.selectedClass.bonuses.fireRate) this.weapons.bullet.fireRate = Math.floor(this.weapons.bullet.fireRate * this.selectedClass.bonuses.fireRate);
         if (this.selectedClass.bonuses.damage) this.weapons.bullet.damage = Math.floor(this.weapons.bullet.damage * this.selectedClass.bonuses.damage);
 
+        // Release all enemies back to pool before clearing
+        for (let i = 0; i < this.enemies.length; i++) this._releaseEnemy(this.enemies[i]);
+        this.enemyPool.clear();
         this.enemies = []; this.projectiles = []; this.pickups = []; this.particles = []; this.damageNumbers = [];
         this.skulls = []; this.minions = []; this.items = {};
         this.skullElementIndex = 0; this.skullCycleTimer = 0;
@@ -4927,8 +4952,10 @@ class DotsSurvivor {
                     this.spawnParticles(sx, sy, '#8800ff', 12);
                     this.spawnParticles(sx, sy, '#ff00ff', 6);
 
-                    // Remove consumed enemy
+                    // Remove consumed enemy (release to pool)
+                    const consumed = this.enemies[i];
                     this.enemies[i] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
+                    this._releaseEnemy(consumed);
 
                     // Announce growth every 5 consumed
                     if (consumer.consumedCount % 5 === 0) {
@@ -5114,7 +5141,8 @@ class DotsSurvivor {
             const esy = this.player.y + (e.wy - this.worldY);
             this.spawnParticles(esx, esy, '#8800ff', 5);
         }
-        // Remove all enemies
+        // Release all enemies back to pool, then clear
+        for (let i = 0; i < this.enemies.length; i++) this._releaseEnemy(this.enemies[i]);
         this.enemies = [];
 
         // Announcement
@@ -8986,20 +9014,17 @@ class DotsSurvivor {
         this.enemies.push(this.createEnemy(wx, wy, type));
     }
 
-    createEnemy(wx, wy, type, isSplit = false, isHorde = false) {
-        // Dynamic difficulty tier based on wave number
-        const difficultyTier = getDifficultyTier(this.wave);
+    // ============ ENEMY POOL HELPERS ============
+    _releaseEnemy(enemy) {
+        if (!enemy || enemy.isBoss) return;
+        this.enemyPool.release(enemy);
+    }
 
-        // Wave-based scaling using stepped curve:
-        // Waves 1-9: +5% per wave, Waves 10-15: +16% per wave, Waves 16+: +24% per wave
+    createEnemy(wx, wy, type, isSplit = false, isHorde = false) {
+        const difficultyTier = getDifficultyTier(this.wave);
         const waveMult = getWaveScalingMult(this.wave);
 
         const data = {
-            // BALANCED for early game - lower base damage, scales with wave/difficulty
-            // Swarm is now the default enemy from wave 1 - fast spawns, surrounds player
-            // All damage values +10 for better early game challenge
-            // Early game enemies have reduced speed so they don't overwhelm the player
-            // Small enemies made bigger for better visibility (radius increases)
             swarm: { radius: 20, speed: 75, health: 100, damage: 25, xp: 2, color: '#ff66aa', icon: '' },
             basic: { radius: 18, speed: 65, health: 150, damage: 35, xp: 6, color: '#ff4466', icon: '' },
             runner: { radius: 20, speed: 120, health: 200, damage: 25, xp: 5, color: '#00ffff', icon: '💨' },
@@ -9007,77 +9032,80 @@ class DotsSurvivor {
             splitter: { radius: 22, speed: 85, health: 750, damage: 40, xp: 15, color: '#44ddff', icon: '💧', splits: true },
             bomber: { radius: 20, speed: 105, health: 375, damage: 30, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
             mini: { radius: 12, speed: 140, health: 125, damage: 22, xp: 3, color: '#44ddff', icon: '' },
-            // New enemy types
             sticky: { radius: 18, speed: 120, health: 250, damage: 20, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
             ice: { radius: 32, speed: 55, health: 1000, damage: 50, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
             poison: { radius: 18, speed: 90, health: 400, damage: 30, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
-            // Wave 5+ enemy types
             goblin: { radius: 24, speed: 115, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
             necromancer: { radius: 22, speed: 40, health: 600, damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
             necro_sprite: { radius: 14, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
             miniconsumer: { radius: 24, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true },
-            // Wave 6+ fire enemy - spawns Fire Zone on death
             cinder_wretch: { radius: 18, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true },
-            // NEW MOBS - Custom canvas animations
             wraith: { radius: 22, speed: 100, health: 450, damage: 40, xp: 15, color: '#8866cc', icon: '', isWraith: true },
             magma_crawler: { radius: 30, speed: 40, health: 2500, damage: 80, xp: 30, color: '#ff4400', icon: '', isMagmaCrawler: true },
             leech: { radius: 20, speed: 70, health: 800, damage: 15, xp: 20, color: '#44cc44', icon: '', isLeech: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
-        // Horde enemies get +50% health and 40% slower speed (easier to deal with)
         const hordeHealthMult = isHorde ? 1.5 : 1;
         const hordeSpeedMult = isHorde ? 0.6 : 1;
-
-        // POST WAVE 15: Enemies get bigger and stronger after Consumer boss
-        const lateGameSizeMult = this.wave >= 15 ? 1.5 : 1; // 50% bigger after wave 15
-        const lateGameStatMult = this.wave >= 15 ? 1.5 : 1; // 50% more HP/damage after wave 15
-
-        // Unique enemy ID for damage number stacking
+        const lateGameSizeMult = this.wave >= 15 ? 1.5 : 1;
+        const lateGameStatMult = this.wave >= 15 ? 1.5 : 1;
         if (!this.enemyIdCounter) this.enemyIdCounter = 0;
         this.enemyIdCounter++;
-
-        // Apply difficulty tier multipliers to health and damage
         const tierHealthMult = difficultyTier.healthMult;
         const tierDamageMult = difficultyTier.damageMult;
 
-        return {
-            wx, wy, type,
-            id: this.enemyIdCounter, // Unique ID for damage stacking
-            radius: Math.floor(data.radius * sizeMult * lateGameSizeMult),
-            baseRadius: Math.floor(data.radius * sizeMult * lateGameSizeMult), // For mini consumer growth
-            speed: Math.floor(data.speed * GAME_SETTINGS.enemySpeedMult * hordeSpeedMult),
-            health: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult * tierHealthMult),
-            maxHealth: Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult * tierHealthMult),
-            damage: Math.floor(data.damage * waveMult * GAME_SETTINGS.enemyDamageMult * lateGameStatMult * tierDamageMult),
-            xp: Math.floor(data.xp * waveMult),
-            color: data.color, icon: data.icon || '', hitFlash: 0, isBoss: false,
-            splits: data.splits || false,
-            explodes: data.explodes || false,
-            stickies: data.stickies || false,
-            freezesOnDeath: data.freezesOnDeath || false,
-            isHorde: isHorde,
-            attackCooldown: 0, // For attack speed system
-            // New enemy behaviors
-            isGoblin: data.isGoblin || false,
-            stolenXP: 0, // XP stolen by goblin
-            isNecromancer: data.isNecromancer || false,
-            lastSpriteSpawn: 0, // Timer for necromancer sprite spawning
-            isMiniConsumer: data.isMiniConsumer || false,
-            absorbedKills: 0, // Kills absorbed by mini consumer
-            passive: data.passive || false, // Passive enemies don't chase player
-            spawnsFireZone: data.spawnsFireZone || false, // Cinder Wretch spawns Fire Zone on death
-            // New mob types
-            isWraith: data.isWraith || false,
-            wraithPhaseTimer: 0,
-            wraithPhased: false,
-            wraithPhaseDir: 1,
-            isMagmaCrawler: data.isMagmaCrawler || false,
-            magmaTrailTimer: 0,
-            isLeech: data.isLeech || false,
-            leechAttached: false,
-            leechDrainTimer: 0
-        };
+        // POOL: Reuse existing object or create fresh
+        const e = this.enemyPool.acquire() || {};
+
+        // Assign all properties (resets everything for recycled objects)
+        e.wx = wx; e.wy = wy; e.type = type;
+        e.id = this.enemyIdCounter;
+        e.radius = Math.floor(data.radius * sizeMult * lateGameSizeMult);
+        e.baseRadius = e.radius;
+        e.speed = Math.floor(data.speed * GAME_SETTINGS.enemySpeedMult * hordeSpeedMult);
+        e.health = Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult * tierHealthMult);
+        e.maxHealth = e.health;
+        e.damage = Math.floor(data.damage * waveMult * GAME_SETTINGS.enemyDamageMult * lateGameStatMult * tierDamageMult);
+        e.xp = Math.floor(data.xp * waveMult);
+        e.color = data.color; e.icon = data.icon || '';
+        e.hitFlash = 0; e.isBoss = false;
+        e.splits = data.splits || false;
+        e.explodes = data.explodes || false;
+        e.stickies = data.stickies || false;
+        e.freezesOnDeath = data.freezesOnDeath || false;
+        e.isHorde = isHorde;
+        e.attackCooldown = 0;
+        e.isGoblin = data.isGoblin || false;
+        e.stolenXP = 0;
+        e.isNecromancer = data.isNecromancer || false;
+        e.lastSpriteSpawn = 0;
+        e.isMiniConsumer = data.isMiniConsumer || false;
+        e.absorbedKills = 0;
+        e.passive = data.passive || false;
+        e.spawnsFireZone = data.spawnsFireZone || false;
+        e.isWraith = data.isWraith || false;
+        e.wraithPhaseTimer = 0; e.wraithPhased = false; e.wraithPhaseDir = 1;
+        e.isMagmaCrawler = data.isMagmaCrawler || false;
+        e.magmaTrailTimer = 0;
+        e.isLeech = data.isLeech || false;
+        e.leechAttached = false; e.leechDrainTimer = 0;
+        // Reset dynamic properties from gameplay
+        e.frozen = false; e.frozenTimer = 0;
+        e.invulnerable = false;
+        e.bonePitSlow = false; e.bonePitSlowStrength = 0; e.bonePitSlowTimer = 0;
+        e.orbMarked = false; e.orbMarkTimer = 0;
+        e.tauntTimer = 0; e.tauntTarget = null;
+        e.impBurn = null; e.sovereignBurn = null;
+        e.isHordeEnemy = false; e.isElite = false;
+        e.wanderAngle = 0; e.wanderTimer = 0;
+        e.skullHitId = 0;
+        e.hitBySolarCataclysm = false;
+        e._crimsonCatHit = false;
+        e.isPoisonous = data.isPoisonous || false;
+        e._lod = 0;
+
+        return e;
     }
 
     updateEnemies(dt) {
@@ -9126,6 +9154,24 @@ class DotsSurvivor {
             const dx = this.worldX - e.wx, dy = this.worldY - e.wy;
             const d = Math.sqrt(dx * dx + dy * dy);
 
+            // LOD tier assignment
+            e._lod = e.isBoss ? 0 : (d < LOD_TIER_0_DIST ? 0 : (d < LOD_TIER_1_DIST ? 1 : 2));
+
+            // LOD frame skip: distant enemies get simplified updates
+            if (e._lod > 0) {
+                const skipMask = e._lod === 1 ? 1 : 3; // every 2nd or 4th frame
+                if ((this._frameCount & skipMask) !== (e.id & skipMask)) {
+                    // Minimal update: simple movement toward player only
+                    if (!e.passive && d > 0) {
+                        e.wx += (dx / d) * e.speed * dt;
+                        e.wy += (dy / d) * e.speed * dt;
+                    }
+                    if (e.hitFlash > 0) e.hitFlash -= dt * 5;
+                    if (e.attackCooldown > 0) e.attackCooldown -= dt;
+                    continue;
+                }
+            }
+
             // Bone Pit slow effect (Necromancer Q ability) - 60% slow
             let speedMult = 1;
             if (e.bonePitSlow) {
@@ -9166,8 +9212,8 @@ class DotsSurvivor {
             }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
 
-            // GOBLIN: Steal XP from nearby orbs
-            if (e.isGoblin) {
+            // GOBLIN: Steal XP from nearby orbs (skip at LOD 1+)
+            if (e.isGoblin && e._lod === 0) {
                 for (let p = this.pickups.length - 1; p >= 0; p--) {
                     const pickup = this.pickups[p];
                     if (pickup.type === 'xp') {
@@ -9185,8 +9231,8 @@ class DotsSurvivor {
                 }
             }
 
-            // WRAITH: Phase in/out (untargetable 50% of time)
-            if (e.isWraith) {
+            // WRAITH: Phase in/out (untargetable 50% of time) - skip at LOD 1+
+            if (e.isWraith && e._lod === 0) {
                 e.wraithPhaseTimer += dt;
                 if (e.wraithPhaseTimer >= 2.5) { // Toggle phase every 2.5s
                     e.wraithPhaseTimer = 0;
@@ -9207,8 +9253,8 @@ class DotsSurvivor {
                 }
             }
 
-            // MAGMA CRAWLER: Leaves fire trail, slow and tanky
-            if (e.isMagmaCrawler) {
+            // MAGMA CRAWLER: Leaves fire trail, slow and tanky - skip at LOD 1+
+            if (e.isMagmaCrawler && e._lod === 0) {
                 e.magmaTrailTimer += dt;
                 if (e.magmaTrailTimer >= 0.5) { // Drop fire zone every 0.5s
                     e.magmaTrailTimer = 0;
@@ -9221,8 +9267,8 @@ class DotsSurvivor {
                 }
             }
 
-            // LEECH: Attach to player and drain HP/s
-            if (e.isLeech && !e.leechAttached) {
+            // LEECH: Attach to player and drain HP/s (skip attach check at LOD 1+)
+            if (e.isLeech && !e.leechAttached && e._lod === 0) {
                 // Check if close enough to attach
                 if (d < e.radius + this.player.radius + 5) {
                     e.leechAttached = true;
@@ -9249,8 +9295,8 @@ class DotsSurvivor {
                 }
             }
 
-            // NECROMANCER: Spawn sprites periodically
-            if (e.isNecromancer) {
+            // NECROMANCER: Spawn sprites periodically - skip at LOD 1+
+            if (e.isNecromancer && e._lod === 0) {
                 e.lastSpriteSpawn += dt;
                 if (e.lastSpriteSpawn >= 3) { // Spawn sprite every 3 seconds
                     e.lastSpriteSpawn = 0;
@@ -9877,7 +9923,9 @@ class DotsSurvivor {
                 lifetime: 3, color: '#ffd700', scale: 1.8
             });
         }
+        const removed = this.enemies[index];
         this.enemies[index] = this.enemies[this.enemies.length - 1]; this.enemies.pop();
+        this._releaseEnemy(removed);
     }
 
     dropItem(wx, wy) {
@@ -14209,6 +14257,48 @@ class DotsSurvivor {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
+
+            // ======== LOD SIMPLIFIED RENDERING ========
+            if (e._lod >= 2 && !e.isBoss) {
+                // Tier 2: tiny colored circle only
+                ctx.beginPath();
+                ctx.arc(sx, sy, Math.max(e.radius * 0.6, 4), 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                ctx.fill();
+                return;
+            }
+            if (e._lod === 1 && !e.isBoss) {
+                // Tier 1: sprite or circle, no custom canvas effects
+                const spriteType = e.type;
+                const sprite = SPRITE_CACHE[spriteType];
+                if (sprite) {
+                    const size = e.radius * 2;
+                    ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
+                    if (e.hitFlash > 0) {
+                        ctx.save();
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = 0.4;
+                        ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = 1;
+                        ctx.restore();
+                    }
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                    ctx.fill();
+                }
+                // Simple HP bar for tanks/splitters only
+                if (e.type === 'tank' || e.type === 'splitter') {
+                    const bw = e.radius * 1.5;
+                    ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 4);
+                    ctx.fillStyle = '#ff4444'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 4);
+                }
+                return;
+            }
+
+            // ======== LOD 0: FULL DETAIL RENDERING ========
 
             // ======== CUSTOM CANVAS-DRAWN MOBS ========
 
