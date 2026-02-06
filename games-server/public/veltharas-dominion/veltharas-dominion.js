@@ -1091,9 +1091,9 @@ function initSprites() {
     for (const [anim, path] of Object.entries(PLAYER_SPRITES)) {
         loadSprite('player_' + anim, path, true);
     }
-    // Load player level progression sprites (via CDN)
+    // Load player level progression sprites (via CDN, v2 cache bust)
     for (const [level, path] of Object.entries(PLAYER_LEVEL_SPRITES)) {
-        loadSprite('player_' + level, getAssetUrl(path), true);
+        loadSprite('player_' + level, getAssetUrl(path) + '?v=2', true);
     }
     // Load wolf sprites (standing, running1, running2, biting)
     for (const [anim, path] of Object.entries(WOLF_SPRITES)) {
@@ -1148,13 +1148,13 @@ function initSprites() {
     for (const [type, path] of Object.entries(CHEST_SPRITES)) {
         loadSprite('chest_' + type, path, true);
     }
-    // Load Shadow Monarch sprites (via CloudFront CDN)
+    // Load Shadow Monarch sprites (via CloudFront CDN, v2 cache bust for new sprites)
     for (const [level, path] of Object.entries(SHADOW_MONARCH_SPRITES)) {
-        loadSprite('sm_' + level, getAssetUrl(path), true);
+        loadSprite('sm_' + level, getAssetUrl(path) + '?v=2', true);
     }
     // Void Blade (Azura) sprites
     for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
-        loadSprite('vb_' + level, getAssetUrl(path), true);
+        loadSprite('vb_' + level, getAssetUrl(path) + '?v=2', true);
     }
     // Shadow Monarch orb sprite
     loadSprite('sm_orb', getAssetUrl('minions/sm-orb.png'), true);
@@ -1172,10 +1172,8 @@ if (document.readyState === 'loading') {
     initSprites();
 }
 
-// Boss name generators
-const BOSS_PREFIXES = ['Dark', 'Doom', 'Blood', 'Shadow', 'Chaos', 'Death', 'Void', 'Dread', 'Grim', 'Infernal'];
-const BOSS_NAMES = ['Destroyer', 'Eater', 'Bringer', 'Lord', 'King', 'Master', 'Titan', 'Overlord', 'Reaper', 'Slayer'];
-const BOSS_SUFFIXES = ['of Pain', 'of Souls', 'the Cruel', 'the Mighty', 'Supreme', 'Eternal', 'Unstoppable', 'the Devourer'];
+// Boss name generators (legacy - kept for compatibility)
+// New boss system uses unique named event bosses: Plague Weaver, Consumer, Rift Lord
 
 // Class definitions
 // Legacy class (kept for backwards compatibility)
@@ -3205,8 +3203,7 @@ class DotsSurvivor {
             { type: 'sticky', name: 'Sticky', desc: 'Slows you on hit', color: '#88ff00' },
             { type: 'ice', name: 'Ice', desc: 'Creates slowing zone', color: '#00ddff' },
             { type: 'poison', name: 'Poison', desc: 'Deals damage over time', color: '#44ff44' },
-            { type: 'boss', name: 'Boss', desc: 'Powerful, spawns hordes', color: '#ff0044' },
-            { type: 'general', name: 'General', desc: 'Demon King - very strong', color: '#ff0000' }
+            { type: 'consumer', name: 'Consumer', desc: 'Wave 15 - Devours enemies', color: '#8800ff' }
         ];
 
         grid.innerHTML = enemies.map(e => {
@@ -3966,12 +3963,12 @@ class DotsSurvivor {
         this.perks = [];
         this.availablePerks = [...LEGENDARY_PERKS];
 
-        // Boss tracking
+        // Boss tracking (event boss system)
         this.bossesSpawnedThisWave = 0;
-        this.generalSpawnedThisWave = false;
         this.lastBossWave = 0;
-        this.bossStatMultiplier = 1.0;
         this.consumerSpawned = false;
+        this.plagueWeaverSpawned = false;
+        this.riftLordSpawned = false;
         this.bossGracePeriod = 0; // Seconds of reduced spawns after boss appears
 
         // Health packs (rare spawns)
@@ -4418,17 +4415,27 @@ class DotsSurvivor {
         }
     }
 
-    spawnConsumer() {
+    spawnConsumer(scaleMult = 1) {
         // Consumer boss - black hole that consumes other enemies to grow stronger
         const angle = Math.random() * Math.PI * 2;
         const dist = 400 + Math.random() * 100;
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
+        // Clear 60% of non-boss enemies for breathing room
+        const nonBoss = this.enemies.filter(e => !e.isBoss);
+        const toRemove = Math.floor(nonBoss.length * 0.6);
+        for (let i = 0; i < toRemove; i++) {
+            const idx = this.enemies.findIndex(e => !e.isBoss);
+            if (idx !== -1) this.enemies.splice(idx, 1);
+        }
+        this.bossGracePeriod = 5;
+
         // Unique enemy ID
         if (!this.enemyIdCounter) this.enemyIdCounter = 0;
         this.enemyIdCounter++;
 
+        const baseHP = Math.floor(175000 * scaleMult);
         const consumer = {
             wx, wy,
             id: this.enemyIdCounter, // Unique ID for damage stacking
@@ -4441,11 +4448,11 @@ class DotsSurvivor {
             spriteSize: 300,       // Sprite render size (grows when consuming)
             baseSpriteSize: 300,
             speed: 18, // Slightly slower - menacing crawl
-            health: 175000,        // SCALED 5x (halved from 10x)
-            maxHealth: 175000,
-            baseHealth: 175000,
-            damage: 300, // SCALED 5x - High contact damage
-            xp: 3000,
+            health: baseHP,
+            maxHealth: baseHP,
+            baseHealth: baseHP,
+            damage: Math.floor(300 * scaleMult),
+            xp: Math.floor(3000 * scaleMult),
             color: '#8800ff',
             hitFlash: 0,
             consumedCount: 0,
@@ -4776,6 +4783,947 @@ class DotsSurvivor {
         this.player.kills++;
     }
 
+    // =============================================
+    // THE PLAGUE WEAVER - Wave 10 Event Boss
+    // =============================================
+    spawnPlagueWeaver(scaleMult = 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 400 + Math.random() * 100;
+        const wx = this.worldX + Math.cos(angle) * dist;
+        const wy = this.worldY + Math.sin(angle) * dist;
+
+        // Clear 60% of non-boss enemies
+        const nonBoss = this.enemies.filter(e => !e.isBoss);
+        const toRemove = Math.floor(nonBoss.length * 0.6);
+        for (let i = 0; i < toRemove; i++) {
+            const idx = this.enemies.findIndex(e => !e.isBoss);
+            if (idx !== -1) this.enemies.splice(idx, 1);
+        }
+        this.bossGracePeriod = 5;
+
+        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
+        this.enemyIdCounter++;
+
+        const baseHP = Math.floor(80000 * scaleMult);
+        const pw = {
+            wx, wy,
+            id: this.enemyIdCounter,
+            type: 'plague_weaver',
+            name: 'THE PLAGUE WEAVER',
+            isPlagueWeaver: true,
+            isBoss: true,
+            radius: 80,
+            speed: 0, // Stationary
+            health: baseHP,
+            maxHealth: baseHP,
+            damage: Math.floor(100 * scaleMult),
+            xp: Math.floor(2500 * scaleMult),
+            color: '#00cc44',
+            hitFlash: 0,
+            critResistance: 0.80,
+            attackCooldown: 0,
+            lifeTimer: 0,
+            maxLifeTime: 75, // 1:15
+            phase: 1,
+            phaseTimer: 0,
+            // Toxic zones
+            toxicZones: [],
+            maxToxicZones: 6,
+            toxicZoneTimer: 0,
+            // Tentacles
+            tentacles: [],
+            maxTentacles: 3,
+            tentacleTimer: 0,
+            // Spore burst
+            sporeProjectiles: [],
+            sporeBurstTimer: 0,
+            sporeBurstCooldown: 8,
+            // Visuals
+            pulseTimer: 0,
+            bodyAngle: 0,
+            tendrilAngles: [0, Math.PI * 0.66, Math.PI * 1.33],
+        };
+
+        this.enemies.push(pw);
+        this.playBossMusic();
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 120,
+            value: '🦠 THE PLAGUE WEAVER STIRS 🦠',
+            lifetime: 4, color: '#00ff44', scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 70,
+            value: '🔥 SURVIVE FOR 1:15! 🔥',
+            lifetime: 4, color: '#ff4400', scale: 2
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 30,
+            value: 'Avoid the toxic zones...',
+            lifetime: 4, color: '#88ff88', scale: 1.2
+        });
+    }
+
+    updatePlagueWeaver(dt) {
+        const pw = this.enemies.find(e => e.isPlagueWeaver);
+        if (!pw) return;
+
+        pw.lifeTimer += dt;
+        pw.phaseTimer += dt;
+        pw.pulseTimer += dt;
+        pw.bodyAngle += dt * 0.5;
+
+        // Phase transitions
+        if (pw.lifeTimer >= 50 && pw.phase < 3) {
+            pw.phase = 3;
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '☠️ PANDEMIC PHASE! ☠️', lifetime: 2.5, color: '#ff0000', scale: 2
+            });
+        } else if (pw.lifeTimer >= 25 && pw.phase < 2) {
+            pw.phase = 2;
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '⚠️ CORRUPTION PHASE! ⚠️', lifetime: 2.5, color: '#ffcc00', scale: 1.8
+            });
+        }
+
+        // Warnings
+        if (pw.lifeTimer >= 55 && pw.lifeTimer < 55 + dt) {
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '⚠️ PLAGUE WEAVER UNSTABLE! 20 SECONDS! ⚠️',
+                lifetime: 3, color: '#ff4400', scale: 1.5
+            });
+        }
+        if (pw.lifeTimer >= 65 && pw.lifeTimer < 65 + dt) {
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '💀 PLAGUE WEAVER CRITICAL! 10 SECONDS! 💀',
+                lifetime: 3, color: '#ff0000', scale: 2
+            });
+        }
+
+        // Timer expired - boss retreats
+        if (pw.lifeTimer >= pw.maxLifeTime) {
+            this.plagueWeaverRetreat(pw);
+            return;
+        }
+
+        // ---- TOXIC ZONE SPAWNING ----
+        const zoneInterval = pw.phase === 1 ? 5 : (pw.phase === 2 ? 3 : 2);
+        pw.toxicZoneTimer += dt;
+        if (pw.toxicZoneTimer >= zoneInterval && pw.toxicZones.length < pw.maxToxicZones) {
+            pw.toxicZoneTimer = 0;
+            // Spawn zone near player
+            const zAngle = Math.random() * Math.PI * 2;
+            const zDist = 80 + Math.random() * 200;
+            pw.toxicZones.push({
+                wx: this.worldX + Math.cos(zAngle) * zDist,
+                wy: this.worldY + Math.sin(zAngle) * zDist,
+                radius: 40,
+                maxRadius: 80 + Math.random() * 30,
+                growRate: 8,
+                damage: pw.phase === 3 ? pw.damage * 0.6 : pw.damage * 0.3,
+                lifetime: 0,
+                bubbleTimer: 0,
+            });
+            // Spawn warning
+            const sx = this.player.x + Math.cos(zAngle) * zDist;
+            const sy = this.player.y + Math.sin(zAngle) * zDist;
+            this.spawnParticles(sx, sy, '#00ff44', 8);
+        }
+
+        // Update toxic zones - grow, damage player
+        for (let i = pw.toxicZones.length - 1; i >= 0; i--) {
+            const zone = pw.toxicZones[i];
+            zone.lifetime += dt;
+            zone.bubbleTimer += dt;
+            // Grow to max
+            if (zone.radius < zone.maxRadius) {
+                zone.radius = Math.min(zone.maxRadius, zone.radius + zone.growRate * dt);
+            }
+            // Check player collision
+            const zdx = this.worldX - zone.wx;
+            const zdy = this.worldY - zone.wy;
+            const zdist = Math.sqrt(zdx * zdx + zdy * zdy);
+            if (zdist < zone.radius + this.player.radius && this.player.invincibleTime <= 0) {
+                const zoneDmg = zone.damage * dt;
+                this.player.health -= zoneDmg;
+                this.player.invincibleTime = 0.3;
+                this.combatTimer = 0;
+                if (Math.random() < 0.3) {
+                    this.damageNumbers.push({
+                        x: this.player.x, y: this.player.y - 20,
+                        value: -Math.ceil(zoneDmg), lifetime: 0.8, color: '#44ff00'
+                    });
+                }
+                this.spawnParticles(this.player.x, this.player.y, '#00cc44', 2);
+            }
+        }
+
+        // ---- TENTACLE SWEEPS ----
+        const activeTentacles = pw.phase === 1 ? 1 : (pw.phase === 2 ? 2 : 3);
+        pw.tentacleTimer += dt;
+        const sweepInterval = pw.phase === 3 ? 3 : (pw.phase === 2 ? 4 : 6);
+
+        // Initialize tentacles if needed
+        while (pw.tentacles.length < activeTentacles) {
+            pw.tentacles.push({
+                angle: Math.random() * Math.PI * 2,
+                sweepSpeed: (1.5 + pw.phase * 0.5) * (Math.random() > 0.5 ? 1 : -1),
+                length: 250 + pw.phase * 30,
+                width: 12 + pw.phase * 3,
+                active: true,
+                warningTimer: 0,
+                sweeping: false,
+                sweepDuration: 0,
+                cooldown: 0,
+                damage: pw.damage * 0.5,
+            });
+        }
+
+        for (const tent of pw.tentacles) {
+            if (!tent.active) continue;
+            tent.cooldown -= dt;
+
+            if (!tent.sweeping && tent.cooldown <= 0) {
+                // Start telegraph
+                tent.warningTimer += dt;
+                if (tent.warningTimer >= 0.8) {
+                    tent.sweeping = true;
+                    tent.sweepDuration = 0;
+                    tent.warningTimer = 0;
+                    // Point toward player
+                    const tdx = this.worldX - pw.wx;
+                    const tdy = this.worldY - pw.wy;
+                    tent.angle = Math.atan2(tdy, tdx) - tent.sweepSpeed * 0.5;
+                }
+            }
+
+            if (tent.sweeping) {
+                tent.sweepDuration += dt;
+                tent.angle += tent.sweepSpeed * dt * 2;
+                const maxSweep = 1.8;
+                if (tent.sweepDuration >= maxSweep) {
+                    tent.sweeping = false;
+                    tent.cooldown = sweepInterval + Math.random() * 2;
+                }
+
+                // Check player collision with tentacle line
+                const tentEndX = pw.wx + Math.cos(tent.angle) * tent.length;
+                const tentEndY = pw.wy + Math.sin(tent.angle) * tent.length;
+                // Point-to-line-segment distance
+                const pldx = this.worldX - pw.wx;
+                const pldy = this.worldY - pw.wy;
+                const ldx = tentEndX - pw.wx;
+                const ldy = tentEndY - pw.wy;
+                const lenSq = ldx * ldx + ldy * ldy;
+                const t = Math.max(0, Math.min(1, (pldx * ldx + pldy * ldy) / lenSq));
+                const closestX = pw.wx + ldx * t;
+                const closestY = pw.wy + ldy * t;
+                const cDist = Math.sqrt((this.worldX - closestX) ** 2 + (this.worldY - closestY) ** 2);
+
+                if (cDist < tent.width + this.player.radius && this.player.invincibleTime <= 0) {
+                    this.player.health -= tent.damage;
+                    this.player.invincibleTime = 0.5;
+                    this.combatTimer = 0;
+                    this.damageNumbers.push({
+                        x: this.player.x, y: this.player.y - 20,
+                        value: -Math.ceil(tent.damage), lifetime: 1, color: '#44ff00'
+                    });
+                    this.spawnParticles(this.player.x, this.player.y, '#00cc44', 8);
+                    this.triggerScreenShake(5, 0.2);
+                }
+            }
+        }
+
+        // ---- SPORE BURST (Phase 2+) ----
+        if (pw.phase >= 2) {
+            pw.sporeBurstTimer += dt;
+            const sporeCooldown = pw.phase === 3 ? 4 : 6;
+            if (pw.sporeBurstTimer >= sporeCooldown) {
+                pw.sporeBurstTimer = 0;
+                // Fire radial projectiles with gaps
+                const numSpores = pw.phase === 3 ? 16 : 10;
+                const gapAngle = Math.random() * Math.PI * 2;
+                const gapSize = 0.8; // ~45 degree gap
+                for (let i = 0; i < numSpores; i++) {
+                    const spAngle = (i / numSpores) * Math.PI * 2;
+                    // Skip spores in the gap
+                    const angleDiff = Math.abs(((spAngle - gapAngle + Math.PI) % (Math.PI * 2)) - Math.PI);
+                    if (angleDiff < gapSize / 2) continue;
+                    pw.sporeProjectiles.push({
+                        wx: pw.wx,
+                        wy: pw.wy,
+                        vx: Math.cos(spAngle) * 200,
+                        vy: Math.sin(spAngle) * 200,
+                        radius: 8,
+                        damage: pw.damage * 0.4,
+                        lifetime: 0,
+                        maxLifetime: 3,
+                    });
+                }
+                // Visual burst
+                const bsx = this.player.x + (pw.wx - this.worldX);
+                const bsy = this.player.y + (pw.wy - this.worldY);
+                this.spawnParticles(bsx, bsy, '#00ff44', 15);
+            }
+        }
+
+        // Update spore projectiles
+        for (let i = pw.sporeProjectiles.length - 1; i >= 0; i--) {
+            const sp = pw.sporeProjectiles[i];
+            sp.wx += sp.vx * dt;
+            sp.wy += sp.vy * dt;
+            sp.lifetime += dt;
+            if (sp.lifetime >= sp.maxLifetime) {
+                pw.sporeProjectiles.splice(i, 1);
+                continue;
+            }
+            // Check player hit
+            const sdx = this.worldX - sp.wx;
+            const sdy = this.worldY - sp.wy;
+            const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sDist < sp.radius + this.player.radius && this.player.invincibleTime <= 0) {
+                this.player.health -= sp.damage;
+                this.player.invincibleTime = 0.5;
+                this.combatTimer = 0;
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 20,
+                    value: -Math.ceil(sp.damage), lifetime: 1, color: '#44ff00'
+                });
+                this.spawnParticles(this.player.x, this.player.y, '#00ff44', 5);
+                pw.sporeProjectiles.splice(i, 1);
+            }
+        }
+    }
+
+    plagueWeaverRetreat(pw) {
+        const sx = this.player.x + (pw.wx - this.worldX);
+        const sy = this.player.y + (pw.wy - this.worldY);
+
+        // All toxic zones explode
+        for (const zone of pw.toxicZones) {
+            const zsx = this.player.x + (zone.wx - this.worldX);
+            const zsy = this.player.y + (zone.wy - this.worldY);
+            this.spawnParticles(zsx, zsy, '#00ff44', 15);
+            this.spawnParticles(zsx, zsy, '#88ff00', 10);
+            // Burst damage if player is near
+            const zdist = Math.sqrt((this.worldX - zone.wx) ** 2 + (this.worldY - zone.wy) ** 2);
+            if (zdist < zone.radius * 1.5 && this.player.invincibleTime <= 0) {
+                this.player.health -= pw.damage * 0.5;
+                this.player.invincibleTime = 1.0;
+            }
+        }
+
+        this.spawnParticles(sx, sy, '#00ff44', 40);
+        this.spawnParticles(sx, sy, '#88ff00', 25);
+        this.triggerScreenShake(15, 0.5);
+        this.triggerSlowmo(0.2, 0.8);
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 80,
+            value: '🦠 THE PLAGUE WEAVER RETREATS 🦠',
+            lifetime: 3, color: '#00ff44', scale: 2.5
+        });
+
+        // Drop XP
+        for (let i = 0; i < 20; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * 100;
+            this.pickups.push({
+                wx: pw.wx + Math.cos(a) * d, wy: pw.wy + Math.sin(a) * d,
+                xp: 50, radius: 10, color: '#d4e600', isItem: false
+            });
+        }
+        this.spawnPauseTimer = 5;
+        const idx = this.enemies.indexOf(pw);
+        if (idx >= 0) this.enemies.splice(idx, 1);
+    }
+
+    handlePlagueWeaverKilled(pw, sx, sy) {
+        // Clear all toxic zones immediately
+        pw.toxicZones = [];
+        pw.sporeProjectiles = [];
+
+        this.spawnParticles(sx, sy, '#00ff44', 50);
+        this.spawnParticles(sx, sy, '#ffffff', 30);
+        this.spawnParticles(sx, sy, '#88ff00', 40);
+        this.triggerScreenShake(20, 0.5);
+        this.triggerSlowmo(0.2, 1.0);
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 80,
+            value: '💀 THE PLAGUE WEAVER SLAIN! 💀',
+            lifetime: 3, color: '#ffcc00', scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+            value: 'The plague is cleansed',
+            lifetime: 2.5, color: '#88ffcc', scale: 1.5
+        });
+
+        // Drop XP
+        for (let i = 0; i < 30; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * 100;
+            this.pickups.push({
+                wx: pw.wx + Math.cos(a) * d, wy: pw.wy + Math.sin(a) * d,
+                xp: 80, radius: 10, color: '#d4e600', isItem: false
+            });
+        }
+        this.spawnPauseTimer = 5;
+        this.player.kills++;
+    }
+
+    // =============================================
+    // THE RIFT LORD - Wave 20 Event Boss
+    // =============================================
+    spawnRiftLord(scaleMult = 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 400 + Math.random() * 100;
+        const wx = this.worldX + Math.cos(angle) * dist;
+        const wy = this.worldY + Math.sin(angle) * dist;
+
+        // Clear 60% of non-boss enemies
+        const nonBoss = this.enemies.filter(e => !e.isBoss);
+        const toRemove = Math.floor(nonBoss.length * 0.6);
+        for (let i = 0; i < toRemove; i++) {
+            const idx = this.enemies.findIndex(e => !e.isBoss);
+            if (idx !== -1) this.enemies.splice(idx, 1);
+        }
+        this.bossGracePeriod = 5;
+
+        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
+        this.enemyIdCounter++;
+
+        const baseHP = Math.floor(200000 * scaleMult);
+        const rl = {
+            wx, wy,
+            id: this.enemyIdCounter,
+            type: 'rift_lord',
+            name: 'THE RIFT LORD',
+            isRiftLord: true,
+            isBoss: true,
+            radius: 70,
+            speed: 0, // Teleports instead
+            health: baseHP,
+            maxHealth: baseHP,
+            damage: Math.floor(150 * scaleMult),
+            xp: Math.floor(4000 * scaleMult),
+            color: '#6644ff',
+            hitFlash: 0,
+            critResistance: 0.85,
+            attackCooldown: 0,
+            lifeTimer: 0,
+            maxLifeTime: 90, // 1:30
+            phase: 1,
+            phaseTimer: 0,
+            // Pillars
+            pillars: [],
+            maxPillars: 4,
+            pillarTimer: 0,
+            // Beam walls between pillars
+            beamWalls: [],
+            beamRotation: 0,
+            // Portals
+            portals: [],
+            maxPortals: 2,
+            portalTimer: 0,
+            portalSpawnTimer: 0,
+            // Teleport
+            teleportTimer: 0,
+            teleportCooldown: 8,
+            teleportWarning: null,
+            // Void Slam
+            voidSlam: null,
+            voidSlamTimer: 0,
+            voidSlamCooldown: 12,
+            // Rift Bolt
+            riftBolts: [],
+            // Shield
+            shieldActive: false,
+            shieldTimer: 0,
+            shieldCooldown: 20,
+            // Visuals
+            floatAngle: 0,
+            auraAngle: 0,
+        };
+
+        this.enemies.push(rl);
+        this.playBossMusic();
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 120,
+            value: '⚡ THE RIFT LORD TEARS REALITY ⚡',
+            lifetime: 4, color: '#8866ff', scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 70,
+            value: '🔥 SURVIVE FOR 1:30! 🔥',
+            lifetime: 4, color: '#ff4400', scale: 2
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 30,
+            value: 'Avoid the void walls...',
+            lifetime: 4, color: '#bb88ff', scale: 1.2
+        });
+    }
+
+    updateRiftLord(dt) {
+        const rl = this.enemies.find(e => e.isRiftLord);
+        if (!rl) return;
+
+        // Shield immunity - restore health while shield is active
+        if (rl.shieldActive && rl._shieldHP) {
+            rl.health = Math.max(rl.health, rl._shieldHP);
+        }
+        if (rl.shieldActive && !rl._shieldHP) {
+            rl._shieldHP = rl.health;
+        }
+        if (!rl.shieldActive) {
+            rl._shieldHP = null;
+        }
+
+        rl.lifeTimer += dt;
+        rl.phaseTimer += dt;
+        rl.floatAngle += dt * 2;
+        rl.auraAngle += dt * 1.5;
+
+        // Phase transitions
+        if (rl.lifeTimer >= 60 && rl.phase < 3) {
+            rl.phase = 3;
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '☠️ COLLAPSE PHASE! ☠️', lifetime: 2.5, color: '#ff0000', scale: 2
+            });
+        } else if (rl.lifeTimer >= 30 && rl.phase < 2) {
+            rl.phase = 2;
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '⚠️ RUPTURE PHASE! ⚠️', lifetime: 2.5, color: '#ffcc00', scale: 1.8
+            });
+        }
+
+        // Warnings
+        if (rl.lifeTimer >= 60 && rl.lifeTimer < 60 + dt) {
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '⚠️ RIFT LORD UNSTABLE! 30 SECONDS! ⚠️',
+                lifetime: 3, color: '#ff4400', scale: 1.5
+            });
+        }
+        if (rl.lifeTimer >= 80 && rl.lifeTimer < 80 + dt) {
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                value: '💀 RIFT LORD CRITICAL! 10 SECONDS! 💀',
+                lifetime: 3, color: '#ff0000', scale: 2
+            });
+        }
+
+        // Timer expired
+        if (rl.lifeTimer >= rl.maxLifeTime) {
+            this.riftLordRetreat(rl);
+            return;
+        }
+
+        // ---- SHIELD (Phase 3, every 20s) ----
+        if (rl.phase >= 3 && !rl.shieldActive) {
+            rl.shieldTimer += dt;
+            if (rl.shieldTimer >= rl.shieldCooldown) {
+                rl.shieldActive = true;
+                rl.shieldTimer = 0;
+                rl.shieldDuration = 3;
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                    value: '🛡️ RIFT LORD SHIELDS! Destroy a pillar! 🛡️',
+                    lifetime: 3, color: '#6644ff', scale: 1.5
+                });
+            }
+        }
+        if (rl.shieldActive) {
+            rl.shieldDuration -= dt;
+            if (rl.shieldDuration <= 0) {
+                rl.shieldActive = false;
+            }
+        }
+
+        // ---- PILLAR SPAWNING ----
+        const maxPillarsNow = rl.phase === 1 ? 2 : 4;
+        rl.pillarTimer += dt;
+        if (rl.pillars.length < maxPillarsNow && rl.pillarTimer >= 4) {
+            rl.pillarTimer = 0;
+            const pAngle = Math.random() * Math.PI * 2;
+            const pDist = 200 + Math.random() * 150;
+            rl.pillars.push({
+                wx: rl.wx + Math.cos(pAngle) * pDist,
+                wy: rl.wy + Math.sin(pAngle) * pDist,
+                radius: 20,
+                health: 3000,
+                maxHealth: 3000,
+                glowAngle: Math.random() * Math.PI * 2,
+                moveAngle: pAngle,
+                moveSpeed: rl.phase === 3 ? 15 : 0,
+            });
+        }
+
+        // Update pillars - move toward player in phase 3
+        for (let i = rl.pillars.length - 1; i >= 0; i--) {
+            const pillar = rl.pillars[i];
+            pillar.glowAngle += dt * 3;
+            if (pillar.moveSpeed > 0) {
+                const pdx = this.worldX - pillar.wx;
+                const pdy = this.worldY - pillar.wy;
+                const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+                if (pdist > 100) {
+                    pillar.wx += (pdx / pdist) * pillar.moveSpeed * dt;
+                    pillar.wy += (pdy / pdist) * pillar.moveSpeed * dt;
+                }
+            }
+            // Remove destroyed pillars
+            if (pillar.health <= 0) {
+                const psx = this.player.x + (pillar.wx - this.worldX);
+                const psy = this.player.y + (pillar.wy - this.worldY);
+                this.spawnParticles(psx, psy, '#6644ff', 20);
+                rl.pillars.splice(i, 1);
+                // Break shield if active
+                if (rl.shieldActive) {
+                    rl.shieldActive = false;
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+                        value: '⚡ SHIELD BROKEN! ⚡', lifetime: 2, color: '#ffcc00', scale: 1.5
+                    });
+                }
+            }
+        }
+
+        // ---- BEAM WALLS between adjacent pillars ----
+        rl.beamRotation += dt * (rl.phase >= 2 ? (rl.phase === 3 ? 0.6 : 0.3) : 0);
+        rl.beamWalls = [];
+        if (rl.pillars.length >= 2) {
+            for (let i = 0; i < rl.pillars.length; i++) {
+                const next = (i + 1) % rl.pillars.length;
+                const p1 = rl.pillars[i];
+                const p2 = rl.pillars[next];
+                rl.beamWalls.push({ p1, p2 });
+
+                // Check player collision with beam wall
+                const bx1 = p1.wx, by1 = p1.wy;
+                const bx2 = p2.wx, by2 = p2.wy;
+                const bdx = bx2 - bx1, bdy = by2 - by1;
+                const blenSq = bdx * bdx + bdy * bdy;
+                if (blenSq > 0) {
+                    const bt = Math.max(0, Math.min(1, ((this.worldX - bx1) * bdx + (this.worldY - by1) * bdy) / blenSq));
+                    const closestX = bx1 + bdx * bt;
+                    const closestY = by1 + bdy * bt;
+                    const bDist = Math.sqrt((this.worldX - closestX) ** 2 + (this.worldY - closestY) ** 2);
+                    if (bDist < 15 + this.player.radius && this.player.invincibleTime <= 0) {
+                        this.player.health -= rl.damage * 0.3 * dt;
+                        this.player.invincibleTime = 0.2;
+                        this.combatTimer = 0;
+                        if (Math.random() < 0.3) {
+                            this.damageNumbers.push({
+                                x: this.player.x, y: this.player.y - 20,
+                                value: -Math.ceil(rl.damage * 0.3), lifetime: 0.8, color: '#8866ff'
+                            });
+                        }
+                        this.spawnParticles(this.player.x, this.player.y, '#6644ff', 3);
+                    }
+                }
+            }
+        }
+
+        // Pillar damage from player projectiles
+        for (const pillar of rl.pillars) {
+            for (let pi = this.projectiles.length - 1; pi >= 0; pi--) {
+                const proj = this.projectiles[pi];
+                if (!proj || proj.isEnemy) continue;
+                // Convert projectile screen coords to world coords
+                const projWx = this.worldX + (proj.x - this.player.x);
+                const projWy = this.worldY + (proj.y - this.player.y);
+                const ppx = pillar.wx - projWx;
+                const ppy = pillar.wy - projWy;
+                const ppDist = Math.sqrt(ppx * ppx + ppy * ppy);
+                if (ppDist < pillar.radius + (proj.radius || 5)) {
+                    pillar.health -= proj.damage || 50;
+                    const psx = this.player.x + (pillar.wx - this.worldX);
+                    const psy = this.player.y + (pillar.wy - this.worldY);
+                    this.spawnParticles(psx, psy, '#6644ff', 3);
+                    this.projectiles.splice(pi, 1);
+                }
+            }
+        }
+
+        // ---- TELEPORT ----
+        rl.teleportTimer += dt;
+        const tpCooldown = rl.phase === 1 ? 8 : (rl.phase === 2 ? 5 : 4);
+        if (rl.teleportTimer >= tpCooldown) {
+            if (!rl.teleportWarning) {
+                // Show warning ring at destination
+                const tpAngle = Math.random() * Math.PI * 2;
+                const tpDist = 150 + Math.random() * 200;
+                rl.teleportWarning = {
+                    wx: this.worldX + Math.cos(tpAngle) * tpDist,
+                    wy: this.worldY + Math.sin(tpAngle) * tpDist,
+                    timer: 0,
+                    duration: 1.0,
+                };
+            }
+            rl.teleportWarning.timer += dt;
+            if (rl.teleportWarning.timer >= rl.teleportWarning.duration) {
+                // Teleport!
+                const oldSx = this.player.x + (rl.wx - this.worldX);
+                const oldSy = this.player.y + (rl.wy - this.worldY);
+                this.spawnParticles(oldSx, oldSy, '#6644ff', 15);
+
+                rl.wx = rl.teleportWarning.wx;
+                rl.wy = rl.teleportWarning.wy;
+                rl.teleportTimer = 0;
+                rl.teleportWarning = null;
+
+                const newSx = this.player.x + (rl.wx - this.worldX);
+                const newSy = this.player.y + (rl.wy - this.worldY);
+                this.spawnParticles(newSx, newSy, '#bb88ff', 15);
+                this.triggerScreenShake(5, 0.2);
+
+                // Fire rift bolt toward player after teleport
+                const rbAngle = Math.atan2(this.worldY - rl.wy, this.worldX - rl.wx);
+                rl.riftBolts.push({
+                    wx: rl.wx, wy: rl.wy,
+                    vx: Math.cos(rbAngle) * 350,
+                    vy: Math.sin(rbAngle) * 350,
+                    radius: 10,
+                    damage: rl.damage * 0.5,
+                    lifetime: 0,
+                    maxLifetime: 2.5,
+                });
+            }
+        }
+
+        // ---- VOID SLAM (Phase 2+) ----
+        if (rl.phase >= 2) {
+            rl.voidSlamTimer += dt;
+            const slamCooldown = rl.phase === 3 ? 7 : 12;
+            if (!rl.voidSlam && rl.voidSlamTimer >= slamCooldown) {
+                // Telegraph - growing purple circle at player position
+                rl.voidSlam = {
+                    wx: this.worldX,
+                    wy: this.worldY,
+                    radius: 0,
+                    maxRadius: 120,
+                    growDuration: 1.5,
+                    timer: 0,
+                    exploded: false,
+                    damage: rl.damage * 0.8,
+                };
+                rl.voidSlamTimer = 0;
+            }
+            if (rl.voidSlam) {
+                rl.voidSlam.timer += dt;
+                rl.voidSlam.radius = (rl.voidSlam.timer / rl.voidSlam.growDuration) * rl.voidSlam.maxRadius;
+                if (rl.voidSlam.timer >= rl.voidSlam.growDuration && !rl.voidSlam.exploded) {
+                    rl.voidSlam.exploded = true;
+                    // Check player in AoE
+                    const vdx = this.worldX - rl.voidSlam.wx;
+                    const vdy = this.worldY - rl.voidSlam.wy;
+                    const vDist = Math.sqrt(vdx * vdx + vdy * vdy);
+                    if (vDist < rl.voidSlam.maxRadius + this.player.radius && this.player.invincibleTime <= 0) {
+                        this.player.health -= rl.voidSlam.damage;
+                        this.player.invincibleTime = 1.0;
+                        this.combatTimer = 0;
+                        this.damageNumbers.push({
+                            x: this.player.x, y: this.player.y - 20,
+                            value: -Math.ceil(rl.voidSlam.damage), lifetime: 1, color: '#8866ff'
+                        });
+                        this.triggerScreenShake(12, 0.3);
+                    }
+                    const vsx = this.player.x + (rl.voidSlam.wx - this.worldX);
+                    const vsy = this.player.y + (rl.voidSlam.wy - this.worldY);
+                    this.spawnParticles(vsx, vsy, '#6644ff', 25);
+                    this.spawnParticles(vsx, vsy, '#bb88ff', 15);
+                }
+                // Remove after explosion
+                if (rl.voidSlam.timer >= rl.voidSlam.growDuration + 0.5) {
+                    rl.voidSlam = null;
+                }
+            }
+        }
+
+        // ---- PORTALS (Phase 2+) ----
+        if (rl.phase >= 2) {
+            const maxPortals = rl.phase === 3 ? 2 : 1;
+            rl.portalTimer += dt;
+            if (rl.portals.length < maxPortals && rl.portalTimer >= 10) {
+                rl.portalTimer = 0;
+                const prAngle = Math.random() * Math.PI * 2;
+                const prDist = 200 + Math.random() * 150;
+                rl.portals.push({
+                    wx: this.worldX + Math.cos(prAngle) * prDist,
+                    wy: this.worldY + Math.sin(prAngle) * prDist,
+                    radius: 30,
+                    spinAngle: 0,
+                    spawnTimer: 0,
+                    spawnInterval: rl.phase === 3 ? 7 : 10,
+                    lifetime: 0,
+                    maxLifetime: 30,
+                });
+            }
+
+            for (let i = rl.portals.length - 1; i >= 0; i--) {
+                const portal = rl.portals[i];
+                portal.lifetime += dt;
+                portal.spinAngle += dt * 4;
+                portal.spawnTimer += dt;
+
+                if (portal.lifetime >= portal.maxLifetime) {
+                    rl.portals.splice(i, 1);
+                    continue;
+                }
+
+                // Spawn elite enemies
+                if (portal.spawnTimer >= portal.spawnInterval) {
+                    portal.spawnTimer = 0;
+                    const eliteCount = rl.phase === 3 ? 4 : 3;
+                    for (let j = 0; j < eliteCount; j++) {
+                        const eAngle = Math.random() * Math.PI * 2;
+                        const eDist = 20 + Math.random() * 30;
+                        const eliteWx = portal.wx + Math.cos(eAngle) * eDist;
+                        const eliteWy = portal.wy + Math.sin(eAngle) * eDist;
+                        const elite = this.createEnemy(eliteWx, eliteWy, 'runner');
+                        // Buff the elite
+                        elite.health *= 2;
+                        elite.maxHealth *= 2;
+                        elite.damage *= 1.5;
+                        elite.color = '#aa66ff';
+                        elite.isElite = true;
+                        this.enemies.push(elite);
+                    }
+                    const psx = this.player.x + (portal.wx - this.worldX);
+                    const psy = this.player.y + (portal.wy - this.worldY);
+                    this.spawnParticles(psx, psy, '#6644ff', 10);
+                }
+            }
+        }
+
+        // Update rift bolts
+        for (let i = rl.riftBolts.length - 1; i >= 0; i--) {
+            const rb = rl.riftBolts[i];
+            rb.wx += rb.vx * dt;
+            rb.wy += rb.vy * dt;
+            rb.lifetime += dt;
+            if (rb.lifetime >= rb.maxLifetime) {
+                rl.riftBolts.splice(i, 1);
+                continue;
+            }
+            const rdx = this.worldX - rb.wx;
+            const rdy = this.worldY - rb.wy;
+            const rDist = Math.sqrt(rdx * rdx + rdy * rdy);
+            if (rDist < rb.radius + this.player.radius && this.player.invincibleTime <= 0) {
+                this.player.health -= rb.damage;
+                this.player.invincibleTime = 0.5;
+                this.combatTimer = 0;
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 20,
+                    value: -Math.ceil(rb.damage), lifetime: 1, color: '#8866ff'
+                });
+                this.spawnParticles(this.player.x, this.player.y, '#6644ff', 8);
+                rl.riftBolts.splice(i, 1);
+            }
+        }
+    }
+
+    riftLordRetreat(rl) {
+        const sx = this.player.x + (rl.wx - this.worldX);
+        const sy = this.player.y + (rl.wy - this.worldY);
+
+        // All pillars/portals vanish
+        for (const pillar of rl.pillars) {
+            const psx = this.player.x + (pillar.wx - this.worldX);
+            const psy = this.player.y + (pillar.wy - this.worldY);
+            this.spawnParticles(psx, psy, '#6644ff', 15);
+        }
+        for (const portal of rl.portals) {
+            const psx = this.player.x + (portal.wx - this.worldX);
+            const psy = this.player.y + (portal.wy - this.worldY);
+            this.spawnParticles(psx, psy, '#bb88ff', 15);
+        }
+
+        this.spawnParticles(sx, sy, '#6644ff', 40);
+        this.spawnParticles(sx, sy, '#bb88ff', 25);
+        this.triggerScreenShake(15, 0.5);
+        this.triggerSlowmo(0.2, 0.8);
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 80,
+            value: '⚡ REALITY RESTORES ⚡',
+            lifetime: 3, color: '#8866ff', scale: 2.5
+        });
+
+        // Kill all elite portal-spawned enemies
+        this.enemies = this.enemies.filter(e => !e.isElite);
+
+        // Drop XP
+        for (let i = 0; i < 25; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * 100;
+            this.pickups.push({
+                wx: rl.wx + Math.cos(a) * d, wy: rl.wy + Math.sin(a) * d,
+                xp: 80, radius: 10, color: '#d4e600', isItem: false
+            });
+        }
+        this.spawnPauseTimer = 5;
+        const idx = this.enemies.indexOf(rl);
+        if (idx >= 0) this.enemies.splice(idx, 1);
+    }
+
+    handleRiftLordKilled(rl, sx, sy) {
+        // Clear all portals and pillars
+        rl.pillars = [];
+        rl.portals = [];
+        rl.riftBolts = [];
+        rl.voidSlam = null;
+
+        this.spawnParticles(sx, sy, '#6644ff', 50);
+        this.spawnParticles(sx, sy, '#ffffff', 30);
+        this.spawnParticles(sx, sy, '#bb88ff', 40);
+        this.triggerScreenShake(20, 0.5);
+        this.triggerSlowmo(0.2, 1.0);
+
+        // Kill all elite and portal-spawned enemies
+        for (const e of this.enemies) {
+            if (e.isElite) {
+                const esx = this.player.x + (e.wx - this.worldX);
+                const esy = this.player.y + (e.wy - this.worldY);
+                this.spawnParticles(esx, esy, '#6644ff', 5);
+            }
+        }
+        this.enemies = this.enemies.filter(e => !e.isElite);
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 80,
+            value: '💀 THE RIFT LORD VANQUISHED! 💀',
+            lifetime: 3, color: '#ffcc00', scale: 2.5
+        });
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 50,
+            value: 'Reality is restored',
+            lifetime: 2.5, color: '#88ffcc', scale: 1.5
+        });
+
+        // Drop massive XP
+        for (let i = 0; i < 35; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * 100;
+            this.pickups.push({
+                wx: rl.wx + Math.cos(a) * d, wy: rl.wy + Math.sin(a) * d,
+                xp: 120, radius: 10, color: '#d4e600', isItem: false
+            });
+        }
+        this.spawnPauseTimer = 5;
+        this.player.kills++;
+    }
+
     spawnHealthPack() {
         const angle = Math.random() * Math.PI * 2;
         const dist = 200 + Math.random() * 400;
@@ -5014,66 +5962,39 @@ class DotsSurvivor {
                 }
 
                 // =============================================
-                // GUARANTEED BOSS SPAWNS ON WAVE TRANSITION
+                // EVENT BOSS SPAWNS ON WAVE TRANSITION
                 // =============================================
-                // Consumer boss at wave 15 (guaranteed spawn)
+                // Wave 10: The Plague Weaver
+                if (this.wave === 10 && !this.plagueWeaverSpawned) {
+                    this.spawnPlagueWeaver();
+                    this.plagueWeaverSpawned = true;
+                }
+
+                // Wave 15: The Consumer (unchanged)
                 if (this.wave === 15 && !this.consumerSpawned) {
                     this.spawnConsumer();
                     this.consumerSpawned = true;
                 }
 
-                // Demon King (General) at wave 20 (guaranteed spawn)
-                if (this.wave === 20 && !this.generalSpawnedThisWave) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist = 500 + Math.random() * 200;
-                    const bwx = this.worldX + Math.cos(angle) * dist;
-                    const bwy = this.worldY + Math.sin(angle) * dist;
-
-                    // Clear 60% of non-boss enemies for breathing room
-                    const nonBoss = this.enemies.filter(e => !e.isBoss);
-                    const toRemove = Math.floor(nonBoss.length * 0.6);
-                    for (let i = 0; i < toRemove; i++) {
-                        const idx = this.enemies.findIndex(e => !e.isBoss);
-                        if (idx !== -1) this.enemies.splice(idx, 1);
-                    }
-                    this.bossGracePeriod = 5;
-                    this.enemies.push(this.createBoss(bwx, bwy, 'general'));
-                    this.generalSpawnedThisWave = true;
-                    this.bossesSpawnedThisWave++;
-                    this.lastBossWave = this.wave;
-                    this.playBossMusic();
-
-                    this.damageNumbers.push({
-                        x: this.canvas.width / 2,
-                        y: this.canvas.height / 2 - 100,
-                        value: '👹 THE DEMON KING APPROACHES! 👹',
-                        lifetime: 4, color: '#8800ff', scale: 2.5
-                    });
+                // Wave 20: The Rift Lord
+                if (this.wave === 20 && !this.riftLordSpawned) {
+                    this.spawnRiftLord();
+                    this.riftLordSpawned = true;
                 }
 
-                // Regular boss at wave 10 (guaranteed spawn)
-                if (this.wave === 10 && this.lastBossWave !== this.wave) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist = 500 + Math.random() * 200;
-                    const bwx = this.worldX + Math.cos(angle) * dist;
-                    const bwy = this.worldY + Math.sin(angle) * dist;
-
-                    const nonBoss = this.enemies.filter(e => !e.isBoss);
-                    const toRemove = Math.floor(nonBoss.length * 0.6);
-                    for (let i = 0; i < toRemove; i++) {
-                        const idx = this.enemies.findIndex(e => !e.isBoss);
-                        if (idx !== -1) this.enemies.splice(idx, 1);
-                    }
-                    this.bossGracePeriod = 5;
-                    this.enemies.push(this.createBoss(bwx, bwy, 'boss'));
-                    this.bossesSpawnedThisWave++;
+                // Wave 25+: Random event boss every 5 waves
+                if (this.wave >= 25 && this.wave % 5 === 0 && this.lastBossWave !== this.wave) {
+                    const bossPool = ['plague_weaver', 'consumer', 'rift_lord'];
+                    const pick = bossPool[Math.floor(Math.random() * bossPool.length)];
+                    const scaleMult = 1 + (this.wave - 20) * 0.15; // +15% per 5 waves past 20
+                    if (pick === 'plague_weaver') this.spawnPlagueWeaver(scaleMult);
+                    else if (pick === 'consumer') this.spawnConsumer(scaleMult);
+                    else this.spawnRiftLord(scaleMult);
                     this.lastBossWave = this.wave;
-                    this.playBossMusic();
                 }
 
                 // Reset boss tracking for new wave
                 this.bossesSpawnedThisWave = 0;
-                this.generalSpawnedThisWave = false;
             }
             this.checkHorde();
             this.update(dt);
@@ -5435,6 +6356,8 @@ class DotsSurvivor {
         this.updateWindPush(effectiveDt);
         this.checkHordeCompletion();
         this.updateConsumer(effectiveDt);
+        this.updatePlagueWeaver(effectiveDt);
+        this.updateRiftLord(effectiveDt);
         this.fireWeapons();
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
@@ -5804,19 +6727,14 @@ class DotsSurvivor {
 
             if (dist < radius + e.radius) {
                 e.health -= tickDamage;
+                e.hitFlash = 0.1;
                 // Purple damage particles
                 if (Math.random() < 0.25) {
                     this.spawnParticles(sx, sy, '#9932cc', 2);
                 }
-                if (Math.random() < 0.08) {
-                    this.damageNumbers.push({
-                        x: sx + (Math.random() - 0.5) * 20,
-                        y: sy - 15,
-                        value: Math.ceil(tickDamage),
-                        lifetime: 0.5,
-                        color: '#bb44ff',
-                        scale: 0.6
-                    });
+                // Damage numbers using stacking system
+                if (Math.random() < 0.30) {
+                    this.addDamageNumber(sx, sy, Math.ceil(tickDamage), '#bb44ff', { enemyId: e.id, scale: 0.7 });
                 }
             }
         }
@@ -6943,67 +7861,9 @@ class DotsSurvivor {
         const wx = this.worldX + Math.cos(angle) * dist;
         const wy = this.worldY + Math.sin(angle) * dist;
 
-        // Consumer boss spawns at wave 15 (one time)
-        if (this.wave >= 15 && !this.consumerSpawned) {
-            this.spawnConsumer();
-            this.consumerSpawned = true;
-        }
-
-        // Boss spawning logic - controlled per wave
-        // Wave 10: First boss, Wave 15: Consumer, Wave 20: Demon King
-        // After wave 20, random bosses spawn every 5 waves
-        const isBossWave = this.wave >= 10 && this.wave % 10 === 0;
-        const isGeneralWave = this.wave === 20; // Demon King only at wave 20
-        const isRandomBossWave = this.wave > 20 && this.wave % 5 === 0; // Random bosses after wave 20
-
-        if ((isBossWave || isRandomBossWave) && this.lastBossWave !== this.wave) {
-            // Calculate how many bosses should spawn this wave
-            const bossWaveNumber = this.wave > 20 ? Math.floor((this.wave - 20) / 5) + 1 : 1;
-            const maxBossesThisWave = Math.min(bossWaveNumber, 5); // Cap at 5 bosses
-
-            // If we're past the cap, increase boss stats
-            if (bossWaveNumber > 5) {
-                this.bossStatMultiplier = 1 + (bossWaveNumber - 5) * 0.2; // +20% per wave past cap
-            }
-
-            // BOSS SPAWN: Clear nearby enemies and start grace period
-            // This gives player breathing room when boss appears
-            if (this.bossesSpawnedThisWave === 0) {
-                // First boss of the wave - clear 60% of non-boss enemies
-                const nonBossEnemies = this.enemies.filter(e => !e.isBoss);
-                const enemiesToRemove = Math.floor(nonBossEnemies.length * 0.6);
-                for (let i = 0; i < enemiesToRemove; i++) {
-                    const idx = this.enemies.findIndex(e => !e.isBoss);
-                    if (idx !== -1) {
-                        this.enemies.splice(idx, 1);
-                    }
-                }
-                // Start grace period - reduced spawns for 5 seconds
-                this.bossGracePeriod = 5;
-
-                // Play boss music when first boss spawns
-                this.playBossMusic();
-            }
-
-            // Spawn Demonic General (Demon King) at wave 20 only
-            if (isGeneralWave && !this.generalSpawnedThisWave) {
-                this.enemies.push(this.createBoss(wx, wy, 'general'));
-                this.generalSpawnedThisWave = true;
-                this.bossesSpawnedThisWave++;
-            } else if (this.bossesSpawnedThisWave < maxBossesThisWave) {
-                // Spawn normal boss
-                this.enemies.push(this.createBoss(wx, wy, 'boss'));
-                this.bossesSpawnedThisWave++;
-            }
-
-            // Mark this wave as processed if we've spawned all bosses
-            if (this.bossesSpawnedThisWave >= maxBossesThisWave) {
-                this.lastBossWave = this.wave;
-            }
-        } else {
-            // Type already picked above for spawn distance calculation
-            this.enemies.push(this.createEnemy(wx, wy, type));
-        }
+        // Event bosses are spawned via wave transition logic (spawnPlagueWeaver, spawnConsumer, spawnRiftLord)
+        // Normal enemy spawning
+        this.enemies.push(this.createEnemy(wx, wy, type));
     }
 
     createEnemy(wx, wy, type, isSplit = false, isHorde = false) {
@@ -7045,7 +7905,7 @@ class DotsSurvivor {
         const hordeHealthMult = isHorde ? 1.5 : 1;
         const hordeSpeedMult = isHorde ? 0.6 : 1;
 
-        // POST WAVE 15: Enemies get bigger and stronger after defeating Demon King
+        // POST WAVE 15: Enemies get bigger and stronger after Consumer boss
         const lateGameSizeMult = this.wave >= 15 ? 1.5 : 1; // 50% bigger after wave 15
         const lateGameStatMult = this.wave >= 15 ? 1.5 : 1; // 50% more HP/damage after wave 15
 
@@ -7083,63 +7943,6 @@ class DotsSurvivor {
             absorbedKills: 0, // Kills absorbed by mini consumer
             passive: data.passive || false, // Passive enemies don't chase player
             spawnsFireZone: data.spawnsFireZone || false // Cinder Wretch spawns Fire Zone on death
-        };
-    }
-
-    createBoss(wx, wy, type = 'boss') {
-        // Dynamic difficulty tier based on wave number
-        const difficultyTier = getDifficultyTier(this.wave);
-
-        // Wave-based scaling using stepped curve:
-        // Waves 1-9: +5% per wave, Waves 10-15: +16% per wave, Waves 16+: +24% per wave
-        const waveMult = getWaveScalingMult(this.wave);
-
-        let name = `${BOSS_PREFIXES[Math.floor(Math.random() * BOSS_PREFIXES.length)]} ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]} ${BOSS_SUFFIXES[Math.floor(Math.random() * BOSS_SUFFIXES.length)]}`;
-        let face = '😈';
-        let color = '#ff0044';
-        let stats = { health: 3000, damage: 50, speed: 75, radius: 80, xp: 500 }; // Reduced for early game
-
-        if (type === 'general') {
-            name = `DEMON GENERAL ${BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)]}`;
-            face = '👹';
-            color = '#8800ff';
-            stats = { health: 8000, damage: 80, speed: 90, radius: 100, xp: 2000 }; // Reduced for early game
-        } else {
-            const faces = ['😈', '👹', '💀', '👿', '🤡', '👺', '☠️', '🔥'];
-            face = faces[Math.floor(Math.random() * faces.length)];
-            stats.radius += this.wave * 8;
-        }
-
-        // Crit Resistance (Max 75% at wave 25)
-        const critResist = Math.min(0.75, (this.wave * 0.03));
-
-        // Apply stat multiplier for waves past boss cap
-        const statMult = this.bossStatMultiplier || 1.0;
-
-        // TRIPLE boss HP and damage for more challenge
-        const bossBaseMult = 3.0;
-
-        // Apply difficulty tier multipliers to health and damage
-        const tierHealthMult = difficultyTier.healthMult;
-        const tierDamageMult = difficultyTier.damageMult;
-
-        // Unique enemy ID for damage number stacking
-        if (!this.enemyIdCounter) this.enemyIdCounter = 0;
-        this.enemyIdCounter++;
-
-        return {
-            wx, wy, type, name,
-            id: this.enemyIdCounter, // Unique ID for damage stacking
-            face,
-            radius: stats.radius,
-            speed: Math.floor(stats.speed * GAME_SETTINGS.enemySpeedMult), // Speed does NOT scale
-            health: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult * bossBaseMult * tierHealthMult),
-            maxHealth: Math.floor(stats.health * waveMult * GAME_SETTINGS.enemyHealthMult * statMult * bossBaseMult * tierHealthMult),
-            damage: Math.floor(stats.damage * waveMult * GAME_SETTINGS.enemyDamageMult * statMult * bossBaseMult * tierDamageMult),
-            xp: Math.floor(stats.xp * waveMult),
-            color, hitFlash: 0, isBoss: true,
-            critResistance: critResist,
-            attackCooldown: 0 // For attack speed system
         };
     }
 
@@ -7390,6 +8193,22 @@ class DotsSurvivor {
         // Special handling for Consumer death (killed by player)
         if (e.isConsumer) {
             this.handleConsumerKilled(e, sx, sy);
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+            return;
+        }
+
+        // Special handling for Plague Weaver death
+        if (e.isPlagueWeaver) {
+            this.handlePlagueWeaverKilled(e, sx, sy);
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+            return;
+        }
+
+        // Special handling for Rift Lord death
+        if (e.isRiftLord) {
+            this.handleRiftLordKilled(e, sx, sy);
             const idx = this.enemies.indexOf(e);
             if (idx >= 0) this.enemies.splice(idx, 1);
             return;
@@ -11730,8 +12549,8 @@ class DotsSurvivor {
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
 
-            // Skip default circle for Consumer - it has custom rendering
-            if (!e.isConsumer) {
+            // Skip default circle for event bosses - they have custom rendering
+            if (!e.isConsumer && !e.isPlagueWeaver && !e.isRiftLord) {
                 // Check for custom sprite
                 const spriteType = e.isBoss ? (e.type === 'general' ? 'general' : 'boss') : e.type;
                 const sprite = SPRITE_CACHE[spriteType];
@@ -11767,7 +12586,466 @@ class DotsSurvivor {
                 }
             }
 
-            if (e.isConsumer) {
+            if (e.isPlagueWeaver) {
+                // THE PLAGUE WEAVER - Toxic zones, tentacles, spores
+                ctx.save();
+                ctx.translate(sx, sy);
+
+                const pwRadius = e.radius;
+                const pulse = Math.sin(e.pulseTimer * 3) * 0.15 + 1;
+
+                // Draw toxic zones (behind boss)
+                ctx.save();
+                ctx.translate(-sx, -sy); // Back to world-relative coords
+                for (const zone of e.toxicZones) {
+                    const zsx = this.player.x + (zone.wx - this.worldX);
+                    const zsy = this.player.y + (zone.wy - this.worldY);
+                    // Toxic pool
+                    const zGrad = ctx.createRadialGradient(zsx, zsy, 0, zsx, zsy, zone.radius);
+                    zGrad.addColorStop(0, 'rgba(0, 255, 68, 0.35)');
+                    zGrad.addColorStop(0.5, 'rgba(0, 180, 40, 0.2)');
+                    zGrad.addColorStop(1, 'rgba(0, 100, 20, 0)');
+                    ctx.beginPath();
+                    ctx.arc(zsx, zsy, zone.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = zGrad;
+                    ctx.fill();
+                    // Bubbling particles
+                    if (zone.bubbleTimer > 0.2) {
+                        zone.bubbleTimer = 0;
+                    }
+                    // Border
+                    ctx.beginPath();
+                    ctx.arc(zsx, zsy, zone.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(0, 255, 68, ${0.3 + Math.sin(e.pulseTimer * 5) * 0.1})`;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([8, 6]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                ctx.restore();
+
+                // Draw tentacles
+                for (const tent of e.tentacles) {
+                    if (!tent.active) continue;
+                    const tentEndX = Math.cos(tent.angle) * tent.length;
+                    const tentEndY = Math.sin(tent.angle) * tent.length;
+
+                    // Warning line (before sweep)
+                    if (tent.warningTimer > 0 && !tent.sweeping) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        const warnAngle = Math.atan2(this.worldY - e.wy, this.worldX - e.wx);
+                        ctx.lineTo(Math.cos(warnAngle) * tent.length, Math.sin(warnAngle) * tent.length);
+                        ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + tent.warningTimer * 0.5})`;
+                        ctx.lineWidth = tent.width + 4;
+                        ctx.setLineDash([10, 8]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    // Active tentacle
+                    if (tent.sweeping) {
+                        // Glow
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#00ff44';
+                        // Thick tentacle with bezier curve
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        const cp1x = tentEndX * 0.3 + Math.sin(e.bodyAngle * 3) * 20;
+                        const cp1y = tentEndY * 0.3 + Math.cos(e.bodyAngle * 3) * 20;
+                        ctx.quadraticCurveTo(cp1x, cp1y, tentEndX, tentEndY);
+                        const tentGrad = ctx.createLinearGradient(0, 0, tentEndX, tentEndY);
+                        tentGrad.addColorStop(0, '#00cc44');
+                        tentGrad.addColorStop(0.5, '#44ff00');
+                        tentGrad.addColorStop(1, '#88ff44');
+                        ctx.strokeStyle = tentGrad;
+                        ctx.lineWidth = tent.width;
+                        ctx.lineCap = 'round';
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+
+                        // Tip glow
+                        ctx.beginPath();
+                        ctx.arc(tentEndX, tentEndY, tent.width * 0.8, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(0, 255, 68, 0.5)';
+                        ctx.fill();
+                    }
+                }
+
+                // Draw spore projectiles
+                ctx.save();
+                ctx.translate(-sx, -sy);
+                for (const sp of e.sporeProjectiles) {
+                    const spsx = this.player.x + (sp.wx - this.worldX);
+                    const spsy = this.player.y + (sp.wy - this.worldY);
+                    ctx.beginPath();
+                    ctx.arc(spsx, spsy, sp.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#44ff00';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#00ff44';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    // Trail
+                    ctx.beginPath();
+                    ctx.arc(spsx - sp.vx * 0.02, spsy - sp.vy * 0.02, sp.radius * 0.6, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0, 255, 68, 0.3)';
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                // Central body - pulsing green/purple mass
+                const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, pwRadius * pulse);
+                bodyGrad.addColorStop(0, '#001a00');
+                bodyGrad.addColorStop(0.3, '#003300');
+                bodyGrad.addColorStop(0.6, '#005500');
+                bodyGrad.addColorStop(0.85, '#008800');
+                bodyGrad.addColorStop(1, 'rgba(0, 200, 68, 0.3)');
+                ctx.beginPath();
+                ctx.arc(0, 0, pwRadius * pulse, 0, Math.PI * 2);
+                ctx.fillStyle = bodyGrad;
+                ctx.fill();
+
+                // Outer glow
+                ctx.beginPath();
+                ctx.arc(0, 0, pwRadius * pulse * 1.3, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 255, 68, ${0.08 + Math.sin(e.pulseTimer * 4) * 0.04})`;
+                ctx.fill();
+
+                // Tendrils radiating from body
+                for (let i = 0; i < 6; i++) {
+                    const tAngle = e.bodyAngle + (i / 6) * Math.PI * 2;
+                    const tLen = pwRadius * 0.8 + Math.sin(e.pulseTimer * 2 + i) * 10;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(Math.cos(tAngle) * tLen, Math.sin(tAngle) * tLen);
+                    ctx.strokeStyle = `rgba(0, 200, 68, ${0.4 + Math.sin(e.pulseTimer * 3 + i) * 0.2})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+
+                // Central eye (green, menacing)
+                const eyeSize = pwRadius * 0.3;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, eyeSize, eyeSize * 0.5, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ff44';
+                ctx.fill();
+                ctx.strokeStyle = '#88ff88';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Pupil
+                const pDx = this.worldX - e.wx;
+                const pDy = this.worldY - e.wy;
+                const pDist = Math.sqrt(pDx * pDx + pDy * pDy);
+                const pupilOff = Math.min(eyeSize * 0.3, pDist * 0.05);
+                const pupX = pDist > 0 ? (pDx / pDist) * pupilOff : 0;
+                const pupY = pDist > 0 ? (pDy / pDist) * pupilOff * 0.5 : 0;
+                ctx.beginPath();
+                ctx.ellipse(pupX, pupY, eyeSize * 0.25, eyeSize * 0.15, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+
+                // Hit flash
+                if (e.hitFlash > 0) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.globalAlpha = 0.4;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, pwRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.globalAlpha = 1;
+                }
+
+                ctx.restore();
+
+                // Name + HP bar
+                const pwDisplayR = pwRadius * 1.3;
+                ctx.font = 'bold 16px Inter'; ctx.fillStyle = '#00ff44'; ctx.textAlign = 'center';
+                ctx.fillText('🦠 ' + e.name + ' 🦠', sx, sy - pwDisplayR - 50);
+                // Phase indicator
+                const phaseNames = ['', 'Infestation', 'Corruption', 'Pandemic'];
+                ctx.font = '11px Inter'; ctx.fillStyle = '#88ff88';
+                ctx.fillText(`Phase ${e.phase}: ${phaseNames[e.phase]}`, sx, sy - pwDisplayR - 35);
+                // Time
+                if (e.lifeTimer !== undefined) {
+                    const tLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
+                    const tCol = tLeft <= 10 ? '#ff0000' : (tLeft <= 20 ? '#ff8800' : '#aaa');
+                    ctx.font = '11px Inter'; ctx.fillStyle = tCol;
+                    ctx.fillText(`Retreats in: ${tLeft}s`, sx, sy - pwDisplayR - 20);
+                }
+                const pbw = Math.max(pwRadius * 2.5, 200);
+                ctx.fillStyle = '#222'; ctx.fillRect(sx - pbw / 2, sy - pwDisplayR - 12, pbw, 12);
+                ctx.fillStyle = '#333'; ctx.fillRect(sx - pbw / 2 + 1, sy - pwDisplayR - 11, pbw - 2, 10);
+                const pwHpGrad = ctx.createLinearGradient(sx - pbw / 2, 0, sx + pbw / 2, 0);
+                pwHpGrad.addColorStop(0, '#00cc44');
+                pwHpGrad.addColorStop(0.5, '#44ff00');
+                pwHpGrad.addColorStop(1, '#88ff44');
+                ctx.fillStyle = pwHpGrad;
+                ctx.fillRect(sx - pbw / 2 + 1, sy - pwDisplayR - 11, (pbw - 2) * (e.health / e.maxHealth), 10);
+
+            } else if (e.isRiftLord) {
+                // THE RIFT LORD - Dimensional entity with pillars, beams, portals
+                ctx.save();
+
+                // Draw beam walls between pillars (behind everything)
+                for (const beam of e.beamWalls) {
+                    const p1sx = this.player.x + (beam.p1.wx - this.worldX);
+                    const p1sy = this.player.y + (beam.p1.wy - this.worldY);
+                    const p2sx = this.player.x + (beam.p2.wx - this.worldX);
+                    const p2sy = this.player.y + (beam.p2.wy - this.worldY);
+                    // Glow
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#6644ff';
+                    ctx.beginPath();
+                    ctx.moveTo(p1sx, p1sy);
+                    ctx.lineTo(p2sx, p2sy);
+                    ctx.strokeStyle = `rgba(102, 68, 255, ${0.5 + Math.sin(e.auraAngle * 3) * 0.2})`;
+                    ctx.lineWidth = 6;
+                    ctx.stroke();
+                    // Inner beam
+                    ctx.beginPath();
+                    ctx.moveTo(p1sx, p1sy);
+                    ctx.lineTo(p2sx, p2sy);
+                    ctx.strokeStyle = `rgba(187, 136, 255, 0.8)`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    // Particle trail along beam
+                    if (Math.random() < 0.3) {
+                        const t = Math.random();
+                        const px = p1sx + (p2sx - p1sx) * t;
+                        const py = p1sy + (p2sy - p1sy) * t;
+                        this.spawnParticles(px, py, '#6644ff', 1);
+                    }
+                }
+
+                // Draw pillars
+                for (const pillar of e.pillars) {
+                    const pssx = this.player.x + (pillar.wx - this.worldX);
+                    const pssy = this.player.y + (pillar.wy - this.worldY);
+                    // Pillar base glow
+                    const plGrad = ctx.createRadialGradient(pssx, pssy, 0, pssx, pssy, pillar.radius * 2);
+                    plGrad.addColorStop(0, 'rgba(102, 68, 255, 0.4)');
+                    plGrad.addColorStop(1, 'rgba(102, 68, 255, 0)');
+                    ctx.beginPath();
+                    ctx.arc(pssx, pssy, pillar.radius * 2, 0, Math.PI * 2);
+                    ctx.fillStyle = plGrad;
+                    ctx.fill();
+                    // Pillar body (tall obelisk shape - diamond)
+                    ctx.beginPath();
+                    ctx.moveTo(pssx, pssy - 35);
+                    ctx.lineTo(pssx + pillar.radius, pssy);
+                    ctx.lineTo(pssx, pssy + 15);
+                    ctx.lineTo(pssx - pillar.radius, pssy);
+                    ctx.closePath();
+                    const pillarGrad = ctx.createLinearGradient(pssx, pssy - 35, pssx, pssy + 15);
+                    pillarGrad.addColorStop(0, '#8866ff');
+                    pillarGrad.addColorStop(0.5, '#4422aa');
+                    pillarGrad.addColorStop(1, '#220066');
+                    ctx.fillStyle = pillarGrad;
+                    ctx.fill();
+                    ctx.strokeStyle = '#bb88ff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    // Top glow orb
+                    ctx.beginPath();
+                    ctx.arc(pssx, pssy - 35, 6 + Math.sin(pillar.glowAngle) * 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#bb88ff';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#6644ff';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    // HP bar
+                    const plbw = pillar.radius * 2.5;
+                    ctx.fillStyle = '#333'; ctx.fillRect(pssx - plbw / 2, pssy + 20, plbw, 4);
+                    ctx.fillStyle = '#6644ff'; ctx.fillRect(pssx - plbw / 2, pssy + 20, plbw * (pillar.health / pillar.maxHealth), 4);
+                }
+
+                // Draw portals
+                for (const portal of e.portals) {
+                    const prsx = this.player.x + (portal.wx - this.worldX);
+                    const prsy = this.player.y + (portal.wy - this.worldY);
+                    // Swirling void portal
+                    ctx.save();
+                    ctx.translate(prsx, prsy);
+                    ctx.rotate(portal.spinAngle);
+                    // Outer ring
+                    for (let ring = 0; ring < 3; ring++) {
+                        const rr = portal.radius * (1.3 - ring * 0.15);
+                        ctx.beginPath();
+                        ctx.arc(0, 0, rr, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(102, 68, 255, ${0.3 - ring * 0.08})`;
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([8, 5]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                    // Center void
+                    const portalGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, portal.radius);
+                    portalGrad.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
+                    portalGrad.addColorStop(0.5, 'rgba(30, 0, 60, 0.6)');
+                    portalGrad.addColorStop(1, 'rgba(102, 68, 255, 0)');
+                    ctx.beginPath();
+                    ctx.arc(0, 0, portal.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = portalGrad;
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Draw void slam telegraph
+                if (e.voidSlam && !e.voidSlam.exploded) {
+                    const vssx = this.player.x + (e.voidSlam.wx - this.worldX);
+                    const vssy = this.player.y + (e.voidSlam.wy - this.worldY);
+                    const progress = e.voidSlam.timer / e.voidSlam.growDuration;
+                    const vsRadius = e.voidSlam.maxRadius * progress;
+                    // Growing purple circle
+                    ctx.beginPath();
+                    ctx.arc(vssx, vssy, vsRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(102, 68, 255, ${0.2 + progress * 0.2})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 + progress * 0.5})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    // Warning text
+                    if (progress < 0.8) {
+                        ctx.font = 'bold 14px Inter'; ctx.fillStyle = '#ff4444'; ctx.textAlign = 'center';
+                        ctx.fillText('VOID SLAM!', vssx, vssy - vsRadius - 10);
+                    }
+                }
+
+                // Draw teleport warning
+                if (e.teleportWarning) {
+                    const twsx = this.player.x + (e.teleportWarning.wx - this.worldX);
+                    const twsy = this.player.y + (e.teleportWarning.wy - this.worldY);
+                    const twProgress = e.teleportWarning.timer / e.teleportWarning.duration;
+                    const twRadius = 30 + twProgress * 30;
+                    ctx.beginPath();
+                    ctx.arc(twsx, twsy, twRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(187, 136, 255, ${0.4 + twProgress * 0.4})`;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Draw rift bolts
+                for (const rb of e.riftBolts) {
+                    const rbsx = this.player.x + (rb.wx - this.worldX);
+                    const rbsy = this.player.y + (rb.wy - this.worldY);
+                    ctx.beginPath();
+                    ctx.arc(rbsx, rbsy, rb.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#8866ff';
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#6644ff';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    // Trail
+                    ctx.beginPath();
+                    ctx.arc(rbsx - rb.vx * 0.02, rbsy - rb.vy * 0.02, rb.radius * 0.5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(102, 68, 255, 0.4)';
+                    ctx.fill();
+                }
+
+                // Rift Lord body - hooded figure with reality distortion
+                ctx.translate(sx, sy);
+                const floatY = Math.sin(e.floatAngle) * 5;
+
+                // Reality distortion aura
+                for (let i = 0; i < 3; i++) {
+                    const distAngle = e.auraAngle + (i / 3) * Math.PI * 2;
+                    const distR = e.radius * 1.2 + Math.sin(distAngle * 2) * 10;
+                    ctx.beginPath();
+                    ctx.arc(0, floatY, distR, distAngle, distAngle + 0.5);
+                    ctx.strokeStyle = `rgba(102, 68, 255, ${0.15 + Math.sin(e.auraAngle * 2 + i) * 0.1})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+
+                // Body - dark hooded silhouette
+                const rlRadius = e.radius;
+                // Robe/body
+                ctx.beginPath();
+                ctx.moveTo(0, floatY - rlRadius * 0.9);
+                ctx.quadraticCurveTo(-rlRadius * 0.7, floatY - rlRadius * 0.3, -rlRadius * 0.5, floatY + rlRadius * 0.6);
+                ctx.lineTo(rlRadius * 0.5, floatY + rlRadius * 0.6);
+                ctx.quadraticCurveTo(rlRadius * 0.7, floatY - rlRadius * 0.3, 0, floatY - rlRadius * 0.9);
+                ctx.closePath();
+                const bodyGrad = ctx.createLinearGradient(0, floatY - rlRadius, 0, floatY + rlRadius);
+                bodyGrad.addColorStop(0, '#1a0044');
+                bodyGrad.addColorStop(0.5, '#0d0022');
+                bodyGrad.addColorStop(1, '#000011');
+                ctx.fillStyle = bodyGrad;
+                ctx.fill();
+                ctx.strokeStyle = '#4422aa';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Glowing eyes
+                const eyeY = floatY - rlRadius * 0.3;
+                for (const ex of [-12, 12]) {
+                    ctx.beginPath();
+                    ctx.arc(ex, eyeY, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#bb88ff';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#6644ff';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    // Pupil
+                    ctx.beginPath();
+                    ctx.arc(ex, eyeY, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                }
+
+                // Shield visual
+                if (e.shieldActive) {
+                    ctx.beginPath();
+                    ctx.arc(0, floatY, rlRadius * 1.4, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(102, 68, 255, ${0.6 + Math.sin(e.auraAngle * 4) * 0.2})`;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.fillStyle = `rgba(102, 68, 255, 0.15)`;
+                    ctx.fill();
+                }
+
+                // Hit flash
+                if (e.hitFlash > 0 && !e.shieldActive) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.globalAlpha = 0.4;
+                    ctx.beginPath();
+                    ctx.arc(0, floatY, rlRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.globalAlpha = 1;
+                }
+
+                ctx.restore();
+
+                // Name + HP bar
+                const rlDisplayR = e.radius * 1.3;
+                ctx.font = 'bold 16px Inter'; ctx.fillStyle = '#bb88ff'; ctx.textAlign = 'center';
+                ctx.fillText('⚡ ' + e.name + ' ⚡', sx, sy - rlDisplayR - 55);
+                const rlPhaseNames = ['', 'Fracture', 'Rupture', 'Collapse'];
+                ctx.font = '11px Inter'; ctx.fillStyle = '#8866ff';
+                ctx.fillText(`Phase ${e.phase}: ${rlPhaseNames[e.phase]}  |  Pillars: ${e.pillars.length}`, sx, sy - rlDisplayR - 38);
+                if (e.lifeTimer !== undefined) {
+                    const rtLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
+                    const rtCol = rtLeft <= 10 ? '#ff0000' : (rtLeft <= 30 ? '#ff8800' : '#aaa');
+                    ctx.font = '11px Inter'; ctx.fillStyle = rtCol;
+                    ctx.fillText(`Retreats in: ${rtLeft}s`, sx, sy - rlDisplayR - 22);
+                }
+                const rlbw = Math.max(e.radius * 2.5, 200);
+                ctx.fillStyle = '#222'; ctx.fillRect(sx - rlbw / 2, sy - rlDisplayR - 12, rlbw, 12);
+                ctx.fillStyle = '#333'; ctx.fillRect(sx - rlbw / 2 + 1, sy - rlDisplayR - 11, rlbw - 2, 10);
+                const rlHpGrad = ctx.createLinearGradient(sx - rlbw / 2, 0, sx + rlbw / 2, 0);
+                rlHpGrad.addColorStop(0, '#4422aa');
+                rlHpGrad.addColorStop(0.5, '#6644ff');
+                rlHpGrad.addColorStop(1, '#bb88ff');
+                ctx.fillStyle = rlHpGrad;
+                ctx.fillRect(sx - rlbw / 2 + 1, sy - rlDisplayR - 11, (rlbw - 2) * (e.health / e.maxHealth), 10);
+
+            } else if (e.isConsumer) {
                 // THE CONSUMER - Spiraling void with sprite and eyeball
                 ctx.save();
                 ctx.translate(sx, sy);
@@ -13224,8 +14502,8 @@ class DotsSurvivor {
             ctx.globalAlpha = 1;
         });
         
-        // Consumer Survival Timer UI
-        this.drawConsumerTimer(ctx);
+        // Event Boss Timer UI
+        this.drawBossEventTimer(ctx);
         
         // Health bar
         this.drawHealthBar();
@@ -13285,33 +14563,46 @@ class DotsSurvivor {
         this.drawArmorHUD();
     }
 
-    drawConsumerTimer(ctx) {
-        // Find consumer enemy
-        const consumer = this.enemies.find(e => e.isConsumer);
-        if (!consumer) return;
+    drawBossEventTimer(ctx) {
+        // Find any active event boss with a timer
+        const eventBoss = this.enemies.find(e => e.isConsumer || e.isPlagueWeaver || e.isRiftLord);
+        if (!eventBoss || eventBoss.lifeTimer === undefined) return;
 
-        const timeLeft = Math.max(0, consumer.maxLifeTime - consumer.lifeTimer);
+        const timeLeft = Math.max(0, eventBoss.maxLifeTime - eventBoss.lifeTimer);
         const minutes = Math.floor(timeLeft / 60);
         const seconds = Math.floor(timeLeft % 60);
         const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        
+
+        // Boss-specific theme
+        let title, themeColor;
+        if (eventBoss.isConsumer) {
+            title = '⚫ SURVIVE THE CONSUMER ⚫';
+            themeColor = '#8800ff';
+        } else if (eventBoss.isPlagueWeaver) {
+            title = '🦠 SURVIVE THE PLAGUE WEAVER 🦠';
+            themeColor = '#00cc44';
+        } else if (eventBoss.isRiftLord) {
+            title = '⚡ SURVIVE THE RIFT LORD ⚡';
+            themeColor = '#6644ff';
+        }
+
         // Timer panel at top center
-        const panelWidth = 280;
+        const panelWidth = 300;
         const panelHeight = 70;
         const panelX = (this.canvas.width - panelWidth) / 2;
         const panelY = 80;
-        
+
         // Urgency color based on time left
-        let urgencyColor = '#8800ff'; // Purple - calm
+        let urgencyColor = themeColor;
         let bgAlpha = 0.7;
         if (timeLeft < 30) {
-            urgencyColor = '#ff0000'; // Red - danger
+            urgencyColor = '#ff0000';
             bgAlpha = 0.85 + Math.sin(this.gameTime / 50) * 0.1;
         } else if (timeLeft < 60) {
-            urgencyColor = '#ff6600'; // Orange - warning
+            urgencyColor = '#ff6600';
             bgAlpha = 0.8;
         }
-        
+
         // Background panel with glow
         ctx.save();
         ctx.shadowBlur = 20;
@@ -13320,7 +14611,7 @@ class DotsSurvivor {
         ctx.beginPath();
         ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 12);
         ctx.fill();
-        
+
         // Border
         ctx.strokeStyle = urgencyColor;
         ctx.lineWidth = 3;
@@ -13328,18 +14619,28 @@ class DotsSurvivor {
         ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 12);
         ctx.stroke();
         ctx.shadowBlur = 0;
-        
+
         // Title
         ctx.font = 'bold 14px Inter';
         ctx.fillStyle = urgencyColor;
         ctx.textAlign = 'center';
-        ctx.fillText('⚫ SURVIVE THE CONSUMER ⚫', panelX + panelWidth / 2, panelY + 22);
-        
+        ctx.fillText(title, panelX + panelWidth / 2, panelY + 22);
+
+        // Phase indicator for Plague Weaver / Rift Lord
+        if (eventBoss.phase && !eventBoss.isConsumer) {
+            const phaseNames = eventBoss.isPlagueWeaver
+                ? ['', 'INFESTATION', 'CORRUPTION', 'PANDEMIC']
+                : ['', 'FRACTURE', 'RUPTURE', 'COLLAPSE'];
+            ctx.font = '11px Inter';
+            ctx.fillStyle = themeColor;
+            ctx.fillText(`Phase ${eventBoss.phase}: ${phaseNames[eventBoss.phase] || ''}`, panelX + panelWidth / 2, panelY + 35);
+        }
+
         // Timer
         ctx.font = 'bold 32px Inter';
         ctx.fillStyle = timeLeft < 30 ? '#ff0000' : '#ffffff';
-        ctx.fillText(timeStr, panelX + panelWidth / 2, panelY + 55);
-        
+        ctx.fillText(timeStr, panelX + panelWidth / 2, panelY + 58);
+
         // Pulsing effect when critical
         if (timeLeft < 30) {
             const pulse = Math.sin(this.gameTime / 100) * 0.3 + 0.7;
@@ -13351,7 +14652,7 @@ class DotsSurvivor {
             ctx.stroke();
             ctx.globalAlpha = 1;
         }
-        
+
         ctx.restore();
     }
 
