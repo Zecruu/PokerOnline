@@ -4023,6 +4023,59 @@ class DotsSurvivor {
         this.killStreakTimer = 0;
         this.auraFire = null; // Fire aura augment
 
+        // ========== SAFE DEFAULTS FOR ALL CLASS-SPECIFIC PROPERTIES ==========
+        // These prevent crashes when shared code paths access class-specific state
+        // Fire Sovereign defaults
+        this.hasHomingFireballs = false;
+        this.sovereignBurnDPS = 0;
+        this.sovereignBurnDPSMult = 1;
+        this.maxBurnStacks = 10;
+        this.burnStackDuration = 4;
+        this.livingFlameActive = false;
+        this.livingFlameBonusPerStack = 0;
+        this.livingFlameMaxBonus = 0;
+        this.heatConductionActive = false;
+        this.heatConductionTimer = 0;
+        this.heatConductionInterval = 5;
+        this.heatConductionRadius = 300;
+        this.heatConductionPulseVisual = null;
+        this.pyreMomentumActive = false;
+        this.pyreMomentumBonus = 0;
+        this.pyreMomentumMax = 0;
+        this.pyreMomentumRate = 0;
+        this.pyreMomentumTimer = 0;
+        this.solarCataclysmActive = false;
+        this.solarCataclysmVisual = null;
+        this.doubleBurnActive = false;
+        this.doubleBurnTimer = 0;
+        this.conflagrationActive = false;
+        this.conflagrationTimer = 0;
+        this.moltenCoreActive = false;
+        this.eternalPyre = false;
+        this.phoenixAscendancyAvailable = false;
+        this.burnDamageBonus = 1;
+        this.corruptedBurnSelfDamage = 0;
+        // Void Blade defaults
+        this.hasMeleeSlash = false;
+        this.voidBleedDPS = 0;
+        this.crimsonSenseActive = false;
+        this.bloodEssence = 0;
+        this.bloodSwords = [];
+        this.voidstepIframes = 0;
+        this.crimsonCatastropheActive = false;
+        this.bloodStormZones = [];
+        this.hemorrhageActive = false;
+        // Shadow Monarch defaults
+        this.umbralOrbs = [];
+        this.shadowLances = [];
+        this.shadowThrall = null;
+        this.shadowVoid = null;
+        this.dominionStacks = 0;
+        this.dominionDamageBonus = 1;
+        this.monarchDecreeActive = false;
+        this.monarchDecreeTimer = 0;
+        this.monarchUntargetableTimer = 0;
+
         // ABILITIES SYSTEM - Active abilities with cooldowns (Item abilities use 1 and 2 keys)
         this.abilities = {
             dash: {
@@ -4168,6 +4221,14 @@ class DotsSurvivor {
             this.homingStrength = 12;
             // Fireball color
             this.weapons.bullet.color = '#ff6600';
+            // Ring of Fire - starts active from game start
+            this.auraFire = {
+                radius: 100,
+                damage: 25,
+                burnDuration: 3,
+                tickTimer: 0,
+                tickInterval: 0.5
+            };
             // Ability cooldowns
             this.characterAbilities.q.maxCooldown = 12;
             this.characterAbilities.e.maxCooldown = 50;
@@ -4491,7 +4552,7 @@ class DotsSurvivor {
             baseRadius: 100,
             spriteSize: 300,       // Sprite render size (grows when consuming)
             baseSpriteSize: 300,
-            speed: 18, // Slightly slower - menacing crawl
+            speed: 32, // Faster menacing crawl
             health: baseHP,
             maxHealth: baseHP,
             baseHealth: baseHP,
@@ -4510,7 +4571,14 @@ class DotsSurvivor {
             maxLifeTime: 90, // 1:30 survival time
             vacuumParticles: [], // For vacuum effect
             spiralParticles: [], // For spiraling void effect
-            attackCooldown: 0 // For attack speed system
+            attackCooldown: 0, // For attack speed system
+            // New mechanics
+            shockwaveTimer: 0,
+            shockwaveCooldown: 6, // Shockwave every 6 seconds
+            enraged: false,
+            voidProjectiles: [],
+            voidProjectileTimer: 0,
+            voidProjectileCooldown: 4 // Void bolt every 4 seconds
         };
 
         this.enemies.push(consumer);
@@ -4702,6 +4770,92 @@ class DotsSurvivor {
                 }
             }
         }
+
+        // ---- ENRAGE PHASE (last 30 seconds) ----
+        if (!consumer.enraged && consumer.lifeTimer >= 60) {
+            consumer.enraged = true;
+            consumer.speed = 55; // Much faster
+            consumer.suckStrength = 600;
+            consumer.consumeRadius += 60;
+            consumer.pullRadius += 80;
+            consumer.shockwaveCooldown = 3; // Shockwaves twice as fast
+            consumer.voidProjectileCooldown = 2; // Void bolts twice as fast
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2 - 80,
+                value: '😡 THE CONSUMER ENRAGES! 😡',
+                lifetime: 3, color: '#ff0000', scale: 2.2
+            });
+            this.triggerScreenShake(12, 0.5);
+        }
+
+        // ---- SHOCKWAVE ATTACK ----
+        consumer.shockwaveTimer += dt;
+        if (consumer.shockwaveTimer >= consumer.shockwaveCooldown) {
+            consumer.shockwaveTimer = 0;
+            const shockDist = Math.sqrt((this.worldX - consumer.wx) ** 2 + (this.worldY - consumer.wy) ** 2);
+            const shockRadius = 250 + (consumer.consumedCount * 3);
+            if (shockDist < shockRadius && this.player.invincibleTime <= 0) {
+                const shockDmg = Math.floor(consumer.damage * 0.25);
+                this.player.health -= shockDmg;
+                this.player.invincibleTime = 0.5;
+                this.combatTimer = 0;
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 30,
+                    value: -shockDmg, lifetime: 1, color: '#cc00ff', scale: 1.2
+                });
+                this.triggerScreenShake(6, 0.2);
+            }
+            // Visual ring expanding from consumer
+            const csx = this.player.x + (consumer.wx - this.worldX);
+            const csy = this.player.y + (consumer.wy - this.worldY);
+            this.spawnParticles(csx, csy, '#8800ff', 8);
+            consumer.shockwaveVisual = { x: csx, y: csy, radius: 0, maxRadius: shockRadius, timer: 0.6 };
+        }
+        // Tick down shockwave visual
+        if (consumer.shockwaveVisual) {
+            consumer.shockwaveVisual.timer -= dt;
+            consumer.shockwaveVisual.radius += 400 * dt;
+            if (consumer.shockwaveVisual.timer <= 0) consumer.shockwaveVisual = null;
+        }
+
+        // ---- VOID BOLT PROJECTILES ----
+        if (!consumer.voidProjectiles) consumer.voidProjectiles = [];
+        consumer.voidProjectileTimer += dt;
+        if (consumer.voidProjectileTimer >= consumer.voidProjectileCooldown) {
+            consumer.voidProjectileTimer = 0;
+            const boltAngle = Math.atan2(this.worldY - consumer.wy, this.worldX - consumer.wx);
+            const boltCount = consumer.enraged ? 3 : 1;
+            for (let b = 0; b < boltCount; b++) {
+                const spread = (b - (boltCount - 1) / 2) * 0.3;
+                consumer.voidProjectiles.push({
+                    wx: consumer.wx, wy: consumer.wy,
+                    vx: Math.cos(boltAngle + spread) * 250,
+                    vy: Math.sin(boltAngle + spread) * 250,
+                    damage: Math.floor(consumer.damage * 0.3),
+                    radius: 10, lifetime: 3
+                });
+            }
+        }
+        // Update void bolts
+        for (let i = consumer.voidProjectiles.length - 1; i >= 0; i--) {
+            const bolt = consumer.voidProjectiles[i];
+            bolt.wx += bolt.vx * dt;
+            bolt.wy += bolt.vy * dt;
+            bolt.lifetime -= dt;
+            if (bolt.lifetime <= 0) { consumer.voidProjectiles.splice(i, 1); continue; }
+            // Check player hit
+            const bDist = Math.sqrt((this.worldX - bolt.wx) ** 2 + (this.worldY - bolt.wy) ** 2);
+            if (bDist < bolt.radius + this.player.radius && this.player.invincibleTime <= 0) {
+                this.player.health -= bolt.damage;
+                this.player.invincibleTime = 0.3;
+                this.combatTimer = 0;
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 20,
+                    value: -bolt.damage, lifetime: 0.8, color: '#aa00ff'
+                });
+                consumer.voidProjectiles.splice(i, 1);
+            }
+        }
     }
 
     consumerExplode(consumer) {
@@ -4858,7 +5012,7 @@ class DotsSurvivor {
             isPlagueWeaver: true,
             isBoss: true,
             radius: 80,
-            speed: 0, // Stationary
+            speed: 40, // Slow menacing crawl toward player
             health: baseHP,
             maxHealth: baseHP,
             damage: Math.floor(100 * scaleMult),
@@ -4955,6 +5109,17 @@ class DotsSurvivor {
             return;
         }
 
+        // ---- MOVEMENT - crawl toward player ----
+        const pwdx = this.worldX - pw.wx;
+        const pwdy = this.worldY - pw.wy;
+        const pwdist = Math.sqrt(pwdx * pwdx + pwdy * pwdy);
+        // Speed increases with phase
+        const pwSpeed = pw.speed * (1 + (pw.phase - 1) * 0.25);
+        if (pwdist > pw.radius) {
+            pw.wx += (pwdx / pwdist) * pwSpeed * dt;
+            pw.wy += (pwdy / pwdist) * pwSpeed * dt;
+        }
+
         // ---- TOXIC ZONE SPAWNING ----
         const zoneInterval = pw.phase === 1 ? 5 : (pw.phase === 2 ? 3 : 2);
         pw.toxicZoneTimer += dt;
@@ -4969,7 +5134,7 @@ class DotsSurvivor {
                 radius: 40,
                 maxRadius: 80 + Math.random() * 30,
                 growRate: 8,
-                damage: pw.phase === 3 ? pw.damage * 0.6 : pw.damage * 0.3,
+                damage: pw.phase === 3 ? pw.damage * 2.0 : pw.damage * 1.0,
                 lifetime: 0,
                 bubbleTimer: 0,
             });
@@ -9646,10 +9811,11 @@ class DotsSurvivor {
             if (this.corruptedBurnSelfDamage) {
                 this.player.health -= this.corruptedBurnSelfDamage * dt;
             }
-            // Visual effects
-            if (Math.random() < 0.05) {
+            // Visual effects - burn damage numbers + particles
+            if (Math.random() < 0.15) {
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
+                this.addDamageNumber(sx, sy, Math.ceil(totalDPS * 0.5), '#ff6600', { enemyId: e.id, scale: 0.6 });
                 this.spawnParticles(sx, sy, '#ff4400', 2);
             }
         }
@@ -13248,10 +13414,57 @@ class DotsSurvivor {
 
                 ctx.restore();
 
+                // Shockwave expanding ring visual
+                if (e.shockwaveVisual) {
+                    const sw = e.shockwaveVisual;
+                    const swAlpha = Math.max(0, sw.timer / 0.6) * 0.5;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(136, 0, 255, ${swAlpha})`;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(sw.x, sw.y, sw.radius - 5, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 0, 200, ${swAlpha * 0.6})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // Void bolt projectiles
+                if (e.voidProjectiles) {
+                    for (const bolt of e.voidProjectiles) {
+                        const bx = this.player.x + (bolt.wx - this.worldX);
+                        const by = this.player.y + (bolt.wy - this.worldY);
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.arc(bx, by, bolt.radius, 0, Math.PI * 2);
+                        const bGrad = ctx.createRadialGradient(bx, by, 0, bx, by, bolt.radius);
+                        bGrad.addColorStop(0, '#ff00ff');
+                        bGrad.addColorStop(0.5, '#8800ff');
+                        bGrad.addColorStop(1, 'rgba(68, 0, 170, 0)');
+                        ctx.fillStyle = bGrad;
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+
+                // Enrage indicator
+                if (e.enraged) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, e.radius + 30 + Math.sin(this.gameTime / 100) * 8, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + Math.sin(this.gameTime / 80) * 0.15})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
                 // Name and HP bar (outside save/restore)
                 const displayRadius = spriteSize / 2;
-                ctx.font = 'bold 18px Inter'; ctx.fillStyle = '#ff0066'; ctx.textAlign = 'center';
-                ctx.fillText('🌀 ' + e.name + ' 🌀', sx, sy - displayRadius - 55);
+                ctx.font = 'bold 18px Inter'; ctx.fillStyle = e.enraged ? '#ff0000' : '#ff0066'; ctx.textAlign = 'center';
+                ctx.fillText((e.enraged ? '😡 ' : '🌀 ') + e.name + (e.enraged ? ' ENRAGED! 😡' : ' 🌀'), sx, sy - displayRadius - 55);
                 ctx.font = '12px Inter'; ctx.fillStyle = '#cc88ff';
                 ctx.fillText(`Souls Consumed: ${e.consumedCount}`, sx, sy - displayRadius - 38);
                 // Time remaining
