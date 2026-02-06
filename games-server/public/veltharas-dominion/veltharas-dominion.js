@@ -2498,12 +2498,13 @@ function getSpawnRateMultByWave(wave) {
 
 // Get max alive enemy cap by wave
 function getMaxAliveByWave(wave) {
-    if (wave <= 3) return 40;     // Waves 1-3: low cap
-    if (wave <= 6) return 65;     // Waves 4-6: medium cap
-    if (wave <= 9) return 100;    // Waves 7-9: higher cap
-    if (wave <= 12) return 140;   // Waves 10-12: high cap
-    if (wave <= 15) return 180;   // Waves 13-15: very high cap
-    return 220;                   // Waves 16+: maximum cap
+    if (wave <= 3) return 60;
+    if (wave <= 6) return 100;
+    if (wave <= 9) return 160;
+    if (wave <= 12) return 250;
+    if (wave <= 15) return 350;
+    if (wave <= 20) return 450;
+    return 500;
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
