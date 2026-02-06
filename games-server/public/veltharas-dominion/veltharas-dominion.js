@@ -12830,7 +12830,8 @@ class DotsSurvivor {
     }
 
     showLevelUpMenu() {
-        console.log('[GAME] showLevelUpMenu() called');
+        console.log('[GAME] showLevelUpMenu() called, wave:', this.wave, 'pending:', this.pendingUpgrades);
+        try {
         // ============================================
         // SIGIL SYSTEM - Player scales through Sigils
         // Tiers: Faded (50%), Runed (30%), Empowered (15%), Ascendant (4%), Mythic (1%)
@@ -12951,10 +12952,12 @@ class DotsSurvivor {
                 runePool = [...COMMON_RUNES]; // Allow duplicates if all used
             }
 
+            console.log('[GAME] Rolling sigil slot', i, 'tier:', tier, 'poolSize:', runePool.length);
             const rune = rollSigil(runePool[Math.floor(Math.random() * runePool.length)], this.sigilRNG, isGuaranteedHighRoll);
             usedIds.add(rune.id);
             choices.push(rune);
         }
+        console.log('[GAME] 3 choices generated:', choices.map(c => c.name));
 
         // Chaos Sigil: 20% chance to replace one slot (wave 5+), or always on guaranteed high roll waves
         if (this.wave >= 5 && (Math.random() < 0.20 || isGuaranteedHighRoll)) {
@@ -13217,11 +13220,20 @@ class DotsSurvivor {
             return card;
         };
 
+        console.log('[GAME] Rendering sigil cards...');
         choices.forEach((rune, cardIndex) => {
+            console.log('[GAME] Rendering card', cardIndex, rune.name, rune.id);
             container.appendChild(renderSigilCard(rune, cardIndex));
         });
 
+        console.log('[GAME] Showing levelup menu');
         document.getElementById('levelup-menu').classList.remove('hidden');
+        } catch(err) {
+            console.error('[GAME] CRASH in showLevelUpMenu:', err, err.stack);
+            _reportError(err, 'showLevelUpMenu');
+            this.upgradeMenuShowing = false;
+            this.gamePaused = false;
+        }
     }
 
     getRandomUpgrades(count) {
