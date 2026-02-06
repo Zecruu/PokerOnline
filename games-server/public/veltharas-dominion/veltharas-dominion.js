@@ -1204,6 +1204,7 @@ const FIRE_SOVEREIGN_CLASS = {
     id: 'fire_sovereign',
     name: 'Fire Sovereign',
     icon: '🔥',
+    portrait: 'characters/fire-sovereign-lv21.png',
     color: '#ff4400',
     description: 'Master of homing flames. Burns enemies with stacking fire that ramps into cataclysmic destruction.',
     bonuses: {
@@ -1402,6 +1403,7 @@ const VOID_BLADE_CLASS = {
     id: 'void_blade',
     name: 'Azura, The Void Blade',
     icon: '⚔️',
+    portrait: 'characters/void-blade-lv21.png',
     color: '#8B0000',
     description: 'Blind swordmaster. Bleeds enemies with true damage, forges Blood Swords from kills, and executes the weak.',
     bonuses: {
@@ -3659,7 +3661,10 @@ class DotsSurvivor {
             return `
                 <div class="char-card ${isDisabled ? 'disabled' : ''}" data-class-index="${index}" data-disabled="${isDisabled}" style="background:${charClass.color}22;border:3px solid ${isDisabled ? '#444' : charClass.color};border-radius:16px;padding:1.2rem;width:220px;cursor:${isDisabled ? 'not-allowed' : 'pointer'};text-align:center;transition:all 0.3s;position:relative;opacity:${isDisabled ? '0.6' : '1'};">
                     ${comingSoonOverlay}
-                    <div style="font-size:3rem;margin-bottom:0.3rem;">${charClass.icon}</div>
+                    ${charClass.portrait
+                        ? `<div style="width:100px;height:100px;margin:0 auto 0.3rem;"><img src="${getAssetUrl(charClass.portrait)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>`
+                        : `<div style="font-size:3rem;margin-bottom:0.3rem;">${charClass.icon}</div>`
+                    }
                     <div style="font-weight:700;color:${charClass.color};font-size:1.3rem;margin:0.3rem 0;">${charClass.name}</div>
                     <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.8rem;line-height:1.3;">${charClass.description || charClass.desc}</div>
 
