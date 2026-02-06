@@ -448,11 +448,11 @@ function rollSigilValue(rng, min, max, quality) {
 // ============================================
 function generateChaosStats(wave, rng) {
     const allStats = [
-        { category: 'flatDamage', label: 'Damage', apply: (g,v) => { g.weapons.bullet.damage += v; } },
-        { category: 'fireRatePct', label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); } },
-        { category: 'moveSpeedFlat', label: 'Speed', apply: (g,v) => { g.player.speed += v; } },
-        { category: 'hpFlat', label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; } },
-        { category: 'critChancePct', label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; } },
+        { category: 'flatDamage', label: 'Damage', apply: (g,v) => { g.weapons.bullet.damage += v; }, descFn: (g,v) => `Dmg +${v}` },
+        { category: 'fireRatePct', label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); }, descFn: (g,v) => `AtkSpd +${v}%` },
+        { category: 'moveSpeedFlat', label: 'Speed', apply: (g,v) => { g.player.speed += v; }, descFn: (g,v) => `Spd +${v}` },
+        { category: 'hpFlat', label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; }, descFn: (g,v) => `HP +${v}` },
+        { category: 'critChancePct', label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; }, descFn: (g,v) => `Crit +${v}%` },
     ];
     // Pick 2-3 random stats (never duplicates)
     const count = 2 + (rng() < 0.5 ? 1 : 0);
@@ -509,11 +509,11 @@ function rollSigil(template, rng, forceHighRoll) {
         const availableCategories = allCategories.filter(c => !usedCategories.has(c));
         const bonusCount = Math.min(3 - baseStatCount, availableCategories.length);
         const BONUS_STAT_DEFS = {
-            flatDamage: { label: 'Damage', apply: (g,v) => { g.weapons.bullet.damage += v; } },
-            fireRatePct: { label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); } },
-            moveSpeedFlat: { label: 'Speed', apply: (g,v) => { g.player.speed += v; } },
-            hpFlat: { label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; } },
-            critChancePct: { label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; } }
+            flatDamage: { label: 'Damage', apply: (g,v) => { g.weapons.bullet.damage += v; }, descFn: (g,v) => `Dmg +${v}` },
+            fireRatePct: { label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); }, descFn: (g,v) => `AtkSpd +${v}%` },
+            moveSpeedFlat: { label: 'Speed', apply: (g,v) => { g.player.speed += v; }, descFn: (g,v) => `Spd +${v}` },
+            hpFlat: { label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; }, descFn: (g,v) => `HP +${v}` },
+            critChancePct: { label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; }, descFn: (g,v) => `Crit +${v}%` }
         };
         for (let b = 0; b < bonusCount; b++) {
             const idx = Math.floor(rng() * availableCategories.length);
@@ -576,7 +576,10 @@ function rollSigil(template, rng, forceHighRoll) {
     inst.getDesc = function(g) {
         const p = [];
         if (template.id === 'sigil_assassin') p.push('Crit Dmg +25%');
-        for (const s of rolledStats) p.push(s.descFn(g, s.value));
+        for (const s of rolledStats) {
+            if (typeof s.descFn === 'function') p.push(s.descFn(g, s.value));
+            else { const isPct = s.category && s.category.includes('Pct'); p.push(isPct ? `+${s.value}% ${s.label||''}` : `+${s.value} ${s.label||''}`); }
+        }
         return p.join(', ');
     };
 
