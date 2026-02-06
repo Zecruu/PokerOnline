@@ -1,6 +1,34 @@
 // Velthara's Dominion - Complete Game with Classes, Items, Bosses & Infinite Map
 // CDN configuration is loaded from cdn-assets.js
 
+// ============ ERROR LOGGING SYSTEM ============
+// Catches all errors and reports them to server (visible in Railway logs)
+function _reportError(error, context) {
+    const payload = {
+        error: String(error?.message || error),
+        stack: String(error?.stack || '').substring(0, 2000),
+        context: context || 'unknown',
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString()
+    };
+    console.error('[GAME ERROR]', context, error);
+    try {
+        fetch('/api/client-error', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(() => {});
+    } catch (e) { /* ignore fetch errors */ }
+}
+window.onerror = function(msg, url, line, col, error) {
+    _reportError(error || msg, `window.onerror at ${url}:${line}:${col}`);
+    return false;
+};
+window.addEventListener('unhandledrejection', function(e) {
+    _reportError(e.reason, 'unhandledrejection');
+});
+console.log('[GAME] Error logging system initialized');
+
 // Spatial Hash Grid for O(1) amortized collision lookups
 class SpatialGrid {
     constructor(cellSize) {
@@ -2621,6 +2649,8 @@ const DEMON_SET_PIECES = [
 
 class DotsSurvivor {
     constructor() {
+      try {
+        console.log('[GAME] DotsSurvivor constructor started');
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
 
@@ -2701,6 +2731,11 @@ class DotsSurvivor {
         this.initSettings();
         this.initSound();
         this.init();
+        console.log('[GAME] Constructor complete');
+      } catch (err) {
+        _reportError(err, 'constructor');
+        console.error('[GAME] Fatal error in constructor:', err);
+      }
     }
 
     initSettings() {
@@ -3826,6 +3861,8 @@ class DotsSurvivor {
     }
 
     startGame() {
+      try {
+        console.log('[GAME] startGame() called');
         // Use the pending character class selected from character select screen
         if (this.pendingCharacterClass) {
             this.selectedClass = this.pendingCharacterClass;
@@ -4393,7 +4430,13 @@ class DotsSurvivor {
         this.gameRunning = true;
         this.gamePaused = false;
         this.lastTime = performance.now();
+        this.lastEnemySpawn = performance.now(); // Prevent first-frame burst spawning
+        console.log('[GAME] startGame() complete, starting game loop');
         requestAnimationFrame((t) => this.gameLoop(t));
+      } catch (err) {
+        _reportError(err, 'startGame');
+        console.error('[GAME] Fatal error in startGame:', err);
+      }
     }
 
     // Start game with a saved state
@@ -5906,8 +5949,12 @@ class DotsSurvivor {
     }
 
     gameLoop(t) {
+      try {
         if (!this.gameRunning) return;
-        const dt = (t - this.lastTime) / 1000; this.lastTime = t;
+        let dt = (t - this.lastTime) / 1000; this.lastTime = t;
+        // Clamp dt to prevent massive time jumps (e.g. after tab switch or heavy loading)
+        if (dt > 0.5) dt = 0.016; // Cap at 500ms, reset to ~60fps
+        if (dt < 0 || isNaN(dt)) dt = 0.016;
 
         // Check for pending upgrades BEFORE game update - pause immediately
         if (this.pendingUpgrades > 0 && !this.upgradeMenuShowing) {
@@ -6002,7 +6049,14 @@ class DotsSurvivor {
             this.update(dt);
         }
         this.render();
-        requestAnimationFrame((t) => this.gameLoop(t));
+      } catch (err) {
+        _reportError(err, 'gameLoop');
+        // Stop the game loop to prevent infinite error spam
+        this.gameRunning = false;
+        console.error('[GAME] Fatal error in gameLoop - game stopped. Error:', err);
+        return;
+      }
+      requestAnimationFrame((t) => this.gameLoop(t));
     }
 
     checkHorde() {
@@ -6307,6 +6361,11 @@ class DotsSurvivor {
 
 
     update(dt) {
+      try {
+        if (!this._frameCount) this._frameCount = 0;
+        this._frameCount++;
+        if (this._frameCount <= 3) console.log('[GAME] update() frame #' + this._frameCount, 'dt=', dt);
+
         // Apply slowmo effect
         const effectiveDt = this.slowmo.active ? dt * this.slowmo.factor : dt;
 
@@ -6404,6 +6463,10 @@ class DotsSurvivor {
         }
         if (this.player.health <= 0) this.gameOver();
         this.updateHUD();
+      } catch (err) {
+        _reportError(err, 'update');
+        throw err; // Re-throw so gameLoop catch can stop the loop
+      }
     }
 
     // ============ STARTER ITEM EVOLVED PASSIVES ============
@@ -11440,6 +11503,7 @@ class DotsSurvivor {
     }
 
     showLevelUpMenu() {
+        console.log('[GAME] showLevelUpMenu() called');
         // ============================================
         // SIGIL SYSTEM - Player scales through Sigils
         // Tiers: Faded (50%), Runed (30%), Empowered (15%), Ascendant (4%), Mythic (1%)
@@ -12345,6 +12409,8 @@ class DotsSurvivor {
     }
 
     render() {
+      try {
+        if (this._frameCount <= 3) console.log('[GAME] render() frame #' + this._frameCount);
         const ctx = this.ctx;
 
         // Default background - dark demonic
@@ -14581,6 +14647,10 @@ class DotsSurvivor {
 
         // Armor HUD
         this.drawArmorHUD();
+      } catch (err) {
+        _reportError(err, 'render');
+        throw err; // Re-throw so gameLoop catch can stop the loop
+      }
     }
 
     drawBossEventTimer(ctx) {

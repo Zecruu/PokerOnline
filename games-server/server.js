@@ -102,6 +102,19 @@ app.get('/sitemap.xml', (req, res) => {
 `);
 });
 
+// Client error reporting endpoint (logs to Railway console)
+app.post('/api/client-error', express.json(), (req, res) => {
+    const { error, stack, context, userAgent, timestamp } = req.body || {};
+    console.error('🔴 CLIENT ERROR:', {
+        error: error || 'unknown',
+        stack: stack || 'no stack',
+        context: context || 'unknown',
+        userAgent: (userAgent || '').substring(0, 100),
+        timestamp: timestamp || new Date().toISOString()
+    });
+    res.json({ received: true });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'games-server' });
