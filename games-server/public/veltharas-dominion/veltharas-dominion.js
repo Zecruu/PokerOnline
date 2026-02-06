@@ -3958,6 +3958,7 @@ class DotsSurvivor {
 
         // Horde system
         this.lastHordeCount = 0;
+        this.pendingHorde = false;
 
         // Perks
         this.perks = [];
@@ -4470,6 +4471,7 @@ class DotsSurvivor {
         };
 
         this.enemies.push(consumer);
+        this.playBossMusic();
 
         // Scary warning announcement
         this.damageNumbers.push({
