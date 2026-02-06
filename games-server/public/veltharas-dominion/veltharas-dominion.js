@@ -1444,7 +1444,7 @@ const VOID_BLADE_CLASS = {
         // Tier 2 (Runed) — 3 sigils
         { id: 'vb_crimson_edge', name: 'Crimson Edge', icon: '🗡️', desc: '+30% slash range, +1 Blood Sword cap', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.slashRange = Math.floor((g.slashRange || 130) * 1.3); g.maxBloodSwords = (g.maxBloodSwords || 5) + 1; }, getDesc: (g) => `Range +30%, +1 Sword` },
         { id: 'vb_sanguine_flow', name: 'Sanguine Flow', icon: '🌊', desc: 'Blood Swords attack 40% faster, sword hits spread bleed', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.bloodSwordAttackRate = (g.bloodSwordAttackRate || 1.2) * 0.6; g.bloodSwordSpreadBleed = true; }, getDesc: (g) => `Sword AtkSpd +40%, Bleed spreads` },
-        { id: 'vb_blood_frenzy', name: 'Blood Frenzy', icon: '💀', desc: 'Kills reduce Blood Sword threshold by 1 (min 4). +1 essence per kill', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.bloodSwordThreshold = Math.max(4, (g.bloodSwordThreshold || 8) - 1); g.bloodEssencePerKill = (g.bloodEssencePerKill || 1) + 1; }, getDesc: (g) => `Threshold: ${g.bloodSwordThreshold || 8} → ${Math.max(4, (g.bloodSwordThreshold || 8) - 1)}, +1 essence` },
+        { id: 'vb_blood_frenzy', name: 'Blood Frenzy', icon: '💀', desc: 'Kills reduce Blood Sword threshold by 5 (min 15). +1 essence per kill', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.bloodSwordThreshold = Math.max(15, (g.bloodSwordThreshold || 30) - 5); g.bloodEssencePerKill = (g.bloodEssencePerKill || 1) + 1; }, getDesc: (g) => `Threshold: ${g.bloodSwordThreshold || 30} → ${Math.max(15, (g.bloodSwordThreshold || 30) - 5)}, +1 essence` },
         // Tier 3 (Empowered) — 3 sigils
         { id: 'vb_void_riposte', name: 'Void Riposte', icon: '⚡', desc: 'Voidstep cooldown resets on kill within 2s of dash', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'crescentVoidSlash', effect: (g) => { g.voidRiposteActive = true; g.boundSigils.push('void_riposte'); }, getDesc: (g) => g.voidRiposteActive ? 'Active' : 'Dash resets on kill' },
         { id: 'vb_exsanguinate', name: 'Exsanguinate', icon: '💉', desc: 'Execute threshold +3%. Executions heal 5% max HP', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'scarletVerdict', effect: (g) => { g.executeThreshold = (g.executeThreshold || 0.05) + 0.03; g.executeHealPercent = 0.05; g.boundSigils.push('exsanguinate'); }, getDesc: (g) => `Execute: ${Math.round((g.executeThreshold || 0.05) * 100)}% → ${Math.round(((g.executeThreshold || 0.05) + 0.03) * 100)}%` },
@@ -4250,7 +4250,7 @@ class DotsSurvivor {
             // Blood Swords (Blades of the Slain)
             this.bloodEssence = 0;
             this.bloodEssencePerKill = 1;
-            this.bloodSwordThreshold = 8;
+            this.bloodSwordThreshold = 30;
             this.bloodSwords = [];
             this.maxBloodSwords = 5;
             this.bloodSwordBaseDmg = 20;
@@ -8907,10 +8907,7 @@ class DotsSurvivor {
                     const sy = this.player.y + (e.wy - this.worldY);
                     this.addDamageNumber(sx, sy, 'EXECUTED', '#ff0044', { isText: true, scale: 1.3, lifetime: 1.5 });
                     this.spawnParticles(sx, sy, '#8B0000', 12);
-                    // Generate blood essence
-                    this.bloodEssence = (this.bloodEssence || 0) + (this.bloodEssencePerKill || 1);
-                    this.bloodSwordDecayTimer = 0;
-                    this.bloodSwordMomentum = Math.min((this.bloodSwordMomentum || 0) + 0.15, 2.0);
+                    // Blood essence handled by onVoidBladeKill — no double-grant here
                     // Heal on execute (Exsanguinate sigil)
                     if (this.executeHealPercent > 0) {
                         const heal = Math.floor(this.player.maxHealth * this.executeHealPercent);
