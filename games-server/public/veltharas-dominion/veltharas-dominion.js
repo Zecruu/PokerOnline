@@ -1237,6 +1237,9 @@ const FIRE_SOVEREIGN_CLASS = {
         { id: 'fs_phoenix_ascendancy', name: 'Phoenix Ascendancy', icon: '🐦‍🔥', desc: 'On death, revive at 30% HP + trigger Solar Cataclysm (once)', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'solarCataclysm', effect: (g) => { g.phoenixAscendancyAvailable = true; g.boundSigils.push('phoenix_ascendancy'); }, getDesc: (g) => g.phoenixAscendancyAvailable ? 'Ready' : 'Used' },
         { id: 'fs_eternal_pyre', name: 'Eternal Pyre', icon: '♾️', desc: 'Burn stacks never expire, +25% burn DPS', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'homingFireballs', effect: (g) => { g.eternalPyre = true; g.sovereignBurnDPSMult = (g.sovereignBurnDPSMult || 1) * 1.25; g.boundSigils.push('eternal_pyre'); }, getDesc: (g) => g.eternalPyre ? 'Active' : 'Infinite burns +25% DPS' },
         { id: 'fs_inferno_sovereign', name: 'Inferno Sovereign', icon: '👑', desc: '+2 max stacks, Living Flame doubled (+2%/stack, max +24%)', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'homingFireballs', effect: (g) => { g.maxBurnStacks = (g.maxBurnStacks || 10) + 2; g.livingFlameBonusPerStack = 0.02; g.livingFlameMaxBonus = 0.24; g.boundSigils.push('inferno_sovereign'); }, getDesc: (g) => `+2 stacks, Living Flame x2` },
+        // ASCENDANT (Tier IV) — 2 sigils
+        { id: 'fs_supernova', name: 'Supernova', icon: '💫', desc: 'Solar Cataclysm radius +60%, leaves burning ground for 6s dealing 200 DPS', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'solarCataclysm', effect: (g) => { g.solarCataclysmRadiusMult = (g.solarCataclysmRadiusMult || 1) * 1.6; g.solarBurningGround = true; g.solarBurningGroundDPS = 200; g.solarBurningGroundDuration = 6; g.boundSigils.push('supernova'); }, getDesc: (g) => g.boundSigils?.includes('supernova') ? 'Active ✓' : '+60% radius, burning ground' },
+        { id: 'fs_immolation', name: 'Immolation Aura', icon: '🔥', desc: 'Inferno Volley gains +3 fireballs. Each fireball hit adds 2 burn stacks', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'infernoVolley', effect: (g) => { g.infernoVolleyBonusCount = (g.infernoVolleyBonusCount || 0) + 3; g.infernoVolleyBurnStacks = 2; g.boundSigils.push('immolation_aura'); }, getDesc: (g) => g.boundSigils?.includes('immolation_aura') ? 'Active ✓' : '+3 fireballs, +2 burn stacks' },
     ],
     augments: []
 };
@@ -1276,9 +1279,11 @@ const SHADOW_MASTER_CLASS = {
         // Tier 1 (Faded) - REBALANCED
         { id: 'sm_shade_step', name: 'Shade Step', icon: '💨', desc: '+10% movement speed', tier: 'FADED', rarity: 'common', effect: (g) => g.player.speed *= 1.10, getDesc: (g) => `Speed +10%` },
         { id: 'sm_umbral_skin', name: 'Umbral Skin', icon: '🛡️', desc: '+175 max HP', tier: 'FADED', rarity: 'common', effect: (g) => { g.player.maxHealth += 175; g.player.health += 175; }, getDesc: (g) => `HP +175` },
+        { id: 'sm_shadow_lash', name: 'Shadow Lash', icon: '🔗', desc: '+15% whip damage, +10% whip speed', tier: 'FADED', rarity: 'common', effect: (g) => { g.whipDamageBonus = (g.whipDamageBonus || 1) * 1.15; g.whipSpeedBonus = (g.whipSpeedBonus || 1) * 1.10; }, getDesc: (g) => `Whip Dmg +15%, Speed +10%` },
         // Tier 2 (Runed) - REBALANCED
         { id: 'sm_caller_shades', name: 'Caller of Shades', icon: '👻', desc: '+1 shadow monster (max 5)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if((g.shadowMonsters?.length || 0) < 5) g.shadowMonsters.push(g.createShadowMonster()); }, getDesc: (g) => `Monsters: ${g.shadowMonsters?.length || 0} → ${Math.min(5, (g.shadowMonsters?.length || 0) + 1)}` },
         { id: 'sm_sentinel_binding', name: 'Sentinel Binding', icon: '🦇', desc: '+1 shadow sentinel (max 6)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if((g.shadowSentinels?.length || 0) < 6) g.shadowSentinels.push(g.createShadowSentinel()); }, getDesc: (g) => `Sentinels: ${g.shadowSentinels?.length || 0} → ${Math.min(6, (g.shadowSentinels?.length || 0) + 1)}` },
+        { id: 'sm_dark_resonance', name: 'Dark Resonance', icon: '🌀', desc: 'Monsters and sentinels deal +20% damage when near each other', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.darkResonanceActive = true; g.darkResonanceBonus = 0.20; }, getDesc: (g) => g.darkResonanceActive ? 'Active' : '+20% synergy damage' },
         // Tier 3 (Empowered) - REBALANCED
         { id: 'sm_chain_lash', name: 'Chain-Lash Sigil', icon: '🔗', desc: 'Whip +30% range, hits +1 enemy', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'whipAttack', effect: (g) => { g.whipRange = (g.whipRange || 120) * 1.30; g.whipTargets = (g.whipTargets || 3) + 1; }, getDesc: (g) => `Range +30%, Targets +1` },
         { id: 'sm_frenzy_night', name: 'Frenzy of Night', icon: '👻', desc: 'Monsters attack 40% faster, +25% damage', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowMonsters', effect: (g) => { g.shadowAttackSpeed = (g.shadowAttackSpeed || 1) * 1.4; g.shadowDamageBonus = (g.shadowDamageBonus || 1) * 1.25; }, getDesc: (g) => `Attack +40%, Damage +25%` },
@@ -1329,9 +1334,11 @@ const NECROMANCER_CLASS = {
         // Tier 1 (Faded) - REBALANCED
         { id: 'nc_gravewalker', name: "Gravewalker's Pace", icon: '💨', desc: '+6% movement speed', tier: 'FADED', rarity: 'common', effect: (g) => g.player.speed *= 1.06, getDesc: (g) => `Speed +6%` },
         { id: 'nc_bone_plating', name: 'Bone Plating', icon: '🛡️', desc: '+250 max HP', tier: 'FADED', rarity: 'common', effect: (g) => { g.player.maxHealth += 250; g.player.health += 250; }, getDesc: (g) => `HP +250` },
+        { id: 'nc_necrotic_focus', name: 'Necrotic Focus', icon: '💀', desc: '+20% skull damage, +10% skull orbit speed', tier: 'FADED', rarity: 'common', effect: (g) => { g.skullDamageBonus = (g.skullDamageBonus || 1) * 1.20; g.skullOrbitSpeedBonus = (g.skullOrbitSpeedBonus || 1) * 1.10; }, getDesc: (g) => `Skull Dmg +20%, Speed +10%` },
         // Tier 2 (Runed) - REBALANCED
         { id: 'nc_skullbinder', name: 'Skullbinder', icon: '💀', desc: '+1 floating skull (max 6)', tier: 'RUNED', rarity: 'rare', effect: (g) => { if(g.skulls.length < 6) g.skulls.push(g.createSkull()); }, getDesc: (g) => `Skulls: ${g.skulls.length} → ${Math.min(6, g.skulls.length + 1)}` },
         { id: 'nc_mass_gravecall', name: 'Mass Gravecall', icon: '🧟', desc: '+2 max raised corpses', tier: 'RUNED', rarity: 'rare', effect: (g) => g.maxRaisedCorpses = (g.maxRaisedCorpses || 5) + 2, getDesc: (g) => `Max Corpses: ${g.maxRaisedCorpses || 5} → ${(g.maxRaisedCorpses || 5) + 2}` },
+        { id: 'nc_death_link', name: 'Death Link', icon: '🔗', desc: 'Death Drain +30% range, +15% damage', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.deathDrainRange = Math.floor((g.deathDrainRange || 200) * 1.3); g.deathDrainDamageMult = (g.deathDrainDamageMult || 1) * 1.15; }, getDesc: (g) => `Drain Range +30%, Dmg +15%` },
         // Tier 3 (Empowered) - REBALANCED
         { id: 'nc_rite_return', name: 'Rite of Return', icon: '🧟', desc: '+8% raise chance, corpses last +4s', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'raiseDead', effect: (g) => { g.raiseChance = (g.raiseChance || 0.15) + 0.08; g.corpseLifetime = (g.corpseLifetime || 20) + 4; }, getDesc: (g) => `Raise: ${Math.floor((g.raiseChance || 0.15) * 100)}% → ${Math.floor(((g.raiseChance || 0.15) + 0.08) * 100)}%` },
         { id: 'nc_crimson_chain', name: 'Crimson Chain', icon: '🩸', desc: 'Death Drain chains to +1 enemy', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'deathDrain', effect: (g) => g.deathDrainChains = (g.deathDrainChains || 1) + 1, getDesc: (g) => `Chains: ${g.deathDrainChains || 1} → ${(g.deathDrainChains || 1) + 1}` },
@@ -1385,12 +1392,15 @@ const SHADOW_MONARCH_CLASS = {
         // Tier 1 (Faded)
         { id: 'sm_orb_focus', name: 'Faded Sigil: Orb Focus', icon: '🔮', desc: '+15% Orb damage', tier: 'FADED', rarity: 'common', effect: (g) => { g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.15; }, getDesc: (g) => `Orb Dmg +15%` },
         { id: 'sm_thrall_might', name: 'Faded Sigil: Thrall Might', icon: '👤', desc: '+20% Thrall damage', tier: 'FADED', rarity: 'common', effect: (g) => { g.thrallDamageBonus = (g.thrallDamageBonus || 1) * 1.20; if (g.shadowThrall) g.recalcThrallStats(); }, getDesc: (g) => `Thrall Dmg +20%` },
+        { id: 'sm_void_pulse', name: 'Faded Sigil: Void Pulse', icon: '🌑', desc: 'Shadow Void +15% radius, +10% DPS', tier: 'FADED', rarity: 'common', effect: (g) => { if (g.shadowVoid) { g.shadowVoid.radius = Math.floor(g.shadowVoid.radius * 1.15); g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.10); } }, getDesc: (g) => `Void Radius +15%, DPS +10%` },
         // Tier 2 (Runed)
         { id: 'sm_lance_pierce', name: 'Runed Sigil: Piercing Lance', icon: '🏹', desc: 'Shadow Lance pierces 1 extra enemy', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.lancePierce = (g.lancePierce || 0) + 1; }, getDesc: (g) => `Pierce: ${g.lancePierce || 0} → ${(g.lancePierce || 0) + 1}` },
         { id: 'sm_thrall_vigor', name: 'Runed Sigil: Thrall Vigor', icon: '💜', desc: '+40% Thrall HP, +15% attack speed', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.thrallHPBonus = (g.thrallHPBonus || 1) * 1.40; g.thrallAttackSpeedBonus = (g.thrallAttackSpeedBonus || 1) * 1.15; if (g.shadowThrall) g.recalcThrallStats(); }, getDesc: (g) => `Thrall HP +40%, AtkSpd +15%` },
+        { id: 'sm_dominion_bond_sigil', name: 'Runed Sigil: Dominion Surge', icon: '🔗', desc: 'Dominion stacks grant +3% orb damage each (was +2%)', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.dominionOrbBonus = 0.03; }, getDesc: (g) => `Dominion: +3%/stack orb dmg` },
         // Tier 3 (Empowered)
         { id: 'sm_dual_orbs', name: 'Empowered Sigil: Dual Orbs', icon: '🔮', desc: '+1 Umbral Orb', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'umbralOrbs', effect: (g) => { g.umbralOrbCount = (g.umbralOrbCount || 1) + 1; g.umbralOrbs.push(g.createUmbralOrb()); }, getDesc: (g) => `Orbs: ${g.umbralOrbs?.length || 1} → ${(g.umbralOrbs?.length || 1) + 1}` },
         { id: 'sm_thrall_ascend', name: 'Empowered Sigil: Dark Ascendancy', icon: '👑', desc: 'Thrall gains +30% AoE radius, shadow explosions on kill', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowThrall', effect: (g) => { g.thrallAoEBonus = (g.thrallAoEBonus || 1) * 1.30; g.thrallExplosionsOnKill = true; }, getDesc: (g) => `Thrall AoE +30%, kills explode` },
+        { id: 'sm_abyssal_void', name: 'Empowered Sigil: Abyssal Void', icon: '🌀', desc: 'Shadow Void slows enemies by 30% and deals +50% DPS', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'dominionBond', effect: (g) => { if (g.shadowVoid) { g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.5); } g.shadowVoidSlow = 0.30; g.boundSigils.push('abyssal_void'); }, getDesc: (g) => g.boundSigils?.includes('abyssal_void') ? 'Active ✓' : '30% slow, +50% void DPS' },
         // Tier 4 (Ascendant)
         { id: 'sm_void_lance', name: 'Ascendant Sigil: Void Lance', icon: '⚫', desc: 'Orbs fire double beams. +50% orb damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'umbralOrbs', effect: (g) => { g.doubleBeam = true; g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.50; g.boundSigils.push('void_lance'); }, getDesc: (g) => g.boundSigils?.includes('void_lance') ? 'Active ✓' : 'Double beams, +50% dmg' },
         { id: 'sm_eternal_thrall', name: 'Ascendant Sigil: Eternal Thrall', icon: '💀', desc: 'Thrall respawns instantly. +100% Thrall damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'shadowThrall', effect: (g) => { g.thrallInstantRespawn = true; g.thrallDamageBonus = (g.thrallDamageBonus || 1) * 2.0; if (g.shadowThrall) g.recalcThrallStats(); g.boundSigils.push('eternal_thrall'); }, getDesc: (g) => g.boundSigils?.includes('eternal_thrall') ? 'Active ✓' : 'Instant respawn, +100% dmg' },
@@ -1430,13 +1440,16 @@ const VOID_BLADE_CLASS = {
         // Tier 1 (Faded) — 2 sigils
         { id: 'vb_deep_cuts', name: 'Deep Cuts', icon: '🩸', desc: '+2 max bleed stacks', tier: 'FADED', rarity: 'common', effect: (g) => { g.maxBleedStacks = (g.maxBleedStacks || 8) + 2; }, getDesc: (g) => `Stacks: ${g.maxBleedStacks || 8} → ${(g.maxBleedStacks || 8) + 2}` },
         { id: 'vb_blood_scent', name: 'Blood Scent', icon: '👃', desc: '+25% bleed DPS', tier: 'FADED', rarity: 'common', effect: (g) => { g.voidBleedDPSMult = (g.voidBleedDPSMult || 1) * 1.25; }, getDesc: (g) => `Bleed DPS +25%` },
-        // Tier 2 (Runed) — 2 sigils
+        { id: 'vb_keen_edge', name: 'Keen Edge', icon: '🔪', desc: '+20% slash damage, +10% slash speed', tier: 'FADED', rarity: 'common', effect: (g) => { g.slashDamageMult = (g.slashDamageMult || 1) * 1.20; g.slashRate = (g.slashRate || 0.4) * 0.9; }, getDesc: (g) => `Slash Dmg +20%, Speed +10%` },
+        // Tier 2 (Runed) — 3 sigils
         { id: 'vb_crimson_edge', name: 'Crimson Edge', icon: '🗡️', desc: '+30% slash range, +1 Blood Sword cap', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.slashRange = Math.floor((g.slashRange || 130) * 1.3); g.maxBloodSwords = (g.maxBloodSwords || 5) + 1; }, getDesc: (g) => `Range +30%, +1 Sword` },
         { id: 'vb_sanguine_flow', name: 'Sanguine Flow', icon: '🌊', desc: 'Blood Swords attack 40% faster, sword hits spread bleed', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.bloodSwordAttackRate = (g.bloodSwordAttackRate || 1.2) * 0.6; g.bloodSwordSpreadBleed = true; }, getDesc: (g) => `Sword AtkSpd +40%, Bleed spreads` },
+        { id: 'vb_blood_frenzy', name: 'Blood Frenzy', icon: '💀', desc: 'Kills reduce Blood Sword threshold by 1 (min 4). +1 essence per kill', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.bloodSwordThreshold = Math.max(4, (g.bloodSwordThreshold || 8) - 1); g.bloodEssencePerKill = (g.bloodEssencePerKill || 1) + 1; }, getDesc: (g) => `Threshold: ${g.bloodSwordThreshold || 8} → ${Math.max(4, (g.bloodSwordThreshold || 8) - 1)}, +1 essence` },
         // Tier 3 (Empowered) — 3 sigils
         { id: 'vb_void_riposte', name: 'Void Riposte', icon: '⚡', desc: 'Voidstep cooldown resets on kill within 2s of dash', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'crescentVoidSlash', effect: (g) => { g.voidRiposteActive = true; g.boundSigils.push('void_riposte'); }, getDesc: (g) => g.voidRiposteActive ? 'Active' : 'Dash resets on kill' },
         { id: 'vb_exsanguinate', name: 'Exsanguinate', icon: '💉', desc: 'Execute threshold +3%. Executions heal 5% max HP', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'scarletVerdict', effect: (g) => { g.executeThreshold = (g.executeThreshold || 0.05) + 0.03; g.executeHealPercent = 0.05; g.boundSigils.push('exsanguinate'); }, getDesc: (g) => `Execute: ${Math.round((g.executeThreshold || 0.05) * 100)}% → ${Math.round(((g.executeThreshold || 0.05) + 0.03) * 100)}%` },
         { id: 'vb_blood_arsenal', name: 'Blood Arsenal', icon: '🗡️', desc: '+2 max Blood Swords, swords deal +50% damage', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'bladesOfTheSlain', effect: (g) => { g.maxBloodSwords = (g.maxBloodSwords || 5) + 2; g.bloodSwordDmgMult = (g.bloodSwordDmgMult || 1) * 1.5; g.boundSigils.push('blood_arsenal'); }, getDesc: (g) => `+2 Swords, Dmg +50%` },
+        { id: 'vb_crimson_tide', name: 'Crimson Tide', icon: '🌊', desc: 'Crescent Slash leaves a blood wave that travels forward, dealing 150% slash damage', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'crescentVoidSlash', effect: (g) => { g.crimsonTideActive = true; g.crimsonTideDmgMult = 1.5; g.boundSigils.push('crimson_tide'); }, getDesc: (g) => g.boundSigils?.includes('crimson_tide') ? 'Active ✓' : 'Slash sends blood wave' },
         // Tier 4 (Ascendant) — 2 sigils
         { id: 'vb_hemorrhage', name: 'Hemorrhage', icon: '💔', desc: 'Max-stacked bleed explodes for 200% bleed DPS as burst true damage', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'crescentVoidSlash', effect: (g) => { g.hemorrhageActive = true; g.boundSigils.push('hemorrhage'); }, getDesc: (g) => g.hemorrhageActive ? 'Active ✓' : 'Bleed explosion' },
         { id: 'vb_crimson_ascendant', name: 'Crimson Ascendant', icon: '👑', desc: 'Crimson Catastrophe leaves Blood Storm for 5s. Swords reform instantly empowered', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'bladesOfTheSlain', effect: (g) => { g.crimsonAscendantActive = true; g.boundSigils.push('crimson_ascendant'); }, getDesc: (g) => g.crimsonAscendantActive ? 'Active ✓' : 'Blood Storm + instant reform' },
@@ -9045,73 +9058,128 @@ class DotsSurvivor {
         const baseSpeed = (this.bloodSwordOrbitSpeed || 1.5) + (this.bloodSwordMomentum || 0) * 0.5;
         const attackRate = (this.bloodSwordAttackRate || 1.2);
         const baseDmg = (this.bloodSwordBaseDmg || 20) * (this.bloodSwordDmgMult || 1);
+        const lungeSpeed = 600; // pixels per second
+        const returnSpeed = 400;
 
         for (let i = this.bloodSwords.length - 1; i >= 0; i--) {
             const sword = this.bloodSwords[i];
+            if (!sword.state) sword.state = 'orbiting';
 
-            // Orbit movement
-            sword.angle += baseSpeed * dt;
-            sword.x = this.player.x + Math.cos(sword.angle) * orbitRadius;
-            sword.y = this.player.y + Math.sin(sword.angle) * orbitRadius;
+            // Update blood swirl animation
+            sword.swirlAngle = (sword.swirlAngle || 0) + dt * 6;
 
-            // Charge decay when no momentum
-            if (this.bloodSwordDecayTimer > (this.bloodSwordDecayRate || 6)) {
-                sword.charge = Math.max(0, sword.charge - dt * 15);
-                if (sword.charge <= 0 && !sword.empowered) {
-                    // Sword dissipates
-                    this.spawnParticles(sword.x, sword.y, '#660000', 5);
-                    this.bloodSwords.splice(i, 1);
-                    continue;
-                }
-            } else {
-                // Charge up from momentum
-                sword.charge = Math.min(100, sword.charge + dt * 20);
-            }
+            if (sword.state === 'orbiting') {
+                // Orbit movement
+                sword.angle += baseSpeed * dt;
+                sword.x = this.player.x + Math.cos(sword.angle) * orbitRadius;
+                sword.y = this.player.y + Math.sin(sword.angle) * orbitRadius;
 
-            // Attack nearby enemies
-            sword.attackCooldown = (sword.attackCooldown || 0) - dt;
-            if (sword.attackCooldown <= 0) {
-                const swordWX = this.worldX + (sword.x - this.player.x);
-                const swordWY = this.worldY + (sword.y - this.player.y);
-                const targets = this.enemyGrid.getNearby(swordWX, swordWY, 120);
-                let hitTarget = null;
-                let hitDist = Infinity;
-                for (const e of targets) {
-                    if (e.health <= 0) continue;
-                    const dx = e.wx - swordWX;
-                    const dy = e.wy - swordWY;
-                    const d = dx * dx + dy * dy;
-                    if (d < hitDist) { hitDist = d; hitTarget = e; }
-                }
-                if (hitTarget) {
-                    const levelMult = 1 + ((this.player.level || 1) - 1) * 0.12;
-                    const dmg = Math.floor(baseDmg * levelMult * (sword.empowered ? 1.5 : 1));
-                    hitTarget.health -= dmg;
-                    hitTarget.hitFlash = 0.2;
-                    // Apply bleed
-                    this.applyVoidBleed(hitTarget, 1);
-                    // Spread bleed (Sanguine Flow sigil)
-                    if (this.bloodSwordSpreadBleed) {
-                        const spreadNearby = this.enemyGrid.getNearby(hitTarget.wx, hitTarget.wy, 80);
-                        for (const other of spreadNearby) {
-                            if (other === hitTarget || other.health <= 0) continue;
-                            this.applyVoidBleed(other, 1);
-                            break; // Spread to 1 nearby
-                        }
+                // Charge decay when no momentum
+                if (this.bloodSwordDecayTimer > (this.bloodSwordDecayRate || 6)) {
+                    sword.charge = Math.max(0, sword.charge - dt * 15);
+                    if (sword.charge <= 0 && !sword.empowered) {
+                        this.spawnParticles(sword.x, sword.y, '#660000', 5);
+                        this.bloodSwords.splice(i, 1);
+                        continue;
                     }
-                    const sx = this.player.x + (hitTarget.wx - this.worldX);
-                    const sy = this.player.y + (hitTarget.wy - this.worldY);
-                    this.addDamageNumber(sx, sy, dmg, '#cc0000');
-                    sword.attackCooldown = attackRate;
-                    // Visual: sword strike line
-                    sword.strikeTarget = { x: sx, y: sy, timer: 0.1 };
+                } else {
+                    sword.charge = Math.min(100, sword.charge + dt * 20);
                 }
-            }
 
-            // Update strike visual timer
-            if (sword.strikeTarget) {
-                sword.strikeTarget.timer -= dt;
-                if (sword.strikeTarget.timer <= 0) sword.strikeTarget = null;
+                // Find target and initiate lunge
+                sword.attackCooldown = Math.max(0, (sword.attackCooldown || 0) - dt);
+                if (sword.attackCooldown <= 0 && sword.charge >= 50) {
+                    const swordWX = this.worldX + (sword.x - this.player.x);
+                    const swordWY = this.worldY + (sword.y - this.player.y);
+                    const targets = this.enemyGrid.getNearby(swordWX, swordWY, 200);
+                    let hitTarget = null;
+                    let hitDist = Infinity;
+                    for (const e of targets) {
+                        if (e.health <= 0) continue;
+                        const dx = e.wx - swordWX;
+                        const dy = e.wy - swordWY;
+                        const d = dx * dx + dy * dy;
+                        if (d < hitDist) { hitDist = d; hitTarget = e; }
+                    }
+                    if (hitTarget) {
+                        sword.state = 'lunging';
+                        sword.lungeTarget = hitTarget;
+                        sword.lungeScreenX = this.player.x + (hitTarget.wx - this.worldX);
+                        sword.lungeScreenY = this.player.y + (hitTarget.wy - this.worldY);
+                        sword.homeAngle = sword.angle;
+                    }
+                }
+
+            } else if (sword.state === 'lunging') {
+                // Move toward target
+                const target = sword.lungeTarget;
+                if (target && target.health > 0) {
+                    // Update target screen position (enemy may have moved)
+                    sword.lungeScreenX = this.player.x + (target.wx - this.worldX);
+                    sword.lungeScreenY = this.player.y + (target.wy - this.worldY);
+                }
+                const dx = sword.lungeScreenX - sword.x;
+                const dy = sword.lungeScreenY - sword.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 15) {
+                    // HIT! Deal damage
+                    if (target && target.health > 0) {
+                        const levelMult = 1 + ((this.player.level || 1) - 1) * 0.12;
+                        const dmg = Math.floor(baseDmg * levelMult * (sword.empowered ? 1.5 : 1));
+                        target.health -= dmg;
+                        target.hitFlash = 0.2;
+                        this.applyVoidBleed(target, 1);
+                        // Spread bleed (Sanguine Flow sigil)
+                        if (this.bloodSwordSpreadBleed) {
+                            const spreadNearby = this.enemyGrid.getNearby(target.wx, target.wy, 80);
+                            for (const other of spreadNearby) {
+                                if (other === target || other.health <= 0) continue;
+                                this.applyVoidBleed(other, 1);
+                                break;
+                            }
+                        }
+                        this.addDamageNumber(sword.lungeScreenX, sword.lungeScreenY, dmg, '#cc0000');
+                        this.spawnParticles(sword.lungeScreenX, sword.lungeScreenY, '#8B0000', 4);
+                    }
+                    sword.charge -= 5;
+                    sword.attackCooldown = 1 / attackRate;
+                    sword.state = 'returning';
+                    sword.lungeTarget = null;
+                } else {
+                    // Move toward target
+                    const speed = lungeSpeed * dt;
+                    sword.x += (dx / dist) * speed;
+                    sword.y += (dy / dist) * speed;
+                }
+
+                // Safety: if target dies mid-lunge, return
+                if (!target || target.health <= 0) {
+                    sword.state = 'returning';
+                    sword.lungeTarget = null;
+                }
+
+            } else if (sword.state === 'returning') {
+                // Return to orbit position
+                const homeX = this.player.x + Math.cos(sword.homeAngle) * orbitRadius;
+                const homeY = this.player.y + Math.sin(sword.homeAngle) * orbitRadius;
+                const dx = homeX - sword.x;
+                const dy = homeY - sword.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 10) {
+                    // Back in orbit
+                    sword.state = 'orbiting';
+                    sword.angle = sword.homeAngle;
+                    sword.x = homeX;
+                    sword.y = homeY;
+                } else {
+                    const speed = returnSpeed * dt;
+                    sword.x += (dx / dist) * speed;
+                    sword.y += (dy / dist) * speed;
+                    // Slowly advance home angle so it doesn't fall behind orbit
+                    sword.homeAngle += baseSpeed * dt;
+                }
             }
         }
     }
@@ -9125,7 +9193,12 @@ class DotsSurvivor {
             charge: 50,
             attackCooldown: 0,
             empowered: false,
-            strikeTarget: null
+            state: 'orbiting',     // 'orbiting' | 'lunging' | 'returning'
+            lungeTarget: null,     // { wx, wy } world coords of target enemy
+            lungeScreenX: 0,       // screen x of lunge destination
+            lungeScreenY: 0,       // screen y of lunge destination
+            homeAngle: angle,      // orbit angle to return to
+            swirlAngle: Math.random() * Math.PI * 2  // blood swirl offset
         };
     }
 
@@ -12334,21 +12407,68 @@ class DotsSurvivor {
             sv.timer -= 0.016; // Approximate frame time
         }
 
-        // Blood Swords (orbiting)
+        // Blood Swords (orbiting with lunge attacks and blood swirl)
         if (this.bloodSwords && this.bloodSwords.length > 0) {
             ctx.save();
             for (const sword of this.bloodSwords) {
                 const isFilled = sword.charge >= 50;
                 const sx = sword.x;
                 const sy = sword.y;
+                const isLunging = sword.state === 'lunging';
+                const isReturning = sword.state === 'returning';
+
+                // Blood swirl particles around the sword
+                const swirlBase = sword.swirlAngle || 0;
+                const numSwirls = 5;
+                for (let s = 0; s < numSwirls; s++) {
+                    const sAngle = swirlBase + (s / numSwirls) * Math.PI * 2;
+                    const swirlRadius = 12 + Math.sin(swirlBase * 0.5 + s) * 3;
+                    const px = sx + Math.cos(sAngle) * swirlRadius;
+                    const py = sy + Math.sin(sAngle) * swirlRadius;
+                    const pSize = 2 + Math.sin(swirlBase + s * 1.5) * 1;
+                    const pAlpha = 0.4 + Math.sin(swirlBase * 0.8 + s * 2) * 0.2;
+                    ctx.beginPath();
+                    ctx.arc(px, py, pSize, 0, Math.PI * 2);
+                    ctx.fillStyle = isLunging
+                        ? `rgba(255, 30, 30, ${pAlpha + 0.2})`
+                        : `rgba(139, 0, 0, ${pAlpha})`;
+                    ctx.fill();
+                }
+
+                // Lunge trail effect
+                if (isLunging) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.3;
+                    for (let t = 1; t <= 3; t++) {
+                        const trailX = sx - (sword.lungeScreenX - sx) * t * 0.08;
+                        const trailY = sy - (sword.lungeScreenY - sy) * t * 0.08;
+                        ctx.beginPath();
+                        ctx.arc(trailX, trailY, 4 - t, 0, Math.PI * 2);
+                        ctx.fillStyle = '#8B0000';
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+
+                // Calculate sword facing angle
+                let facingAngle;
+                if (isLunging && sword.lungeScreenX !== undefined) {
+                    facingAngle = Math.atan2(sword.lungeScreenY - sy, sword.lungeScreenX - sx) + Math.PI / 2;
+                } else if (isReturning) {
+                    const homeX = this.player.x + Math.cos(sword.homeAngle) * (this.bloodSwordOrbitRadius || 90);
+                    const homeY = this.player.y + Math.sin(sword.homeAngle) * (this.bloodSwordOrbitRadius || 90);
+                    facingAngle = Math.atan2(homeY - sy, homeX - sx) + Math.PI / 2;
+                } else {
+                    facingAngle = sword.angle + Math.PI / 2;
+                }
 
                 ctx.save();
                 ctx.translate(sx, sy);
-                ctx.rotate(sword.angle + Math.PI / 2);
+                ctx.rotate(facingAngle);
 
-                // Sword glow
-                ctx.shadowBlur = isFilled ? 20 : 8;
-                ctx.shadowColor = isFilled ? '#ff0000' : '#660000';
+                // Sword glow (brighter when lunging)
+                ctx.shadowBlur = isLunging ? 25 : (isFilled ? 20 : 8);
+                ctx.shadowColor = isLunging ? '#ff2200' : (isFilled ? '#ff0000' : '#660000');
 
                 // Sword blade shape
                 ctx.beginPath();
@@ -12358,19 +12478,23 @@ class DotsSurvivor {
                 ctx.lineTo(4, 0);
                 ctx.closePath();
 
-                if (isFilled) {
-                    // Blood-filled: solid deep red with glow
+                if (isFilled || isLunging) {
                     const gradient = ctx.createLinearGradient(0, -18, 0, 20);
-                    gradient.addColorStop(0, '#ff2222');
-                    gradient.addColorStop(0.5, '#8B0000');
-                    gradient.addColorStop(1, '#440000');
+                    if (isLunging) {
+                        gradient.addColorStop(0, '#ff4444');
+                        gradient.addColorStop(0.5, '#cc0000');
+                        gradient.addColorStop(1, '#660000');
+                    } else {
+                        gradient.addColorStop(0, '#ff2222');
+                        gradient.addColorStop(0.5, '#8B0000');
+                        gradient.addColorStop(1, '#440000');
+                    }
                     ctx.fillStyle = gradient;
                     ctx.fill();
-                    ctx.strokeStyle = '#ff4444';
+                    ctx.strokeStyle = isLunging ? '#ff6666' : '#ff4444';
                     ctx.lineWidth = 1.5;
                     ctx.stroke();
                 } else {
-                    // Base: translucent crimson outline
                     ctx.fillStyle = `rgba(139, 0, 0, ${0.3 + sword.charge / 200})`;
                     ctx.fill();
                     ctx.strokeStyle = `rgba(200, 50, 50, ${0.5 + sword.charge / 200})`;
@@ -12389,22 +12513,6 @@ class DotsSurvivor {
                 }
 
                 ctx.restore();
-
-                // Strike line to target
-                if (sword.strikeTarget) {
-                    const st = sword.strikeTarget;
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(sx, sy);
-                    ctx.lineTo(st.x, st.y);
-                    ctx.strokeStyle = `rgba(255, 0, 0, ${st.timer / 0.1})`;
-                    ctx.lineWidth = 2;
-                    ctx.shadowBlur = 8;
-                    ctx.shadowColor = '#ff0000';
-                    ctx.stroke();
-                    ctx.shadowBlur = 0;
-                    ctx.restore();
-                }
             }
             ctx.restore();
         }
