@@ -6009,8 +6009,26 @@ class DotsSurvivor {
         const currentHordeCount = Math.floor(this.wave / hordeWaveInterval);
 
         if (this.wave >= 5 && currentHordeCount > this.lastHordeCount) {
+            // On boss waves, defer horde until boss is dead
+            const isBossWave = this.wave === 10 || this.wave === 15 || this.wave === 20 || (this.wave >= 25 && this.wave % 5 === 0);
+            const hasActiveBoss = this.enemies.some(e => e.isPlagueWeaver || e.isConsumer || e.isRiftLord);
+            if (isBossWave && hasActiveBoss) {
+                this.pendingHorde = true;
+                return; // Defer — will trigger when boss dies/retreats
+            }
             this.lastHordeCount = currentHordeCount;
+            this.pendingHorde = false;
             this.spawnHorde();
+        }
+
+        // Trigger deferred horde after boss dies
+        if (this.pendingHorde) {
+            const hasActiveBoss = this.enemies.some(e => e.isPlagueWeaver || e.isConsumer || e.isRiftLord);
+            if (!hasActiveBoss) {
+                this.lastHordeCount = Math.floor(this.wave / hordeWaveInterval);
+                this.pendingHorde = false;
+                this.spawnHorde();
+            }
         }
 
         // Update HUD horde indicator
