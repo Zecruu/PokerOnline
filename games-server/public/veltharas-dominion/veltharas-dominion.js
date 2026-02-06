@@ -172,13 +172,6 @@ const BOOTS_SWIFTNESS_SPRITES = {
     evolved: 'items/boots-swiftness-evolved.png'
 };
 
-// Demon Set Sprites
-const DEMON_SET_SPRITES = {
-    helm: 'items/demon-helm.jpg',
-    chest: 'items/demon-chest.jpg',
-    boots: 'items/demon-boots.jpg'
-};
-
 // Heart of Vitality Sprites (stacking item icons)
 const HEART_VITALITY_SPRITES = {
     base: 'items/heart-vitality.jpg',
@@ -2823,11 +2816,7 @@ const LEGENDARY_PERKS = [
     { id: 'frozen', name: 'Frozen Heart', icon: '❄️', desc: 'Chance to freeze enemies on hit' }
 ];
 
-const DEMON_SET_PIECES = [
-    { id: 'helm', name: 'Demon Helm', icon: '👹', desc: '+500 Max HP', spriteKey: 'demon_helm' },
-    { id: 'chest', name: 'Demon Chestplate', icon: '🛡️', desc: '+20% Damage Reduction', spriteKey: 'demon_chest' },
-    { id: 'boots', name: 'Demon Gauntlets', icon: '👢', desc: '+50 Move Speed', spriteKey: 'demon_boots' }
-];
+const DEMON_SET_PIECES = []; // Demon set removed
 
 class DotsSurvivor {
     constructor() {
@@ -3615,8 +3604,8 @@ class DotsSurvivor {
             projectileRangeBonus: this.projectileRangeBonus,
 
             // Demon set
-            demonSet: this.demonSet,
-            demonSetBonusActive: this.demonSetBonusActive,
+            demonSet: {},
+            demonSetBonusActive: false,
             impStats: this.impStats,
 
             // Boosts
@@ -3707,8 +3696,8 @@ class DotsSurvivor {
         this.projectileRangeBonus = state.projectileRangeBonus || 1;
 
         // Demon set
-        this.demonSet = state.demonSet || { helm: false, chest: false, boots: false };
-        this.demonSetBonusActive = state.demonSetBonusActive || false;
+        this.demonSet = {};
+        this.demonSetBonusActive = false;
         if (state.impStats) this.impStats = state.impStats;
 
         // Recalculate Dominion Set bonuses based on loaded sigils
@@ -4351,7 +4340,7 @@ class DotsSurvivor {
         this.projectileRangeBonus = 1; // Piercing upgrade adds +3% range each
 
         // Demon Set
-        this.demonSet = { helm: false, chest: false, boots: false };
+        this.demonSet = {}; // Demon set removed
         this.demonSetBonusActive = false;
         this.imps = [];
         this.impSpawnTimer = 0;
@@ -9890,20 +9879,7 @@ class DotsSurvivor {
 
         // Boss drops - rewarding multi-drop loot table
         if (e.isBoss) {
-            // 1) Demon General always drops demon set piece first
-            if (e.type === 'general') {
-                const missing = DEMON_SET_PIECES.filter(p => !this.demonSet[p.id]);
-                if (missing.length > 0) {
-                    const piece = missing[Math.floor(Math.random() * missing.length)];
-                    this.pickups.push({
-                        wx: e.wx, wy: e.wy,
-                        radius: 12, color: '#ff0044',
-                        isDemonPiece: true, pieceId: piece.id
-                    });
-                }
-            }
-
-            // 2) All bosses drop a stacking item (bypasses cooldown)
+            // All bosses drop a stacking item (bypasses cooldown)
             const allKeys = Object.keys(STACKING_ITEMS);
             const availableKeys = allKeys.filter(key => !this.droppedItems.includes(key));
             if (availableKeys.length > 0) {
@@ -12481,31 +12457,6 @@ class DotsSurvivor {
                     this.player.health += healed;
                     const combatText = this.isInCombat() ? ' (combat)' : '';
                     this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `+${healed} HP${combatText}`, lifetime: 1.5, color: this.isInCombat() ? '#ff8888' : '#ff4488' });
-                } else if (pk.isDemonPiece) {
-                    // Demon Piece Collection
-                    if (!this.demonSet[pk.pieceId]) {
-                        this.demonSet[pk.pieceId] = true;
-                        this.playSound('levelup'); // Reusing sound
-
-                        // Apply piece bonus
-                        const piece = DEMON_SET_PIECES.find(p => p.id === pk.pieceId);
-                        if (piece.id === 'helm') this.player.maxHealth += 500; this.player.health += 500;
-                        if (piece.id === 'boots') this.player.speed += 50;
-
-                        this.damageNumbers.push({
-                            x: this.player.x, y: this.player.y - 80,
-                            value: `EQUIPPED: ${piece.name}`, lifetime: 3, color: '#ff0044', scale: 1.5
-                        });
-
-                        // Check Full Set
-                        if (this.demonSet.helm && this.demonSet.chest && this.demonSet.boots && !this.demonSetBonusActive) {
-                            this.demonSetBonusActive = true;
-                            this.damageNumbers.push({
-                                x: this.player.x, y: this.player.y - 120,
-                                value: `🔥 HELLFIRE SET ACTIVE! 🔥`, lifetime: 4, color: '#ff0044', scale: 2.0
-                            });
-                        }
-                    }
                 } else {
                     this.player.xp += pk.xp;
                     this.playSound('xp'); // Play coin sound when collecting XP
@@ -12986,9 +12937,7 @@ class DotsSurvivor {
                 // Check class requirement
                 if (r.classReq && r.classReq !== this.selectedClass?.id) return false;
                 // Check prerequisite requirement (e.g., Ring II requires Ring I)
-                if (r.req && r.req !== 'demonSet' && !this.boundSigils?.includes(r.req)) return false;
-                // Check demon set requirement
-                if (r.req === 'demonSet' && !this.demonSetBonusActive) return false;
+                if (r.req && !this.boundSigils?.includes(r.req)) return false;
                 return true;
             };
 
@@ -13251,8 +13200,7 @@ class DotsSurvivor {
                         if (otherIds.has(r.id)) return false;
                         if (r.id === rune.id) return false; // Don't give the same sigil back
                         if (r.classReq && r.classReq !== this.selectedClass?.id) return false;
-                        if (r.req && r.req !== 'demonSet' && !this.boundSigils?.includes(r.req)) return false;
-                        if (r.req === 'demonSet' && !this.demonSetBonusActive) return false;
+                        if (r.req && !this.boundSigils?.includes(r.req)) return false;
                         return true;
                     };
 
@@ -17182,61 +17130,7 @@ class DotsSurvivor {
     }
 
     drawArmorHUD() {
-        const ctx = this.ctx;
-        const x = this.canvas.width - 140, y = 20;
-
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(x, y, 120, 50);
-        ctx.strokeStyle = '#444';
-        ctx.strokeRect(x, y, 120, 50);
-
-        DEMON_SET_PIECES.forEach((p, i) => {
-            const has = this.demonSet && this.demonSet[p.id];
-            const px = x + 10 + i * 35;
-
-            // Try to use sprite, fallback to emoji
-            const sprite = SPRITE_CACHE[p.spriteKey];
-
-            if (has) {
-                ctx.strokeStyle = '#ff0044';
-                ctx.strokeRect(px, y + 5, 30, 40);
-                // Glow
-                ctx.shadowBlur = 10; ctx.shadowColor = '#ff0044';
-                ctx.strokeRect(px, y + 5, 30, 40);
-                ctx.shadowBlur = 0;
-
-                if (sprite) {
-                    ctx.drawImage(sprite, px + 2, y + 8, 26, 34);
-                } else {
-                    ctx.font = '20px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = '#fff';
-                    ctx.fillText(p.icon, px + 15, y + 32);
-                }
-            } else {
-                ctx.strokeStyle = '#333';
-                ctx.strokeRect(px, y + 5, 30, 40);
-
-                if (sprite) {
-                    ctx.globalAlpha = 0.3;
-                    ctx.drawImage(sprite, px + 2, y + 8, 26, 34);
-                    ctx.globalAlpha = 1;
-                } else {
-                    ctx.font = '20px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = '#444';
-                    ctx.fillText(p.icon, px + 15, y + 32);
-                }
-            }
-        });
-
-        // Set Bonus text
-        if (this.demonSetBonusActive) {
-            ctx.font = 'bold 10px Inter';
-            ctx.fillStyle = '#ff0044';
-            ctx.textAlign = 'center';
-            ctx.fillText('HELLFIRE ACTIVE', x + 60, y + 62);
-        }
+        // Demon set removed
     }
 
     drawGrid() {

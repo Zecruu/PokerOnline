@@ -113,13 +113,6 @@ const CDN_ASSETS = {
         bloodSoaker: { base: 'items/blood-soaker.jpg', evolved: 'items/blood-soaker-evolved.jpg' },
     },
 
-    // ========== DEMON SET ==========
-    demonSet: {
-        helm: 'items/demon-helm.jpg',
-        chest: 'items/demon-chest.jpg',
-        boots: 'items/demon-boots.jpg',
-    },
-
     // ========== ABILITIES ==========
     abilities: {
         dash: 'abilities/dash.jpg',
