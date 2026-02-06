@@ -3456,8 +3456,17 @@ class DotsSurvivor {
     togglePause() {
         this.gamePaused = !this.gamePaused;
         if (this.gamePaused) {
+            // Pause all music
+            if (this.gameMusic) this.gameMusic.pause();
+            if (this.bossMusic && this.bossMusicPlaying) this.bossMusic.pause();
             this.showPauseMenu();
         } else {
+            // Resume whichever music was playing
+            if (this.bossMusicPlaying && this.bossMusic) {
+                this.bossMusic.play().catch(e => {});
+            } else if (this.gameMusicPlaying && this.gameMusic) {
+                this.gameMusic.play().catch(e => {});
+            }
             this.hidePauseMenu();
         }
     }
