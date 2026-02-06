@@ -247,6 +247,81 @@ const RARITY_TO_TIER = {
 };
 
 // ============================================
+// POWER-UP DEFINITIONS
+// Temporary buffs that drop from enemies
+// ============================================
+const POWER_UP_TYPES = {
+    berserker: {
+        name: 'Berserker Rage',
+        icon: '😡',
+        color: '#ff2222',
+        glowColor: 'rgba(255,34,34,0.5)',
+        duration: 15,
+        desc: '+100% DMG, +30% ATK SPD, +25% DMG taken',
+        apply: (g) => {
+            g._berserkerDmgMult = g.damageMultiplier;
+            g.damageMultiplier *= 2;
+            g._berserkerFireRate = g.weapons.bullet.fireRate;
+            g.weapons.bullet.fireRate *= 0.7;
+        },
+        remove: (g) => {
+            g.damageMultiplier = g._berserkerDmgMult || 1;
+            g.weapons.bullet.fireRate = g._berserkerFireRate || g.weapons.bullet.fireRate;
+        }
+    },
+    chain_lightning: {
+        name: 'Chain Lightning',
+        icon: '⚡',
+        color: '#ffff00',
+        glowColor: 'rgba(255,255,0,0.5)',
+        duration: 12,
+        desc: 'Every hit chains to 3 enemies for 50% dmg',
+        apply: () => {},
+        remove: () => {}
+    },
+    piercing: {
+        name: 'Piercing Rounds',
+        icon: '🔱',
+        color: '#00ffcc',
+        glowColor: 'rgba(0,255,204,0.5)',
+        duration: 10,
+        desc: 'Projectiles pierce infinitely',
+        apply: (g) => { g._piercingSaved = g.bulletPierce; g.bulletPierce = 9999; },
+        remove: (g) => { g.bulletPierce = g._piercingSaved || 0; }
+    },
+    xp_feast: {
+        name: 'XP Feast',
+        icon: '🎉',
+        color: '#d4e600',
+        glowColor: 'rgba(212,230,0,0.5)',
+        duration: 15,
+        desc: '3x XP, 3x Magnet Range',
+        apply: (g) => { g._xpFeastMult = g.xpMultiplier; g.xpMultiplier *= 3; g._xpFeastMagnet = g.magnetRadius; g.magnetRadius *= 3; },
+        remove: (g) => { g.xpMultiplier = g._xpFeastMult || 1; g.magnetRadius = g._xpFeastMagnet || 80; }
+    },
+    speed_demon: {
+        name: 'Speed Demon',
+        icon: '💨',
+        color: '#ff6600',
+        glowColor: 'rgba(255,102,0,0.5)',
+        duration: 12,
+        desc: '+80% Speed + Fire Trail',
+        apply: (g) => { g._speedDemonSpeed = g.player.speed; g.player.speed = Math.floor(g.player.speed * 1.8); },
+        remove: (g) => { g.player.speed = g._speedDemonSpeed || g.player.speed; g.fireTrailPoints = []; }
+    },
+    magnet: {
+        name: 'Magnet',
+        icon: '🧲',
+        color: '#cc44ff',
+        glowColor: 'rgba(204,68,255,0.5)',
+        duration: 10,
+        desc: 'Infinite magnet range — pulls ALL XP',
+        apply: (g) => { g._magnetSaved = g.magnetRadius; g.magnetRadius = Infinity; },
+        remove: (g) => { g.magnetRadius = g._magnetSaved || 80; }
+    }
+};
+
+// ============================================
 // SEEDED PRNG - Mulberry32 (deterministic per-run sigil rolls)
 // ============================================
 function createSeededRNG(seed) {
@@ -367,15 +442,88 @@ function rollSigilValue(rng, min, max, quality) {
     return Math.round(lo + rng() * (hi - lo));
 }
 
-function rollSigil(template, rng) {
+// ============================================
+// CHAOS SIGIL - "Sigil of the Maelstrom"
+// Random stats, scales with wave count every 5 waves
+// ============================================
+function generateChaosStats(wave, rng) {
+    const allStats = [
+        { category: 'flatDamage', label: 'Damage', apply: (g,v) => { g.weapons.bullet.damage += v; } },
+        { category: 'fireRatePct', label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); } },
+        { category: 'moveSpeedFlat', label: 'Speed', apply: (g,v) => { g.player.speed += v; } },
+        { category: 'hpFlat', label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; } },
+        { category: 'critChancePct', label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; } },
+    ];
+    // Pick 2-3 random stats (never duplicates)
+    const count = 2 + (rng() < 0.5 ? 1 : 0);
+    const shuffled = [...allStats].sort(() => rng() - 0.5);
+    return shuffled.slice(0, count);
+}
+
+function createChaosSigil(wave) {
+    // Determine tier based on wave (scales every 5 waves)
+    const scaleTier = Math.floor(wave / 5);
+    let tier, rarity, tierLabel;
+    if (scaleTier >= 4) { tier = 'EMPOWERED'; rarity = 'epic'; tierLabel = 'EMPOWERED'; }
+    else if (scaleTier >= 2) { tier = 'RUNED'; rarity = 'rare'; tierLabel = 'RUNED'; }
+    else { tier = 'FADED'; rarity = 'common'; tierLabel = 'FADED'; }
+
+    return {
+        id: `chaos_sigil_w${wave}_${Date.now()}`,
+        name: 'Sigil of the Maelstrom',
+        icon: '🌀',
+        desc: 'Chaotic energy — random stats!',
+        rarity: rarity,
+        tier: tier,
+        isChaos: true,
+        chaosWave: wave,
+        effect: () => {}, // Overridden by rollSigil
+        getDesc: () => `Wave ${wave} Chaos Sigil`
+    };
+}
+
+function rollSigil(template, rng, forceHighRoll) {
     const config = SIGIL_ROLL_CONFIG[template.id];
-    if (!config) return template;
+    if (!config && !template.isChaos) return template;
 
     const isCursed = !!template.isCorrupted;
-    const quality = rollSigilQuality(rng);
+    let quality = rollSigilQuality(rng);
+
+    // Force high or perfect quality for guaranteed high rolls
+    if (forceHighRoll && (quality.name === 'low' || quality.name === 'mid')) {
+        quality = SIGIL_QUALITY_TIERS[2]; // 'high' tier
+    }
+
+    const isHighRoll = quality.name === 'high' || quality.name === 'perfect';
+
+    // Chaos Sigil: generate random stats dynamically
+    const effectiveConfig = template.isChaos ? generateChaosStats(template.chaosWave || 1, rng) : config;
 
     const rolledStats = [];
-    for (const def of config) {
+    // High rolls get up to 3 stats - add bonus stats from the tier's range pool
+    const baseStatCount = effectiveConfig.length;
+    let bonusStats = [];
+    if (isHighRoll && baseStatCount < 3 && !template.isChaos) {
+        const allCategories = ['flatDamage', 'fireRatePct', 'moveSpeedFlat', 'hpFlat', 'critChancePct'];
+        const usedCategories = new Set(effectiveConfig.map(d => d.category));
+        const availableCategories = allCategories.filter(c => !usedCategories.has(c));
+        const bonusCount = Math.min(3 - baseStatCount, availableCategories.length);
+        const BONUS_STAT_DEFS = {
+            flatDamage: { label: 'Damage', apply: (g,v) => { g.weapons.bullet.damage += v; } },
+            fireRatePct: { label: 'Attack Speed', apply: (g,v) => { g.weapons.bullet.fireRate *= (1 - v/100); } },
+            moveSpeedFlat: { label: 'Speed', apply: (g,v) => { g.player.speed += v; } },
+            hpFlat: { label: 'Max HP', apply: (g,v) => { g.player.maxHealth += v; g.player.health += v; } },
+            critChancePct: { label: 'Crit Chance', apply: (g,v) => { g.critChanceBonus = (g.critChanceBonus||0) + v/100; } }
+        };
+        for (let b = 0; b < bonusCount; b++) {
+            const idx = Math.floor(rng() * availableCategories.length);
+            const cat = availableCategories.splice(idx, 1)[0];
+            const def = BONUS_STAT_DEFS[cat];
+            bonusStats.push({ category: cat, label: def.label, apply: def.apply });
+        }
+    }
+
+    for (const def of [...effectiveConfig, ...bonusStats]) {
         let rangeTier;
         if (isCursed && SIGIL_ROLL_RANGES.CURSED[def.category]) {
             rangeTier = 'CURSED';
@@ -383,6 +531,7 @@ function rollSigil(template, rng) {
             rangeTier = template.tier;
             if (rangeTier === 'CORRUPTED_RUNED') rangeTier = 'RUNED';
             if (rangeTier === 'CORRUPTED_EMPOWERED') rangeTier = 'EMPOWERED';
+            if (template.isChaos) rangeTier = template.tier; // Chaos uses its own tier
         }
         const range = SIGIL_ROLL_RANGES[rangeTier]?.[def.category];
         if (!range) { rolledStats.push({ ...def, value: 0, quality }); continue; }
@@ -2406,6 +2555,14 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
         }
     }
 
+    // ============ NEW MOBS: Wraith (wave 8+), Magma Crawler (wave 12+), Leech (wave 10+) ============
+    if (wave >= 8) types.push('wraith');
+    if (wave >= 12) types.push('wraith', 'wraith'); // More wraiths later
+    if (wave >= 12) types.push('magma_crawler');
+    if (wave >= 16) types.push('magma_crawler'); // More crawlers later
+    if (wave >= 10) types.push('leech');
+    if (wave >= 14) types.push('leech', 'leech'); // More leeches later
+
     // ============ CINDER WRETCH SPAWN GATING ============
     // Waves 1-5: disabled
     // Waves 6-9: LOW spawn weight (1 entry)
@@ -3989,6 +4146,15 @@ class DotsSurvivor {
         this.thornDamage = 0;           // Damage reflection percentage
         this.stickyTimer = 0;
         this.ccReduction = 0; // CC duration reduction (0-0.75, e.g. 0.20 = -20% CC duration)
+        this.luck = 0; // Luck stat (0-0.50, increases high roll chances)
+
+        // Power-up system
+        this.powerUps = [];           // Active power-up drops in world [{wx,wy,type,radius,timer}]
+        this.activePowerUps = {};     // Currently active power-ups {type: {timer, duration}}
+        this.powerUpDropTimer = 0;    // Timer between power-up drops
+        this.powerUpDropInterval = 30; // Drop a power-up every 30 seconds
+        this.chainLightningHits = []; // Visual chain lightning from power-up
+        this.fireTrailPoints = [];    // Speed Demon fire trail
 
         // Minimum enemies (scales up over time)
         this.minEnemies = 20;
@@ -4007,7 +4173,12 @@ class DotsSurvivor {
         this.consumerSpawned = false;
         this.plagueWeaverSpawned = false;
         this.riftLordSpawned = false;
+        this.broodQueenSpawned = false;
+        this.architectSpawned = false;
+        this.leviathanSpawned = false;
         this.bossGracePeriod = 0; // Seconds of reduced spawns after boss appears
+        this.architectTraps = []; // Architect arena traps
+        this.architectCages = []; // Architect cage walls
 
         // Health packs (rare spawns)
         this.lastHealthPackSpawn = 0;
@@ -5934,6 +6105,679 @@ class DotsSurvivor {
         this.player.kills++;
     }
 
+    // ============================================
+    // THE BROOD QUEEN (Wave 25)
+    // Eggs, minions, dash, acid rain, mini-queens
+    // ============================================
+    spawnBroodQueen(scaleMult = 1) {
+        // Clear 60% non-boss enemies
+        const nonBoss = this.enemies.filter(e => !e.isBoss);
+        const killCount = Math.floor(nonBoss.length * 0.6);
+        for (let i = 0; i < killCount; i++) {
+            const idx = this.enemies.indexOf(nonBoss[i]);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+        }
+        this.bossGracePeriod = 5;
+        this.playBossMusic();
+
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 500;
+        const bq = {
+            type: 'brood_queen', isBoss: true, isBroodQueen: true,
+            wx: this.worldX + Math.cos(angle) * dist,
+            wy: this.worldY + Math.sin(angle) * dist,
+            health: Math.floor(300000 * scaleMult), maxHealth: Math.floor(300000 * scaleMult),
+            damage: Math.floor(120 * scaleMult), speed: 50,
+            radius: 70, id: ++this.enemyIdCounter,
+            hitFlash: 0, attackCooldown: 0, color: '#aa4400',
+            maxLifeTime: 90, lifeTimer: 0,
+            phase: 1, phaseTimer: 0,
+            eggs: [], maxEggs: 4,
+            eggTimer: 0, eggCooldown: 6,
+            dashTimer: 0, dashCooldown: 8, dashing: false, dashTarget: null, dashSpeed: 400,
+            acidRainTimer: 0, acidRainCooldown: 12, acidDrops: [],
+            miniQueens: 0, maxMiniQueens: 2,
+            legAngle: 0
+        };
+        this.enemies.push(bq);
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '🕷️ THE BROOD QUEEN AWAKENS 🕷️',
+            lifetime: 3, color: '#aa4400', scale: 2.5
+        });
+    }
+
+    updateBroodQueen(dt) {
+        const bq = this.enemies.find(e => e.isBroodQueen);
+        if (!bq) return;
+
+        bq.lifeTimer += dt;
+        bq.phaseTimer += dt;
+        bq.legAngle += dt * 3;
+
+        // Phase transitions
+        if (bq.lifeTimer > 60 && bq.phase < 3) { bq.phase = 3; bq.eggCooldown = 3; bq.dashCooldown = 5; }
+        else if (bq.lifeTimer > 30 && bq.phase < 2) { bq.phase = 2; bq.eggCooldown = 4; bq.dashCooldown = 6; }
+
+        // Timer expired
+        if (bq.lifeTimer >= bq.maxLifeTime) {
+            this.handleBroodQueenTimeout(bq);
+            return;
+        }
+
+        // Movement - chase player
+        const dx = this.worldX - bq.wx, dy = this.worldY - bq.wy;
+        const d = Math.sqrt(dx * dx + dy * dy);
+
+        if (bq.dashing) {
+            // Dash towards target
+            const ddx = bq.dashTarget.x - bq.wx, ddy = bq.dashTarget.y - bq.wy;
+            const dd = Math.sqrt(ddx * ddx + ddy * ddy);
+            if (dd > 20) {
+                bq.wx += (ddx / dd) * bq.dashSpeed * dt;
+                bq.wy += (ddy / dd) * bq.dashSpeed * dt;
+            } else {
+                bq.dashing = false;
+                // Shockwave on landing
+                const sx = this.player.x + (bq.wx - this.worldX);
+                const sy = this.player.y + (bq.wy - this.worldY);
+                this.triggerScreenShake(8, 0.3);
+                this.spawnParticles(sx, sy, '#aa4400', 15);
+                const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+                if (pd < 150) {
+                    this.player.health -= Math.floor(bq.damage * 0.8);
+                    this.combatTimer = 0;
+                }
+            }
+        } else if (d > bq.radius) {
+            bq.wx += (dx / d) * bq.speed * dt;
+            bq.wy += (dy / d) * bq.speed * dt;
+        }
+
+        // Egg spawning
+        bq.eggTimer += dt;
+        if (bq.eggTimer >= bq.eggCooldown && bq.eggs.length < bq.maxEggs) {
+            bq.eggTimer = 0;
+            const eAngle = Math.random() * Math.PI * 2;
+            const eDist = 100 + Math.random() * 150;
+            bq.eggs.push({
+                wx: bq.wx + Math.cos(eAngle) * eDist,
+                wy: bq.wy + Math.sin(eAngle) * eDist,
+                health: 500, maxHealth: 500,
+                hatchTimer: 5, // Hatches in 5 seconds
+                radius: 20
+            });
+        }
+
+        // Update eggs
+        for (let i = bq.eggs.length - 1; i >= 0; i--) {
+            const egg = bq.eggs[i];
+            egg.hatchTimer -= dt;
+            if (egg.hatchTimer <= 0 || egg.health <= 0) {
+                if (egg.hatchTimer <= 0) {
+                    // Hatch: spawn 3-5 mini enemies
+                    const spawnCount = 3 + Math.floor(Math.random() * 3);
+                    for (let s = 0; s < spawnCount; s++) {
+                        const sa = Math.random() * Math.PI * 2;
+                        const sd = 20 + Math.random() * 20;
+                        const minion = this.createEnemy(egg.wx + Math.cos(sa) * sd, egg.wy + Math.sin(sa) * sd, 'swarm');
+                        minion.health = Math.floor(minion.health * 1.5);
+                        minion.speed = Math.floor(minion.speed * 1.2);
+                        this.enemies.push(minion);
+                    }
+                }
+                bq.eggs.splice(i, 1);
+            }
+        }
+
+        // Dash attack
+        bq.dashTimer += dt;
+        if (bq.dashTimer >= bq.dashCooldown && !bq.dashing) {
+            bq.dashTimer = 0;
+            bq.dashing = true;
+            bq.dashTarget = { x: this.worldX, y: this.worldY };
+        }
+
+        // Acid rain
+        bq.acidRainTimer += dt;
+        if (bq.acidRainTimer >= bq.acidRainCooldown) {
+            bq.acidRainTimer = 0;
+            const dropCount = 5 + bq.phase * 3;
+            for (let a = 0; a < dropCount; a++) {
+                bq.acidDrops.push({
+                    wx: this.worldX + (Math.random() - 0.5) * 500,
+                    wy: this.worldY + (Math.random() - 0.5) * 500,
+                    radius: 40 + Math.random() * 30,
+                    timer: 3,
+                    warningTimer: 1 // 1 second warning before impact
+                });
+            }
+        }
+
+        // Update acid drops
+        for (let i = bq.acidDrops.length - 1; i >= 0; i--) {
+            const drop = bq.acidDrops[i];
+            drop.warningTimer -= dt;
+            if (drop.warningTimer <= 0) {
+                drop.timer -= dt;
+                // Damage player in acid
+                const dsx = this.player.x + (drop.wx - this.worldX);
+                const dsy = this.player.y + (drop.wy - this.worldY);
+                const pd = Math.sqrt((dsx - this.player.x) ** 2 + (dsy - this.player.y) ** 2);
+                if (pd < drop.radius) {
+                    this.player.health -= Math.floor(bq.damage * 0.15 * dt);
+                    this.combatTimer = 0;
+                }
+            }
+            if (drop.timer <= 0) bq.acidDrops.splice(i, 1);
+        }
+
+        // Phase 3: Spawn mini-queens
+        if (bq.phase >= 3 && bq.miniQueens < bq.maxMiniQueens && bq.phaseTimer > 10) {
+            bq.phaseTimer = 0;
+            bq.miniQueens++;
+            const mq = this.createEnemy(bq.wx + (Math.random() - 0.5) * 100, bq.wy + (Math.random() - 0.5) * 100, 'tank');
+            mq.health *= 3;
+            mq.maxHealth *= 3;
+            mq.radius = 40;
+            mq.color = '#cc6600';
+            this.enemies.push(mq);
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2,
+                value: '🕷️ MINI-QUEEN HATCHED!', lifetime: 2, color: '#cc6600', scale: 1.5
+            });
+        }
+
+        // Damage eggs from projectiles (check in enemy grid)
+        for (const egg of bq.eggs) {
+            const nearby = this.enemyGrid.getNearby(egg.wx, egg.wy, 30);
+            // Eggs are damaged through the projectile system via checking proximity
+        }
+    }
+
+    handleBroodQueenTimeout(bq) {
+        const sx = this.player.x + (bq.wx - this.worldX);
+        const sy = this.player.y + (bq.wy - this.worldY);
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '🕷️ THE BROOD QUEEN RETREATS 🕷️', lifetime: 3, color: '#aa4400', scale: 2
+        });
+        // Drop XP
+        for (let i = 0; i < 25; i++) {
+            const a = Math.random() * Math.PI * 2, d = Math.random() * 80;
+            this.pickups.push({ wx: bq.wx + Math.cos(a) * d, wy: bq.wy + Math.sin(a) * d, xp: 80, radius: 8, color: '#d4e600', isItem: false });
+        }
+        bq.eggs = [];
+        bq.acidDrops = [];
+        const idx = this.enemies.indexOf(bq);
+        if (idx >= 0) this.enemies.splice(idx, 1);
+        this.spawnPauseTimer = 4;
+        this.stopBossMusic();
+    }
+
+    handleBroodQueenKilled(bq, sx, sy) {
+        bq.eggs = [];
+        bq.acidDrops = [];
+        this.spawnParticles(sx, sy, '#aa4400', 50);
+        this.triggerScreenShake(15, 0.5);
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '💀 THE BROOD QUEEN SLAIN! 💀', lifetime: 3, color: '#ffcc00', scale: 2.5
+        });
+        for (let i = 0; i < 30; i++) {
+            const a = Math.random() * Math.PI * 2, d = Math.random() * 100;
+            this.pickups.push({ wx: bq.wx + Math.cos(a) * d, wy: bq.wy + Math.sin(a) * d, xp: 100, radius: 10, color: '#d4e600', isItem: false });
+        }
+        this.spawnPauseTimer = 5;
+        this.player.kills++;
+        this.stopBossMusic();
+    }
+
+    // ============================================
+    // THE ARCHITECT (Wave 30)
+    // Arena changer ONLY - cages, traps, NO direct attacks, NO turrets
+    // ============================================
+    spawnArchitect(scaleMult = 1) {
+        const nonBoss = this.enemies.filter(e => !e.isBoss);
+        const killCount = Math.floor(nonBoss.length * 0.6);
+        for (let i = 0; i < killCount; i++) {
+            const idx = this.enemies.indexOf(nonBoss[i]);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+        }
+        this.bossGracePeriod = 5;
+        this.playBossMusic();
+
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 600;
+        const arch = {
+            type: 'architect', isBoss: true, isArchitect: true,
+            wx: this.worldX + Math.cos(angle) * dist,
+            wy: this.worldY + Math.sin(angle) * dist,
+            health: Math.floor(250000 * scaleMult), maxHealth: Math.floor(250000 * scaleMult),
+            damage: 0, speed: 0, // Does NOT attack or move
+            radius: 60, id: ++this.enemyIdCounter,
+            hitFlash: 0, attackCooldown: 0, color: '#4488cc',
+            maxLifeTime: 90, lifeTimer: 0,
+            phase: 1, phaseTimer: 0,
+            trapTimer: 0, trapCooldown: 5,
+            cageTimer: 0, cageCooldown: 12,
+            mazeTimer: 0, mazeCooldown: 20,
+            arenaShiftTimer: 0, arenaShiftCooldown: 15,
+            teleportTimer: 0, teleportCooldown: 10,
+            gearAngle: 0
+        };
+        this.enemies.push(arch);
+        this.architectTraps = [];
+        this.architectCages = [];
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '⚙️ THE ARCHITECT RESHAPES REALITY ⚙️',
+            lifetime: 3, color: '#4488cc', scale: 2.5
+        });
+    }
+
+    updateArchitect(dt) {
+        const arch = this.enemies.find(e => e.isArchitect);
+        if (!arch) {
+            // Clean up traps/cages if architect is gone
+            this.architectTraps = [];
+            this.architectCages = [];
+            return;
+        }
+
+        arch.lifeTimer += dt;
+        arch.phaseTimer += dt;
+        arch.gearAngle += dt * 1.5;
+
+        if (arch.lifeTimer > 60 && arch.phase < 3) { arch.phase = 3; arch.trapCooldown = 2.5; arch.cageCooldown = 8; }
+        else if (arch.lifeTimer > 30 && arch.phase < 2) { arch.phase = 2; arch.trapCooldown = 3.5; arch.cageCooldown = 10; }
+
+        if (arch.lifeTimer >= arch.maxLifeTime) {
+            this.handleArchitectTimeout(arch);
+            return;
+        }
+
+        // Teleport to stay away from player
+        arch.teleportTimer += dt;
+        if (arch.teleportTimer >= arch.teleportCooldown) {
+            arch.teleportTimer = 0;
+            const tAngle = Math.random() * Math.PI * 2;
+            const tDist = 400 + Math.random() * 200;
+            arch.wx = this.worldX + Math.cos(tAngle) * tDist;
+            arch.wy = this.worldY + Math.sin(tAngle) * tDist;
+            const sx = this.player.x + (arch.wx - this.worldX);
+            const sy = this.player.y + (arch.wy - this.worldY);
+            this.spawnParticles(sx, sy, '#4488cc', 15);
+        }
+
+        // Spawn floor traps (spike zones that damage player)
+        arch.trapTimer += dt;
+        if (arch.trapTimer >= arch.trapCooldown) {
+            arch.trapTimer = 0;
+            const trapCount = arch.phase;
+            for (let t = 0; t < trapCount; t++) {
+                this.architectTraps.push({
+                    wx: this.worldX + (Math.random() - 0.5) * 400,
+                    wy: this.worldY + (Math.random() - 0.5) * 400,
+                    radius: 60 + Math.random() * 40,
+                    timer: 6, warningTimer: 1.5,
+                    damage: 40 + arch.phase * 15,
+                    triggered: false
+                });
+            }
+        }
+
+        // Spawn cage walls (rectangular barriers)
+        arch.cageTimer += dt;
+        if (arch.cageTimer >= arch.cageCooldown) {
+            arch.cageTimer = 0;
+            // Create a cage around the player
+            const cageSize = 200 + arch.phase * 50;
+            const cx = this.worldX, cy = this.worldY;
+            // 4 wall segments
+            const walls = [
+                { wx: cx - cageSize/2, wy: cy - cageSize/2, w: cageSize, h: 15 }, // top
+                { wx: cx - cageSize/2, wy: cy + cageSize/2, w: cageSize, h: 15 }, // bottom
+                { wx: cx - cageSize/2, wy: cy - cageSize/2, w: 15, h: cageSize }, // left
+                { wx: cx + cageSize/2, wy: cy - cageSize/2, w: 15, h: cageSize }, // right
+            ];
+            // Leave a gap in one wall
+            const gapWall = Math.floor(Math.random() * 4);
+            for (let w = 0; w < walls.length; w++) {
+                if (w === gapWall) continue;
+                this.architectCages.push({
+                    ...walls[w], timer: 8,
+                    health: 300 + arch.phase * 100
+                });
+            }
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2,
+                value: '⚙️ CAGE DEPLOYED!', lifetime: 2, color: '#4488cc', scale: 1.5
+            });
+        }
+
+        // Update traps
+        for (let i = this.architectTraps.length - 1; i >= 0; i--) {
+            const trap = this.architectTraps[i];
+            trap.warningTimer -= dt;
+            if (trap.warningTimer <= 0) {
+                trap.timer -= dt;
+                // Damage player standing on trap
+                if (!trap.triggered) {
+                    const tsx = this.player.x + (trap.wx - this.worldX);
+                    const tsy = this.player.y + (trap.wy - this.worldY);
+                    const pd = Math.sqrt((tsx - this.player.x) ** 2 + (tsy - this.player.y) ** 2);
+                    if (pd < trap.radius) {
+                        this.player.health -= trap.damage;
+                        this.combatTimer = 0;
+                        trap.triggered = true;
+                        this.triggerScreenShake(5, 0.2);
+                        this.addDamageNumber(this.player.x, this.player.y - 20, trap.damage, '#4488cc', { scale: 1 });
+                    }
+                }
+            }
+            if (trap.timer <= 0) this.architectTraps.splice(i, 1);
+        }
+
+        // Update cage walls
+        for (let i = this.architectCages.length - 1; i >= 0; i--) {
+            const cage = this.architectCages[i];
+            cage.timer -= dt;
+            if (cage.timer <= 0 || cage.health <= 0) {
+                this.architectCages.splice(i, 1);
+                continue;
+            }
+            // Block player movement (push player out of wall)
+            const px = this.worldX, py = this.worldY;
+            if (px > cage.wx && px < cage.wx + cage.w && py > cage.wy && py < cage.wy + cage.h) {
+                // Push player to nearest edge
+                const toLeft = px - cage.wx;
+                const toRight = cage.wx + cage.w - px;
+                const toTop = py - cage.wy;
+                const toBottom = cage.wy + cage.h - py;
+                const minDist = Math.min(toLeft, toRight, toTop, toBottom);
+                if (minDist === toLeft) this.worldX = cage.wx - 1;
+                else if (minDist === toRight) this.worldX = cage.wx + cage.w + 1;
+                else if (minDist === toTop) this.worldY = cage.wy - 1;
+                else this.worldY = cage.wy + cage.h + 1;
+            }
+        }
+
+        // Damage cage walls from projectiles
+        for (const p of this.projectiles) {
+            const pwx = this.worldX + (p.x - this.player.x);
+            const pwy = this.worldY + (p.y - this.player.y);
+            for (const cage of this.architectCages) {
+                if (pwx > cage.wx && pwx < cage.wx + cage.w && pwy > cage.wy && pwy < cage.wy + cage.h) {
+                    cage.health -= p.damage;
+                }
+            }
+        }
+    }
+
+    handleArchitectTimeout(arch) {
+        this.architectTraps = [];
+        this.architectCages = [];
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '⚙️ THE ARCHITECT WITHDRAWS ⚙️', lifetime: 3, color: '#4488cc', scale: 2
+        });
+        for (let i = 0; i < 25; i++) {
+            const a = Math.random() * Math.PI * 2, d = Math.random() * 80;
+            this.pickups.push({ wx: arch.wx + Math.cos(a) * d, wy: arch.wy + Math.sin(a) * d, xp: 100, radius: 8, color: '#d4e600', isItem: false });
+        }
+        const idx = this.enemies.indexOf(arch);
+        if (idx >= 0) this.enemies.splice(idx, 1);
+        this.spawnPauseTimer = 4;
+        this.stopBossMusic();
+    }
+
+    handleArchitectKilled(arch, sx, sy) {
+        this.architectTraps = [];
+        this.architectCages = [];
+        this.spawnParticles(sx, sy, '#4488cc', 50);
+        this.triggerScreenShake(15, 0.5);
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '💀 THE ARCHITECT DISMANTLED! 💀', lifetime: 3, color: '#ffcc00', scale: 2.5
+        });
+        for (let i = 0; i < 30; i++) {
+            const a = Math.random() * Math.PI * 2, d = Math.random() * 100;
+            this.pickups.push({ wx: arch.wx + Math.cos(a) * d, wy: arch.wy + Math.sin(a) * d, xp: 120, radius: 10, color: '#d4e600', isItem: false });
+        }
+        this.spawnPauseTimer = 5;
+        this.player.kills++;
+        this.stopBossMusic();
+    }
+
+    // ============================================
+    // THE LEVIATHAN (Wave 35)
+    // Serpentine body segments, sweeping beam, tail shockwaves, weak point, splits into 2
+    // ============================================
+    spawnLeviathan(scaleMult = 1) {
+        const nonBoss = this.enemies.filter(e => !e.isBoss);
+        const killCount = Math.floor(nonBoss.length * 0.6);
+        for (let i = 0; i < killCount; i++) {
+            const idx = this.enemies.indexOf(nonBoss[i]);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+        }
+        this.bossGracePeriod = 5;
+        this.playBossMusic();
+
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 500;
+        const startX = this.worldX + Math.cos(angle) * dist;
+        const startY = this.worldY + Math.sin(angle) * dist;
+
+        // Create serpentine body segments
+        const segmentCount = 12;
+        const segments = [];
+        for (let s = 0; s < segmentCount; s++) {
+            segments.push({
+                wx: startX - Math.cos(angle) * s * 30,
+                wy: startY - Math.sin(angle) * s * 30,
+                radius: s === 0 ? 35 : (s < 3 ? 30 : (s < segmentCount - 1 ? 25 : 20)),
+                isHead: s === 0,
+                isWeakPoint: s === Math.floor(segmentCount / 2), // Middle segment is weak point
+                isTail: s === segmentCount - 1,
+                damageMult: s === Math.floor(segmentCount / 2) ? 3 : 0.5 // Weak point takes 3x damage
+            });
+        }
+
+        const lev = {
+            type: 'leviathan', isBoss: true, isLeviathan: true,
+            wx: startX, wy: startY,
+            health: Math.floor(400000 * scaleMult), maxHealth: Math.floor(400000 * scaleMult),
+            damage: Math.floor(150 * scaleMult), speed: 80,
+            radius: 35, id: ++this.enemyIdCounter,
+            hitFlash: 0, attackCooldown: 0, color: '#226688',
+            maxLifeTime: 100, lifeTimer: 0,
+            phase: 1, phaseTimer: 0,
+            segments,
+            moveAngle: angle,
+            turnSpeed: 1.5,
+            beamTimer: 0, beamCooldown: 10, beamActive: false, beamAngle: 0, beamDuration: 3,
+            tailShockTimer: 0, tailShockCooldown: 7,
+            hasSplit: false,
+            splitThreshold: 0.4 // Splits at 40% HP
+        };
+        this.enemies.push(lev);
+
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '🐍 THE LEVIATHAN RISES 🐍',
+            lifetime: 3, color: '#226688', scale: 2.5
+        });
+    }
+
+    updateLeviathan(dt) {
+        const lev = this.enemies.find(e => e.isLeviathan);
+        if (!lev) return;
+
+        lev.lifeTimer += dt;
+        lev.phaseTimer += dt;
+
+        if (lev.lifeTimer > 65 && lev.phase < 3) { lev.phase = 3; lev.beamCooldown = 6; lev.tailShockCooldown = 4; }
+        else if (lev.lifeTimer > 35 && lev.phase < 2) { lev.phase = 2; lev.beamCooldown = 8; lev.tailShockCooldown = 5; }
+
+        if (lev.lifeTimer >= lev.maxLifeTime) {
+            this.handleLeviathanTimeout(lev);
+            return;
+        }
+
+        // Split at threshold HP
+        if (!lev.hasSplit && lev.health < lev.maxHealth * lev.splitThreshold) {
+            lev.hasSplit = true;
+            // Spawn a smaller leviathan
+            const splitLev = this.createEnemy(lev.wx + 100, lev.wy + 100, 'tank');
+            splitLev.health = Math.floor(lev.maxHealth * 0.3);
+            splitLev.maxHealth = splitLev.health;
+            splitLev.radius = 45;
+            splitLev.speed = 90;
+            splitLev.damage = Math.floor(lev.damage * 0.6);
+            splitLev.color = '#226688';
+            splitLev.isBoss = true;
+            this.enemies.push(splitLev);
+            this.damageNumbers.push({
+                x: this.canvas.width / 2, y: this.canvas.height / 2,
+                value: '🐍 THE LEVIATHAN SPLITS! 🐍', lifetime: 2, color: '#44aacc', scale: 2
+            });
+            this.triggerScreenShake(10, 0.4);
+        }
+
+        // Serpentine movement - head steers toward player
+        const dx = this.worldX - lev.wx, dy = this.worldY - lev.wy;
+        const targetAngle = Math.atan2(dy, dx);
+        // Smoothly turn toward player
+        let angleDiff = targetAngle - lev.moveAngle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        lev.moveAngle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), lev.turnSpeed * dt);
+
+        lev.wx += Math.cos(lev.moveAngle) * lev.speed * dt;
+        lev.wy += Math.sin(lev.moveAngle) * lev.speed * dt;
+
+        // Update segments (follow-the-leader)
+        lev.segments[0].wx = lev.wx;
+        lev.segments[0].wy = lev.wy;
+        for (let s = 1; s < lev.segments.length; s++) {
+            const prev = lev.segments[s - 1];
+            const seg = lev.segments[s];
+            const sdx = prev.wx - seg.wx, sdy = prev.wy - seg.wy;
+            const sd = Math.sqrt(sdx * sdx + sdy * sdy);
+            const spacing = 28;
+            if (sd > spacing) {
+                seg.wx += (sdx / sd) * (sd - spacing);
+                seg.wy += (sdy / sd) * (sd - spacing);
+            }
+        }
+
+        // Beam attack (sweeping beam from head)
+        lev.beamTimer += dt;
+        if (lev.beamActive) {
+            lev.beamAngle += dt * 2 * (lev.phase >= 3 ? 1.5 : 1);
+            lev.beamDuration -= dt;
+            if (lev.beamDuration <= 0) {
+                lev.beamActive = false;
+                lev.beamDuration = 3;
+            }
+            // Beam damage check
+            const beamLen = 350;
+            const beamEndX = lev.wx + Math.cos(lev.beamAngle) * beamLen;
+            const beamEndY = lev.wy + Math.sin(lev.beamAngle) * beamLen;
+            // Check if player is near beam line
+            const px = this.worldX, py = this.worldY;
+            const closestDist = this.pointToLineDist(px, py, lev.wx, lev.wy, beamEndX, beamEndY);
+            if (closestDist < 30) {
+                this.player.health -= Math.floor(lev.damage * 0.5 * dt);
+                this.combatTimer = 0;
+            }
+        } else if (lev.beamTimer >= lev.beamCooldown) {
+            lev.beamTimer = 0;
+            lev.beamActive = true;
+            lev.beamAngle = Math.atan2(this.worldY - lev.wy, this.worldX - lev.wx);
+            lev.beamDuration = 3;
+        }
+
+        // Tail shockwave
+        lev.tailShockTimer += dt;
+        if (lev.tailShockTimer >= lev.tailShockCooldown) {
+            lev.tailShockTimer = 0;
+            const tail = lev.segments[lev.segments.length - 1];
+            const tsx = this.player.x + (tail.wx - this.worldX);
+            const tsy = this.player.y + (tail.wy - this.worldY);
+            const pd = Math.sqrt((tsx - this.player.x) ** 2 + (tsy - this.player.y) ** 2);
+            if (pd < 200) {
+                this.player.health -= Math.floor(lev.damage * 0.4);
+                this.combatTimer = 0;
+                this.addDamageNumber(this.player.x, this.player.y - 20, Math.floor(lev.damage * 0.4), '#226688', { scale: 1.2 });
+            }
+            this.triggerScreenShake(6, 0.2);
+            this.spawnParticles(tsx, tsy, '#226688', 15);
+        }
+
+        // Body segments act as walls (push player)
+        for (const seg of lev.segments) {
+            const sdx = this.worldX - seg.wx, sdy = this.worldY - seg.wy;
+            const sd = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sd < seg.radius + this.player.radius) {
+                // Push player away
+                if (sd > 0) {
+                    this.worldX += (sdx / sd) * 3;
+                    this.worldY += (sdy / sd) * 3;
+                }
+            }
+        }
+
+        // Weak point takes extra damage (handled in projectile collision via segments)
+    }
+
+    // Helper: point-to-line distance
+    pointToLineDist(px, py, x1, y1, x2, y2) {
+        const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = lenSq > 0 ? dot / lenSq : -1;
+        param = Math.max(0, Math.min(1, param));
+        const xx = x1 + param * C, yy = y1 + param * D;
+        return Math.sqrt((px - xx) ** 2 + (py - yy) ** 2);
+    }
+
+    handleLeviathanTimeout(lev) {
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '🐍 THE LEVIATHAN SUBMERGES 🐍', lifetime: 3, color: '#226688', scale: 2
+        });
+        for (let i = 0; i < 30; i++) {
+            const a = Math.random() * Math.PI * 2, d = Math.random() * 80;
+            this.pickups.push({ wx: lev.wx + Math.cos(a) * d, wy: lev.wy + Math.sin(a) * d, xp: 100, radius: 8, color: '#d4e600', isItem: false });
+        }
+        const idx = this.enemies.indexOf(lev);
+        if (idx >= 0) this.enemies.splice(idx, 1);
+        this.spawnPauseTimer = 4;
+        this.stopBossMusic();
+    }
+
+    handleLeviathanKilled(lev, sx, sy) {
+        this.spawnParticles(sx, sy, '#226688', 50);
+        this.spawnParticles(sx, sy, '#44aacc', 30);
+        this.triggerScreenShake(20, 0.5);
+        this.triggerSlowmo(0.2, 1.0);
+        this.damageNumbers.push({
+            x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+            value: '💀 THE LEVIATHAN DEFEATED! 💀', lifetime: 3, color: '#ffcc00', scale: 2.5
+        });
+        for (let i = 0; i < 40; i++) {
+            const a = Math.random() * Math.PI * 2, d = Math.random() * 120;
+            this.pickups.push({ wx: lev.wx + Math.cos(a) * d, wy: lev.wy + Math.sin(a) * d, xp: 150, radius: 10, color: '#d4e600', isItem: false });
+        }
+        this.spawnPauseTimer = 5;
+        this.player.kills++;
+        this.stopBossMusic();
+    }
+
     spawnHealthPack() {
         const angle = Math.random() * Math.PI * 2;
         const dist = 200 + Math.random() * 400;
@@ -6196,14 +7040,35 @@ class DotsSurvivor {
                     this.riftLordSpawned = true;
                 }
 
-                // Wave 25+: Random event boss every 5 waves
-                if (this.wave >= 25 && this.wave % 5 === 0 && this.lastBossWave !== this.wave) {
-                    const bossPool = ['plague_weaver', 'consumer', 'rift_lord'];
+                // Wave 25: Brood Queen
+                if (this.wave === 25 && !this.broodQueenSpawned) {
+                    this.spawnBroodQueen();
+                    this.broodQueenSpawned = true;
+                }
+
+                // Wave 30: The Architect
+                if (this.wave === 30 && !this.architectSpawned) {
+                    this.spawnArchitect();
+                    this.architectSpawned = true;
+                }
+
+                // Wave 35: The Leviathan
+                if (this.wave === 35 && !this.leviathanSpawned) {
+                    this.spawnLeviathan();
+                    this.leviathanSpawned = true;
+                }
+
+                // Wave 40+: Random event boss every 5 waves
+                if (this.wave >= 40 && this.wave % 5 === 0 && this.lastBossWave !== this.wave) {
+                    const bossPool = ['plague_weaver', 'consumer', 'rift_lord', 'brood_queen', 'architect', 'leviathan'];
                     const pick = bossPool[Math.floor(Math.random() * bossPool.length)];
-                    const scaleMult = 1 + (this.wave - 20) * 0.15; // +15% per 5 waves past 20
+                    const scaleMult = 1 + (this.wave - 35) * 0.15;
                     if (pick === 'plague_weaver') this.spawnPlagueWeaver(scaleMult);
                     else if (pick === 'consumer') this.spawnConsumer(scaleMult);
-                    else this.spawnRiftLord(scaleMult);
+                    else if (pick === 'rift_lord') this.spawnRiftLord(scaleMult);
+                    else if (pick === 'brood_queen') this.spawnBroodQueen(scaleMult);
+                    else if (pick === 'architect') this.spawnArchitect(scaleMult);
+                    else this.spawnLeviathan(scaleMult);
                     this.lastBossWave = this.wave;
                 }
 
@@ -6602,6 +7467,9 @@ class DotsSurvivor {
         this.updateConsumer(effectiveDt);
         this.updatePlagueWeaver(effectiveDt);
         this.updateRiftLord(effectiveDt);
+        this.updateBroodQueen(effectiveDt);
+        this.updateArchitect(effectiveDt);
+        this.updateLeviathan(effectiveDt);
         this.fireWeapons();
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
@@ -6613,6 +7481,7 @@ class DotsSurvivor {
         this.updateCorruptedSigilDownsides(effectiveDt); // Corrupted Sigil downsides
         this.updateStarterPassives(effectiveDt); // Starter item evolved passives
         this.updateChests(effectiveDt); // Mystery chest system
+        this.updatePowerUps(effectiveDt); // Power-up drops and active effects
         // Fire Sovereign: Phoenix Ascendancy revive
         if (this.player.health <= 0 && this.phoenixAscendancyAvailable) {
             this.phoenixAscendancyAvailable = false;
@@ -8145,7 +9014,11 @@ class DotsSurvivor {
             necro_sprite: { radius: 14, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
             miniconsumer: { radius: 24, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true },
             // Wave 6+ fire enemy - spawns Fire Zone on death
-            cinder_wretch: { radius: 18, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true }
+            cinder_wretch: { radius: 18, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true },
+            // NEW MOBS - Custom canvas animations
+            wraith: { radius: 22, speed: 100, health: 450, damage: 40, xp: 15, color: '#8866cc', icon: '', isWraith: true },
+            magma_crawler: { radius: 30, speed: 40, health: 2500, damage: 80, xp: 30, color: '#ff4400', icon: '', isMagmaCrawler: true },
+            leech: { radius: 20, speed: 70, health: 800, damage: 15, xp: 20, color: '#44cc44', icon: '', isLeech: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -8190,7 +9063,17 @@ class DotsSurvivor {
             isMiniConsumer: data.isMiniConsumer || false,
             absorbedKills: 0, // Kills absorbed by mini consumer
             passive: data.passive || false, // Passive enemies don't chase player
-            spawnsFireZone: data.spawnsFireZone || false // Cinder Wretch spawns Fire Zone on death
+            spawnsFireZone: data.spawnsFireZone || false, // Cinder Wretch spawns Fire Zone on death
+            // New mob types
+            isWraith: data.isWraith || false,
+            wraithPhaseTimer: 0,
+            wraithPhased: false,
+            wraithPhaseDir: 1,
+            isMagmaCrawler: data.isMagmaCrawler || false,
+            magmaTrailTimer: 0,
+            isLeech: data.isLeech || false,
+            leechAttached: false,
+            leechDrainTimer: 0
         };
     }
 
@@ -8299,6 +9182,70 @@ class DotsSurvivor {
                 }
             }
 
+            // WRAITH: Phase in/out (untargetable 50% of time)
+            if (e.isWraith) {
+                e.wraithPhaseTimer += dt;
+                if (e.wraithPhaseTimer >= 2.5) { // Toggle phase every 2.5s
+                    e.wraithPhaseTimer = 0;
+                    e.wraithPhased = !e.wraithPhased;
+                    if (e.wraithPhased) {
+                        e.invulnerable = true;
+                        this.spawnParticles(sx, sy, '#8866cc', 8);
+                    } else {
+                        e.invulnerable = false;
+                        this.spawnParticles(sx, sy, '#cc88ff', 8);
+                    }
+                }
+                // Wraith moves in erratic patterns when phased
+                if (e.wraithPhased) {
+                    e.wraithPhaseDir += (Math.random() - 0.5) * 5 * dt;
+                    e.wx += Math.cos(e.wraithPhaseDir) * e.speed * 0.5 * dt;
+                    e.wy += Math.sin(e.wraithPhaseDir) * e.speed * 0.5 * dt;
+                }
+            }
+
+            // MAGMA CRAWLER: Leaves fire trail, slow and tanky
+            if (e.isMagmaCrawler) {
+                e.magmaTrailTimer += dt;
+                if (e.magmaTrailTimer >= 0.5) { // Drop fire zone every 0.5s
+                    e.magmaTrailTimer = 0;
+                    if (!this.fireZones) this.fireZones = [];
+                    this.fireZones.push({
+                        wx: e.wx, wy: e.wy,
+                        radius: 40, duration: 4, timer: 4,
+                        dps: 12, lastDamageTick: 0
+                    });
+                }
+            }
+
+            // LEECH: Attach to player and drain HP/s
+            if (e.isLeech && !e.leechAttached) {
+                // Check if close enough to attach
+                if (d < e.radius + this.player.radius + 5) {
+                    e.leechAttached = true;
+                    e.leechDrainTimer = 0;
+                    this.damageNumbers.push({ x: sx, y: sy - 20, value: '🩸 ATTACHED!', lifetime: 1.5, color: '#44cc44', scale: 1.2 });
+                }
+            }
+            if (e.isLeech && e.leechAttached) {
+                // Stick to player
+                e.wx = this.worldX + (Math.random() - 0.5) * 10;
+                e.wy = this.worldY + (Math.random() - 0.5) * 10;
+                // Drain HP per second
+                e.leechDrainTimer += dt;
+                if (e.leechDrainTimer >= 0.5) {
+                    e.leechDrainTimer = 0;
+                    const drainDmg = Math.floor(e.damage * 0.5);
+                    this.player.health -= drainDmg;
+                    this.combatTimer = 0;
+                    e.health += Math.floor(drainDmg * 0.5); // Heals itself
+                    e.health = Math.min(e.health, e.maxHealth);
+                    if (Math.random() < 0.3) {
+                        this.addDamageNumber(this.player.x, this.player.y - 20, drainDmg, '#44cc44', { scale: 0.7 });
+                    }
+                }
+            }
+
             // NECROMANCER: Spawn sprites periodically
             if (e.isNecromancer) {
                 e.lastSpriteSpawn += dt;
@@ -8355,6 +9302,8 @@ class DotsSurvivor {
                 } else {
                     // Apply corrupted damage taken multiplier (Blighted Vitality)
                     let remainingDamage = e.damage * (this.corruptedDamageTaken || 1);
+                    // Berserker Rage power-up: +25% damage taken
+                    if (this.activePowerUps && this.activePowerUps.berserker) remainingDamage = Math.floor(remainingDamage * 1.25);
 
                     // Blood Shield absorbs damage first
                     if (this.bloodShield > 0) {
@@ -8457,6 +9406,30 @@ class DotsSurvivor {
         // Special handling for Rift Lord death
         if (e.isRiftLord) {
             this.handleRiftLordKilled(e, sx, sy);
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+            return;
+        }
+
+        // Special handling for Brood Queen death
+        if (e.isBroodQueen) {
+            this.handleBroodQueenKilled(e, sx, sy);
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+            return;
+        }
+
+        // Special handling for Architect death
+        if (e.isArchitect) {
+            this.handleArchitectKilled(e, sx, sy);
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.enemies.splice(idx, 1);
+            return;
+        }
+
+        // Special handling for Leviathan death
+        if (e.isLeviathan) {
+            this.handleLeviathanKilled(e, sx, sy);
             const idx = this.enemies.indexOf(e);
             if (idx >= 0) this.enemies.splice(idx, 1);
             return;
@@ -8712,6 +9685,32 @@ class DotsSurvivor {
             });
         }
 
+        // MAGMA CRAWLER: Massive explosion on death
+        if (e.isMagmaCrawler) {
+            const magmaRadius = 120;
+            this.spawnParticles(sx, sy, '#ff4400', 40);
+            this.spawnParticles(sx, sy, '#ffaa00', 20);
+            this.triggerScreenShake(8, 0.3);
+            // Damage player if in range
+            const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
+            if (pd < magmaRadius) {
+                const blastDmg = Math.floor(e.damage * 2);
+                this.player.health -= blastDmg;
+                this.combatTimer = 0;
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `🌋 ${-blastDmg}`, lifetime: 1.5, color: '#ff4400', scale: 1.3 });
+            }
+            // Create large fire zone at death location
+            if (!this.fireZones) this.fireZones = [];
+            this.fireZones.push({ wx: e.wx, wy: e.wy, radius: 100, duration: 5, timer: 5, dps: 25, lastDamageTick: 0 });
+            this.damageNumbers.push({ x: sx, y: sy - 30, value: '🌋 ERUPTION!', lifetime: 2, color: '#ff6600', scale: 1.5 });
+        }
+
+        // LEECH: Detach on death, small heal burst to player
+        if (e.isLeech && e.leechAttached) {
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + 30);
+            this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: '+30 HP', lifetime: 1, color: '#44ff88' });
+        }
+
         // CINDER WRETCH: Spawn Fire Zone on death (damages player, burn type)
         if (e.spawnsFireZone) {
             this.fireZones.push({
@@ -8822,6 +9821,12 @@ class DotsSurvivor {
         const dropChance = this.itemDropChance || 0.01;
         if (!e.isBoss && Math.random() < dropChance) {
             this.dropItem(e.wx, e.wy);
+        }
+
+        // Power-up drops (0.5% base chance, luck improves it)
+        const powerUpChance = 0.005 + (this.luck || 0) * 0.01;
+        if (!e.isBoss && Math.random() < powerUpChance) {
+            this.spawnPowerUp(e.wx, e.wy);
         }
 
         // Boss drops - rewarding multi-drop loot table
@@ -11123,6 +12128,12 @@ class DotsSurvivor {
                         continue; // Skip this hit entirely
                     }
 
+                    // Wraith: cannot be hit when phased
+                    if (e.invulnerable) {
+                        this.damageNumbers.push({ x: sx, y: sy - 15, value: 'PHASED', lifetime: 0.5, color: '#8866cc', scale: 0.7 });
+                        continue;
+                    }
+
                     e.health -= damage; e.hitFlash = 1;
                     p.hitEnemies.push(e);
 
@@ -11210,6 +12221,32 @@ class DotsSurvivor {
                                 const osy = this.player.y + (other.wy - this.worldY);
                                 this.addDamageNumber(osx, osy, splashDmg, '#ff8800', { enemyId: other.id });
                             }
+                        }
+                    }
+
+                    // Chain Lightning Power-Up: every hit chains to 3 nearby enemies for 50% dmg
+                    if (this.activePowerUps.chain_lightning) {
+                        const chainTargets = 3;
+                        const chainRange = 150;
+                        const chainDmg = Math.floor(damage * 0.5);
+                        const chainNearby = this.enemyGrid.getNearby(e.wx, e.wy, chainRange);
+                        let chained = 0;
+                        let lastX = sx, lastY = sy;
+                        for (const ce of chainNearby) {
+                            if (ce === e || chained >= chainTargets) break;
+                            const csx = this.player.x + (ce.wx - this.worldX);
+                            const csy = this.player.y + (ce.wy - this.worldY);
+                            ce.health -= chainDmg;
+                            ce.hitFlash = 0.3;
+                            this.addDamageNumber(csx, csy, chainDmg, '#ffff00', { enemyId: ce.id, scale: 0.8 });
+                            // Visual lightning chain
+                            if (!this.lightningChains) this.lightningChains = [];
+                            this.lightningChains.push({
+                                points: [{ x: lastX, y: lastY }, { x: csx, y: csy }],
+                                lifetime: 0.3, color: '#ffff00'
+                            });
+                            lastX = csx; lastY = csy;
+                            chained++;
                         }
                     }
 
@@ -11414,6 +12451,127 @@ class DotsSurvivor {
                 this.pickups[i] = this.pickups[this.pickups.length - 1]; this.pickups.pop();
             }
         }
+    }
+
+    // ============================================
+    // POWER-UP SYSTEM
+    // ============================================
+    spawnPowerUp(wx, wy) {
+        const types = Object.keys(POWER_UP_TYPES);
+        const type = types[Math.floor(Math.random() * types.length)];
+        const def = POWER_UP_TYPES[type];
+        this.powerUps.push({
+            wx, wy, type,
+            radius: 18,
+            timer: 15, // Despawn after 15 seconds
+            bobTimer: Math.random() * Math.PI * 2
+        });
+    }
+
+    updatePowerUps(dt) {
+        // Spawn power-ups on a timer too (every 30s)
+        this.powerUpDropTimer += dt;
+        if (this.powerUpDropTimer >= this.powerUpDropInterval && this.wave >= 3) {
+            this.powerUpDropTimer = 0;
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 200 + Math.random() * 300;
+            this.spawnPowerUp(this.worldX + Math.cos(angle) * dist, this.worldY + Math.sin(angle) * dist);
+        }
+
+        // Update world power-up drops (collection + despawn)
+        for (let i = this.powerUps.length - 1; i >= 0; i--) {
+            const pu = this.powerUps[i];
+            pu.timer -= dt;
+            pu.bobTimer += dt * 3;
+            if (pu.timer <= 0) {
+                this.powerUps.splice(i, 1);
+                continue;
+            }
+            // Check pickup collision
+            const sx = this.player.x + (pu.wx - this.worldX);
+            const sy = this.player.y + (pu.wy - this.worldY);
+            const dx = this.player.x - sx, dy = this.player.y - sy;
+            const d = Math.sqrt(dx * dx + dy * dy);
+
+            // Magnet power-ups towards player if close
+            if (d < 120) {
+                pu.wx += (dx / d) * 200 * dt;
+                pu.wy += (dy / d) * 200 * dt;
+            }
+            if (d < this.player.radius + pu.radius) {
+                this.activatePowerUp(pu.type);
+                this.powerUps.splice(i, 1);
+            }
+        }
+
+        // Update active power-up timers
+        for (const type in this.activePowerUps) {
+            const ap = this.activePowerUps[type];
+            ap.timer -= dt;
+            if (ap.timer <= 0) {
+                // Remove effect
+                const def = POWER_UP_TYPES[type];
+                if (def && def.remove) def.remove(this);
+                delete this.activePowerUps[type];
+            }
+        }
+
+        // Speed Demon fire trail
+        if (this.activePowerUps.speed_demon) {
+            this.fireTrailPoints.push({ wx: this.worldX, wy: this.worldY, timer: 1.0 });
+            // Update trail timers
+            for (let i = this.fireTrailPoints.length - 1; i >= 0; i--) {
+                this.fireTrailPoints[i].timer -= dt;
+                if (this.fireTrailPoints[i].timer <= 0) this.fireTrailPoints.splice(i, 1);
+            }
+            // Fire trail damages enemies
+            for (const tp of this.fireTrailPoints) {
+                const nearby = this.enemyGrid.getNearby(tp.wx, tp.wy, 30);
+                for (const e of nearby) {
+                    const edx = tp.wx - e.wx, edy = tp.wy - e.wy;
+                    if (edx * edx + edy * edy < 900) {
+                        e.health -= this.weapons.bullet.damage * 0.3 * dt;
+                        e.hitFlash = 0.1;
+                    }
+                }
+            }
+        }
+
+        // Chain Lightning power-up: handled in projectile hit logic
+        // Berserker Rage: +25% damage taken is checked in damage dealing
+    }
+
+    activatePowerUp(type) {
+        const def = POWER_UP_TYPES[type];
+        if (!def) return;
+
+        // If already active, just refresh timer
+        if (this.activePowerUps[type]) {
+            this.activePowerUps[type].timer = def.duration;
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 40,
+                value: `${def.icon} ${def.name} REFRESHED!`,
+                lifetime: 1.5, color: def.color, scale: 1.2
+            });
+            return;
+        }
+
+        // Apply effect
+        def.apply(this);
+        this.activePowerUps[type] = { timer: def.duration, duration: def.duration };
+
+        // Announcement
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 50,
+            value: `${def.icon} ${def.name}!`,
+            lifetime: 2, color: def.color, scale: 1.5
+        });
+        this.spawnParticles(this.player.x, this.player.y, def.color, 20);
+        this.triggerScreenShake(5, 0.2);
+    }
+
+    hasPowerUp(type) {
+        return !!this.activePowerUps[type];
     }
 
     collectItem(key) {
@@ -11694,45 +12852,48 @@ class DotsSurvivor {
 
         container.innerHTML = '';
 
+        // Guaranteed high roll every 7 waves
+        const isGuaranteedHighRoll = this.wave > 0 && this.wave % 7 === 0;
+
         // Sigil tier selection with wave-based probabilities for tier 3+
-        // Wave 1-5: 0.01% chance for tier 3+ (Empowered, Ascendant, Mythic)
-        // Wave 6-10: 5% chance for tier 3+
-        // Wave 10+: 10% chance for tier 3+
-        // Within tier 3+ bracket: Mythic ~6%, Ascendant ~27%, Empowered ~67% (relative)
+        // Luck stat boosts tier 3+ chances (up to +50% at max luck)
         const selectRuneTier = () => {
             const currentWave = this.wave || 1;
+            const luckBonus = (this.luck || 0) * 100; // Convert 0-0.5 to 0-50
 
             // Determine tier 3+ base chance based on wave
             let tier3PlusChance;
             if (currentWave <= 5) {
-                tier3PlusChance = 0.01; // 0.01%
+                tier3PlusChance = 0.01 + luckBonus * 0.1; // Luck adds small boost early
             } else if (currentWave <= 10) {
-                tier3PlusChance = 5; // 5%
+                tier3PlusChance = 5 + luckBonus * 0.5; // 5% + up to 25% from luck
             } else {
-                tier3PlusChance = 10; // 10%
+                tier3PlusChance = 10 + luckBonus; // 10% + up to 50% from luck
+            }
+
+            // Guaranteed high roll: force tier 3+ minimum
+            if (isGuaranteedHighRoll) {
+                tier3PlusChance = Math.max(tier3PlusChance, 80); // 80% chance tier 3+
             }
 
             // First roll: do we get tier 3+ at all?
             const tier3Roll = Math.random() * 100;
             if (tier3Roll < tier3PlusChance) {
                 // We got tier 3+! Now distribute within tier 3+
-                // Mythic: 5% of tier3+, Ascendant: 20% of tier3+, Empowered: 75% of tier3+
-                // Additionally reduce chances per tier (mythic hardest, empowered easiest)
+                // Luck also improves chances of higher tiers within bracket
+                const luckTierBoost = (this.luck || 0) * 20; // up to +10 per sub-tier
                 const subRoll = Math.random() * 100;
-                if (subRoll < 5) return 'mythic';      // 5% of tier 3+ bracket
-                if (subRoll < 25) return 'legendary';  // 20% of tier 3+ bracket (Ascendant)
-                return 'purple';                        // 75% of tier 3+ bracket (Empowered)
+                if (subRoll < 5 + luckTierBoost) return 'mythic';
+                if (subRoll < 25 + luckTierBoost) return 'legendary';
+                return 'purple';
             }
 
             // Not tier 3+, pick between Faded and Runed
-            // Faded: ~62%, Runed: ~38% of tier 1-2 bracket
             const roll = Math.random() * 100;
             let picked = (roll < 38) ? 'silver' : 'common';
 
             // Wave-based tier restrictions:
-            // Wave 10+: Faded sigils no longer roll, upgrade to Runed
             if (currentWave >= 10 && picked === 'common') picked = 'silver';
-            // Wave 20+: Runed sigils no longer roll, upgrade to Empowered
             if (currentWave >= 20 && picked === 'silver') picked = 'purple';
 
             return picked;
@@ -11787,9 +12948,17 @@ class DotsSurvivor {
                 runePool = [...COMMON_RUNES]; // Allow duplicates if all used
             }
 
-            const rune = rollSigil(runePool[Math.floor(Math.random() * runePool.length)], this.sigilRNG);
+            const rune = rollSigil(runePool[Math.floor(Math.random() * runePool.length)], this.sigilRNG, isGuaranteedHighRoll);
             usedIds.add(rune.id);
             choices.push(rune);
+        }
+
+        // Chaos Sigil: 20% chance to replace one slot (wave 5+), or always on guaranteed high roll waves
+        if (this.wave >= 5 && (Math.random() < 0.20 || isGuaranteedHighRoll)) {
+            const chaosTemplate = createChaosSigil(this.wave);
+            const chaosRune = rollSigil(chaosTemplate, this.sigilRNG, isGuaranteedHighRoll);
+            const replaceSlot = isGuaranteedHighRoll ? 2 : Math.floor(Math.random() * 3);
+            choices[replaceSlot] = chaosRune;
         }
 
         // Every 10 waves (10, 20, 30...): guarantee 1 class skill upgrade sigil in slot 0
@@ -11853,7 +13022,7 @@ class DotsSurvivor {
             ascendant: { border: '#ffd700', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'ASCENDANT', labelBg: 'linear-gradient(90deg,#ffd700,#f59e0b)', glow: 'rgba(255,215,0,0.5)', tierKey: 'ASCENDANT' },
             // Corrupted tier styles - dark red/purple with unstable effects
             corrupted_runed: { border: '#8b0000', bg: 'linear-gradient(135deg, #1a0505, #2d0a0a)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#8b0000,#4a0000)', glow: 'rgba(139,0,0,0.6)', tierKey: 'CORRUPTED_RUNED', isCorrupted: true },
-            corrupted_empowered: { border: '#4a0080', bg: 'linear-gradient(135deg, #0a0515, #150a20)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#4a0080,#2a0050)', glow: 'rgba(74,0,128,0.6)', tierKey: 'CORRUPTED_EMPOWERED', isCorrupted: true }
+            corrupted_empowered: { border: '#4a0080', bg: 'linear-gradient(135deg, #0a0515, #150a20)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#4a0080,#2a0050)', glow: 'rgba(74,0,128,0.6)', tierKey: 'CORRUPTED_EMPOWERED', isCorrupted: true },
         };
 
         // Reroll tracking: 1 reroll per card per level-up
@@ -11907,6 +13076,17 @@ class DotsSurvivor {
                 <div class="corrupted-downside" style="color:#ff4444;font-size:0.75em;margin-top:4px;padding:2px 4px;background:rgba(139,0,0,0.2);border-radius:4px;">⚠️ ${rune.downside}</div>
             ` : '';
 
+            // High roll badge
+            const isHighQuality = rune._quality && (rune._quality.name === 'high' || rune._quality.name === 'perfect');
+            const highRollBadgeHtml = isHighQuality ? `
+                <div style="position:absolute;top:5px;left:5px;padding:2px 8px;border-radius:6px;background:${rune._quality.name === 'perfect' ? 'linear-gradient(90deg,#ffaa00,#ff6600)' : 'linear-gradient(90deg,#00ccff,#0088ff)'};color:#fff;font-size:0.65em;font-weight:bold;text-shadow:0 1px 2px rgba(0,0,0,0.5);">${rune._quality.name === 'perfect' ? '★ PERFECT' : '▲ HIGH ROLL'}</div>
+            ` : '';
+
+            // Chaos sigil indicator
+            const chaosBadgeHtml = rune.isChaos ? `
+                <div style="position:absolute;bottom:5px;left:5px;padding:2px 6px;border-radius:6px;background:linear-gradient(90deg,#ff00ff,#00ffff);color:#fff;font-size:0.6em;font-weight:bold;">🌀 CHAOS</div>
+            ` : '';
+
             const rerollBtnHtml = !rerollsUsed[cardIndex] ? `
                 <div class="reroll-btn" style="margin-top:8px;padding:4px 12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.25);border-radius:6px;cursor:pointer;color:#aaa;font-size:0.78em;text-align:center;transition:all 0.2s;">🔄 Reroll</div>
             ` : `<div style="margin-top:8px;padding:4px 8px;color:rgba(255,255,255,0.2);font-size:0.7em;text-align:center;">Already Rerolled</div>`;
@@ -11932,6 +13112,8 @@ class DotsSurvivor {
             card.innerHTML = `
                 ${corruptedOverlayHtml}
                 ${setBadgeHtml}
+                ${highRollBadgeHtml}
+                ${chaosBadgeHtml}
                 <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' || tier === 'rare' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
                 ${tierImageHtml}
                 <div class="upgrade-name" style="color:${style.border};font-weight:bold;">${rune.name}</div>
@@ -12207,6 +13389,13 @@ class DotsSurvivor {
         if (statCCReduction) {
             const ccReductionPct = Math.round((this.ccReduction || 0) * 100);
             statCCReduction.textContent = `${ccReductionPct}%`;
+        }
+
+        // Update Luck stat
+        const statLuck = document.getElementById('stat-luck');
+        if (statLuck) {
+            const luckPct = Math.round((this.luck || 0) * 100);
+            statLuck.textContent = `${luckPct}%`;
         }
     }
 
@@ -12725,6 +13914,101 @@ class DotsSurvivor {
                 ctx.fillRect(sx - crossH/2, sy - crossW/2, crossH, crossW); // Horizontal bar
             }
         });
+        // Power-up drops in world
+        if (this.powerUps) {
+            for (const pu of this.powerUps) {
+                const sx = this.player.x + (pu.wx - this.worldX);
+                const sy = this.player.y + (pu.wy - this.worldY);
+                const def = POWER_UP_TYPES[pu.type];
+                if (!def) continue;
+                const bob = Math.sin(pu.bobTimer) * 5;
+                const pulse = 1 + Math.sin(pu.bobTimer * 2) * 0.15;
+
+                ctx.save();
+                // Glow circle
+                ctx.beginPath();
+                ctx.arc(sx, sy + bob, pu.radius * 1.8 * pulse, 0, Math.PI * 2);
+                ctx.fillStyle = def.glowColor;
+                ctx.fill();
+                // Inner circle
+                ctx.beginPath();
+                ctx.arc(sx, sy + bob, pu.radius * pulse, 0, Math.PI * 2);
+                const grad = ctx.createRadialGradient(sx, sy + bob, 0, sx, sy + bob, pu.radius * pulse);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.5, def.color);
+                grad.addColorStop(1, def.color + '88');
+                ctx.fillStyle = grad;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Icon
+                ctx.font = `${Math.floor(pu.radius * 1.2)}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(def.icon, sx, sy + bob);
+                // Despawn timer flash
+                if (pu.timer < 3) {
+                    ctx.globalAlpha = 0.5 + Math.sin(pu.bobTimer * 6) * 0.5;
+                }
+                ctx.restore();
+            }
+        }
+
+        // Speed Demon fire trail
+        if (this.fireTrailPoints && this.fireTrailPoints.length > 0) {
+            ctx.save();
+            for (const tp of this.fireTrailPoints) {
+                const sx = this.player.x + (tp.wx - this.worldX);
+                const sy = this.player.y + (tp.wy - this.worldY);
+                const alpha = tp.timer;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 12 * alpha, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, ${Math.floor(100 * alpha)}, 0, ${alpha * 0.6})`;
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // Active power-up HUD indicators (bottom center)
+        const activeTypes = Object.keys(this.activePowerUps || {});
+        if (activeTypes.length > 0) {
+            ctx.save();
+            const hudY = this.canvas.height - 60;
+            const startX = this.canvas.width / 2 - (activeTypes.length * 40) / 2;
+            for (let ai = 0; ai < activeTypes.length; ai++) {
+                const type = activeTypes[ai];
+                const ap = this.activePowerUps[type];
+                const def = POWER_UP_TYPES[type];
+                if (!def || !ap) continue;
+                const hx = startX + ai * 44;
+                const pct = ap.timer / ap.duration;
+                // Background circle
+                ctx.beginPath();
+                ctx.arc(hx + 18, hudY + 18, 20, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fill();
+                // Timer arc
+                ctx.beginPath();
+                ctx.arc(hx + 18, hudY + 18, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+                ctx.strokeStyle = def.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                // Icon
+                ctx.font = '18px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(def.icon, hx + 18, hudY + 18);
+                // Timer text
+                ctx.font = '10px Inter';
+                ctx.fillStyle = ap.timer < 3 ? '#ff4444' : '#aaa';
+                ctx.fillText(`${ap.timer.toFixed(1)}s`, hx + 18, hudY + 38);
+            }
+            ctx.restore();
+        }
+
         // Projectiles (Fireballs) - Single sprite
         this.projectiles.forEach(p => {
             const fireballSprite = SPRITE_CACHE['fireball'];
@@ -12795,14 +14079,269 @@ class DotsSurvivor {
             ctx.restore();
         }
 
+        // Architect traps (floor hazards - render UNDER enemies)
+        if (this.architectTraps && this.architectTraps.length > 0) {
+            for (const trap of this.architectTraps) {
+                const tsx = this.player.x + (trap.wx - this.worldX);
+                const tsy = this.player.y + (trap.wy - this.worldY);
+                if (tsx < -200 || tsx > this.canvas.width + 200 || tsy < -200 || tsy > this.canvas.height + 200) continue;
+
+                ctx.save();
+                if (trap.warningTimer > 0) {
+                    // Warning phase: pulsing red circle
+                    const pulse = Math.sin(trap.warningTimer * 10) * 0.3 + 0.5;
+                    ctx.beginPath();
+                    ctx.arc(tsx, tsy, trap.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 50, 50, ${pulse * 0.3})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `rgba(255, 100, 100, ${pulse})`;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    // Warning icon
+                    ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = `rgba(255, 100, 100, ${pulse})`;
+                    ctx.fillText('⚠', tsx, tsy);
+                } else {
+                    // Active spike zone
+                    const timeRatio = trap.timer / 6;
+                    ctx.beginPath();
+                    ctx.arc(tsx, tsy, trap.radius, 0, Math.PI * 2);
+                    const spikeGrad = ctx.createRadialGradient(tsx, tsy, 0, tsx, tsy, trap.radius);
+                    spikeGrad.addColorStop(0, `rgba(80, 140, 200, ${0.4 * timeRatio})`);
+                    spikeGrad.addColorStop(0.7, `rgba(50, 100, 180, ${0.3 * timeRatio})`);
+                    spikeGrad.addColorStop(1, `rgba(30, 60, 120, ${0.1 * timeRatio})`);
+                    ctx.fillStyle = spikeGrad;
+                    ctx.fill();
+                    // Spike shapes
+                    const spikeCount = 8;
+                    for (let s = 0; s < spikeCount; s++) {
+                        const sa = (s / spikeCount) * Math.PI * 2 + this.gameTime * 0.001;
+                        const innerR = trap.radius * 0.3;
+                        const outerR = trap.radius * (0.6 + Math.sin(s * 2.1) * 0.2);
+                        ctx.beginPath();
+                        ctx.moveTo(tsx + Math.cos(sa - 0.15) * innerR, tsy + Math.sin(sa - 0.15) * innerR);
+                        ctx.lineTo(tsx + Math.cos(sa) * outerR, tsy + Math.sin(sa) * outerR);
+                        ctx.lineTo(tsx + Math.cos(sa + 0.15) * innerR, tsy + Math.sin(sa + 0.15) * innerR);
+                        ctx.fillStyle = `rgba(100, 170, 220, ${0.6 * timeRatio})`;
+                        ctx.fill();
+                    }
+                    // Triggered flash
+                    if (trap.triggered) {
+                        ctx.beginPath();
+                        ctx.arc(tsx, tsy, trap.radius * 1.2, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(100, 180, 255, 0.3)';
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
+        // Architect cage walls (render UNDER enemies)
+        if (this.architectCages && this.architectCages.length > 0) {
+            for (const cage of this.architectCages) {
+                const cwx = this.player.x + (cage.wx - this.worldX);
+                const cwy = this.player.y + (cage.wy - this.worldY);
+                const cw = cage.w, ch = cage.h;
+                if (cwx + cw < -50 || cwx > this.canvas.width + 50 || cwy + ch < -50 || cwy > this.canvas.height + 50) continue;
+
+                ctx.save();
+                const hpRatio = cage.health / (300 + 100); // approx max health
+                // Main wall body
+                const wallGrad = ctx.createLinearGradient(cwx, cwy, cwx + cw, cwy + ch);
+                wallGrad.addColorStop(0, `rgba(80, 130, 190, ${0.8 * hpRatio + 0.2})`);
+                wallGrad.addColorStop(0.5, `rgba(100, 160, 220, ${0.9 * hpRatio + 0.2})`);
+                wallGrad.addColorStop(1, `rgba(60, 110, 170, ${0.8 * hpRatio + 0.2})`);
+                ctx.fillStyle = wallGrad;
+                ctx.fillRect(cwx, cwy, cw, ch);
+                // Metallic border
+                ctx.strokeStyle = `rgba(140, 200, 255, ${hpRatio})`;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cwx, cwy, cw, ch);
+                // Rivets/bolts along the wall
+                const isHorizontal = cw > ch;
+                const rivetCount = isHorizontal ? Math.floor(cw / 30) : Math.floor(ch / 30);
+                for (let r = 0; r < rivetCount; r++) {
+                    const rx = isHorizontal ? cwx + (r + 0.5) * (cw / rivetCount) : cwx + cw / 2;
+                    const ry = isHorizontal ? cwy + ch / 2 : cwy + (r + 0.5) * (ch / rivetCount);
+                    ctx.beginPath();
+                    ctx.arc(rx, ry, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(180, 220, 255, ${0.6 * hpRatio})`;
+                    ctx.fill();
+                }
+                // Damage cracks when low health
+                if (hpRatio < 0.5) {
+                    ctx.strokeStyle = `rgba(255, 100, 50, ${(1 - hpRatio) * 0.6})`;
+                    ctx.lineWidth = 1;
+                    const midX = cwx + cw / 2, midY = cwy + ch / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(midX - 10, midY - 5);
+                    ctx.lineTo(midX + 5, midY + 8);
+                    ctx.moveTo(midX + 3, midY - 7);
+                    ctx.lineTo(midX - 8, midY + 4);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
         // Enemies
         this.enemies.forEach(e => {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
             if (sx < -200 || sx > this.canvas.width + 200 || sy < -200 || sy > this.canvas.height + 200) return;
 
+            // ======== CUSTOM CANVAS-DRAWN MOBS ========
+
+            // WRAITH - Ghostly floating entity with phase effect
+            if (e.isWraith) {
+                ctx.save();
+                ctx.translate(sx, sy);
+                const wraithAlpha = e.wraithPhased ? 0.25 + Math.sin(this.gameTime / 200) * 0.1 : 0.85;
+                ctx.globalAlpha = wraithAlpha;
+                // Outer ghostly glow
+                const wGlow = ctx.createRadialGradient(0, 0, e.radius * 0.3, 0, 0, e.radius * 1.5);
+                wGlow.addColorStop(0, 'rgba(136,102,204,0.4)');
+                wGlow.addColorStop(1, 'rgba(136,102,204,0)');
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = wGlow;
+                ctx.fill();
+                // Body: wavering hooded shape
+                const wobble = Math.sin(this.gameTime / 150 + e.id) * 3;
+                ctx.beginPath();
+                ctx.ellipse(0, wobble, e.radius * 0.8, e.radius, 0, 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : '#6644aa';
+                ctx.fill();
+                // Inner darker core
+                ctx.beginPath();
+                ctx.ellipse(0, wobble, e.radius * 0.4, e.radius * 0.5, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#332255';
+                ctx.fill();
+                // Glowing eyes
+                const eyeY = wobble - e.radius * 0.2;
+                ctx.beginPath();
+                ctx.arc(-e.radius * 0.2, eyeY, 3, 0, Math.PI * 2);
+                ctx.arc(e.radius * 0.2, eyeY, 3, 0, Math.PI * 2);
+                ctx.fillStyle = e.wraithPhased ? '#ff44ff' : '#cc88ff';
+                ctx.shadowColor = '#cc88ff';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                // Wispy trails below
+                for (let t = 0; t < 4; t++) {
+                    const tAngle = (t / 4) * Math.PI + Math.sin(this.gameTime / 300 + t) * 0.5;
+                    const tLen = e.radius * (0.8 + Math.sin(this.gameTime / 200 + t * 1.5) * 0.3);
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(tAngle) * e.radius * 0.3, e.radius * 0.5);
+                    ctx.lineTo(Math.cos(tAngle) * e.radius * 0.5, e.radius * 0.5 + tLen);
+                    ctx.strokeStyle = `rgba(136,102,204,${wraithAlpha * 0.5})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+                ctx.restore();
+            }
+
+            // MAGMA CRAWLER - Segmented lava creature with glowing cracks
+            else if (e.isMagmaCrawler) {
+                ctx.save();
+                ctx.translate(sx, sy);
+                // Lava glow underneath
+                const mGlow = ctx.createRadialGradient(0, 0, e.radius * 0.5, 0, 0, e.radius * 1.8);
+                mGlow.addColorStop(0, 'rgba(255,100,0,0.3)');
+                mGlow.addColorStop(1, 'rgba(255,50,0,0)');
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * 1.8, 0, Math.PI * 2);
+                ctx.fillStyle = mGlow;
+                ctx.fill();
+                // Main rocky body
+                ctx.beginPath();
+                const segments = 8;
+                for (let s = 0; s < segments; s++) {
+                    const a = (s / segments) * Math.PI * 2;
+                    const r = e.radius * (0.85 + Math.sin(a * 3 + this.gameTime / 500) * 0.15);
+                    if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+                }
+                ctx.closePath();
+                ctx.fillStyle = e.hitFlash > 0 ? '#ffcc88' : '#443322';
+                ctx.fill();
+                ctx.strokeStyle = '#221100';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Glowing magma cracks
+                ctx.strokeStyle = `rgba(255,${80 + Math.floor(Math.sin(this.gameTime / 100) * 40)},0,0.9)`;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#ff4400';
+                ctx.shadowBlur = 8;
+                for (let c = 0; c < 5; c++) {
+                    const ca = (c / 5) * Math.PI * 2 + this.gameTime / 1000;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(Math.cos(ca) * e.radius * 0.7, Math.sin(ca) * e.radius * 0.7);
+                    ctx.stroke();
+                }
+                // Central magma core
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * 0.25, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff6600';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            }
+
+            // LEECH - Segmented worm-like creature
+            else if (e.isLeech) {
+                ctx.save();
+                ctx.translate(sx, sy);
+                const leechAlpha = e.leechAttached ? 0.9 : 1;
+                ctx.globalAlpha = leechAlpha;
+                // Body segments (worm)
+                const segCount = 5;
+                const moveAngle = Math.atan2(this.worldY - e.wy, this.worldX - e.wx);
+                for (let s = segCount - 1; s >= 0; s--) {
+                    const segOffset = s * (e.radius * 0.5);
+                    const wobX = Math.sin(this.gameTime / 200 + s * 1.2) * 3;
+                    const segX = -Math.cos(moveAngle) * segOffset + wobX;
+                    const segY = -Math.sin(moveAngle) * segOffset;
+                    const segR = e.radius * (1 - s * 0.12);
+                    ctx.beginPath();
+                    ctx.arc(segX, segY, segR, 0, Math.PI * 2);
+                    const green = s === 0 ? (e.hitFlash > 0 ? '#ffffff' : '#44cc44') : `rgb(${40 + s * 10},${160 - s * 15},${40 + s * 10})`;
+                    ctx.fillStyle = green;
+                    ctx.fill();
+                    ctx.strokeStyle = '#225522';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                // Head (front segment) - sucker mouth
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = '#884444';
+                ctx.fill();
+                // Eyes
+                ctx.beginPath();
+                ctx.arc(-e.radius * 0.15, -e.radius * 0.15, 2, 0, Math.PI * 2);
+                ctx.arc(e.radius * 0.15, -e.radius * 0.15, 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff0000';
+                ctx.fill();
+                // Attached indicator - pulsing red
+                if (e.leechAttached) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, e.radius + 4, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255,0,0,${0.3 + Math.sin(this.gameTime / 150) * 0.3})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+                ctx.restore();
+            }
+
             // Skip default circle for event bosses - they have custom rendering
-            if (!e.isConsumer && !e.isPlagueWeaver && !e.isRiftLord) {
+            else if (!e.isConsumer && !e.isPlagueWeaver && !e.isRiftLord && !e.isBroodQueen && !e.isArchitect && !e.isLeviathan) {
                 // Check for custom sprite
                 const spriteType = e.isBoss ? (e.type === 'general' ? 'general' : 'boss') : e.type;
                 const sprite = SPRITE_CACHE[spriteType];
@@ -13483,6 +15022,563 @@ class DotsSurvivor {
                 hpGrad.addColorStop(1, '#ff0066');
                 ctx.fillStyle = hpGrad;
                 ctx.fillRect(sx - bw / 2 + 1, sy - displayRadius - 11, (bw - 2) * (e.health / e.maxHealth), 10);
+
+            } else if (e.isBroodQueen) {
+                // THE BROOD QUEEN - Giant spider with legs, eggs, acid rain
+                ctx.save();
+                ctx.translate(sx, sy);
+
+                const bqRadius = e.radius;
+                const bqPulse = Math.sin(this.gameTime * 0.003) * 0.1 + 1;
+
+                // Abdomen (egg sac) - large pulsing oval behind body
+                ctx.save();
+                ctx.scale(1.3, 1);
+                ctx.beginPath();
+                ctx.arc(bqRadius * 0.3, 0, bqRadius * 0.7 * bqPulse, 0, Math.PI * 2);
+                const abdGrad = ctx.createRadialGradient(bqRadius * 0.3, 0, 0, bqRadius * 0.3, 0, bqRadius * 0.7);
+                abdGrad.addColorStop(0, '#cc6600');
+                abdGrad.addColorStop(0.6, '#884400');
+                abdGrad.addColorStop(1, '#552200');
+                ctx.fillStyle = abdGrad;
+                ctx.fill();
+                // Texture dots on abdomen
+                for (let t = 0; t < 6; t++) {
+                    const ta = t * 1.05 + 0.3;
+                    const tr = bqRadius * 0.35;
+                    ctx.beginPath();
+                    ctx.arc(bqRadius * 0.3 + Math.cos(ta) * tr, Math.sin(ta) * tr * 0.7, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#663300';
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                // Cephalothorax (front body)
+                ctx.beginPath();
+                ctx.arc(-bqRadius * 0.2, 0, bqRadius * 0.55, 0, Math.PI * 2);
+                const bodyGrad = ctx.createRadialGradient(-bqRadius * 0.2, 0, 0, -bqRadius * 0.2, 0, bqRadius * 0.55);
+                bodyGrad.addColorStop(0, '#bb5500');
+                bodyGrad.addColorStop(0.7, '#884400');
+                bodyGrad.addColorStop(1, '#553300');
+                ctx.fillStyle = bodyGrad;
+                ctx.fill();
+
+                // 8 Spider legs (4 each side)
+                ctx.strokeStyle = '#553300';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                for (let leg = 0; leg < 8; leg++) {
+                    const side = leg < 4 ? -1 : 1;
+                    const legIdx = leg % 4;
+                    const baseAngle = (legIdx - 1.5) * 0.4 + (side * Math.PI / 2);
+                    const legPhase = Math.sin(e.legAngle + leg * 0.8) * 0.3;
+
+                    const jointX = Math.cos(baseAngle + legPhase) * bqRadius * 0.5;
+                    const jointY = Math.sin(baseAngle + legPhase) * bqRadius * 0.5;
+                    const tipX = Math.cos(baseAngle + legPhase * 0.5) * bqRadius * 1.4;
+                    const tipY = Math.sin(baseAngle + legPhase * 0.5) * bqRadius * 1.4;
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.quadraticCurveTo(jointX, jointY, tipX, tipY);
+                    ctx.stroke();
+                }
+
+                // Eyes (cluster of red eyes)
+                const eyePositions = [[-bqRadius*0.5, -8], [-bqRadius*0.5, 8], [-bqRadius*0.55, 0], [-bqRadius*0.4, -4], [-bqRadius*0.4, 4]];
+                for (const [ex, ey] of eyePositions) {
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff2200';
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.fill();
+                }
+
+                // Mandibles
+                ctx.strokeStyle = '#442200';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-bqRadius * 0.6, -3);
+                ctx.quadraticCurveTo(-bqRadius * 0.85, -12, -bqRadius * 0.7, -18);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-bqRadius * 0.6, 3);
+                ctx.quadraticCurveTo(-bqRadius * 0.85, 12, -bqRadius * 0.7, 18);
+                ctx.stroke();
+
+                // Dash indicator
+                if (e.dashing && e.dashTarget) {
+                    ctx.save();
+                    ctx.translate(-sx, -sy);
+                    const dtx = this.player.x + (e.dashTarget.x - this.worldX);
+                    const dty = this.player.y + (e.dashTarget.y - this.worldY);
+                    ctx.strokeStyle = 'rgba(255, 80, 0, 0.6)';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([8, 8]);
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy);
+                    ctx.lineTo(dtx, dty);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.restore();
+                }
+
+                ctx.restore(); // End boss body transform
+
+                // Eggs (render in world coords)
+                for (const egg of e.eggs) {
+                    const esx = this.player.x + (egg.wx - this.worldX);
+                    const esy = this.player.y + (egg.wy - this.worldY);
+                    if (esx < -100 || esx > this.canvas.width + 100 || esy < -100 || esy > this.canvas.height + 100) continue;
+
+                    ctx.save();
+                    const hatchProgress = 1 - (egg.hatchTimer / 5);
+                    // Egg shape (oval)
+                    ctx.save();
+                    ctx.translate(esx, esy);
+                    ctx.scale(0.8, 1);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, egg.radius, 0, Math.PI * 2);
+                    const eggGrad = ctx.createRadialGradient(0, -5, 0, 0, 0, egg.radius);
+                    eggGrad.addColorStop(0, '#eedd88');
+                    eggGrad.addColorStop(0.5, '#cc9944');
+                    eggGrad.addColorStop(1, '#886633');
+                    ctx.fillStyle = eggGrad;
+                    ctx.fill();
+                    // Hatch progress cracks
+                    if (hatchProgress > 0.3) {
+                        ctx.strokeStyle = `rgba(60, 30, 10, ${hatchProgress})`;
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(-5, -egg.radius * 0.5);
+                        ctx.lineTo(3, 0);
+                        ctx.lineTo(-2, egg.radius * 0.4);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(4, -egg.radius * 0.3);
+                        ctx.lineTo(-1, egg.radius * 0.2);
+                        ctx.stroke();
+                    }
+                    // Pulsing glow when about to hatch
+                    if (hatchProgress > 0.7) {
+                        const hatchPulse = Math.sin(this.gameTime * 0.01) * 0.3 + 0.5;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, egg.radius * 1.3, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(255, 120, 0, ${hatchPulse * 0.3})`;
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                    // Egg HP bar
+                    const ebw = egg.radius * 2;
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(esx - ebw / 2, esy - egg.radius - 8, ebw, 4);
+                    ctx.fillStyle = '#cc9944';
+                    ctx.fillRect(esx - ebw / 2, esy - egg.radius - 8, ebw * (egg.health / egg.maxHealth), 4);
+                    ctx.restore();
+                }
+
+                // Acid rain drops
+                for (const drop of e.acidDrops) {
+                    const dsx = this.player.x + (drop.wx - this.worldX);
+                    const dsy = this.player.y + (drop.wy - this.worldY);
+                    if (dsx < -100 || dsx > this.canvas.width + 100 || dsy < -100 || dsy > this.canvas.height + 100) continue;
+
+                    ctx.save();
+                    if (drop.warningTimer > 0) {
+                        // Warning: falling shadow circle
+                        const warnPulse = Math.sin(drop.warningTimer * 12) * 0.3 + 0.5;
+                        ctx.beginPath();
+                        ctx.arc(dsx, dsy, drop.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(120, 200, 0, ${warnPulse * 0.25})`;
+                        ctx.fill();
+                        ctx.strokeStyle = `rgba(120, 200, 0, ${warnPulse * 0.7})`;
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    } else {
+                        // Active acid pool
+                        const acidFade = drop.timer / 3;
+                        ctx.beginPath();
+                        ctx.arc(dsx, dsy, drop.radius, 0, Math.PI * 2);
+                        const acidGrad = ctx.createRadialGradient(dsx, dsy, 0, dsx, dsy, drop.radius);
+                        acidGrad.addColorStop(0, `rgba(100, 220, 0, ${0.5 * acidFade})`);
+                        acidGrad.addColorStop(0.6, `rgba(80, 180, 0, ${0.35 * acidFade})`);
+                        acidGrad.addColorStop(1, `rgba(60, 140, 0, ${0.1 * acidFade})`);
+                        ctx.fillStyle = acidGrad;
+                        ctx.fill();
+                        // Bubbles
+                        for (let b = 0; b < 3; b++) {
+                            const ba = this.gameTime * 0.002 + b * 2.1;
+                            const br = drop.radius * 0.4;
+                            const bx = dsx + Math.cos(ba) * br;
+                            const by = dsy + Math.sin(ba) * br;
+                            ctx.beginPath();
+                            ctx.arc(bx, by, 3 + Math.sin(ba * 2) * 1.5, 0, Math.PI * 2);
+                            ctx.fillStyle = `rgba(140, 255, 0, ${0.4 * acidFade})`;
+                            ctx.fill();
+                        }
+                    }
+                    ctx.restore();
+                }
+
+                // Boss HP bar
+                const bqDisplayR = bqRadius * 1.5;
+                ctx.font = 'bold 13px Inter'; ctx.fillStyle = '#ff8844'; ctx.textAlign = 'center';
+                ctx.fillText('THE BROOD QUEEN', sx, sy - bqDisplayR - 40);
+                if (e.lifeTimer !== undefined) {
+                    const timeLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
+                    const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#aaa');
+                    ctx.font = '11px Inter'; ctx.fillStyle = timeColor;
+                    ctx.fillText(`Phase ${e.phase}/3 - ${timeLeft}s`, sx, sy - bqDisplayR - 25);
+                }
+                const bqbw = Math.max(bqRadius * 2.5, 200);
+                ctx.fillStyle = '#222'; ctx.fillRect(sx - bqbw / 2, sy - bqDisplayR - 14, bqbw, 12);
+                ctx.fillStyle = '#333'; ctx.fillRect(sx - bqbw / 2 + 1, sy - bqDisplayR - 13, bqbw - 2, 10);
+                const bqHpGrad = ctx.createLinearGradient(sx - bqbw / 2, 0, sx + bqbw / 2, 0);
+                bqHpGrad.addColorStop(0, '#884400');
+                bqHpGrad.addColorStop(0.5, '#cc6600');
+                bqHpGrad.addColorStop(1, '#ff8844');
+                ctx.fillStyle = bqHpGrad;
+                ctx.fillRect(sx - bqbw / 2 + 1, sy - bqDisplayR - 13, (bqbw - 2) * (e.health / e.maxHealth), 10);
+
+            } else if (e.isArchitect) {
+                // THE ARCHITECT - Geometric mechanical entity with gears
+                ctx.save();
+                ctx.translate(sx, sy);
+
+                const archRadius = e.radius;
+                const gearAngle = e.gearAngle || 0;
+
+                // Outer ring (housing)
+                ctx.beginPath();
+                ctx.arc(0, 0, archRadius, 0, Math.PI * 2);
+                const archGrad = ctx.createRadialGradient(0, 0, archRadius * 0.3, 0, 0, archRadius);
+                archGrad.addColorStop(0, '#88bbdd');
+                archGrad.addColorStop(0.6, '#4488aa');
+                archGrad.addColorStop(1, '#224466');
+                ctx.fillStyle = archGrad;
+                ctx.fill();
+                ctx.strokeStyle = '#aaddff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Rotating outer gear teeth
+                const gearTeeth = 12;
+                ctx.save();
+                ctx.rotate(gearAngle);
+                for (let t = 0; t < gearTeeth; t++) {
+                    const ta = (t / gearTeeth) * Math.PI * 2;
+                    const toothW = 8;
+                    const toothH = 12;
+                    ctx.save();
+                    ctx.rotate(ta);
+                    ctx.translate(0, -archRadius);
+                    ctx.fillStyle = '#6699bb';
+                    ctx.fillRect(-toothW / 2, -toothH / 2, toothW, toothH);
+                    ctx.strokeStyle = '#aaddff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(-toothW / 2, -toothH / 2, toothW, toothH);
+                    ctx.restore();
+                }
+                ctx.restore();
+
+                // Inner gear (counter-rotating)
+                ctx.save();
+                ctx.rotate(-gearAngle * 1.5);
+                const innerR = archRadius * 0.55;
+                ctx.beginPath();
+                ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+                ctx.fillStyle = '#3377aa';
+                ctx.fill();
+                ctx.strokeStyle = '#88ccee';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Inner gear teeth
+                const innerTeeth = 8;
+                for (let t = 0; t < innerTeeth; t++) {
+                    const ta = (t / innerTeeth) * Math.PI * 2;
+                    ctx.save();
+                    ctx.rotate(ta);
+                    ctx.translate(0, -innerR);
+                    ctx.fillStyle = '#5599bb';
+                    ctx.fillRect(-5, -7, 10, 14);
+                    ctx.restore();
+                }
+                ctx.restore();
+
+                // Central core (eye/orb)
+                ctx.beginPath();
+                ctx.arc(0, 0, archRadius * 0.25, 0, Math.PI * 2);
+                const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, archRadius * 0.25);
+                coreGrad.addColorStop(0, '#ffffff');
+                coreGrad.addColorStop(0.3, '#88ddff');
+                coreGrad.addColorStop(1, '#4488cc');
+                ctx.fillStyle = coreGrad;
+                ctx.fill();
+
+                // Scanning beam from core (rotates)
+                ctx.save();
+                ctx.rotate(gearAngle * 0.5);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(archRadius * 0.8, -3);
+                ctx.lineTo(archRadius * 0.8, 3);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+                ctx.fill();
+                ctx.restore();
+
+                // Floating rune symbols orbiting
+                ctx.save();
+                const runeSymbols = ['⚙', '⛓', '🔩', '⚙'];
+                for (let r = 0; r < 4; r++) {
+                    const ra = gearAngle * 0.8 + (r / 4) * Math.PI * 2;
+                    const rd = archRadius * 1.3;
+                    const rx = Math.cos(ra) * rd;
+                    const ry = Math.sin(ra) * rd;
+                    ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = `rgba(140, 200, 255, ${0.5 + Math.sin(this.gameTime * 0.003 + r) * 0.3})`;
+                    ctx.fillText(runeSymbols[r], rx, ry);
+                }
+                ctx.restore();
+
+                // Phase indicator glow
+                if (e.phase >= 2) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, archRadius * 1.15, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(100, 180, 255, ${0.3 + Math.sin(this.gameTime * 0.004) * 0.2})`;
+                    ctx.lineWidth = e.phase >= 3 ? 3 : 2;
+                    ctx.stroke();
+                }
+
+                ctx.restore(); // End architect body transform
+
+                // Boss HP bar
+                const archDisplayR = archRadius * 1.5;
+                ctx.font = 'bold 13px Inter'; ctx.fillStyle = '#88ccff'; ctx.textAlign = 'center';
+                ctx.fillText('THE ARCHITECT', sx, sy - archDisplayR - 40);
+                ctx.font = '10px Inter'; ctx.fillStyle = '#aaa';
+                ctx.fillText('(Does not attack - reshapes the arena)', sx, sy - archDisplayR - 28);
+                if (e.lifeTimer !== undefined) {
+                    const timeLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
+                    const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#aaa');
+                    ctx.font = '11px Inter'; ctx.fillStyle = timeColor;
+                    ctx.fillText(`Phase ${e.phase}/3 - ${timeLeft}s`, sx, sy - archDisplayR - 16);
+                }
+                const abw = Math.max(archRadius * 2.5, 200);
+                ctx.fillStyle = '#222'; ctx.fillRect(sx - abw / 2, sy - archDisplayR - 6, abw, 12);
+                ctx.fillStyle = '#333'; ctx.fillRect(sx - abw / 2 + 1, sy - archDisplayR - 5, abw - 2, 10);
+                const archHpGrad = ctx.createLinearGradient(sx - abw / 2, 0, sx + abw / 2, 0);
+                archHpGrad.addColorStop(0, '#2266aa');
+                archHpGrad.addColorStop(0.5, '#4488cc');
+                archHpGrad.addColorStop(1, '#88ccff');
+                ctx.fillStyle = archHpGrad;
+                ctx.fillRect(sx - abw / 2 + 1, sy - archDisplayR - 5, (abw - 2) * (e.health / e.maxHealth), 10);
+
+            } else if (e.isLeviathan) {
+                // THE LEVIATHAN - Serpentine body segments with beam attack
+                ctx.save();
+
+                // Draw body segments from tail to head (so head is on top)
+                for (let si = e.segments.length - 1; si >= 0; si--) {
+                    const seg = e.segments[si];
+                    const ssx = this.player.x + (seg.wx - this.worldX);
+                    const ssy = this.player.y + (seg.wy - this.worldY);
+
+                    // Connection line to previous segment (thicker, organic)
+                    if (si < e.segments.length - 1) {
+                        const nextSeg = e.segments[si + 1];
+                        const nsx = this.player.x + (nextSeg.wx - this.worldX);
+                        const nsy = this.player.y + (nextSeg.wy - this.worldY);
+                        ctx.beginPath();
+                        ctx.moveTo(ssx, ssy);
+                        ctx.lineTo(nsx, nsy);
+                        ctx.strokeStyle = '#1a5570';
+                        ctx.lineWidth = seg.radius * 1.4;
+                        ctx.lineCap = 'round';
+                        ctx.stroke();
+                    }
+
+                    // Segment body
+                    ctx.beginPath();
+                    ctx.arc(ssx, ssy, seg.radius, 0, Math.PI * 2);
+                    let segColor;
+                    if (seg.isHead) {
+                        const headGrad = ctx.createRadialGradient(ssx, ssy, 0, ssx, ssy, seg.radius);
+                        headGrad.addColorStop(0, '#44bbcc');
+                        headGrad.addColorStop(0.6, '#226688');
+                        headGrad.addColorStop(1, '#114455');
+                        segColor = headGrad;
+                    } else if (seg.isWeakPoint) {
+                        // Weak point glows yellow
+                        const wpPulse = Math.sin(this.gameTime * 0.005) * 0.3 + 0.7;
+                        const wpGrad = ctx.createRadialGradient(ssx, ssy, 0, ssx, ssy, seg.radius);
+                        wpGrad.addColorStop(0, `rgba(255, 220, 50, ${wpPulse})`);
+                        wpGrad.addColorStop(0.5, `rgba(200, 160, 30, ${wpPulse * 0.8})`);
+                        wpGrad.addColorStop(1, '#886622');
+                        segColor = wpGrad;
+                    } else if (seg.isTail) {
+                        const tailGrad = ctx.createRadialGradient(ssx, ssy, 0, ssx, ssy, seg.radius);
+                        tailGrad.addColorStop(0, '#339988');
+                        tailGrad.addColorStop(1, '#115544');
+                        segColor = tailGrad;
+                    } else {
+                        // Normal body segment with gradient by position
+                        const ratio = si / e.segments.length;
+                        const r = Math.floor(20 + ratio * 15);
+                        const g = Math.floor(90 + ratio * 30);
+                        const b = Math.floor(110 + ratio * 20);
+                        const segGrad = ctx.createRadialGradient(ssx, ssy, 0, ssx, ssy, seg.radius);
+                        segGrad.addColorStop(0, `rgb(${r+30}, ${g+40}, ${b+40})`);
+                        segGrad.addColorStop(1, `rgb(${r}, ${g}, ${b})`);
+                        segColor = segGrad;
+                    }
+                    ctx.fillStyle = segColor;
+                    ctx.fill();
+
+                    // Scale pattern on body segments
+                    if (!seg.isHead && !seg.isTail) {
+                        const scaleCount = 4;
+                        for (let sc = 0; sc < scaleCount; sc++) {
+                            const sa = (sc / scaleCount) * Math.PI * 2;
+                            const sr = seg.radius * 0.5;
+                            ctx.beginPath();
+                            ctx.arc(ssx + Math.cos(sa) * sr, ssy + Math.sin(sa) * sr, 4, 0, Math.PI * 2);
+                            ctx.fillStyle = 'rgba(50, 130, 150, 0.4)';
+                            ctx.fill();
+                        }
+                    }
+
+                    // Weak point indicator
+                    if (seg.isWeakPoint) {
+                        ctx.beginPath();
+                        ctx.arc(ssx, ssy, seg.radius + 6, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(255, 220, 50, ${Math.sin(this.gameTime * 0.008) * 0.3 + 0.5})`;
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([4, 4]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.font = '8px Inter'; ctx.fillStyle = '#ffdd44'; ctx.textAlign = 'center';
+                        ctx.fillText('WEAK', ssx, ssy - seg.radius - 8);
+                    }
+
+                    // Head details
+                    if (seg.isHead) {
+                        // Eyes
+                        const headAngle = e.moveAngle || 0;
+                        const eyeOffset = seg.radius * 0.35;
+                        const eyeR = 6;
+                        for (const side of [-1, 1]) {
+                            const ex = ssx + Math.cos(headAngle + side * 0.6) * eyeOffset;
+                            const ey = ssy + Math.sin(headAngle + side * 0.6) * eyeOffset;
+                            ctx.beginPath();
+                            ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ff4400';
+                            ctx.fill();
+                            ctx.beginPath();
+                            ctx.arc(ex, ey, eyeR * 0.4, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffcc00';
+                            ctx.fill();
+                        }
+                        // Jaw/mouth
+                        ctx.beginPath();
+                        const jawX = ssx + Math.cos(headAngle) * seg.radius * 0.7;
+                        const jawY = ssy + Math.sin(headAngle) * seg.radius * 0.7;
+                        ctx.arc(jawX, jawY, 8, headAngle - 0.8, headAngle + 0.8);
+                        ctx.strokeStyle = '#ffaa00';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    }
+
+                    // Tail fin
+                    if (seg.isTail) {
+                        const prevSeg = e.segments[si - 1];
+                        const tailAngle = Math.atan2(seg.wy - prevSeg.wy, seg.wx - prevSeg.wx);
+                        const finSize = seg.radius * 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(ssx + Math.cos(tailAngle) * seg.radius * 0.5, ssy + Math.sin(tailAngle) * seg.radius * 0.5);
+                        ctx.lineTo(ssx + Math.cos(tailAngle + 0.6) * finSize, ssy + Math.sin(tailAngle + 0.6) * finSize);
+                        ctx.lineTo(ssx + Math.cos(tailAngle) * finSize * 1.2, ssy + Math.sin(tailAngle) * finSize * 1.2);
+                        ctx.lineTo(ssx + Math.cos(tailAngle - 0.6) * finSize, ssy + Math.sin(tailAngle - 0.6) * finSize);
+                        ctx.closePath();
+                        ctx.fillStyle = 'rgba(40, 150, 130, 0.7)';
+                        ctx.fill();
+                    }
+                }
+
+                // Beam attack rendering
+                if (e.beamActive) {
+                    const headSeg = e.segments[0];
+                    const hsx = this.player.x + (headSeg.wx - this.worldX);
+                    const hsy = this.player.y + (headSeg.wy - this.worldY);
+                    const beamLen = 350;
+                    const beamEndX = hsx + Math.cos(e.beamAngle) * beamLen;
+                    const beamEndY = hsy + Math.sin(e.beamAngle) * beamLen;
+
+                    // Beam glow
+                    ctx.save();
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#44ddff';
+                    ctx.beginPath();
+                    ctx.moveTo(hsx, hsy);
+                    ctx.lineTo(beamEndX, beamEndY);
+                    ctx.strokeStyle = 'rgba(100, 220, 255, 0.8)';
+                    ctx.lineWidth = 12;
+                    ctx.stroke();
+                    // Core beam
+                    ctx.beginPath();
+                    ctx.moveTo(hsx, hsy);
+                    ctx.lineTo(beamEndX, beamEndY);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    // Beam particles
+                    for (let bp = 0; bp < 5; bp++) {
+                        const bt = Math.random();
+                        const bpx = hsx + (beamEndX - hsx) * bt + (Math.random() - 0.5) * 15;
+                        const bpy = hsy + (beamEndY - hsy) * bt + (Math.random() - 0.5) * 15;
+                        ctx.beginPath();
+                        ctx.arc(bpx, bpy, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(100, 255, 255, 0.7)';
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+
+                // Boss HP bar (positioned at head)
+                const levHead = e.segments[0];
+                const lhsx = this.player.x + (levHead.wx - this.worldX);
+                const lhsy = this.player.y + (levHead.wy - this.worldY);
+                const levDisplayR = levHead.radius * 2;
+                ctx.font = 'bold 13px Inter'; ctx.fillStyle = '#44bbcc'; ctx.textAlign = 'center';
+                ctx.fillText('THE LEVIATHAN', lhsx, lhsy - levDisplayR - 35);
+                if (e.lifeTimer !== undefined) {
+                    const timeLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
+                    const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#aaa');
+                    ctx.font = '11px Inter'; ctx.fillStyle = timeColor;
+                    ctx.fillText(`Phase ${e.phase}/3 - ${timeLeft}s`, lhsx, lhsy - levDisplayR - 22);
+                }
+                if (!e.hasSplit) {
+                    ctx.font = '10px Inter'; ctx.fillStyle = '#ffdd44';
+                    ctx.fillText(`Splits at ${Math.floor(e.splitThreshold * 100)}% HP`, lhsx, lhsy - levDisplayR - 10);
+                }
+                const levbw = Math.max(levHead.radius * 4, 200);
+                ctx.fillStyle = '#222'; ctx.fillRect(lhsx - levbw / 2, lhsy - levDisplayR - 2, levbw, 12);
+                ctx.fillStyle = '#333'; ctx.fillRect(lhsx - levbw / 2 + 1, lhsy - levDisplayR - 1, levbw - 2, 10);
+                const levHpGrad = ctx.createLinearGradient(lhsx - levbw / 2, 0, lhsx + levbw / 2, 0);
+                levHpGrad.addColorStop(0, '#114455');
+                levHpGrad.addColorStop(0.5, '#226688');
+                levHpGrad.addColorStop(1, '#44bbcc');
+                ctx.fillStyle = levHpGrad;
+                ctx.fillRect(lhsx - levbw / 2 + 1, lhsy - levDisplayR - 1, (levbw - 2) * (e.health / e.maxHealth), 10);
+
+                ctx.restore(); // End leviathan save
+
             } else if (e.isBoss) {
                 // Boss name (no emoji on the boss itself - sprites handle visuals)
                 ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
@@ -14868,7 +16964,7 @@ class DotsSurvivor {
 
     drawBossEventTimer(ctx) {
         // Find any active event boss with a timer
-        const eventBoss = this.enemies.find(e => e.isConsumer || e.isPlagueWeaver || e.isRiftLord);
+        const eventBoss = this.enemies.find(e => e.isConsumer || e.isPlagueWeaver || e.isRiftLord || e.isBroodQueen || e.isArchitect || e.isLeviathan);
         if (!eventBoss || eventBoss.lifeTimer === undefined) return;
 
         const timeLeft = Math.max(0, eventBoss.maxLifeTime - eventBoss.lifeTimer);
@@ -14887,6 +16983,15 @@ class DotsSurvivor {
         } else if (eventBoss.isRiftLord) {
             title = '⚡ SURVIVE THE RIFT LORD ⚡';
             themeColor = '#6644ff';
+        } else if (eventBoss.isBroodQueen) {
+            title = '🕷️ SURVIVE THE BROOD QUEEN 🕷️';
+            themeColor = '#aa4400';
+        } else if (eventBoss.isArchitect) {
+            title = '⚙️ SURVIVE THE ARCHITECT ⚙️';
+            themeColor = '#4488cc';
+        } else if (eventBoss.isLeviathan) {
+            title = '🐍 SURVIVE THE LEVIATHAN 🐍';
+            themeColor = '#226688';
         }
 
         // Timer panel at top center
