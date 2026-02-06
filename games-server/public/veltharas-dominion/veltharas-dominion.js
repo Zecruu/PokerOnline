@@ -12227,8 +12227,9 @@ class DotsSurvivor {
                         }
                     }
 
-                    // Chain Lightning Power-Up: every hit chains to 3 nearby enemies for 50% dmg
-                    if (this.activePowerUps.chain_lightning) {
+                    // Chain Lightning Power-Up: first hit per projectile chains to 3 nearby enemies for 50% dmg
+                    if (this.activePowerUps.chain_lightning && !p._chainedThisFrame) {
+                        p._chainedThisFrame = true;
                         const chainTargets = 3;
                         const chainRange = 150;
                         const chainDmg = Math.floor(damage * 0.5);
@@ -12386,7 +12387,7 @@ class DotsSurvivor {
 
         }
 
-        // Update lightning chain visuals
+        // Update lightning chain visuals (cap at 50 to prevent lag)
         if (this.lightningChains) {
             for (let i = this.lightningChains.length - 1; i >= 0; i--) {
                 this.lightningChains[i].lifetime -= dt;
@@ -12394,6 +12395,7 @@ class DotsSurvivor {
                     this.lightningChains[i] = this.lightningChains[this.lightningChains.length - 1]; this.lightningChains.pop();
                 }
             }
+            if (this.lightningChains.length > 50) this.lightningChains.length = 50;
         }
     }
 
