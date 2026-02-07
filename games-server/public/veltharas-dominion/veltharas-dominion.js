@@ -2481,12 +2481,13 @@ function getDifficultyTier(wave) {
 // Get spawn rate multiplier by wave (lower = more frequent spawns)
 // Base spawn rate = 500ms * this multiplier
 function getSpawnRateMultByWave(wave) {
-    if (wave <= 3) return 1.00;   // Waves 1-3: normal spawns
-    if (wave <= 6) return 0.75;   // Waves 4-6: faster
-    if (wave <= 9) return 0.55;   // Waves 7-9: fast
-    if (wave <= 12) return 0.45;  // Waves 10-12: very fast
-    if (wave <= 15) return 0.35;  // Waves 13-15: intense
-    return 0.30;                  // Waves 16+: maximum spawn rate
+    if (wave <= 1) return 0.60;   // Wave 1: fast from the start (~3.3/s)
+    if (wave <= 3) return 0.50;   // Waves 2-3: pressure early (~4/s)
+    if (wave <= 6) return 0.40;   // Waves 4-6: intense (~5/s)
+    if (wave <= 9) return 0.32;   // Waves 7-9: swarming
+    if (wave <= 12) return 0.26;  // Waves 10-12: overwhelming
+    if (wave <= 15) return 0.22;  // Waves 13-15: chaotic
+    return 0.18;                  // Waves 16+: max pressure
 }
 
 // Get max alive enemy cap by wave
