@@ -7422,7 +7422,6 @@ class DotsSurvivor {
       try {
         if (!this._frameCount) this._frameCount = 0;
         this._frameCount++;
-        if (this._frameCount <= 3) console.log('[GAME] update() frame #' + this._frameCount, 'dt=', dt);
 
         // Apply slowmo effect
         const effectiveDt = this.slowmo.active ? dt * this.slowmo.factor : dt;
@@ -11472,7 +11471,7 @@ class DotsSurvivor {
                         damage: volleyDamage,
                         pierce: this.weapons.bullet.pierce + 1,
                         color: '#ff2200',
-                        hitEnemies: [],
+                        hitEnemies: new Set(),
                         isFireSovereign: true,
                         homingStrength: 15,
                         homingRange: 600,
@@ -11959,7 +11958,7 @@ class DotsSurvivor {
                 damage: finalDamage,
                 pierce: totalPierce,
                 color: w.color,
-                hitEnemies: [],
+                hitEnemies: new Set(),
                 canExplode: this.bulletExplosion || false,
                 canFreeze: (this.freezeChance || 0) > 0
             };
@@ -12051,6 +12050,8 @@ class DotsSurvivor {
     }
 
     updateProjectiles(dt) {
+        // Hard cap projectiles to prevent runaway accumulation
+        if (this.projectiles.length > 200) this.projectiles.length = 200;
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
 
@@ -12106,7 +12107,7 @@ class DotsSurvivor {
             const nearbyCol = this.enemyGrid.getNearby(pwx2, pwy2, p.radius + 60);
             for (let ci = 0; ci < nearbyCol.length; ci++) {
                 const e = nearbyCol[ci];
-                if (p.hitEnemies.includes(e)) continue;
+                if (p.hitEnemies.has(e)) continue;
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
                 const ddx = p.x - sx, ddy = p.y - sy;
@@ -12170,7 +12171,7 @@ class DotsSurvivor {
                     }
 
                     e.health -= damage; e.hitFlash = 1;
-                    p.hitEnemies.push(e);
+                    p.hitEnemies.add(e);
 
                     // Fire Sovereign: Apply burn stack on hit
                     if (this.selectedClass?.id === 'fire_sovereign') {
@@ -12303,7 +12304,7 @@ class DotsSurvivor {
                                     damage: Math.floor(p.damage * 0.5), // 50% damage
                                     radius: p.radius * 0.8,
                                     pierce: 1,
-                                    hitEnemies: [e], // Don't hit the same enemy
+                                    hitEnemies: new Set([e]), // Don't hit the same enemy
                                     isSplitProjectile: true // Prevent infinite splits
                                 };
                                 this.projectiles.push(splitProjectile);
@@ -12413,7 +12414,7 @@ class DotsSurvivor {
                         }
                     }
 
-                    if (p.hitEnemies.length >= p.pierce) { this.projectiles[i] = this.projectiles[this.projectiles.length - 1]; this.projectiles.pop(); break; }
+                    if (p.hitEnemies.size >= p.pierce) { this.projectiles[i] = this.projectiles[this.projectiles.length - 1]; this.projectiles.pop(); break; }
                 }
             }
 
@@ -12795,7 +12796,11 @@ class DotsSurvivor {
     }
 
     checkLevelUp() {
-        while (this.player.xp >= this.player.xpToLevel) {
+        // Safety: cap level-ups per call to prevent runaway loops
+        let levelsThisCall = 0;
+        if (this.player.xpToLevel <= 0) this.player.xpToLevel = 50;
+        while (this.player.xp >= this.player.xpToLevel && levelsThisCall < 20) {
+            levelsThisCall++;
             this.player.xp -= this.player.xpToLevel;
             this.player.level++;
 
@@ -12819,27 +12824,22 @@ class DotsSurvivor {
                 }
             }
 
-            // Spawn rate is now controlled by wave (getSpawnRateMultByWave), not by level
-
             // XP Curve Adjustment
             if (this.player.level < 20) {
-                // Easier early game (linear-ish growth)
                 this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.15);
             } else if (this.player.level < 60) {
-                // Mid game
                 this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.1);
             } else {
-                // Harder late game
                 this.player.xpToLevel = Math.floor(this.player.xpToLevel * 1.3);
             }
+            if (this.player.xpToLevel <= 0) this.player.xpToLevel = 50;
 
-            // Show level up menu for sigil selection
-            this.showLevelUpMenu();
+            // Queue sigil selection (gameLoop will show the menu)
+            this.pendingUpgrades++;
         }
     }
 
     showLevelUpMenu() {
-        console.log('[GAME] showLevelUpMenu() called, wave:', this.wave, 'pending:', this.pendingUpgrades);
         try {
         // ============================================
         // SIGIL SYSTEM - Player scales through Sigils
@@ -12959,13 +12959,10 @@ class DotsSurvivor {
                 runePool = [...COMMON_RUNES]; // Allow duplicates if all used
             }
 
-            console.log('[GAME] Rolling sigil slot', i, 'tier:', tier, 'poolSize:', runePool.length);
             const rune = rollSigil(runePool[Math.floor(Math.random() * runePool.length)], this.sigilRNG, isGuaranteedHighRoll);
             usedIds.add(rune.id);
             choices.push(rune);
         }
-        console.log('[GAME] 3 choices generated:', choices.map(c => c.name));
-
         // Chaos Sigil: 20% chance to replace one slot (wave 5+), or always on guaranteed high roll waves
         if (this.wave >= 5 && (Math.random() < 0.20 || isGuaranteedHighRoll)) {
             const chaosTemplate = createChaosSigil(this.wave);
@@ -13226,13 +13223,10 @@ class DotsSurvivor {
             return card;
         };
 
-        console.log('[GAME] Rendering sigil cards...');
         choices.forEach((rune, cardIndex) => {
-            console.log('[GAME] Rendering card', cardIndex, rune.name, rune.id);
             container.appendChild(renderSigilCard(rune, cardIndex));
         });
 
-        console.log('[GAME] Showing levelup menu');
         document.getElementById('levelup-menu').classList.remove('hidden');
         } catch(err) {
             console.error('[GAME] CRASH in showLevelUpMenu:', err, err.stack);
@@ -13786,7 +13780,6 @@ class DotsSurvivor {
 
     render() {
       try {
-        if (this._frameCount <= 3) console.log('[GAME] render() frame #' + this._frameCount);
         const ctx = this.ctx;
 
         // Default background - dark demonic
