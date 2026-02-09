@@ -1318,10 +1318,7 @@ function initSprites() {
     for (const [type, path] of Object.entries(BOOTS_SWIFTNESS_SPRITES)) {
         loadSprite('boots_swiftness_' + type, path, true);
     }
-    // Load Demon Set sprites
-    for (const [type, path] of Object.entries(DEMON_SET_SPRITES)) {
-        loadSprite('demon_' + type, path, true);
-    }
+    // Demon set removed
     // Load Heart of Vitality sprites
     for (const [type, path] of Object.entries(HEART_VITALITY_SPRITES)) {
         loadSprite('heart_vitality_' + type, path, true);
