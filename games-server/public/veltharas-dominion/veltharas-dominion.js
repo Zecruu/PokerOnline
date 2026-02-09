@@ -330,7 +330,7 @@ const POWER_UP_TYPES = {
         glowColor: 'rgba(204,68,255,0.5)',
         duration: 10,
         desc: 'Infinite magnet range — pulls ALL XP',
-        apply: (g) => { g._magnetSaved = g.magnetRadius; g.magnetRadius = Infinity; },
+        apply: (g) => { g._magnetSaved = g.magnetRadius; g.magnetRadius = 2000; },
         remove: (g) => { g.magnetRadius = g._magnetSaved || 80; }
     }
 };
@@ -12551,22 +12551,33 @@ class DotsSurvivor {
             }
         }
 
-        // Speed Demon fire trail
+        // Speed Demon fire trail (capped + throttled damage checks)
         if (this.activePowerUps.speed_demon) {
-            this.fireTrailPoints.push({ wx: this.worldX, wy: this.worldY, timer: 1.0 });
-            // Update trail timers
+            // Only add a trail point every 3 frames to limit array size
+            if (this._frameCount % 3 === 0 && this.fireTrailPoints.length < 30) {
+                this.fireTrailPoints.push({ wx: this.worldX, wy: this.worldY, timer: 1.0 });
+            }
+            // Update trail timers (swap-and-pop instead of splice)
             for (let i = this.fireTrailPoints.length - 1; i >= 0; i--) {
                 this.fireTrailPoints[i].timer -= dt;
-                if (this.fireTrailPoints[i].timer <= 0) this.fireTrailPoints.splice(i, 1);
+                if (this.fireTrailPoints[i].timer <= 0) {
+                    this.fireTrailPoints[i] = this.fireTrailPoints[this.fireTrailPoints.length - 1];
+                    this.fireTrailPoints.pop();
+                }
             }
-            // Fire trail damages enemies
-            for (const tp of this.fireTrailPoints) {
-                const nearby = this.enemyGrid.getNearby(tp.wx, tp.wy, 30);
-                for (const e of nearby) {
-                    const edx = tp.wx - e.wx, edy = tp.wy - e.wy;
-                    if (edx * edx + edy * edy < 900) {
-                        e.health -= this.weapons.bullet.damage * 0.3 * dt;
-                        e.hitFlash = 0.1;
+            // Fire trail damages enemies (check every 4th frame to reduce O(n×m) cost)
+            if (this._frameCount % 4 === 0) {
+                const trailDmg = this.weapons.bullet.damage * 1.2 * dt;
+                for (let ti = 0; ti < this.fireTrailPoints.length; ti++) {
+                    const tp = this.fireTrailPoints[ti];
+                    const nearby = this.enemyGrid.getNearby(tp.wx, tp.wy, 30);
+                    for (let ni = 0; ni < nearby.length; ni++) {
+                        const e = nearby[ni];
+                        const edx = tp.wx - e.wx, edy = tp.wy - e.wy;
+                        if (edx * edx + edy * edy < 900) {
+                            e.health -= trailDmg;
+                            e.hitFlash = 0.1;
+                        }
                     }
                 }
             }
