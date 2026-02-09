@@ -9208,21 +9208,30 @@ class DotsSurvivor {
             }
             if (e.hitFlash > 0) e.hitFlash -= dt * 5;
 
-            // GOBLIN: Steal XP from nearby orbs (skip at LOD 1+)
+            // GOBLIN: Steal XP from nearby orbs (throttled, skip at LOD 1+)
             if (e.isGoblin && e._lod === 0) {
-                for (let p = this.pickups.length - 1; p >= 0; p--) {
-                    const pickup = this.pickups[p];
-                    if (pickup.type === 'xp') {
-                        const psx = this.player.x + (pickup.wx - this.worldX);
-                        const psy = this.player.y + (pickup.wy - this.worldY);
+                // Only check every 0.5s per goblin to avoid O(n²) with many goblins
+                e._goblinStealTimer = (e._goblinStealTimer || 0) + dt;
+                if (e._goblinStealTimer >= 0.5) {
+                    e._goblinStealTimer = 0;
+                    let stolen = false;
+                    for (let p = this.pickups.length - 1; p >= 0; p--) {
+                        const pickup = this.pickups[p];
+                        if (pickup.type === 'xp') {
+                            const pdx = pickup.wx - e.wx, pdy = pickup.wy - e.wy;
+                            if (pdx * pdx + pdy * pdy < 3600) { // 60² radius
+                                e.stolenXP += pickup.value;
+                                this.pickups[p] = this.pickups[this.pickups.length - 1];
+                                this.pickups.pop();
+                                stolen = true;
+                                if (e.stolenXP > 50) break; // Max 1 steal per tick
+                            }
+                        }
+                    }
+                    if (stolen) {
                         const gsx = this.player.x + (e.wx - this.worldX);
                         const gsy = this.player.y + (e.wy - this.worldY);
-                        const dist = Math.sqrt((psx - gsx) ** 2 + (psy - gsy) ** 2);
-                        if (dist < 60) { // Goblin steal radius
-                            e.stolenXP += pickup.value;
-                            this.pickups.splice(p, 1);
-                            this.spawnParticles(gsx, gsy, '#44aa44', 3);
-                        }
+                        this.spawnParticles(gsx, gsy, '#44aa44', 3);
                     }
                 }
             }
@@ -9859,7 +9868,13 @@ class DotsSurvivor {
         }
 
         const xpGain = Math.floor(e.xp * this.xpMultiplier);
-        this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 5, color: '#d4e600', isItem: false }); // Yellow-green XP (smaller)
+        // Cap pickups to prevent performance issues (goblins iterate all pickups)
+        if (this.pickups.length < 300) {
+            this.pickups.push({ wx: e.wx, wy: e.wy, xp: xpGain, radius: 5, color: '#d4e600', isItem: false });
+        } else {
+            // Auto-collect XP if too many pickups on ground
+            this.player.xp += xpGain;
+        }
         this.spawnParticles(sx, sy, e.color, 10);
 
         // Regular enemy item drops (base 1% chance, increased by luckyCharm)
@@ -18384,7 +18399,10 @@ class DotsSurvivor {
                     const styleEl = document.getElementById('chest-roll-style');
                     if (styleEl) styleEl.remove();
                     this.chestOfTheDamnedActive = false;
-                    this.gamePaused = false;
+                    // Only resume if no item popup was shown (collectItem pauses for new items)
+                    if (!document.getElementById('item-popup')) {
+                        this.gamePaused = false;
+                    }
                 });
             }
         }, 5200); // Slightly after the 5s animation
