@@ -3168,6 +3168,13 @@ class DotsSurvivor {
         const volumeMult = this.settings.volume / 100;
         if (volumeMult <= 0) return;
 
+        // Throttle: max ~12 sounds/sec per type to prevent WebAudio node explosion
+        if (!this._soundCooldowns) this._soundCooldowns = {};
+        const now = performance.now();
+        const cooldownMs = type === 'xp' ? 80 : type === 'shoot' ? 50 : type === 'hit' ? 60 : 30;
+        if (this._soundCooldowns[type] && now - this._soundCooldowns[type] < cooldownMs) return;
+        this._soundCooldowns[type] = now;
+
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
         osc.connect(gain);
