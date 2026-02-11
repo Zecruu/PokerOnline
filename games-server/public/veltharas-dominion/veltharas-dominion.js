@@ -12,13 +12,21 @@ function _reportError(error, context) {
         timestamp: new Date().toISOString()
     };
     console.error('[GAME ERROR]', context, error);
+    const body = JSON.stringify(payload);
+    // Use sendBeacon first (survives page unload/crash)
+    try {
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/client-error', new Blob([body], { type: 'application/json' }));
+        }
+    } catch (e) {}
+    // Also try fetch as backup
     try {
         fetch('/api/client-error', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: body
         }).catch(() => {});
-    } catch (e) { /* ignore fetch errors */ }
+    } catch (e) {}
 }
 window.onerror = function(msg, url, line, col, error) {
     _reportError(error || msg, `window.onerror at ${url}:${line}:${col}`);
@@ -1650,6 +1658,124 @@ const VOID_BLADE_CLASS = {
 const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
 
 // ============================================
+// ENHANCEMENT RUNES - Ability upgrade system
+// Appears every 5 level-ups, upgrades Q/E abilities
+// Each ability has 5 upgrade tiers max
+// ============================================
+const ENHANCEMENT_RUNES = {
+    fire_sovereign: {
+        q: {
+            name: 'Inferno Volley', icon: '💥',
+            upgrades: [
+                { name: 'Volley Expansion', desc: '+1 fireball (6 total)', effect: (g) => { g.infernoVolleyCount = (g.infernoVolleyCount || 5) + 1; } },
+                { name: 'Searing Impact', desc: '+25% volley damage', effect: (g) => { g.infernoVolleyDmgMult = (g.infernoVolleyDmgMult || 1) * 1.25; } },
+                { name: 'Triple Threat', desc: '+1 fireball (7 total)', effect: (g) => { g.infernoVolleyCount = (g.infernoVolleyCount || 6) + 1; } },
+                { name: 'Blazing Velocity', desc: '+40% fireball speed', effect: (g) => { g.infernoVolleySpeedMult = (g.infernoVolleySpeedMult || 1) * 1.40; } },
+                { name: 'Inferno Cascade', desc: 'Fireballs explode on hit (80px AoE)', effect: (g) => { g.infernoVolleyExplode = true; g.infernoVolleyExplodeRadius = 80; } },
+            ]
+        },
+        e: {
+            name: 'Solar Cataclysm', icon: '☀️',
+            upgrades: [
+                { name: 'Expanding Nova', desc: '+25% radius', effect: (g) => { g.solarCataclysmRadiusMult = (g.solarCataclysmRadiusMult || 1) * 1.25; } },
+                { name: 'Rapid Recovery', desc: '-8s cooldown', effect: (g) => { g.characterAbilities.e.maxCooldown -= 8; } },
+                { name: 'Scorching Power', desc: '+35% damage', effect: (g) => { g.solarCataclysmDmgMult = (g.solarCataclysmDmgMult || 1) * 1.35; } },
+                { name: 'Sustained Burn', desc: 'Double burn duration during cataclysm', effect: (g) => { g.solarDoubleBurnDuration = true; } },
+                { name: 'Hellfire Zone', desc: 'Leaves burning ground for 5s', effect: (g) => { g.solarBurningGround = true; g.solarBurningGroundDPS = 200; g.solarBurningGroundDuration = 5; } },
+            ]
+        }
+    },
+    shadow_master: {
+        q: {
+            name: 'Shadow Cloak', icon: '👤',
+            upgrades: [
+                { name: 'Lingering Shadows', desc: '+1s cloak duration', effect: (g) => { g.shadowCloakDuration = (g.shadowCloakDuration || 3) + 1; } },
+                { name: 'Phantom Speed', desc: '+30% speed while cloaked', effect: (g) => { g.cloakSpeedBonus = 0.30; } },
+                { name: 'Deep Cover', desc: '+1.5s cloak duration', effect: (g) => { g.shadowCloakDuration = (g.shadowCloakDuration || 4) + 1.5; } },
+                { name: 'Ambush Strike', desc: 'Uncloak deals 300 AoE dmg', effect: (g) => { g.uncloakDamage = 300; } },
+                { name: "Reaper's Shroud", desc: 'Kill while cloaked refreshes duration', effect: (g) => { g.cloakRefreshOnKill = true; } },
+            ]
+        },
+        e: {
+            name: 'Shadow Step', icon: '💨',
+            upgrades: [
+                { name: 'Extended Reach', desc: '+60px dash distance', effect: (g) => { g.shadowStepDistance = (g.shadowStepDistance || 200) + 60; } },
+                { name: 'Quick Recovery', desc: '-3s cooldown', effect: (g) => { g.characterAbilities.e.maxCooldown -= 3; } },
+                { name: 'Long Stride', desc: '+60px dash distance', effect: (g) => { g.shadowStepDistance = (g.shadowStepDistance || 260) + 60; } },
+                { name: 'Shadow Trail', desc: 'Leave damage trail along dash path', effect: (g) => { g.shadowStepTrail = true; } },
+                { name: 'Blink Strike', desc: 'Reset cooldown on kill within 2s', effect: (g) => { g.shadowStepResetOnKill = true; } },
+            ]
+        }
+    },
+    necromancer: {
+        q: {
+            name: 'Bone Pit', icon: '🦴',
+            upgrades: [
+                { name: 'Wider Grave', desc: '+35% pit radius', effect: (g) => { g.bonePitRadius = Math.floor((g.bonePitRadius || 100) * 1.35); } },
+                { name: 'Cursed Ground', desc: 'Pit deals 50 DPS', effect: (g) => { g.bonePitDPS = 50; } },
+                { name: 'Lingering Doom', desc: '+3s pit duration', effect: (g) => { g.bonePitDuration = (g.bonePitDuration || 5) + 3; } },
+                { name: 'Rapid Burial', desc: '-4s cooldown', effect: (g) => { g.characterAbilities.q.maxCooldown -= 4; } },
+                { name: 'Death Zone', desc: 'Enemies in pit take +30% more damage', effect: (g) => { g.bonePitVulnerability = 0.30; } },
+            ]
+        },
+        e: {
+            name: 'Soul Shield', icon: '🛡️',
+            upgrades: [
+                { name: 'Extended Ward', desc: '+2s shield duration', effect: (g) => { g.soulShieldDuration = (g.soulShieldDuration || 4) + 2; } },
+                { name: 'Retribution', desc: 'Shielding corpses deal 100 AoE DPS', effect: (g) => { g.soulShieldDamage = 100; } },
+                { name: 'Fortified Ward', desc: '+2s shield duration', effect: (g) => { g.soulShieldDuration = (g.soulShieldDuration || 6) + 2; } },
+                { name: 'Damage Barrier', desc: 'Absorb 30% incoming damage', effect: (g) => { g.soulShieldAbsorb = 0.30; } },
+                { name: 'Death Burst', desc: 'Explodes on expire dealing 500 AoE dmg', effect: (g) => { g.soulShieldExplode = 500; } },
+            ]
+        }
+    },
+    shadow_monarch: {
+        q: {
+            name: 'Shadow Command', icon: '🔮',
+            upgrades: [
+                { name: 'Crushing Arrival', desc: '+40% teleport AoE damage', effect: (g) => { g.commandAoEMult = (g.commandAoEMult || 1) * 1.40; } },
+                { name: 'Paralyzing Fear', desc: '+0.8s stun duration', effect: (g) => { g.commandStunBonus = (g.commandStunBonus || 0) + 0.8; } },
+                { name: 'Swift Command', desc: '-2s cooldown', effect: (g) => { g.characterAbilities.q.maxCooldown -= 2; } },
+                { name: 'Frenzy Order', desc: 'Thrall +60% atk speed 4s after teleport', effect: (g) => { g.commandFrenzyBonus = 0.60; g.commandFrenzyDuration = 4; } },
+                { name: 'Dread Presence', desc: 'Teleport fears enemies for 1.5s', effect: (g) => { g.commandFear = true; g.commandFearDuration = 1.5; } },
+            ]
+        },
+        e: {
+            name: "Monarch's Decree", icon: '👑',
+            upgrades: [
+                { name: 'Extended Reign', desc: '+3s ascend duration', effect: (g) => { g.monarchDecreeDuration = (g.monarchDecreeDuration || 8) + 3; } },
+                { name: 'Dark Empowerment', desc: '+40% thrall dmg during ascend', effect: (g) => { g.decreeDmgBonus = (g.decreeDmgBonus || 1) * 1.40; } },
+                { name: 'Prolonged Majesty', desc: '+3s ascend duration', effect: (g) => { g.monarchDecreeDuration = (g.monarchDecreeDuration || 11) + 3; } },
+                { name: 'Colossal Form', desc: 'Thrall AoE doubled during ascend', effect: (g) => { g.decreeAoEMult = 2.0; } },
+                { name: 'Absolute Dominion', desc: 'Player immune during full ascend', effect: (g) => { g.decreeFullImmunity = true; } },
+            ]
+        }
+    },
+    void_blade: {
+        q: {
+            name: 'Voidstep Dash', icon: '⚔️',
+            upgrades: [
+                { name: 'Phantom Reach', desc: '+60px dash distance', effect: (g) => { g.voidstepDistance = (g.voidstepDistance || 200) + 60; } },
+                { name: 'Hemorrhaging Slash', desc: '+40% bleed from dash hits', effect: (g) => { g.voidstepBleedMult = (g.voidstepBleedMult || 1) * 1.40; } },
+                { name: "Assassin's Reflex", desc: '-1.5s cooldown', effect: (g) => { g.characterAbilities.q.maxCooldown -= 1.5; } },
+                { name: 'Afterimage', desc: 'Leave phantom dealing 50% slash dmg', effect: (g) => { g.dashAfterimage = true; } },
+                { name: 'Blade Tempest', desc: 'Reset CD on bleeding enemy kill', effect: (g) => { g.dashResetOnBleedKill = true; } },
+            ]
+        },
+        e: {
+            name: 'Crimson Catastrophe', icon: '🗡️',
+            upgrades: [
+                { name: 'Empowered Blades', desc: '+35% Blood Sword release damage', effect: (g) => { g.catastropheDmgMult = (g.catastropheDmgMult || 1) * 1.35; } },
+                { name: 'Rapid Rearmament', desc: '-10s cooldown', effect: (g) => { g.characterAbilities.e.maxCooldown -= 10; } },
+                { name: 'Sword Storm', desc: '+3 swords released', effect: (g) => { g.catastropheBonusSwords = (g.catastropheBonusSwords || 0) + 3; } },
+                { name: 'Seeking Blades', desc: 'Released swords home toward enemies', effect: (g) => { g.catastropheHoming = true; } },
+                { name: 'Crimson Apocalypse', desc: 'Blood storm field for 5s after release', effect: (g) => { g.catastropheBloodStorm = true; } },
+            ]
+        }
+    }
+};
+
+// ============================================
 // COSMETIC STORE SYSTEM (Stripe Prices in cents for easy conversion)
 // Price shown to user = price / 100 (e.g., 499 = $4.99)
 // ============================================
@@ -2878,6 +3004,13 @@ class DotsSurvivor {
         this.particles = [];
         this.damageNumbers = [];
 
+        // Souls currency & Enhancement Runes
+        this.souls = 0;
+        this.enhancementRuneLevels = { q: 0, e: 0 };
+        this.pendingEnhancementRunes = 0;
+        this.lastEnhancementRuneLevel = 0;
+        this.enhancementRuneShowing = false;
+
         // Controls
         this.keys = {};
         this.joystick = { active: false, startX: 0, startY: 0, dx: 0, dy: 0 };
@@ -4049,6 +4182,7 @@ class DotsSurvivor {
     startGame() {
       try {
         console.log('[GAME] startGame() called');
+        _reportError('startGame checkpoint: entry', 'DEBUG_CHECKPOINT');
         // Use the pending character class selected from character select screen
         if (this.pendingCharacterClass) {
             this.selectedClass = this.pendingCharacterClass;
@@ -4072,6 +4206,14 @@ class DotsSurvivor {
 
         // Reset upgrade menu state
         this.upgradeMenuShowing = false;
+        this.enhancementRuneShowing = false;
+        this.pendingEnhancementRunes = 0;
+        this.enhancementRuneLevels = { q: 0, e: 0 };
+        this.lastEnhancementRuneLevel = 0;
+        this.souls = 0;
+        // Clean up any leftover enhancement rune overlay
+        const oldRuneOverlay = document.getElementById('enhancement-rune-overlay');
+        if (oldRuneOverlay) oldRuneOverlay.remove();
 
         // Load equipped cosmetics from store
         this.loadEquippedCosmetics();
@@ -4691,6 +4833,7 @@ class DotsSurvivor {
         this.selectedStarterItem = null;
 
         // Start Game Loop
+        _reportError('startGame checkpoint: about to start game loop', 'DEBUG_CHECKPOINT');
         this.gameRunning = true;
         this.gamePaused = false;
         this.lastTime = performance.now();
@@ -7000,8 +7143,17 @@ class DotsSurvivor {
         if (dt > 0.5) dt = 0.016; // Cap at 500ms, reset to ~60fps
         if (dt < 0 || isNaN(dt)) dt = 0.016;
 
+        if (!this._debugLogged) { _reportError(`gameLoop first frame: pendingUpg=${this.pendingUpgrades} pendingRunes=${this.pendingEnhancementRunes} menuShow=${this.upgradeMenuShowing} runeShow=${this.enhancementRuneShowing} paused=${this.gamePaused} wave=${this.wave} souls=${this.souls}`, 'DEBUG_CHECKPOINT'); this._debugLogged = true; }
+
+        // Enhancement Rune page takes priority over sigil selection
+        if (this.pendingEnhancementRunes > 0 && !this.upgradeMenuShowing && !this.enhancementRuneShowing) {
+            this.enhancementRuneShowing = true;
+            this.gamePaused = true;
+            this.showEnhancementRuneMenu();
+        }
+
         // Check for pending upgrades BEFORE game update - pause immediately
-        if (this.pendingUpgrades > 0 && !this.upgradeMenuShowing) {
+        if (this.pendingUpgrades > 0 && !this.upgradeMenuShowing && !this.enhancementRuneShowing) {
             this.upgradeMenuShowing = true;
             this.gamePaused = true;
             this.showLevelUpMenu();
@@ -9498,6 +9650,9 @@ class DotsSurvivor {
 
         this.player.kills++;
         this.playSound('kill');
+
+        // Soul collection
+        this.souls += e.isBoss ? 25 : 1;
 
         // Necromancer: Raise Dead - chance to raise killed enemy as ally
         if (this.raisedCorpses && !e.isBoss && !e.isRaised) {
@@ -12869,6 +13024,201 @@ class DotsSurvivor {
 
             // Queue sigil selection (gameLoop will show the menu)
             this.pendingUpgrades++;
+
+            // Enhancement Rune every 5 levels
+            if (this.player.level % 5 === 0 && this.player.level !== this.lastEnhancementRuneLevel) {
+                this.pendingEnhancementRunes++;
+                this.lastEnhancementRuneLevel = this.player.level;
+            }
+        }
+    }
+
+    showEnhancementRuneMenu() {
+        try {
+        this.playSound('levelup');
+        const classId = this.selectedClass?.id;
+        const classRunes = ENHANCEMENT_RUNES[classId];
+        if (!classRunes) {
+            this.enhancementRuneShowing = false;
+            this.pendingEnhancementRunes = Math.max(0, this.pendingEnhancementRunes - 1);
+            if (this.pendingEnhancementRunes <= 0 && this.pendingUpgrades <= 0) this.gamePaused = false;
+            return;
+        }
+
+        const qLevel = this.enhancementRuneLevels.q || 0;
+        const eLevel = this.enhancementRuneLevels.e || 0;
+
+        // Both maxed — auto-close
+        if (qLevel >= 5 && eLevel >= 5) {
+            this.enhancementRuneShowing = false;
+            this.pendingEnhancementRunes = Math.max(0, this.pendingEnhancementRunes - 1);
+            if (this.pendingEnhancementRunes <= 0 && this.pendingUpgrades <= 0) this.gamePaused = false;
+            this.damageNumbers.push({ x: this.canvas.width / 2, y: this.canvas.height / 2, value: 'All abilities maxed!', lifetime: 2, color: '#ffd700', scale: 1.5 });
+            return;
+        }
+
+        const classColor = this.selectedClass?.color || '#ffd700';
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'enhancement-rune-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Arial,sans-serif;animation:fadeIn 0.3s ease-out;';
+
+        // Title
+        const title = document.createElement('div');
+        title.style.cssText = `font-size:2rem;font-weight:bold;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,0.5);margin-bottom:8px;text-align:center;`;
+        title.textContent = '⚡ ENHANCEMENT RUNE ⚡';
+        overlay.appendChild(title);
+
+        // Subtitle
+        const subtitle = document.createElement('div');
+        subtitle.style.cssText = 'font-size:1rem;color:#ccc;margin-bottom:24px;text-align:center;';
+        subtitle.textContent = 'Choose an ability to empower';
+        overlay.appendChild(subtitle);
+
+        // Cards container
+        const container = document.createElement('div');
+        container.style.cssText = 'display:flex;gap:24px;justify-content:center;flex-wrap:wrap;max-width:700px;';
+
+        const createCard = (abilityKey, abilityData, currentLevel) => {
+            const isMaxed = currentLevel >= 5;
+            const nextUpgrade = isMaxed ? null : abilityData.upgrades[currentLevel];
+            const keyLabel = abilityKey.toUpperCase();
+
+            const card = document.createElement('div');
+            card.style.cssText = `width:280px;padding:24px 20px;border-radius:16px;border:2px solid ${isMaxed ? '#555' : classColor};background:${isMaxed ? 'rgba(40,40,40,0.9)' : 'linear-gradient(135deg, rgba(20,15,30,0.95), rgba(30,20,50,0.95))'};cursor:${isMaxed ? 'default' : 'pointer'};transition:all 0.25s;box-shadow:0 0 ${isMaxed ? '5px rgba(80,80,80,0.3)' : '20px ' + classColor + '44'};opacity:${isMaxed ? '0.6' : '1'};`;
+
+            if (!isMaxed) {
+                card.onmouseenter = () => { card.style.transform = 'scale(1.05)'; card.style.boxShadow = `0 0 30px ${classColor}88`; };
+                card.onmouseleave = () => { card.style.transform = 'scale(1)'; card.style.boxShadow = `0 0 20px ${classColor}44`; };
+            }
+
+            // Key badge (Q or E)
+            const keyBadge = document.createElement('div');
+            keyBadge.style.cssText = `display:inline-block;padding:4px 14px;border-radius:8px;background:${isMaxed ? '#444' : classColor};color:${isMaxed ? '#888' : '#fff'};font-weight:bold;font-size:1.1rem;margin-bottom:12px;`;
+            keyBadge.textContent = keyLabel;
+            card.appendChild(keyBadge);
+
+            // Ability name
+            const nameEl = document.createElement('div');
+            nameEl.style.cssText = `font-size:1.3rem;font-weight:bold;color:${isMaxed ? '#888' : '#fff'};margin-bottom:8px;`;
+            nameEl.textContent = `${abilityData.icon} ${abilityData.name}`;
+            card.appendChild(nameEl);
+
+            // Level pips
+            const pipsContainer = document.createElement('div');
+            pipsContainer.style.cssText = 'display:flex;gap:6px;margin-bottom:16px;justify-content:center;';
+            for (let i = 0; i < 5; i++) {
+                const pip = document.createElement('div');
+                const filled = i < currentLevel;
+                pip.style.cssText = `width:24px;height:8px;border-radius:4px;background:${filled ? classColor : 'rgba(255,255,255,0.15)'};transition:background 0.3s;${filled ? `box-shadow:0 0 6px ${classColor}88;` : ''}`;
+                pipsContainer.appendChild(pip);
+            }
+            card.appendChild(pipsContainer);
+
+            // Level text
+            const levelText = document.createElement('div');
+            levelText.style.cssText = `font-size:0.9rem;color:${isMaxed ? '#666' : '#aaa'};margin-bottom:12px;text-align:center;`;
+            levelText.textContent = isMaxed ? '✅ MAXED (5/5)' : `Level ${currentLevel}/5`;
+            card.appendChild(levelText);
+
+            // Divider
+            const divider = document.createElement('div');
+            divider.style.cssText = `height:1px;background:${isMaxed ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)'};margin-bottom:12px;`;
+            card.appendChild(divider);
+
+            if (isMaxed) {
+                const maxedText = document.createElement('div');
+                maxedText.style.cssText = 'color:#666;font-size:0.9rem;text-align:center;padding:10px;';
+                maxedText.textContent = 'Fully upgraded';
+                card.appendChild(maxedText);
+            } else {
+                // Next upgrade label
+                const nextLabel = document.createElement('div');
+                nextLabel.style.cssText = 'font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;';
+                nextLabel.textContent = `Next: Tier ${currentLevel + 1}`;
+                card.appendChild(nextLabel);
+
+                // Upgrade name
+                const upgName = document.createElement('div');
+                upgName.style.cssText = `font-size:1.1rem;font-weight:bold;color:#ffd700;margin-bottom:6px;text-shadow:0 0 8px rgba(255,215,0,0.3);`;
+                upgName.textContent = nextUpgrade.name;
+                card.appendChild(upgName);
+
+                // Upgrade desc
+                const upgDesc = document.createElement('div');
+                upgDesc.style.cssText = 'font-size:0.9rem;color:#ddd;line-height:1.4;';
+                upgDesc.textContent = nextUpgrade.desc;
+                card.appendChild(upgDesc);
+
+                // Previous upgrades list (if any)
+                if (currentLevel > 0) {
+                    const prevLabel = document.createElement('div');
+                    prevLabel.style.cssText = 'font-size:0.7rem;color:#666;margin-top:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;';
+                    let prevText = 'Applied: ';
+                    for (let i = 0; i < currentLevel; i++) {
+                        prevText += (i > 0 ? ', ' : '') + abilityData.upgrades[i].name;
+                    }
+                    prevLabel.textContent = prevText;
+                    card.appendChild(prevLabel);
+                }
+
+                // Click handler
+                card.onclick = () => {
+                    nextUpgrade.effect(this);
+                    this.enhancementRuneLevels[abilityKey]++;
+                    this.playSound('levelup');
+
+                    // Announce upgrade
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2, y: this.canvas.height / 2 - 40,
+                        value: `⚡ ${nextUpgrade.name}`, lifetime: 2.5,
+                        color: '#ffd700', scale: 1.6
+                    });
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2, y: this.canvas.height / 2,
+                        value: `${keyLabel} ${this.enhancementRuneLevels[abilityKey]}/5`,
+                        lifetime: 2, color: classColor, scale: 1.2
+                    });
+
+                    this.triggerScreenShake(6, 0.2);
+                    this.spawnParticles(this.player.x, this.player.y, classColor, 15);
+
+                    // Clean up
+                    overlay.remove();
+                    this.enhancementRuneShowing = false;
+                    this.pendingEnhancementRunes = Math.max(0, this.pendingEnhancementRunes - 1);
+
+                    // Determine if we should unpause
+                    if (this.pendingEnhancementRunes > 0 || this.pendingUpgrades > 0) {
+                        // More menus pending — stay paused, game loop will show next
+                    } else {
+                        this.gamePaused = false;
+                    }
+                };
+            }
+
+            return card;
+        };
+
+        const qCard = createCard('q', classRunes.q, qLevel);
+        const eCard = createCard('e', classRunes.e, eLevel);
+        container.appendChild(qCard);
+        container.appendChild(eCard);
+        overlay.appendChild(container);
+
+        // Level info footer
+        const footer = document.createElement('div');
+        footer.style.cssText = 'margin-top:20px;color:#666;font-size:0.8rem;text-align:center;';
+        footer.textContent = `Player Level ${this.player.level} — Enhancement Runes appear every 5 levels`;
+        overlay.appendChild(footer);
+
+        document.body.appendChild(overlay);
+        } catch (err) {
+            console.error('[GAME] Enhancement Rune menu error:', err);
+            this.enhancementRuneShowing = false;
+            this.pendingEnhancementRunes = Math.max(0, this.pendingEnhancementRunes - 1);
+            if (this.pendingEnhancementRunes <= 0 && this.pendingUpgrades <= 0) this.gamePaused = false;
         }
     }
 
@@ -13130,8 +13480,10 @@ class DotsSurvivor {
                 <div style="position:absolute;bottom:5px;left:5px;padding:2px 6px;border-radius:6px;background:linear-gradient(90deg,#ff00ff,#00ffff);color:#fff;font-size:0.6em;font-weight:bold;">🌀 CHAOS</div>
             ` : '';
 
+            const rerollCost = this.getRerollCost();
+            const canAffordReroll = this.souls >= rerollCost;
             const rerollBtnHtml = !rerollsUsed[cardIndex] ? `
-                <div class="reroll-btn" style="margin-top:8px;padding:4px 12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.25);border-radius:6px;cursor:pointer;color:#aaa;font-size:0.78em;text-align:center;transition:all 0.2s;">🔄 Reroll</div>
+                <div class="reroll-btn" style="margin-top:8px;padding:4px 12px;background:${canAffordReroll ? 'rgba(187,136,255,0.15)' : 'rgba(255,255,255,0.04)'};border:1px solid ${canAffordReroll ? 'rgba(187,136,255,0.5)' : 'rgba(255,255,255,0.1)'};border-radius:6px;cursor:${canAffordReroll ? 'pointer' : 'not-allowed'};color:${canAffordReroll ? '#bb88ff' : '#555'};font-size:0.78em;text-align:center;transition:all 0.2s;">🔄 Reroll (👻 ${rerollCost})</div>
             ` : `<div style="margin-top:8px;padding:4px 8px;color:rgba(255,255,255,0.2);font-size:0.7em;text-align:center;">Already Rerolled</div>`;
 
             // Build quality-colored description for rolled sigils
@@ -13214,6 +13566,22 @@ class DotsSurvivor {
                 rerollBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (rerollsUsed[cardIndex]) return;
+                    // Check soul cost
+                    const cost = this.getRerollCost();
+                    if (this.souls < cost) {
+                        rerollBtn.style.border = '1px solid #ff4444';
+                        rerollBtn.style.color = '#ff4444';
+                        rerollBtn.textContent = '👻 Not enough souls!';
+                        setTimeout(() => {
+                            rerollBtn.style.border = '1px solid rgba(255,255,255,0.1)';
+                            rerollBtn.style.color = '#555';
+                            rerollBtn.textContent = `🔄 Reroll (👻 ${cost})`;
+                        }, 500);
+                        return;
+                    }
+                    this.souls -= cost;
+                    const soulEl = document.getElementById('soul-count');
+                    if (soulEl) soulEl.textContent = `👻 ${this.souls}`;
                     rerollsUsed[cardIndex] = true;
 
                     // Get IDs of other choices to avoid duplicates
@@ -13379,6 +13747,10 @@ class DotsSurvivor {
 
     updateParticles(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt; if (p.lifetime <= 0) { this.particles[i] = this.particles[this.particles.length - 1]; this.particles.pop(); } } }
 
+    getRerollCost() {
+        return Math.floor(8 + (this.wave || 1) * 4);
+    }
+
     updateHUD() {
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
         document.getElementById('timer').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
@@ -13386,6 +13758,10 @@ class DotsSurvivor {
         document.getElementById('xp-bar').style.width = `${(this.player.xp / this.player.xpToLevel) * 100}%`;
         document.getElementById('level-display').textContent = `Lv. ${this.player.level}`;
         document.getElementById('kill-count').textContent = `💀 ${this.player.kills}`;
+
+        // Soul count
+        const soulEl = document.getElementById('soul-count');
+        if (soulEl) soulEl.textContent = `👻 ${this.souls}`;
 
         // Update difficulty tier display
         const difficultyTier = getDifficultyTier(this.wave);
@@ -13444,6 +13820,14 @@ class DotsSurvivor {
         if (statLuck) {
             const luckPct = Math.round((this.luck || 0) * 100);
             statLuck.textContent = `${luckPct}%`;
+        }
+
+        // Enhancement Rune levels
+        const runeDisplay = document.getElementById('rune-levels-display');
+        if (runeDisplay && this.enhancementRuneLevels) {
+            const qLv = this.enhancementRuneLevels.q || 0;
+            const eLv = this.enhancementRuneLevels.e || 0;
+            runeDisplay.textContent = `Q ${qLv}/5  E ${eLv}/5`;
         }
     }
 
