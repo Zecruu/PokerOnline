@@ -1854,6 +1854,8 @@ const EMPOWERED_SIGILS = [
     { id: 'sigil_juggernaut', name: 'Empowered Sigil of Juggernaut', icon: '🦾', desc: '+150 HP, +15 Damage, +5 Speed', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; g.weapons.bullet.damage += 15; g.player.speed += 5; }, getDesc: (g) => `HP +150, Damage +15, Speed +5` },
     { id: 'sigil_assassin', name: 'Empowered Sigil of Assassin', icon: '🗡️', desc: '+25% Crit Damage, +5% Crit Chance', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25; g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; }, getDesc: (g) => `Crit Damage +25%, Crit Chance +5%` },
     { id: 'sigil_pyroclasm', name: 'Empowered Sigil of Pyroclasm', icon: '🌋', desc: 'Every 8s: 800px explosion (500 dmg). +5% Attack Damage, +5% Burn Damage', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.05); g.burnDamageBonus = (g.burnDamageBonus || 1) * 1.05; g.boundSigils.push('pyroclasm'); g.pyroclasmCooldown = 0; g.pyroclasmRadius = 800; g.pyroclasmDamage = 500; }, getDesc: (g) => g.boundSigils?.includes('pyroclasm') ? 'Active ✓' : '+5% Damage, +5% Burn, Pyroclasm Explosion' },
+    { id: 'sigil_killnova', name: 'Empowered Sigil of the Supernova', icon: '💫', desc: '+25 Damage. PASSIVE: Every 15 kills, release a 300px nova dealing 400 damage', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.weapons.bullet.damage += 25; g.boundSigils.push('killnova'); g.killNovaCounter = 0; g.killNovaThreshold = 15; g.killNovaDamage = 400; g.killNovaRadius = 300; }, getDesc: (g) => g.boundSigils?.includes('killnova') ? `Active ✓ (${g.killNovaCounter || 0}/${g.killNovaThreshold || 15})` : '+25 Damage, Kill Nova' },
+    { id: 'sigil_earthquake', name: 'Empowered Sigil of Tremors', icon: '🌊', desc: '+100 HP, +10 Speed. PASSIVE: Every 6s, stomp dealing 250 damage in 200px + stun 0.5s', rarity: 'epic', tier: 'EMPOWERED', effect: (g) => { g.player.maxHealth += 100; g.player.health += 100; g.player.speed += 10; g.boundSigils.push('earthquake'); g.earthquakeCooldown = 0; g.earthquakeInterval = 6; g.earthquakeDamage = 250; g.earthquakeRadius = 200; }, getDesc: (g) => g.boundSigils?.includes('earthquake') ? 'Active ✓' : '+100 HP, +10 Speed, Earthquake Stomp' },
 ];
 
 // Legacy alias for backward compatibility
@@ -2704,6 +2706,10 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
     if (wave >= 16) types.push('magma_crawler'); // More crawlers later
     if (wave >= 10) types.push('leech');
     if (wave >= 14) types.push('leech', 'leech'); // More leeches later
+
+    // ============ PUSHER MOB (wave 20+): Grabs and pushes player toward enemies ============
+    if (wave >= 20) types.push('pusher');
+    if (wave >= 25) types.push('pusher', 'pusher'); // More pushers later
 
     // ============ CINDER WRETCH SPAWN GATING ============
     // Waves 1-5: disabled
@@ -4334,7 +4340,11 @@ class DotsSurvivor {
         this.powerUpDropTimer = 0;    // Timer between power-up drops
         this.powerUpDropInterval = 30; // Drop a power-up every 30 seconds
         this.chainLightningHits = []; // Visual chain lightning from power-up
+        this.lightningChains = [];    // Lightning chain visual effects
         this.fireTrailPoints = [];    // Speed Demon fire trail
+
+        // Pusher mob state
+        this.pusherCooldown = 0;      // Global cooldown before player can be pushed again
 
         // Minimum enemies (scales up over time)
         this.minEnemies = 20;
@@ -4840,6 +4850,7 @@ class DotsSurvivor {
 
         // Start Game Loop
         _reportError('startGame checkpoint: about to start game loop', 'DEBUG_CHECKPOINT');
+        this._debugLogged = false; // Reset debug flag for new game
         this.gamePaused = false;
         this.lastTime = performance.now();
         this.lastEnemySpawn = performance.now(); // Prevent first-frame burst spawning
@@ -7884,6 +7895,38 @@ class DotsSurvivor {
                 });
             }
         }
+
+        // Earthquake Stomp Sigil: Every 6 seconds, AoE stomp with stun
+        if (this.boundSigils?.includes('earthquake')) {
+            this.earthquakeCooldown = (this.earthquakeCooldown || 0) - dt;
+            if (this.earthquakeCooldown <= 0) {
+                this.earthquakeCooldown = this.earthquakeInterval || 6;
+                const radius = this.earthquakeRadius || 200;
+                const damage = this.earthquakeDamage || 250;
+                let hitCount = 0;
+                for (const e of this.enemies) {
+                    if (e.dead || e.isBoss) continue;
+                    const ex = this.player.x + (e.wx - this.worldX);
+                    const ey = this.player.y + (e.wy - this.worldY);
+                    const dist = Math.sqrt((this.player.x - ex) ** 2 + (this.player.y - ey) ** 2);
+                    if (dist <= radius) {
+                        e.health -= damage;
+                        e.hitFlash = 0.5;
+                        e.frozen = true;
+                        e.frozenTimer = 0.5; // 0.5s stun
+                        hitCount++;
+                    }
+                }
+                // Shockwave ring visual
+                if (!this.shockwaveRings) this.shockwaveRings = [];
+                this.shockwaveRings.push({ x: this.player.x, y: this.player.y, radius: 0, maxRadius: radius, lifetime: 0.4, color: '#886644' });
+                this.spawnParticles(this.player.x, this.player.y, '#aa8866', 20);
+                this.triggerScreenShake(10, 0.3);
+                if (hitCount > 0) {
+                    this.damageNumbers.push({ x: this.player.x, y: this.player.y - 50, value: `🌊 EARTHQUAKE! (${hitCount})`, lifetime: 1, color: '#aa8866', scale: 1.2 });
+                }
+            }
+        }
     }
 
     // Game Juice - Screen shake, slowmo, kill streaks
@@ -7923,6 +7966,19 @@ class DotsSurvivor {
             this.killStreakTimer -= dt;
             if (this.killStreakTimer <= 0) {
                 this.killStreak = 0;
+            }
+        }
+
+        // Shockwave rings (visual expanding rings from nova/earthquake)
+        if (this.shockwaveRings) {
+            for (let i = this.shockwaveRings.length - 1; i >= 0; i--) {
+                const ring = this.shockwaveRings[i];
+                ring.lifetime -= dt;
+                ring.radius += ring.maxRadius * dt * 3; // Expand fast
+                if (ring.radius > ring.maxRadius) ring.radius = ring.maxRadius;
+                if (ring.lifetime <= 0) {
+                    this.shockwaveRings.splice(i, 1);
+                }
             }
         }
     }
@@ -9173,6 +9229,18 @@ class DotsSurvivor {
         // Event bosses are spawned via wave transition logic (spawnPlagueWeaver, spawnConsumer, spawnRiftLord)
         // Normal enemy spawning
         this.enemies.push(this.createEnemy(wx, wy, type));
+
+        // Pushers spawn in packs of 3-4
+        if (type === 'pusher') {
+            const packSize = 2 + Math.floor(Math.random() * 2); // 2-3 extra
+            for (let p = 0; p < packSize; p++) {
+                const packAngle = angle + (Math.random() - 0.5) * 0.6;
+                const packDist = dist + (Math.random() - 0.5) * 60;
+                const pwx = this.worldX + Math.cos(packAngle) * packDist;
+                const pwy = this.worldY + Math.sin(packAngle) * packDist;
+                this.enemies.push(this.createEnemy(pwx, pwy, 'pusher'));
+            }
+        }
     }
 
     // ============ ENEMY POOL HELPERS ============
@@ -9203,7 +9271,8 @@ class DotsSurvivor {
             cinder_wretch: { radius: 18, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true },
             wraith: { radius: 22, speed: 100, health: 450, damage: 40, xp: 15, color: '#8866cc', icon: '', isWraith: true },
             magma_crawler: { radius: 30, speed: 40, health: 2500, damage: 80, xp: 30, color: '#ff4400', icon: '', isMagmaCrawler: true },
-            leech: { radius: 20, speed: 70, health: 800, damage: 15, xp: 20, color: '#44cc44', icon: '', isLeech: true }
+            leech: { radius: 20, speed: 70, health: 800, damage: 15, xp: 20, color: '#44cc44', icon: '', isLeech: true },
+            pusher: { radius: 26, speed: 95, health: 600, damage: 30, xp: 15, color: '#ff9900', icon: '👊', isPusher: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -9251,6 +9320,8 @@ class DotsSurvivor {
         e.magmaTrailTimer = 0;
         e.isLeech = data.isLeech || false;
         e.leechAttached = false; e.leechDrainTimer = 0;
+        e.isPusher = data.isPusher || false;
+        e.pusherGrabbing = false; e.pusherGrabTimer = 0;
         // Reset dynamic properties from gameplay
         e.frozen = false; e.frozenTimer = 0;
         e.invulnerable = false;
@@ -9465,6 +9536,54 @@ class DotsSurvivor {
                 }
             }
 
+            // PUSHER: Grab and push player toward nearest enemy cluster
+            if (e.isPusher && e._lod === 0) {
+                // Decrease global push cooldown
+                if (this.pusherCooldown > 0) this.pusherCooldown -= dt;
+
+                if (!e.pusherGrabbing && d < e.radius + this.player.radius + 10 && this.pusherCooldown <= 0) {
+                    // Grab the player!
+                    e.pusherGrabbing = true;
+                    e.pusherGrabTimer = 0.8; // Push lasts 0.8 seconds
+                    this.pusherCooldown = 3.0; // 3 second global cooldown between pushes
+                    this.damageNumbers.push({
+                        x: this.player.x, y: this.player.y - 50,
+                        value: '👊 PUSHED!', lifetime: 1.5, color: '#ff9900', scale: 1.5, isText: true
+                    });
+                    this.triggerScreenShake(8, 0.3);
+
+                    // Find nearest enemy cluster to push player toward
+                    let pushAngle = Math.atan2(e.wy - this.worldY, e.wx - this.worldX); // default: push away from pusher
+                    let bestClusterDist = Infinity;
+                    for (const other of this.enemies) {
+                        if (other === e || other.isPusher || other.isBoss) continue;
+                        const odx = other.wx - this.worldX;
+                        const ody = other.wy - this.worldY;
+                        const od = Math.sqrt(odx * odx + ody * ody);
+                        if (od > 100 && od < 500 && od < bestClusterDist) {
+                            bestClusterDist = od;
+                            pushAngle = Math.atan2(ody, odx);
+                        }
+                    }
+                    e.pushAngle = pushAngle;
+                }
+
+                if (e.pusherGrabbing) {
+                    e.pusherGrabTimer -= dt;
+                    // Push the player in the push direction
+                    const pushSpeed = 350;
+                    this.worldX += Math.cos(e.pushAngle) * pushSpeed * dt;
+                    this.worldY += Math.sin(e.pushAngle) * pushSpeed * dt;
+                    // Pusher follows the player during push
+                    e.wx = this.worldX + Math.cos(e.pushAngle + Math.PI) * 30;
+                    e.wy = this.worldY + Math.sin(e.pushAngle + Math.PI) * 30;
+
+                    if (e.pusherGrabTimer <= 0) {
+                        e.pusherGrabbing = false;
+                    }
+                }
+            }
+
             // NECROMANCER: Spawn sprites periodically - skip at LOD 1+
             if (e.isNecromancer && e._lod === 0) {
                 e.lastSpriteSpawn += dt;
@@ -9656,6 +9775,34 @@ class DotsSurvivor {
 
         this.player.kills++;
         this.playSound('kill');
+
+        // Kill Nova Sigil: Every N kills, release AoE nova
+        if (this.boundSigils?.includes('killnova')) {
+            this.killNovaCounter = (this.killNovaCounter || 0) + 1;
+            if (this.killNovaCounter >= (this.killNovaThreshold || 15)) {
+                this.killNovaCounter = 0;
+                const radius = this.killNovaRadius || 300;
+                const damage = this.killNovaDamage || 400;
+                let hitCount = 0;
+                for (const en of this.enemies) {
+                    if (en.dead) continue;
+                    const enx = this.player.x + (en.wx - this.worldX);
+                    const eny = this.player.y + (en.wy - this.worldY);
+                    const dist = Math.sqrt((this.player.x - enx) ** 2 + (this.player.y - eny) ** 2);
+                    if (dist <= radius) {
+                        en.health -= damage;
+                        en.hitFlash = 0.5;
+                        hitCount++;
+                    }
+                }
+                if (!this.shockwaveRings) this.shockwaveRings = [];
+                this.shockwaveRings.push({ x: this.player.x, y: this.player.y, radius: 0, maxRadius: radius, lifetime: 0.5, color: '#ffaa00' });
+                this.spawnParticles(this.player.x, this.player.y, '#ffaa00', 25);
+                this.spawnParticles(this.player.x, this.player.y, '#ff6600', 15);
+                this.triggerScreenShake(6, 0.3);
+                this.damageNumbers.push({ x: this.player.x, y: this.player.y - 60, value: `💫 SUPERNOVA! (${hitCount})`, lifetime: 1.5, color: '#ffaa00', scale: 1.5 });
+            }
+        }
 
         // Soul collection
         this.souls += e.isBoss ? 25 : 1;
@@ -12443,15 +12590,16 @@ class DotsSurvivor {
                         }
                     }
 
-                    // Chain Lightning Power-Up: first hit per projectile chains to 3 nearby enemies for 50% dmg
+                    // Chain Lightning Power-Up: first hit per projectile chains to 5 nearby enemies for 50% dmg
                     if (this.activePowerUps.chain_lightning && !p._chainedThisFrame) {
                         p._chainedThisFrame = true;
-                        const chainTargets = 3;
-                        const chainRange = 150;
+                        const chainTargets = 5;
+                        const chainRange = 250;
                         const chainDmg = Math.floor(damage * 0.5);
                         const chainNearby = this.enemyGrid.getNearby(e.wx, e.wy, chainRange);
                         let chained = 0;
                         let lastX = sx, lastY = sy;
+                        const chainPoints = [{ x: sx, y: sy }];
                         for (const ce of chainNearby) {
                             if (ce === e || chained >= chainTargets) break;
                             const csx = this.player.x + (ce.wx - this.worldX);
@@ -12459,14 +12607,18 @@ class DotsSurvivor {
                             ce.health -= chainDmg;
                             ce.hitFlash = 0.3;
                             this.addDamageNumber(csx, csy, chainDmg, '#ffff00', { enemyId: ce.id, scale: 0.8 });
-                            // Visual lightning chain
-                            if (!this.lightningChains) this.lightningChains = [];
-                            this.lightningChains.push({
-                                points: [{ x: lastX, y: lastY }, { x: csx, y: csy }],
-                                lifetime: 0.3, color: '#ffff00'
-                            });
+                            chainPoints.push({ x: csx, y: csy });
+                            this.spawnParticles(csx, csy, '#ffff00', 5);
                             lastX = csx; lastY = csy;
                             chained++;
+                        }
+                        // Single connected lightning chain visual
+                        if (chainPoints.length > 1) {
+                            if (!this.lightningChains) this.lightningChains = [];
+                            this.lightningChains.push({
+                                points: chainPoints,
+                                lifetime: 0.5, color: '#ffff00'
+                            });
                         }
                     }
 
@@ -13041,6 +13193,10 @@ class DotsSurvivor {
 
     showEnhancementRuneMenu() {
         try {
+        // Prevent duplicate overlays (e.g. from dual game loops)
+        const existingOverlay = document.getElementById('enhancement-rune-overlay');
+        if (existingOverlay) existingOverlay.remove();
+
         this.playSound('levelup');
         const classId = this.selectedClass?.id;
         const classRunes = ENHANCEMENT_RUNES[classId];
@@ -14408,6 +14564,32 @@ class DotsSurvivor {
             ctx.restore();
         }
 
+        // ============ SHOCKWAVE RINGS (Nova, Earthquake, etc.) ============
+        if (this.shockwaveRings && this.shockwaveRings.length > 0) {
+            ctx.save();
+            for (const ring of this.shockwaveRings) {
+                const alpha = Math.max(0, ring.lifetime * 2.5); // Fade out
+                ctx.beginPath();
+                ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = ring.color || '#ffaa00';
+                ctx.lineWidth = 4 + alpha * 4;
+                ctx.globalAlpha = alpha;
+                ctx.shadowColor = ring.color || '#ffaa00';
+                ctx.shadowBlur = 20;
+                ctx.stroke();
+                // Inner ring
+                ctx.beginPath();
+                ctx.arc(ring.x, ring.y, ring.radius * 0.7, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = alpha * 0.5;
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
         // Active power-up HUD indicators (bottom center)
         const activeTypes = Object.keys(this.activePowerUps || {});
         if (activeTypes.length > 0) {
@@ -14468,7 +14650,7 @@ class DotsSurvivor {
         if (this.lightningChains && this.lightningChains.length > 0) {
             ctx.save();
             for (const chain of this.lightningChains) {
-                const alpha = chain.lifetime / 0.3; // Fade out over lifetime
+                const alpha = Math.min(1, chain.lifetime / 0.3); // Fade out over lifetime
                 ctx.globalAlpha = alpha;
                 ctx.strokeStyle = chain.color || '#ffff00';
                 ctx.lineWidth = 4;
@@ -14816,6 +14998,59 @@ class DotsSurvivor {
                     ctx.stroke();
                 }
                 ctx.globalAlpha = 1;
+                ctx.restore();
+            }
+
+            // PUSHER - Armored brute with charging fists
+            else if (e.isPusher) {
+                ctx.save();
+                ctx.translate(sx, sy);
+                // Charge glow when pushing
+                if (e.pusherGrabbing) {
+                    const chargeGlow = ctx.createRadialGradient(0, 0, e.radius * 0.3, 0, 0, e.radius * 2);
+                    chargeGlow.addColorStop(0, 'rgba(255,153,0,0.5)');
+                    chargeGlow.addColorStop(1, 'rgba(255,80,0,0)');
+                    ctx.beginPath();
+                    ctx.arc(0, 0, e.radius * 2, 0, Math.PI * 2);
+                    ctx.fillStyle = chargeGlow;
+                    ctx.fill();
+                }
+                // Armored body (hexagonal shape)
+                ctx.beginPath();
+                for (let s = 0; s < 6; s++) {
+                    const a = (s / 6) * Math.PI * 2 - Math.PI / 6;
+                    const r = e.radius * (0.95 + Math.sin(this.gameTime / 300 + s) * 0.05);
+                    if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+                }
+                ctx.closePath();
+                ctx.fillStyle = e.hitFlash > 0 ? '#ffcc88' : '#cc6600';
+                ctx.fill();
+                ctx.strokeStyle = '#884400';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                // Shoulder plates
+                ctx.beginPath();
+                ctx.arc(-e.radius * 0.6, -e.radius * 0.3, e.radius * 0.35, 0, Math.PI * 2);
+                ctx.arc(e.radius * 0.6, -e.radius * 0.3, e.radius * 0.35, 0, Math.PI * 2);
+                ctx.fillStyle = '#995500';
+                ctx.fill();
+                ctx.strokeStyle = '#663300';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Fist icon
+                ctx.font = `${Math.floor(e.radius * 0.8)}px Arial`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('👊', 0, 2);
+                // Angry eyes
+                ctx.beginPath();
+                ctx.arc(-e.radius * 0.2, -e.radius * 0.15, 3, 0, Math.PI * 2);
+                ctx.arc(e.radius * 0.2, -e.radius * 0.15, 3, 0, Math.PI * 2);
+                ctx.fillStyle = e.pusherGrabbing ? '#ff0000' : '#ffaa00';
+                ctx.shadowColor = '#ff6600';
+                ctx.shadowBlur = e.pusherGrabbing ? 12 : 6;
+                ctx.fill();
+                ctx.shadowBlur = 0;
                 ctx.restore();
             }
 

@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
 
   // Trailing slashes for cleaner static file serving
   trailingSlash: true,
+
+  // Limit workers to prevent OOM on Railway build
+  experimental: {
+    cpus: 2,
+  },
 };
 
 export default nextConfig;
