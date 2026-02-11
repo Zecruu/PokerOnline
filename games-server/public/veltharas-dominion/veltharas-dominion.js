@@ -4181,6 +4181,12 @@ class DotsSurvivor {
 
     startGame() {
       try {
+        // Prevent double-start (e.g. double-click on starter item)
+        if (this.gameRunning) {
+            console.log('[GAME] startGame() blocked - already running');
+            return;
+        }
+        this.gameRunning = true; // Set early to block re-entry
         console.log('[GAME] startGame() called');
         _reportError('startGame checkpoint: entry', 'DEBUG_CHECKPOINT');
         // Use the pending character class selected from character select screen
@@ -4834,13 +4840,13 @@ class DotsSurvivor {
 
         // Start Game Loop
         _reportError('startGame checkpoint: about to start game loop', 'DEBUG_CHECKPOINT');
-        this.gameRunning = true;
         this.gamePaused = false;
         this.lastTime = performance.now();
         this.lastEnemySpawn = performance.now(); // Prevent first-frame burst spawning
         console.log('[GAME] startGame() complete, starting game loop');
         requestAnimationFrame((t) => this.gameLoop(t));
       } catch (err) {
+        this.gameRunning = false; // Allow restart after failure
         _reportError(err, 'startGame');
         console.error('[GAME] Fatal error in startGame:', err);
       }
