@@ -4142,7 +4142,8 @@ class DotsSurvivor {
             <button id="back-to-chars-btn" style="margin-top:0.5rem;padding:8px 20px;background:transparent;border:1px solid #444;color:#666;border-radius:8px;cursor:pointer;font-family:inherit;display:block;margin-left:auto;margin-right:auto;">← Back to Characters</button>
         `;
 
-        // Add hover effects and click handlers
+        // Add hover effects and click handlers (with one-shot guard)
+        let startClicked = false;
         const cards = content.querySelectorAll('.starter-item-card');
         cards.forEach(card => {
             card.addEventListener('mouseenter', () => {
@@ -4158,6 +4159,8 @@ class DotsSurvivor {
                 card.style.transform = 'scale(1)';
             });
             card.addEventListener('click', () => {
+                if (startClicked) return;
+                startClicked = true;
                 const itemKey = card.dataset.item;
                 this.selectedStarterItem = itemKey;
                 this.startGame();
@@ -4165,6 +4168,8 @@ class DotsSurvivor {
         });
 
         document.getElementById('skip-item-btn').addEventListener('click', () => {
+            if (startClicked) return;
+            startClicked = true;
             this.selectedStarterItem = null;
             this.startGame();
         });
@@ -4855,7 +4860,10 @@ class DotsSurvivor {
         this.lastTime = performance.now();
         this.lastEnemySpawn = performance.now(); // Prevent first-frame burst spawning
         console.log('[GAME] startGame() complete, starting game loop');
-        requestAnimationFrame((t) => this.gameLoop(t));
+        // Unique loop ID — any older loop will see a mismatch and stop
+        this._loopGen = (this._loopGen || 0) + 1;
+        const myGen = this._loopGen;
+        requestAnimationFrame((t) => { if (this._loopGen === myGen) this.gameLoop(t); });
       } catch (err) {
         this.gameRunning = false; // Allow restart after failure
         _reportError(err, 'startGame');
@@ -7290,7 +7298,8 @@ class DotsSurvivor {
         console.error('[GAME] Fatal error in gameLoop - game stopped. Error:', err);
         return;
       }
-      requestAnimationFrame((t) => this.gameLoop(t));
+      const gen = this._loopGen;
+      requestAnimationFrame((t) => { if (this._loopGen === gen) this.gameLoop(t); });
     }
 
     checkHorde() {
