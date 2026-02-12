@@ -1554,6 +1554,7 @@ const SHADOW_MONARCH_CLASS = {
     id: 'shadow_monarch',
     name: 'Shadow Monarch',
     icon: '👑',
+    portrait: 'characters/shadow-monarch-lv21.png',
     color: '#1a0033',
     desc: 'Dark commander. Fights with Umbral Orb lasers and a Shadow Thrall companion that evolves as you level.',
     bonuses: {
@@ -2425,6 +2426,209 @@ const STARTER_ITEMS = {
                 desc: 'Burn damage can stack up to 2 times on the same enemy'
             }]
         }
+    },
+    // =========================================
+    // SHADOW MONARCH STARTER ITEMS
+    // =========================================
+    sm_umbral_lens: {
+        id: 'sm_umbral_lens',
+        classLock: 'shadow_monarch',
+        name: 'Umbral Lens',
+        evolvedName: 'Lens of the Void King',
+        icon: 'starters/umbral_lens.jpg',
+        evolvedIcon: 'starters/lens_of_the_void_king.jpg',
+        color: '#7b2fff',
+        evolveWave: 10,
+        base: {
+            desc: '+10 Damage, +15% Orb Damage',
+            modifiers: { flatDamageBonus: 10, umbralOrbDamageMult: 0.15 },
+            passives: []
+        },
+        evolved: {
+            desc: '+18 Damage, +25% Orb Damage',
+            modifiers: { flatDamageBonus: 18, umbralOrbDamageMult: 0.25 },
+            passives: [{
+                type: 'lanceSplinter',
+                splinterCount: 2,
+                splinterDamageMult: 0.4,
+                desc: 'Shadow Lances split into 2 splinters on kill (40% damage each)'
+            }]
+        }
+    },
+    sm_thralls_collar: {
+        id: 'sm_thralls_collar',
+        classLock: 'shadow_monarch',
+        name: "Thrall's Collar",
+        evolvedName: 'Collar of Dark Command',
+        icon: 'starters/thralls_collar.jpg',
+        evolvedIcon: 'starters/collar_of_dark_command.jpg',
+        color: '#4a0080',
+        evolveWave: 10,
+        base: {
+            desc: '+20% Thrall Damage, +15% Thrall HP',
+            modifiers: { thrallDamageMult: 0.20, thrallHPMult: 0.15 },
+            passives: []
+        },
+        evolved: {
+            desc: '+35% Thrall Damage, +30% Thrall HP',
+            modifiers: { thrallDamageMult: 0.35, thrallHPMult: 0.30 },
+            passives: [{
+                type: 'thrallLifeLink',
+                healPercent: 0.03,
+                desc: 'Thrall heals the Monarch for 3% of damage dealt'
+            }]
+        }
+    },
+    sm_voidheart_amulet: {
+        id: 'sm_voidheart_amulet',
+        classLock: 'shadow_monarch',
+        name: 'Voidheart Amulet',
+        evolvedName: 'Amulet of the Abyss',
+        icon: 'starters/voidheart_amulet.jpg',
+        evolvedIcon: 'starters/amulet_of_the_abyss.jpg',
+        color: '#1a0033',
+        evolveWave: 10,
+        base: {
+            desc: '+150 Max HP, +10% Move Speed',
+            modifiers: { maxHpFlat: 150, moveSpeedMult: 0.10 },
+            passives: []
+        },
+        evolved: {
+            desc: '+250 Max HP, +18% Move Speed',
+            modifiers: { maxHpFlat: 250, moveSpeedMult: 0.18 },
+            passives: [{
+                type: 'voidWeaken',
+                damageAmp: 0.15,
+                desc: 'Enemies inside Shadow Void take +15% damage from all sources'
+            }]
+        }
+    },
+    sm_dominus_ring: {
+        id: 'sm_dominus_ring',
+        classLock: 'shadow_monarch',
+        name: 'Dominus Ring',
+        evolvedName: 'Ring of Dark Sovereignty',
+        icon: 'starters/dominus_ring.jpg',
+        evolvedIcon: 'starters/ring_of_dark_sovereignty.jpg',
+        color: '#9933ff',
+        evolveWave: 10,
+        base: {
+            desc: '+8 Damage, +12% Move Speed',
+            modifiers: { flatDamageBonus: 8, moveSpeedMult: 0.12 },
+            passives: []
+        },
+        evolved: {
+            desc: '+15 Damage, +20% Move Speed',
+            modifiers: { flatDamageBonus: 15, moveSpeedMult: 0.20 },
+            passives: [{
+                type: 'dominionBurst',
+                damage: 180,
+                radiusPx: 180,
+                internalCooldownSeconds: 8.0,
+                desc: 'At max Dominion stacks, release a shadow nova (180 dmg, 180px, 8s CD)'
+            }]
+        }
+    },
+    // =========================================
+    // VOID BLADE (AZURA) STARTER ITEMS
+    // =========================================
+    vb_bloodedge_whetstone: {
+        id: 'vb_bloodedge_whetstone',
+        classLock: 'void_blade',
+        name: 'Bloodedge Whetstone',
+        evolvedName: 'Whetstone of Crimson Ruin',
+        icon: 'starters/bloodedge_whetstone.jpg',
+        evolvedIcon: 'starters/whetstone_of_crimson_ruin.jpg',
+        color: '#cc0000',
+        evolveWave: 10,
+        base: {
+            desc: '+12 Damage, +10% Move Speed',
+            modifiers: { flatDamageBonus: 12, moveSpeedMult: 0.10 },
+            passives: []
+        },
+        evolved: {
+            desc: '+22 Damage, +18% Move Speed',
+            modifiers: { flatDamageBonus: 22, moveSpeedMult: 0.18 },
+            passives: [{
+                type: 'deepWound',
+                extraStacks: 1,
+                desc: 'Crescent Slash applies +1 extra bleed stack per hit'
+            }]
+        }
+    },
+    vb_crimson_vial: {
+        id: 'vb_crimson_vial',
+        classLock: 'void_blade',
+        name: 'Crimson Vial',
+        evolvedName: 'Vial of Endless Thirst',
+        icon: 'starters/crimson_vial.jpg',
+        evolvedIcon: 'starters/vial_of_endless_thirst.jpg',
+        color: '#990033',
+        evolveWave: 10,
+        base: {
+            desc: '+8 Damage, +2 Max Bleed Stacks',
+            modifiers: { flatDamageBonus: 8, maxBleedStacksFlat: 2 },
+            passives: []
+        },
+        evolved: {
+            desc: '+15 Damage, +3 Max Bleed Stacks',
+            modifiers: { flatDamageBonus: 15, maxBleedStacksFlat: 3 },
+            passives: [{
+                type: 'bleedHeal',
+                healPercent: 0.02,
+                desc: 'Bleed ticks heal Azura for 2% of bleed damage dealt'
+            }]
+        }
+    },
+    vb_ironblood_guard: {
+        id: 'vb_ironblood_guard',
+        classLock: 'void_blade',
+        name: 'Ironblood Guard',
+        evolvedName: 'Guard of the Blood Oath',
+        icon: 'starters/ironblood_guard.jpg',
+        evolvedIcon: 'starters/guard_of_the_blood_oath.jpg',
+        color: '#660000',
+        evolveWave: 10,
+        base: {
+            desc: '+150 Max HP, +8% Move Speed',
+            modifiers: { maxHpFlat: 150, moveSpeedMult: 0.08 },
+            passives: []
+        },
+        evolved: {
+            desc: '+250 Max HP, +15% Move Speed',
+            modifiers: { maxHpFlat: 250, moveSpeedMult: 0.15 },
+            passives: [{
+                type: 'bloodShieldOnExecute',
+                shieldPercent: 0.08,
+                maxShield: 150,
+                desc: 'Executing an enemy grants a blood shield (8% max HP, max 150)'
+            }]
+        }
+    },
+    vb_soulreaper_hilt: {
+        id: 'vb_soulreaper_hilt',
+        classLock: 'void_blade',
+        name: 'Soulreaper Hilt',
+        evolvedName: 'Hilt of the Void Slayer',
+        icon: 'starters/soulreaper_hilt.jpg',
+        evolvedIcon: 'starters/hilt_of_the_void_slayer.jpg',
+        color: '#aa0000',
+        evolveWave: 10,
+        base: {
+            desc: '+10 Damage, +1 Blood Sword Cap',
+            modifiers: { flatDamageBonus: 10, bloodSwordCapFlat: 1 },
+            passives: []
+        },
+        evolved: {
+            desc: '+18 Damage, +2 Blood Sword Cap',
+            modifiers: { flatDamageBonus: 18, bloodSwordCapFlat: 2 },
+            passives: [{
+                type: 'bloodSwordFrenzy',
+                attackSpeedBuff: 0.25,
+                buffDuration: 3.0,
+                desc: 'When a Blood Sword kills, all swords gain +25% attack speed for 3s'
+            }]
+        }
     }
 };
 
@@ -2460,6 +2664,25 @@ function applyStarterModifiers(game, modifiers) {
     if (modifiers.burnDamageTakenMult) {
         game.starterBurnDamageTakenMult = (game.starterBurnDamageTakenMult || 0) + modifiers.burnDamageTakenMult;
     }
+    // Shadow Monarch modifiers
+    if (modifiers.umbralOrbDamageMult) {
+        game.umbralOrbDamageBonus = (game.umbralOrbDamageBonus || 1) * (1 + modifiers.umbralOrbDamageMult);
+    }
+    if (modifiers.thrallDamageMult) {
+        game.thrallDamageBonus = (game.thrallDamageBonus || 1) * (1 + modifiers.thrallDamageMult);
+        if (game.shadowThrall && game.recalcThrallStats) game.recalcThrallStats();
+    }
+    if (modifiers.thrallHPMult) {
+        game.thrallHPBonus = (game.thrallHPBonus || 1) * (1 + modifiers.thrallHPMult);
+        if (game.shadowThrall && game.recalcThrallStats) game.recalcThrallStats();
+    }
+    // Void Blade modifiers
+    if (modifiers.maxBleedStacksFlat) {
+        game.maxBleedStacks = (game.maxBleedStacks || 8) + modifiers.maxBleedStacksFlat;
+    }
+    if (modifiers.bloodSwordCapFlat) {
+        game.maxBloodSwords = (game.maxBloodSwords || 5) + modifiers.bloodSwordCapFlat;
+    }
 }
 
 // Helper: Remove starter item modifiers (for evolution transition)
@@ -2486,6 +2709,25 @@ function removeStarterModifiers(game, modifiers) {
     }
     if (modifiers.burnDamageTakenMult) {
         game.starterBurnDamageTakenMult = (game.starterBurnDamageTakenMult || 0) - modifiers.burnDamageTakenMult;
+    }
+    // Shadow Monarch modifiers
+    if (modifiers.umbralOrbDamageMult) {
+        game.umbralOrbDamageBonus = (game.umbralOrbDamageBonus || 1) / (1 + modifiers.umbralOrbDamageMult);
+    }
+    if (modifiers.thrallDamageMult) {
+        game.thrallDamageBonus = (game.thrallDamageBonus || 1) / (1 + modifiers.thrallDamageMult);
+        if (game.shadowThrall && game.recalcThrallStats) game.recalcThrallStats();
+    }
+    if (modifiers.thrallHPMult) {
+        game.thrallHPBonus = (game.thrallHPBonus || 1) / (1 + modifiers.thrallHPMult);
+        if (game.shadowThrall && game.recalcThrallStats) game.recalcThrallStats();
+    }
+    // Void Blade modifiers
+    if (modifiers.maxBleedStacksFlat) {
+        game.maxBleedStacks = (game.maxBleedStacks || 8) - modifiers.maxBleedStacksFlat;
+    }
+    if (modifiers.bloodSwordCapFlat) {
+        game.maxBloodSwords = (game.maxBloodSwords || 5) - modifiers.bloodSwordCapFlat;
     }
 }
 
@@ -2517,6 +2759,55 @@ function registerEvolvedPassives(game, passives) {
                 break;
             case 'burnStacksCap':
                 game.starterBurnStacksCap = passive.maxStacks;
+                break;
+            // Shadow Monarch evolved passives
+            case 'lanceSplinter':
+                game.starterLanceSplinter = {
+                    splinterCount: passive.splinterCount,
+                    splinterDamageMult: passive.splinterDamageMult
+                };
+                break;
+            case 'thrallLifeLink':
+                game.starterThrallLifeLink = {
+                    healPercent: passive.healPercent
+                };
+                break;
+            case 'voidWeaken':
+                game.starterVoidWeaken = {
+                    damageAmp: passive.damageAmp
+                };
+                break;
+            case 'dominionBurst':
+                game.starterDominionBurst = {
+                    damage: passive.damage,
+                    radiusPx: passive.radiusPx,
+                    internalCooldownSeconds: passive.internalCooldownSeconds,
+                    cooldownTimer: 0
+                };
+                break;
+            // Void Blade evolved passives
+            case 'deepWound':
+                game.starterDeepWound = {
+                    extraStacks: passive.extraStacks
+                };
+                break;
+            case 'bleedHeal':
+                game.starterBleedHeal = {
+                    healPercent: passive.healPercent
+                };
+                break;
+            case 'bloodShieldOnExecute':
+                game.starterBloodShieldOnExecute = {
+                    shieldPercent: passive.shieldPercent,
+                    maxShield: passive.maxShield
+                };
+                break;
+            case 'bloodSwordFrenzy':
+                game.starterBloodSwordFrenzy = {
+                    attackSpeedBuff: passive.attackSpeedBuff,
+                    buffDuration: passive.buffDuration,
+                    buffTimer: 0
+                };
                 break;
         }
     }
@@ -4825,13 +5116,24 @@ class DotsSurvivor {
         // Store the selected starter for this run (do NOT clear until next run)
         this.activeStarter = null;
         this.starterEvolved = false;
-        // Reset starter passive tracking
+        // Reset starter passive tracking — Fire Sovereign
         this.starterDamageVsBurningMult = 0;
         this.starterMomentumBuff = null;
         this.starterFlamePulse = null;
         this.starterBurnStacksCap = 0;
         this.starterBurnDurationMult = 0;
         this.starterBurnDamageTakenMult = 0;
+        // Reset starter passive tracking — Shadow Monarch
+        this.starterLanceSplinter = null;
+        this.starterThrallLifeLink = null;
+        this.starterVoidWeaken = null;
+        this.starterDominionBurst = null;
+        // Reset starter passive tracking — Void Blade (Azura)
+        this.starterDeepWound = null;
+        this.starterBleedHeal = null;
+        this.starterBloodShieldOnExecute = null;
+        this.starterBloodSwordFrenzy = null;
+        this.bloodShieldAmount = 0;
 
         if (this.selectedStarterItem && STARTER_ITEMS[this.selectedStarterItem]) {
             const itemKey = this.selectedStarterItem;
@@ -7762,6 +8064,108 @@ class DotsSurvivor {
         if (this.starterFlamePulse && this.starterFlamePulse.cooldownTimer > 0) {
             this.starterFlamePulse.cooldownTimer -= dt;
         }
+
+        // ---- Dominion Burst Cooldown (Dominus Ring evolved) ----
+        if (this.starterDominionBurst && this.starterDominionBurst.cooldownTimer > 0) {
+            this.starterDominionBurst.cooldownTimer -= dt;
+        }
+
+        // ---- Blood Sword Frenzy Timer (Soulreaper Hilt evolved) ----
+        if (this.starterBloodSwordFrenzy && this.starterBloodSwordFrenzy.buffTimer > 0) {
+            this.starterBloodSwordFrenzy.buffTimer -= dt;
+        }
+    }
+
+    // Trigger Dominion Burst at max stacks (called from dominion stack handler)
+    triggerDominionBurst() {
+        if (!this.starterDominionBurst || this.starterDominionBurst.cooldownTimer > 0) return;
+        if ((this.dominionStacks || 0) < (this.dominionMaxStacks || 10)) return;
+
+        this.starterDominionBurst.cooldownTimer = this.starterDominionBurst.internalCooldownSeconds;
+        const damage = this.starterDominionBurst.damage;
+        const radius = this.starterDominionBurst.radiusPx;
+
+        for (const enemy of this.enemies) {
+            const distToEnemy = Math.sqrt(
+                (enemy.wx - this.worldX) ** 2 + (enemy.wy - this.worldY) ** 2
+            );
+            if (distToEnemy <= radius) {
+                enemy.health -= damage;
+                enemy.hitFlash = 0.2;
+                const sx = this.player.x + (enemy.wx - this.worldX);
+                const sy = this.player.y + (enemy.wy - this.worldY);
+                this.damageNumbers.push({
+                    x: sx, y: sy - 10,
+                    value: damage, lifetime: 0.5, color: '#7b2fff', scale: 1.0
+                });
+            }
+        }
+
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 40,
+            value: '👑 DOMINION BURST!', lifetime: 1, color: '#9933ff', scale: 1.3
+        });
+        this.playSound('explosion');
+    }
+
+    // Trigger lance splinter on enemy kill (called from lance damage handler)
+    triggerLanceSplinter(deadEnemyWX, deadEnemyWY) {
+        if (!this.starterLanceSplinter) return;
+
+        const splinterCount = this.starterLanceSplinter.splinterCount;
+        const dmgMult = this.starterLanceSplinter.splinterDamageMult;
+        const baseDmg = (this.weapons.bullet.damage || 50) * (this.umbralOrbDamageBonus || 1) * (this.dominionDamageBonus || 1);
+        const splinterDmg = Math.floor(baseDmg * dmgMult);
+
+        // Find nearby enemies to target
+        const nearby = this.enemies
+            .filter(e => e.health > 0 && e.wx !== deadEnemyWX && e.wy !== deadEnemyWY)
+            .map(e => ({
+                enemy: e,
+                dist: Math.sqrt((e.wx - deadEnemyWX) ** 2 + (e.wy - deadEnemyWY) ** 2)
+            }))
+            .filter(e => e.dist < 300)
+            .sort((a, b) => a.dist - b.dist)
+            .slice(0, splinterCount);
+
+        for (const { enemy } of nearby) {
+            enemy.health -= splinterDmg;
+            enemy.hitFlash = 0.2;
+            const sx = this.player.x + (enemy.wx - this.worldX);
+            const sy = this.player.y + (enemy.wy - this.worldY);
+            this.damageNumbers.push({
+                x: sx, y: sy - 10,
+                value: splinterDmg, lifetime: 0.5, color: '#7b2fff', scale: 0.8
+            });
+        }
+    }
+
+    // Trigger blood shield on execute (called from execute handler)
+    triggerBloodShieldOnExecute() {
+        if (!this.starterBloodShieldOnExecute) return;
+
+        const shieldGain = Math.min(
+            Math.floor(this.player.maxHealth * this.starterBloodShieldOnExecute.shieldPercent),
+            this.starterBloodShieldOnExecute.maxShield
+        );
+        this.bloodShieldAmount = Math.min(
+            (this.bloodShieldAmount || 0) + shieldGain,
+            this.starterBloodShieldOnExecute.maxShield
+        );
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 30,
+            value: `🛡️ +${shieldGain} SHIELD`, lifetime: 1, color: '#660000', scale: 1.0
+        });
+    }
+
+    // Trigger blood sword frenzy on sword kill (called from blood sword damage handler)
+    triggerBloodSwordFrenzy() {
+        if (!this.starterBloodSwordFrenzy) return;
+        this.starterBloodSwordFrenzy.buffTimer = this.starterBloodSwordFrenzy.buffDuration;
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 30,
+            value: '⚡ SWORD FRENZY!', lifetime: 1, color: '#aa0000', scale: 1.1
+        });
     }
 
     // Trigger flame pulse when player takes damage (called from damage handler)
@@ -8100,6 +8504,8 @@ class DotsSurvivor {
             const dist = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
 
             if (dist < radius + e.radius) {
+                // Mark enemy as in shadow void (for Void Weaken passive)
+                e.inShadowVoid = true;
                 e.health -= tickDamage;
                 e.hitFlash = 0.1;
                 // Purple damage particles
@@ -8110,6 +8516,8 @@ class DotsSurvivor {
                 if (Math.random() < 0.30) {
                     this.addDamageNumber(sx, sy, Math.ceil(tickDamage), '#bb44ff', { enemyId: e.id, scale: 0.7 });
                 }
+            } else {
+                e.inShadowVoid = false;
             }
         }
     }
@@ -9652,6 +10060,14 @@ class DotsSurvivor {
                     // Berserker Rage power-up: +25% damage taken
                     if (this.activePowerUps && this.activePowerUps.berserker) remainingDamage = Math.floor(remainingDamage * 1.25);
 
+                    // Starter Blood Shield absorbs damage first (Azura - Guard of Blood Oath)
+                    if (this.bloodShieldAmount > 0) {
+                        const absorbed = Math.min(this.bloodShieldAmount, remainingDamage);
+                        this.bloodShieldAmount -= absorbed;
+                        remainingDamage -= absorbed;
+                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 50, value: `🛡️ -${absorbed}`, lifetime: 0.8, color: '#660000', isText: true });
+                    }
+
                     // Blood Shield absorbs damage first
                     if (this.bloodShield > 0) {
                         const absorbed = Math.min(this.bloodShield, remainingDamage);
@@ -10815,11 +11231,21 @@ class DotsSurvivor {
 
                     // Fire main beam
                     this.shadowLances.push({ sx: orbWorldX, sy: orbWorldY, ex: targetSX, ey: targetSY, timer: 0.12, damage: baseDmg, color: '#7700cc' });
-                    nearest.health -= baseDmg;
+                    // Void Weaken: amplify damage on enemies in shadow void
+                    let lanceDmg = baseDmg;
+                    if (this.starterVoidWeaken && nearest.inShadowVoid) {
+                        lanceDmg = Math.floor(lanceDmg * (1 + this.starterVoidWeaken.damageAmp));
+                    }
+                    nearest.health -= lanceDmg;
                     nearest.hitFlash = 0.15;
-                    this.addDamageNumber(targetSX, targetSY, Math.floor(baseDmg), '#bb66ff');
+                    this.addDamageNumber(targetSX, targetSY, Math.floor(lanceDmg), '#bb66ff');
                     nearest.orbMarked = true;
                     nearest.orbMarkTimer = 3;
+
+                    // Lance Splinter: split on kill
+                    if (nearest.health <= 0 && this.starterLanceSplinter) {
+                        this.triggerLanceSplinter(nearest.wx, nearest.wy);
+                    }
 
                     // Pierce extra enemies
                     if (this.lancePierce > 0) {
@@ -10950,14 +11376,27 @@ class DotsSurvivor {
             if (thrall.attackCooldown <= 0 && dist < thrall.radius + 30) {
                 let dmg = thrall.damage;
                 if (thrall.ascended) dmg *= 1.75;
+                // Void Weaken: amplify damage on enemies in shadow void
+                if (this.starterVoidWeaken && target.inShadowVoid) {
+                    dmg = Math.floor(dmg * (1 + this.starterVoidWeaken.damageAmp));
+                }
 
                 target.health -= dmg;
                 target.hitFlash = 0.2;
                 this.addDamageNumber(tsx, tsy, Math.floor(dmg), '#aa44ff');
 
+                // Thrall Life Link: heal Monarch
+                if (this.starterThrallLifeLink) {
+                    const heal = Math.floor(dmg * this.starterThrallLifeLink.healPercent);
+                    if (heal > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                }
+
                 // Dominion Bond stack
                 this.dominionStacks = Math.min(this.dominionMaxStacks, this.dominionStacks + 1);
                 this.dominionDecayTimer = 0;
+
+                // Dominion Burst: trigger at max stacks
+                if (this.starterDominionBurst) this.triggerDominionBurst();
 
                 // Ascended lifesteal
                 if (thrall.ascended) {
@@ -11326,6 +11765,11 @@ class DotsSurvivor {
             if (dmg > 0) {
                 e.health -= dmg; // TRUE DAMAGE — direct HP reduction
                 e.hitFlash = 0.1;
+                // Bleed Heal: heal Azura from bleed ticks
+                if (this.starterBleedHeal) {
+                    const heal = Math.max(1, Math.floor(dmg * this.starterBleedHeal.healPercent));
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                }
                 // Hemorrhage: max stacks explode
                 if (this.hemorrhageActive && bleed.stacks >= (this.maxBleedStacks || 8)) {
                     const burstDmg = Math.floor(dps * 2);
@@ -11358,6 +11802,10 @@ class DotsSurvivor {
                     if (this.executeHealPercent > 0) {
                         const heal = Math.floor(this.player.maxHealth * this.executeHealPercent);
                         this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    }
+                    // Blood Shield on Execute (starter passive)
+                    if (this.starterBloodShieldOnExecute) {
+                        this.triggerBloodShieldOnExecute();
                     }
                     // Void Riposte: reset dash cooldown
                     if (this.voidRiposteActive && this.voidRiposteTimer > 0) {
@@ -11444,8 +11892,11 @@ class DotsSurvivor {
 
             // Apply Bleed stack
             if (!e.voidBleed) e.voidBleed = { stacks: 0, timer: 0, dpsPerStack: this.voidBleedDPS || 12 };
-            if (e.voidBleed.stacks < (this.maxBleedStacks || 8)) {
-                e.voidBleed.stacks++;
+            const bleedToApply = 1 + (this.starterDeepWound ? this.starterDeepWound.extraStacks : 0);
+            for (let b = 0; b < bleedToApply; b++) {
+                if (e.voidBleed.stacks < (this.maxBleedStacks || 8)) {
+                    e.voidBleed.stacks++;
+                }
             }
             e.voidBleed.timer = this.bleedStackDuration || 3;
             e.voidBleed.dpsPerStack = (this.voidBleedDPS || 12) * (this.voidBleedDPSMult || 1);
@@ -11499,7 +11950,11 @@ class DotsSurvivor {
 
         const orbitRadius = this.bloodSwordOrbitRadius || 90;
         const baseSpeed = (this.bloodSwordOrbitSpeed || 1.5) + (this.bloodSwordMomentum || 0) * 0.5;
-        const attackRate = (this.bloodSwordAttackRate || 1.2);
+        let attackRate = (this.bloodSwordAttackRate || 1.2);
+        // Blood Sword Frenzy buff: boost attack speed when active
+        if (this.starterBloodSwordFrenzy && this.starterBloodSwordFrenzy.buffTimer > 0) {
+            attackRate *= (1 + this.starterBloodSwordFrenzy.attackSpeedBuff);
+        }
         const baseDmg = (this.bloodSwordBaseDmg || 20) * (this.bloodSwordDmgMult || 1);
         const lungeSpeed = 600; // pixels per second
         const returnSpeed = 400;
@@ -11584,6 +12039,10 @@ class DotsSurvivor {
                         }
                         this.addDamageNumber(sword.lungeScreenX, sword.lungeScreenY, dmg, '#cc0000');
                         this.spawnParticles(sword.lungeScreenX, sword.lungeScreenY, '#8B0000', 4);
+                        // Blood Sword Frenzy: trigger on kill
+                        if (target.health <= 0 && this.starterBloodSwordFrenzy) {
+                            this.triggerBloodSwordFrenzy();
+                        }
                     }
                     sword.charge -= 5;
                     sword.attackCooldown = 1 / attackRate;
