@@ -1750,6 +1750,16 @@ const ENHANCEMENT_RUNES = {
                 { name: 'Colossal Form', desc: 'Thrall AoE doubled during ascend', effect: (g) => { g.decreeAoEMult = 2.0; } },
                 { name: 'Absolute Dominion', desc: 'Player immune during full ascend', effect: (g) => { g.decreeFullImmunity = true; } },
             ]
+        },
+        passive: {
+            name: 'Shadow Void', icon: '🌑',
+            upgrades: [
+                { name: 'Expanding Darkness', desc: '+25% void radius', effect: (g) => { if (g.shadowVoid) g.shadowVoid.radius = Math.floor(g.shadowVoid.radius * 1.25); } },
+                { name: 'Abyssal Hunger', desc: '+40% void DPS', effect: (g) => { if (g.shadowVoid) g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.40); } },
+                { name: 'Consuming Void', desc: '+20% radius, +25% DPS', effect: (g) => { if (g.shadowVoid) { g.shadowVoid.radius = Math.floor(g.shadowVoid.radius * 1.20); g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.25); } } },
+                { name: 'Soul Siphon', desc: 'Shadow Void heals 1.5% of dmg dealt', effect: (g) => { g.shadowVoidHeal = true; g.shadowVoidHealPercent = 0.015; } },
+                { name: 'Event Horizon', desc: 'Enemies in void are slowed 35%, +50% DPS', effect: (g) => { if (g.shadowVoid) g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.50); g.shadowVoidSlow = Math.max(g.shadowVoidSlow || 0, 0.35); } },
+            ]
         }
     },
     void_blade: {
@@ -3303,7 +3313,7 @@ class DotsSurvivor {
 
         // Souls currency & Enhancement Runes
         this.souls = 0;
-        this.enhancementRuneLevels = { q: 0, e: 0 };
+        this.enhancementRuneLevels = { q: 0, e: 0, passive: 0 };
         this.pendingEnhancementRunes = 0;
         this.lastEnhancementRuneLevel = 0;
         this.enhancementRuneShowing = false;
@@ -4516,7 +4526,7 @@ class DotsSurvivor {
         this.upgradeMenuShowing = false;
         this.enhancementRuneShowing = false;
         this.pendingEnhancementRunes = 0;
-        this.enhancementRuneLevels = { q: 0, e: 0 };
+        this.enhancementRuneLevels = { q: 0, e: 0, passive: 0 };
         this.lastEnhancementRuneLevel = 0;
         this.souls = 0;
         // Clean up any leftover enhancement rune overlay
@@ -4983,16 +4993,16 @@ class DotsSurvivor {
             this.corruptedThrallVulnerability = 1;
             // Shadow Void passive - dark aura dealing tick damage
             this.shadowVoid = {
-                radius: 120,
-                baseDPS: 15,
-                atkScaling: 0.10,
-                waveScaling: 2,
+                radius: 100,
+                baseDPS: 10,
+                atkScaling: 0.08,
+                waveScaling: 1.5,
                 tickTimer: 0,
                 tickInterval: 0.5
             };
         }
         if (this.selectedClass.id === 'shadow_monarch') {
-            this.characterAbilities.q.maxCooldown = 10;
+            this.characterAbilities.q.maxCooldown = 15;
             this.characterAbilities.e.maxCooldown = 45;
         }
 
@@ -7473,8 +7483,8 @@ class DotsSurvivor {
             if (!orb.superOrb) continue;
             orb.superOrbPulse = (orb.superOrbPulse || 0) + dt;
 
-            const orbScreenX = this.player.x + Math.cos(orb.angle) * orb.distance;
-            const orbScreenY = this.player.y + Math.sin(orb.angle) * orb.distance;
+            const orbScreenX = this.player.x + Math.cos(orb.angle) * orb.radius;
+            const orbScreenY = this.player.y + Math.sin(orb.angle) * orb.radius;
             const orbWX = this.worldX + (orbScreenX - this.player.x);
             const orbWY = this.worldY + (orbScreenY - this.player.y);
 
@@ -8627,16 +8637,25 @@ class DotsSurvivor {
             if (dist < radius + e.radius) {
                 // Mark enemy as in shadow void (for Void Weaken passive)
                 e.inShadowVoid = true;
+                // Apply slow if upgraded
+                if (this.shadowVoidSlow && this.shadowVoidSlow > 0) {
+                    e.bonePitSlow = true;
+                    e.bonePitSlowTimer = this.shadowVoid.tickInterval + 0.1;
+                    e.bonePitSlowStrength = 1 - this.shadowVoidSlow;
+                }
                 e.health -= tickDamage;
                 e.hitFlash = 0.1;
+                // Shadow Void heal (Soul Siphon upgrade)
+                if (this.shadowVoidHeal) {
+                    const heal = Math.floor(tickDamage * (this.shadowVoidHealPercent || 0.015));
+                    if (heal > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                }
                 // Purple damage particles
                 if (Math.random() < 0.25) {
                     this.spawnParticles(sx, sy, '#9932cc', 2);
                 }
-                // Damage numbers using stacking system
-                if (Math.random() < 0.30) {
-                    this.addDamageNumber(sx, sy, Math.ceil(tickDamage), '#bb44ff', { enemyId: e.id, scale: 0.7 });
-                }
+                // Damage numbers
+                this.addDamageNumber(sx, sy, Math.ceil(tickDamage), '#bb44ff', { scale: 0.7 });
             } else {
                 e.inShadowVoid = false;
             }
@@ -13787,9 +13806,11 @@ class DotsSurvivor {
 
         const qLevel = this.enhancementRuneLevels.q || 0;
         const eLevel = this.enhancementRuneLevels.e || 0;
+        const passiveLevel = this.enhancementRuneLevels.passive || 0;
+        const hasPassive = !!classRunes.passive;
 
-        // Both maxed — auto-close
-        if (qLevel >= 5 && eLevel >= 5) {
+        // All maxed — auto-close
+        if (qLevel >= 5 && eLevel >= 5 && (!hasPassive || passiveLevel >= 5)) {
             this.enhancementRuneShowing = false;
             this.pendingEnhancementRunes = Math.max(0, this.pendingEnhancementRunes - 1);
             if (this.pendingEnhancementRunes <= 0 && this.pendingUpgrades <= 0) this.gamePaused = false;
@@ -13818,12 +13839,12 @@ class DotsSurvivor {
 
         // Cards container
         const container = document.createElement('div');
-        container.style.cssText = 'display:flex;gap:24px;justify-content:center;flex-wrap:wrap;max-width:700px;';
+        container.style.cssText = 'display:flex;gap:24px;justify-content:center;flex-wrap:wrap;max-width:1000px;';
 
         const createCard = (abilityKey, abilityData, currentLevel) => {
             const isMaxed = currentLevel >= 5;
             const nextUpgrade = isMaxed ? null : abilityData.upgrades[currentLevel];
-            const keyLabel = abilityKey.toUpperCase();
+            const keyLabel = abilityKey === 'passive' ? 'PASSIVE' : abilityKey.toUpperCase();
 
             const card = document.createElement('div');
             card.style.cssText = `width:280px;padding:24px 20px;border-radius:16px;border:2px solid ${isMaxed ? '#555' : classColor};background:${isMaxed ? 'rgba(40,40,40,0.9)' : 'linear-gradient(135deg, rgba(20,15,30,0.95), rgba(30,20,50,0.95))'};cursor:${isMaxed ? 'default' : 'pointer'};transition:all 0.25s;box-shadow:0 0 ${isMaxed ? '5px rgba(80,80,80,0.3)' : '20px ' + classColor + '44'};opacity:${isMaxed ? '0.6' : '1'};`;
@@ -13945,6 +13966,10 @@ class DotsSurvivor {
         const eCard = createCard('e', classRunes.e, eLevel);
         container.appendChild(qCard);
         container.appendChild(eCard);
+        if (hasPassive) {
+            const passiveCard = createCard('passive', classRunes.passive, passiveLevel);
+            container.appendChild(passiveCard);
+        }
         overlay.appendChild(container);
 
         // Level info footer
@@ -14567,7 +14592,10 @@ class DotsSurvivor {
         if (runeDisplay && this.enhancementRuneLevels) {
             const qLv = this.enhancementRuneLevels.q || 0;
             const eLv = this.enhancementRuneLevels.e || 0;
-            runeDisplay.textContent = `Q ${qLv}/5  E ${eLv}/5`;
+            const pLv = this.enhancementRuneLevels.passive || 0;
+            const classRunes = ENHANCEMENT_RUNES[this.selectedClass?.id];
+            const hasPassive = classRunes && classRunes.passive;
+            runeDisplay.textContent = hasPassive ? `Q ${qLv}/5  E ${eLv}/5  P ${pLv}/5` : `Q ${qLv}/5  E ${eLv}/5`;
         }
     }
 
