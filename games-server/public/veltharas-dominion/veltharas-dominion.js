@@ -1732,13 +1732,13 @@ const ENHANCEMENT_RUNES = {
     },
     shadow_monarch: {
         q: {
-            name: 'Shadow Command', icon: '🔮',
+            name: 'Despair Barrage', icon: '🔮',
             upgrades: [
-                { name: 'Crushing Arrival', desc: '+40% teleport AoE damage', effect: (g) => { g.commandAoEMult = (g.commandAoEMult || 1) * 1.40; } },
-                { name: 'Paralyzing Fear', desc: '+0.8s stun duration', effect: (g) => { g.commandStunBonus = (g.commandStunBonus || 0) + 0.8; } },
-                { name: 'Swift Command', desc: '-2s cooldown', effect: (g) => { g.characterAbilities.q.maxCooldown -= 2; } },
-                { name: 'Frenzy Order', desc: 'Thrall +60% atk speed 4s after teleport', effect: (g) => { g.commandFrenzyBonus = 0.60; g.commandFrenzyDuration = 4; } },
-                { name: 'Dread Presence', desc: 'Teleport fears enemies for 1.5s', effect: (g) => { g.commandFear = true; g.commandFearDuration = 1.5; } },
+                { name: 'Lingering Despair', desc: '+1.5s beam duration', effect: (g) => { g.despairBarrageDuration = (g.despairBarrageDuration || 4) + 1.5; } },
+                { name: 'Intensify', desc: '+50% beam damage', effect: (g) => { g.despairBarrageDmgMult = (g.despairBarrageDmgMult || 1) * 1.50; } },
+                { name: 'Swift Barrage', desc: '-2s cooldown', effect: (g) => { g.characterAbilities.q.maxCooldown -= 2; } },
+                { name: 'Chain Despair', desc: 'Beams chain to 1 extra enemy', effect: (g) => { g.despairBarrageChains = (g.despairBarrageChains || 0) + 1; } },
+                { name: 'Void Overload', desc: 'Enemies hit take +25% dmg for 3s', effect: (g) => { g.despairVoidOverload = true; g.despairVoidOverloadAmp = 0.25; g.despairVoidOverloadDuration = 3; } },
             ]
         },
         e: {
@@ -4951,6 +4951,13 @@ class DotsSurvivor {
             this.shadowLances = [];
             this.monarchOrbKillTracker = 0; // Tracks kills toward next orb spawn
             this.monarchOrbMaxFromKills = 5; // Max orbs from passive
+            // Despair Barrage Q ability
+            this.despairBarrageActive = false;
+            this.despairBarrageTimer = 0;
+            this.despairBarrageDuration = 4;
+            this.despairBarrageDmgMult = 1;
+            this.despairBarrageChains = 0;
+            this.despairBarrageBeams = []; // For rendering
             for (let i = 0; i < this.umbralOrbCount; i++) {
                 this.umbralOrbs.push(this.createUmbralOrb());
             }
@@ -7438,6 +7445,89 @@ class DotsSurvivor {
         }
     }
 
+    // Shadow Monarch Q: Despair Barrage - orbs fire continuous beams of despair
+    updateDespairBarrage(dt) {
+        if (!this.despairBarrageActive || !this.umbralOrbs) return;
+
+        this.despairBarrageTimer -= dt;
+        if (this.despairBarrageTimer <= 0) {
+            // End barrage - revert orbs to normal
+            this.despairBarrageActive = false;
+            this.despairBarrageBeams = [];
+            for (const orb of this.umbralOrbs) {
+                orb.superOrb = false;
+            }
+            return;
+        }
+
+        // Fire beams from each orb every 0.2 seconds
+        this.despairBarrageTickTimer = (this.despairBarrageTickTimer || 0) + dt;
+        if (this.despairBarrageTickTimer < 0.2) return;
+        this.despairBarrageTickTimer = 0;
+
+        const baseDmg = (this.weapons.bullet.damage || 50) * (this.umbralOrbDamageBonus || 1) * (this.despairBarrageDmgMult || 1) * (this.dominionDamageBonus || 1);
+        const chains = 1 + (this.despairBarrageChains || 0);
+        const newBeams = [];
+
+        for (const orb of this.umbralOrbs) {
+            if (!orb.superOrb) continue;
+            orb.superOrbPulse = (orb.superOrbPulse || 0) + dt;
+
+            const orbScreenX = this.player.x + Math.cos(orb.angle) * orb.distance;
+            const orbScreenY = this.player.y + Math.sin(orb.angle) * orb.distance;
+            const orbWX = this.worldX + (orbScreenX - this.player.x);
+            const orbWY = this.worldY + (orbScreenY - this.player.y);
+
+            // Find nearby enemies for this orb
+            const nearby = this.enemyGrid ? this.enemyGrid.getNearby(orbWX, orbWY, 400) : this.enemies;
+            const hit = [];
+            let lastX = orbScreenX, lastY = orbScreenY;
+
+            for (let c = 0; c < chains; c++) {
+                let nearest = null, nd = Infinity;
+                for (const e of nearby) {
+                    if (e.health <= 0 || hit.includes(e)) continue;
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    const d = Math.sqrt((lastX - sx) ** 2 + (lastY - sy) ** 2);
+                    if (d < 400 && d < nd) { nd = d; nearest = { e, sx, sy }; }
+                }
+
+                if (nearest) {
+                    hit.push(nearest.e);
+                    let dmg = Math.floor(baseDmg * 0.4); // 40% of base per tick (fires 5x per second)
+                    // Void Weaken amplification
+                    if (this.starterVoidWeaken && nearest.e.inShadowVoid) {
+                        dmg = Math.floor(dmg * (1 + this.starterVoidWeaken.damageAmp));
+                    }
+                    nearest.e.health -= dmg;
+                    nearest.e.hitFlash = 0.1;
+                    this.addDamageNumber(nearest.sx, nearest.sy, dmg, '#cc44ff');
+                    this.updateStackingItems('damage', dmg);
+
+                    // Void Overload: mark enemies to take extra damage
+                    if (this.despairVoidOverload) {
+                        nearest.e.voidOverload = true;
+                        nearest.e.voidOverloadTimer = this.despairVoidOverloadDuration || 3;
+                        nearest.e.voidOverloadAmp = this.despairVoidOverloadAmp || 0.25;
+                    }
+
+                    // Store beam for rendering
+                    newBeams.push({
+                        sx: lastX, sy: lastY,
+                        ex: nearest.sx, ey: nearest.sy,
+                        timer: 0.2,
+                        color: '#cc00ff'
+                    });
+                    lastX = nearest.sx;
+                    lastY = nearest.sy;
+                }
+            }
+        }
+
+        this.despairBarrageBeams = newBeams;
+    }
+
     getThrallTier() {
         const lvl = this.player?.level || 1;
         if (lvl >= 15) return { name: 'Abyssal Monarch', tier: 4, radius: 28, speed: 260, baseDamage: 400, baseHP: 8000, color: '#1a0033', icon: '👑', hasAura: true, hasTaunt: true, aoeRadius: 50 };
@@ -7981,6 +8071,7 @@ class DotsSurvivor {
         this.updateSoulShield(effectiveDt);      // Necromancer soul shield
         this.updateUmbralOrbs(effectiveDt);       // Shadow Monarch orbs
         this.updateMonarchOrbPassive();            // Shadow Monarch kill → orb spawn
+        this.updateDespairBarrage(effectiveDt);    // Shadow Monarch Q ability beams
         this.updateShadowThrall(effectiveDt);     // Shadow Monarch thrall
         this.updateDominionBond(effectiveDt);     // Shadow Monarch stacks
         this.updateShadowLances(effectiveDt);     // Shadow Monarch laser cleanup
@@ -9824,6 +9915,12 @@ class DotsSurvivor {
                 if (e.orbMarkTimer <= 0) { e.orbMarked = false; }
             }
 
+            // Void Overload decay (from Despair Barrage Q upgrade)
+            if (e.voidOverload) {
+                e.voidOverloadTimer -= dt;
+                if (e.voidOverloadTimer <= 0) { e.voidOverload = false; }
+            }
+
             // Taunt override (Shadow Monarch thrall tier 4)
             if (e.tauntTimer > 0) {
                 e.tauntTimer -= dt;
@@ -11247,7 +11344,7 @@ class DotsSurvivor {
                 orb.eyeDist = 0;
             }
 
-            if (orb.fireCooldown <= 0) {
+            if (orb.fireCooldown <= 0 && !orb.superOrb) {
                 const orbWorldX = orbScreenX;
                 const orbWorldY = orbScreenY;
 
@@ -11266,9 +11363,14 @@ class DotsSurvivor {
                     if (this.starterVoidWeaken && nearest.inShadowVoid) {
                         lanceDmg = Math.floor(lanceDmg * (1 + this.starterVoidWeaken.damageAmp));
                     }
+                    // Void Overload: amplify damage on marked enemies (from Despair Barrage)
+                    if (nearest.voidOverload) {
+                        lanceDmg = Math.floor(lanceDmg * (1 + (nearest.voidOverloadAmp || 0.25)));
+                    }
                     nearest.health -= lanceDmg;
                     nearest.hitFlash = 0.15;
                     this.addDamageNumber(targetSX, targetSY, Math.floor(lanceDmg), '#bb66ff');
+                    this.updateStackingItems('damage', lanceDmg);
                     nearest.orbMarked = true;
                     nearest.orbMarkTimer = 3;
 
@@ -11410,10 +11512,15 @@ class DotsSurvivor {
                 if (this.starterVoidWeaken && target.inShadowVoid) {
                     dmg = Math.floor(dmg * (1 + this.starterVoidWeaken.damageAmp));
                 }
+                // Void Overload: amplify damage on marked enemies (from Despair Barrage)
+                if (target.voidOverload) {
+                    dmg = Math.floor(dmg * (1 + (target.voidOverloadAmp || 0.25)));
+                }
 
                 target.health -= dmg;
                 target.hitFlash = 0.2;
                 this.addDamageNumber(tsx, tsy, Math.floor(dmg), '#aa44ff');
+                this.updateStackingItems('damage', dmg);
 
                 // Thrall Life Link: heal Monarch
                 if (this.starterThrallLifeLink) {
@@ -11935,6 +12042,7 @@ class DotsSurvivor {
             const sx = this.player.x + (e.wx - this.worldX);
             const sy = this.player.y + (e.wy - this.worldY);
             this.addDamageNumber(sx, sy, dmg, '#8B0000');
+            this.updateStackingItems('damage', dmg);
         }
 
         if (hitCount > 0) {
@@ -12420,47 +12528,19 @@ class DotsSurvivor {
         // ========== SHADOW MONARCH ABILITIES ==========
         else if (classId === 'shadow_monarch') {
             if (abilityKey === 'q') {
-                // Shadow Command: Teleport thrall to nearest enemy
-                if (this.shadowThrall && this.shadowThrall.alive) {
-                    let nearest = null, nd = Infinity;
-                    const thrallWX = this.worldX + (this.shadowThrall.x - this.player.x);
-                    const thrallWY = this.worldY + (this.shadowThrall.y - this.player.y);
-                    for (const e of this.enemies) {
-                        if (e.health <= 0) continue;
-                        const sx = this.player.x + (e.wx - this.worldX);
-                        const sy = this.player.y + (e.wy - this.worldY);
-                        const d = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
-                        if (d < nd) { nd = d; nearest = { x: sx, y: sy, wx: e.wx, wy: e.wy }; }
+                // Despair Barrage: Orbs become super orbs firing beams of despair
+                if (this.umbralOrbs && this.umbralOrbs.length > 0) {
+                    this.despairBarrageActive = true;
+                    this.despairBarrageTimer = this.despairBarrageDuration || 4;
+                    this.despairBarrageBeams = [];
+                    // Mark orbs as super orbs (visual indicator)
+                    for (const orb of this.umbralOrbs) {
+                        orb.superOrb = true;
+                        orb.superOrbPulse = 0;
                     }
-
-                    if (nearest) {
-                        // Teleport thrall
-                        this.shadowThrall.x = nearest.x;
-                        this.shadowThrall.y = nearest.y;
-                        const teleWX = nearest.wx;
-                        const teleWY = nearest.wy;
-
-                        // AoE stun + damage on arrival
-                        const stunDmg = this.shadowThrall.damage * 1.5;
-                        const stunNearby = this.enemyGrid ? this.enemyGrid.getNearby(teleWX, teleWY, 80) : this.enemies;
-                        for (const e of stunNearby) {
-                            const dx = e.wx - teleWX;
-                            const dy = e.wy - teleWY;
-                            if (dx * dx + dy * dy < 80 * 80) {
-                                e.health -= stunDmg;
-                                e.hitFlash = 0.3;
-                                e.frozen = true;
-                                e.frozenTimer = 0.5;
-                                const esx = this.player.x + (e.wx - this.worldX);
-                                const esy = this.player.y + (e.wy - this.worldY);
-                                this.addDamageNumber(esx, esy, Math.floor(stunDmg), '#bb66ff');
-                            }
-                        }
-                        this.spawnParticles(nearest.x, nearest.y, '#7700cc', 10);
-                        this.playSound('shoot');
-                        this.triggerScreenShake(4, 0.1);
-                    }
-
+                    this.spawnParticles(this.player.x, this.player.y, '#cc00ff', 15);
+                    this.playSound('shoot');
+                    this.triggerScreenShake(5, 0.15);
                     ability.ready = false;
                     ability.cooldown = ability.maxCooldown;
                 }
@@ -17002,9 +17082,22 @@ class DotsSurvivor {
                 ctx.save();
                 ctx.translate(ox, oy);
 
+                // Super orb glow during Despair Barrage
+                if (orb.superOrb) {
+                    const pulse = 0.6 + Math.sin((orb.superOrbPulse || 0) * 8) * 0.4;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, orb.size * 2.5, 0, Math.PI * 2);
+                    const superGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, orb.size * 2.5);
+                    superGlow.addColorStop(0, `rgba(204, 0, 255, ${0.5 * pulse})`);
+                    superGlow.addColorStop(0.5, `rgba(153, 0, 204, ${0.3 * pulse})`);
+                    superGlow.addColorStop(1, 'rgba(85, 0, 170, 0)');
+                    ctx.fillStyle = superGlow;
+                    ctx.fill();
+                }
+
                 // Purple glow behind orb
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = '#7700cc';
+                ctx.shadowBlur = orb.superOrb ? 35 : 20;
+                ctx.shadowColor = orb.superOrb ? '#cc00ff' : '#7700cc';
 
                 if (orbSprite) {
                     const spriteSize = orb.size * 3.5;
@@ -17091,6 +17184,35 @@ class DotsSurvivor {
                 ctx.beginPath();
                 ctx.arc(lance.ex, lance.ey, 6 * alpha, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(187, 102, 255, ${alpha})`;
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // Despair Barrage Beams (Shadow Monarch Q)
+        if (this.despairBarrageActive && this.despairBarrageBeams && this.despairBarrageBeams.length > 0) {
+            ctx.save();
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            for (const beam of this.despairBarrageBeams) {
+                const alpha = Math.min(1, beam.timer / 0.1);
+                const gradient = ctx.createLinearGradient(beam.sx, beam.sy, beam.ex, beam.ey);
+                gradient.addColorStop(0, `rgba(204, 0, 255, ${alpha})`);
+                gradient.addColorStop(0.5, `rgba(153, 0, 204, ${alpha * 0.9})`);
+                gradient.addColorStop(1, `rgba(85, 0, 170, ${alpha * 0.7})`);
+                ctx.beginPath();
+                ctx.moveTo(beam.sx, beam.sy);
+                ctx.lineTo(beam.ex, beam.ey);
+                ctx.strokeStyle = gradient;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#cc00ff';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Impact circle at hit point
+                ctx.beginPath();
+                ctx.arc(beam.ex, beam.ey, 8 * alpha, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(220, 100, 255, ${alpha * 0.8})`;
                 ctx.fill();
             }
             ctx.restore();
@@ -19161,8 +19283,11 @@ class DotsSurvivor {
             qAbility = { name: 'Bone Pit', icon: '🦴', key: 'Q', color: '#888866' };
             eAbility = { name: 'Soul Shield', icon: '🛡️', key: 'E', color: '#00cc66' };
         } else if (classId === 'shadow_monarch') {
-            qAbility = { name: 'Shadow Command', icon: '👤', key: 'Q', color: '#7700cc' };
+            qAbility = { name: 'Despair Barrage', icon: '🔮', key: 'Q', color: '#7700cc' };
             eAbility = { name: "Monarch's Decree", icon: '👑', key: 'E', color: '#1a0033' };
+        } else if (classId === 'void_blade') {
+            qAbility = { name: 'Voidstep Dash', icon: '⚔️', key: 'Q', color: '#8B0000' };
+            eAbility = { name: 'Crimson Catastrophe', icon: '🗡️', key: 'E', color: '#ff0000' };
         } else {
             return; // No character abilities for this class
         }
