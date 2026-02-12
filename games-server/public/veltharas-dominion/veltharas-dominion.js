@@ -1573,7 +1573,7 @@ const SHADOW_MONARCH_CLASS = {
     passive: {
         name: 'Shadow Void',
         icon: '🌑',
-        desc: 'Emits a dark void aura (120px). Enemies inside take shadow tick damage (15 + 10% ATK DPS, scaling with wave). Thrall inherits 40% damage, 50% HP, 100% speed bonuses.',
+        desc: 'Dark void aura (120px) deals shadow tick damage. Every 30 kills spawns a new Umbral Orb (max 5). Thrall inherits 40% damage, 50% HP, 100% speed bonuses.',
         effect: (g) => {
             g.shadowVoid = {
                 radius: 120,
@@ -4949,6 +4949,8 @@ class DotsSurvivor {
             this.lancePierce = 0;
             this.doubleBeam = false;
             this.shadowLances = [];
+            this.monarchOrbKillTracker = 0; // Tracks kills toward next orb spawn
+            this.monarchOrbMaxFromKills = 5; // Max orbs from passive
             for (let i = 0; i < this.umbralOrbCount; i++) {
                 this.umbralOrbs.push(this.createUmbralOrb());
             }
@@ -7409,6 +7411,33 @@ class DotsSurvivor {
         };
     }
 
+    // Passive: every 30 kills spawns a new Umbral Orb (max 5 from passive)
+    updateMonarchOrbPassive() {
+        if (!this.umbralOrbs || this.selectedClass?.id !== 'shadow_monarch') return;
+
+        const kills = this.player.kills || 0;
+        const threshold = 30;
+        const maxFromPassive = this.monarchOrbMaxFromKills || 5;
+
+        // Calculate how many orbs should have been spawned from kills
+        const orbsEarned = Math.min(Math.floor(kills / threshold), maxFromPassive);
+        const orbsAlreadySpawned = (this.monarchOrbKillTracker || 0);
+
+        if (orbsEarned > orbsAlreadySpawned) {
+            // Spawn the new orb
+            this.monarchOrbKillTracker = orbsEarned;
+            this.umbralOrbCount = (this.umbralOrbCount || 1) + 1;
+            this.umbralOrbs.push(this.createUmbralOrb());
+
+            this.damageNumbers.push({
+                x: this.player.x, y: this.player.y - 50,
+                value: `🔮 NEW UMBRAL ORB! (${this.umbralOrbs.length})`,
+                lifetime: 2, color: '#7b2fff', scale: 1.4
+            });
+            this.playSound('levelup');
+        }
+    }
+
     getThrallTier() {
         const lvl = this.player?.level || 1;
         if (lvl >= 15) return { name: 'Abyssal Monarch', tier: 4, radius: 28, speed: 260, baseDamage: 400, baseHP: 8000, color: '#1a0033', icon: '👑', hasAura: true, hasTaunt: true, aoeRadius: 50 };
@@ -7951,6 +7980,7 @@ class DotsSurvivor {
         this.updateBonePits(effectiveDt);        // Necromancer bone pits
         this.updateSoulShield(effectiveDt);      // Necromancer soul shield
         this.updateUmbralOrbs(effectiveDt);       // Shadow Monarch orbs
+        this.updateMonarchOrbPassive();            // Shadow Monarch kill → orb spawn
         this.updateShadowThrall(effectiveDt);     // Shadow Monarch thrall
         this.updateDominionBond(effectiveDt);     // Shadow Monarch stacks
         this.updateShadowLances(effectiveDt);     // Shadow Monarch laser cleanup
