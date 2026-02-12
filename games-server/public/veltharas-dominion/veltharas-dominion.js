@@ -2880,8 +2880,8 @@ const GAME_SETTINGS = {
     enemySpeedMult: 1.5,         // Faster enemies - can't stand still and win
     // spawnRateMult is now dynamic - see getSpawnRateMultByWave()
     scalingPerWaveEarly: 0.05,   // +5% per wave for waves 1-9
-    scalingPerWaveMid: 0.16,     // +16% per wave for waves 10-15
-    scalingPerWaveLate: 0.24,    // +24% per wave for waves 16+
+    scalingPerWaveMid: 0.20,     // +20% per wave for waves 10-15
+    scalingPerWaveLate: 0.30,    // +30% per wave for waves 16+
     playerHealthMult: 1.0,
     xpMult: 1.2,                 // More XP for faster leveling
     playerSpeedMult: 1.15        // Faster player movement
@@ -2892,8 +2892,8 @@ const GAME_SETTINGS = {
 const DIFFICULTY_TIERS = {
     EASY: { name: 'Easy', icon: '🌱', color: '#44ff44', healthMult: 0.60, damageMult: 0.55, maxWave: 5 },
     NORMAL: { name: 'Normal', icon: '⚔️', color: '#ffaa00', healthMult: 0.90, damageMult: 0.90, maxWave: 10 },
-    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.25, damageMult: 1.20, maxWave: 15 },
-    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 1.85, damageMult: 1.80, maxWave: 20 }
+    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.60, damageMult: 1.45, maxWave: 15 },
+    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 2.50, damageMult: 2.20, maxWave: 20 }
 };
 
 // Get difficulty tier based on wave number
@@ -2910,21 +2910,21 @@ function getSpawnRateMultByWave(wave) {
     if (wave <= 1) return 0.60;   // Wave 1: fast from the start (~3.3/s)
     if (wave <= 3) return 0.50;   // Waves 2-3: pressure early (~4/s)
     if (wave <= 6) return 0.40;   // Waves 4-6: intense (~5/s)
-    if (wave <= 9) return 0.32;   // Waves 7-9: swarming
-    if (wave <= 12) return 0.26;  // Waves 10-12: overwhelming
-    if (wave <= 15) return 0.22;  // Waves 13-15: chaotic
-    return 0.18;                  // Waves 16+: max pressure
+    if (wave <= 9) return 0.30;   // Waves 7-9: swarming
+    if (wave <= 12) return 0.22;  // Waves 10-12: overwhelming
+    if (wave <= 15) return 0.16;  // Waves 13-15: chaotic hordes
+    return 0.12;                  // Waves 16+: max pressure
 }
 
 // Get max alive enemy cap by wave
 function getMaxAliveByWave(wave) {
     if (wave <= 3) return 60;
     if (wave <= 6) return 100;
-    if (wave <= 9) return 160;
-    if (wave <= 12) return 250;
-    if (wave <= 15) return 350;
-    if (wave <= 20) return 450;
-    return 500;
+    if (wave <= 9) return 180;
+    if (wave <= 12) return 300;
+    if (wave <= 15) return 420;
+    if (wave <= 20) return 550;
+    return 650;
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
@@ -5248,7 +5248,7 @@ class DotsSurvivor {
             health: baseHP,
             maxHealth: baseHP,
             baseHealth: baseHP,
-            damage: Math.floor(300 * scaleMult),
+            damage: Math.floor(450 * scaleMult),
             xp: Math.floor(3000 * scaleMult),
             color: '#8800ff',
             hitFlash: 0,
@@ -5675,6 +5675,7 @@ class DotsSurvivor {
 
         // Count the kill
         this.player.kills++;
+        this.stopBossMusic();
     }
 
     // =============================================
@@ -5710,7 +5711,7 @@ class DotsSurvivor {
             speed: 40, // Slow menacing crawl toward player
             health: baseHP,
             maxHealth: baseHP,
-            damage: Math.floor(100 * scaleMult),
+            damage: Math.floor(180 * scaleMult),
             xp: Math.floor(2500 * scaleMult),
             color: '#00cc44',
             hitFlash: 0,
@@ -5822,12 +5823,12 @@ class DotsSurvivor {
             pw.toxicZoneTimer = 0;
             // Spawn zone near player
             const zAngle = Math.random() * Math.PI * 2;
-            const zDist = 80 + Math.random() * 200;
+            const zDist = 80 + Math.random() * 320;
             pw.toxicZones.push({
                 wx: this.worldX + Math.cos(zAngle) * zDist,
                 wy: this.worldY + Math.sin(zAngle) * zDist,
                 radius: 40,
-                maxRadius: 80 + Math.random() * 30,
+                maxRadius: 100 + Math.random() * 40,
                 growRate: 8,
                 damage: pw.phase === 3 ? pw.damage * 2.0 : pw.damage * 1.0,
                 lifetime: 0,
@@ -5877,7 +5878,7 @@ class DotsSurvivor {
             pw.tentacles.push({
                 angle: Math.random() * Math.PI * 2,
                 sweepSpeed: (1.5 + pw.phase * 0.5) * (Math.random() > 0.5 ? 1 : -1),
-                length: 250 + pw.phase * 30,
+                length: 350 + pw.phase * 40,
                 width: 12 + pw.phase * 3,
                 active: true,
                 warningTimer: 0,
@@ -6080,6 +6081,7 @@ class DotsSurvivor {
         }
         this.spawnPauseTimer = 5;
         this.player.kills++;
+        this.stopBossMusic();
     }
 
     // =============================================
@@ -6115,7 +6117,7 @@ class DotsSurvivor {
             speed: 0, // Teleports instead
             health: baseHP,
             maxHealth: baseHP,
-            damage: Math.floor(150 * scaleMult),
+            damage: Math.floor(250 * scaleMult),
             xp: Math.floor(4000 * scaleMult),
             color: '#6644ff',
             hitFlash: 0,
@@ -6627,6 +6629,7 @@ class DotsSurvivor {
         }
         this.spawnPauseTimer = 5;
         this.player.kills++;
+        this.stopBossMusic();
     }
 
     // ============================================
@@ -6651,7 +6654,7 @@ class DotsSurvivor {
             wx: this.worldX + Math.cos(angle) * dist,
             wy: this.worldY + Math.sin(angle) * dist,
             health: Math.floor(300000 * scaleMult), maxHealth: Math.floor(300000 * scaleMult),
-            damage: Math.floor(120 * scaleMult), speed: 50,
+            damage: Math.floor(200 * scaleMult), speed: 50,
             radius: 70, id: ++this.enemyIdCounter,
             hitFlash: 0, attackCooldown: 0, color: '#aa4400',
             maxLifeTime: 90, lifeTimer: 0,
@@ -7114,7 +7117,7 @@ class DotsSurvivor {
             type: 'leviathan', isBoss: true, isLeviathan: true,
             wx: startX, wy: startY,
             health: Math.floor(400000 * scaleMult), maxHealth: Math.floor(400000 * scaleMult),
-            damage: Math.floor(150 * scaleMult), speed: 80,
+            damage: Math.floor(250 * scaleMult), speed: 80,
             radius: 35, id: ++this.enemyIdCounter,
             hitFlash: 0, attackCooldown: 0, color: '#226688',
             maxLifeTime: 100, lifeTimer: 0,
@@ -9904,6 +9907,7 @@ class DotsSurvivor {
         }
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i];
+            if (!e) { this.enemies.splice(i, 1); continue; }
 
             // Calculate screen position (needed for death effects too)
             const sx = this.player.x + (e.wx - this.worldX);
@@ -16170,28 +16174,24 @@ class DotsSurvivor {
                         ctx.beginPath();
                         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                         ctx.fillStyle = p.color;
-                        ctx.globalAlpha = p.alpha * 0.7;
+                        ctx.globalAlpha = p.alpha * 0.35;
                         ctx.fill();
                     }
                     ctx.globalAlpha = 1;
                 }
 
-                // Draw spiraling void rings (rotating effect)
+                // Draw subtle void ring (single, not pulsing)
                 const spiralAngle = e.spiralAngle || 0;
-                for (let ring = 0; ring < 4; ring++) {
-                    const ringRadius = coreRadius * (1.3 + ring * 0.25);
-                    const ringAlpha = 0.3 - ring * 0.06;
-                    ctx.save();
-                    ctx.rotate(spiralAngle * (ring % 2 === 0 ? 1 : -1) * (0.5 + ring * 0.2));
-                    ctx.beginPath();
-                    ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(136, 0, 255, ${ringAlpha})`;
-                    ctx.lineWidth = 3 - ring * 0.5;
-                    ctx.setLineDash([15 + ring * 5, 10 + ring * 3]);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                    ctx.restore();
-                }
+                ctx.save();
+                ctx.rotate(spiralAngle * 0.3);
+                ctx.beginPath();
+                ctx.arc(0, 0, coreRadius * 1.2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(136, 0, 255, 0.12)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([12, 10]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
 
                 // Draw the void sprite (rotating slowly)
                 const consumerSprite = SPRITE_CACHE['consumer'];
