@@ -1573,7 +1573,7 @@ const SHADOW_MONARCH_CLASS = {
     passive: {
         name: 'Shadow Void',
         icon: '🌑',
-        desc: 'Dark void aura (120px) deals shadow tick damage. Every 30 kills spawns a new Umbral Orb (max 5). Thrall inherits 40% damage, 50% HP, 100% speed bonuses.',
+        desc: 'Dark void aura (120px) deals shadow tick damage. Every 150 kills spawns a new Umbral Orb (max 5). Thrall inherits 40% damage, 50% HP, 100% speed bonuses.',
         effect: (g) => {
             g.shadowVoid = {
                 radius: 120,
@@ -7416,7 +7416,7 @@ class DotsSurvivor {
         if (!this.umbralOrbs || this.selectedClass?.id !== 'shadow_monarch') return;
 
         const kills = this.player.kills || 0;
-        const threshold = 30;
+        const threshold = 150;
         const maxFromPassive = this.monarchOrbMaxFromKills || 5;
 
         // Calculate how many orbs should have been spawned from kills
