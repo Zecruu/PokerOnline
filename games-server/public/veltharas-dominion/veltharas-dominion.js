@@ -1596,7 +1596,7 @@ const SHADOW_MONARCH_CLASS = {
         { id: 'sm_thrall_vigor', name: 'Runed Sigil: Thrall Vigor', icon: '💜', desc: '+40% Thrall HP, +15% attack speed', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.thrallHPBonus = (g.thrallHPBonus || 1) * 1.40; g.thrallAttackSpeedBonus = (g.thrallAttackSpeedBonus || 1) * 1.15; if (g.shadowThrall) g.recalcThrallStats(); }, getDesc: (g) => `Thrall HP +40%, AtkSpd +15%` },
         { id: 'sm_dominion_bond_sigil', name: 'Runed Sigil: Dominion Surge', icon: '🔗', desc: 'Dominion stacks grant +3% orb damage each (was +2%)', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.dominionOrbBonus = 0.03; }, getDesc: (g) => `Dominion: +3%/stack orb dmg` },
         // Tier 3 (Empowered)
-        { id: 'sm_dual_orbs', name: 'Empowered Sigil: Dual Orbs', icon: '🔮', desc: '+1 Umbral Orb', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'umbralOrbs', effect: (g) => { g.umbralOrbCount = (g.umbralOrbCount || 1) + 1; g.umbralOrbs.push(g.createUmbralOrb()); }, getDesc: (g) => `Orbs: ${g.umbralOrbs?.length || 1} → ${(g.umbralOrbs?.length || 1) + 1}` },
+        { id: 'sm_focused_malice', name: 'Empowered Sigil: Focused Malice', icon: '🔮', desc: '+40% Orb damage, +25% lance fire rate', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'umbralOrbs', effect: (g) => { g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.40; if (g.umbralOrbs) g.umbralOrbs.forEach(o => o.fireRate = (o.fireRate || 0.8) * 0.75); }, getDesc: (g) => `Orb Dmg +40%, Fire Rate +25%` },
         { id: 'sm_thrall_ascend', name: 'Empowered Sigil: Dark Ascendancy', icon: '👑', desc: 'Thrall gains +30% AoE radius, shadow explosions on kill', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'shadowThrall', effect: (g) => { g.thrallAoEBonus = (g.thrallAoEBonus || 1) * 1.30; g.thrallExplosionsOnKill = true; }, getDesc: (g) => `Thrall AoE +30%, kills explode` },
         { id: 'sm_abyssal_void', name: 'Empowered Sigil: Abyssal Void', icon: '🌀', desc: 'Shadow Void slows enemies by 30% and deals +50% DPS', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'dominionBond', effect: (g) => { if (g.shadowVoid) { g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.5); } g.shadowVoidSlow = 0.30; g.boundSigils.push('abyssal_void'); }, getDesc: (g) => g.boundSigils?.includes('abyssal_void') ? 'Active ✓' : '30% slow, +50% void DPS' },
         // Tier 4 (Ascendant)
@@ -3372,19 +3372,19 @@ class DotsSurvivor {
         // Background music - Menu
         this.menuMusic = new Audio(getSpritePath('menu-music.mp3'));
         this.menuMusic.loop = true;
-        this.menuMusic.volume = 0.3;
+        this.menuMusic.volume = 0.18;
         this.musicPlaying = false;
 
         // Background music - In-game
         this.gameMusic = new Audio(getSpritePath('game-music.mp3'));
         this.gameMusic.loop = true;
-        this.gameMusic.volume = 0.35;
+        this.gameMusic.volume = 0.18;
         this.gameMusicPlaying = false;
 
         // Background music - Boss
         this.bossMusic = new Audio(getSpritePath('boss-music.mp3'));
         this.bossMusic.loop = true;
-        this.bossMusic.volume = 0.4;
+        this.bossMusic.volume = 0.22;
         this.bossMusicPlaying = false;
 
         // Beam of Despair sound effect
@@ -3418,7 +3418,7 @@ class DotsSurvivor {
         if (!this.settings.soundEnabled || this.musicPlaying) return;
 
         const volumeMult = this.settings.volume / 100;
-        this.menuMusic.volume = 0.3 * volumeMult;
+        this.menuMusic.volume = 0.18 * volumeMult;
 
         // Resume audio context if suspended (browser autoplay policy)
         if (this.audioCtx && this.audioCtx.state === 'suspended') {
@@ -3442,7 +3442,7 @@ class DotsSurvivor {
         if (!this.settings.soundEnabled || this.gameMusicPlaying) return;
 
         const volumeMult = this.settings.volume / 100;
-        this.gameMusic.volume = 0.35 * volumeMult;
+        this.gameMusic.volume = 0.18 * volumeMult;
 
         this.gameMusic.play().then(() => {
             this.gameMusicPlaying = true;
@@ -3467,7 +3467,7 @@ class DotsSurvivor {
         if (!this.settings.soundEnabled || !this.gameMusicPlaying) return;
 
         const volumeMult = this.settings.volume / 100;
-        this.gameMusic.volume = 0.35 * volumeMult;
+        this.gameMusic.volume = 0.18 * volumeMult;
 
         this.gameMusic.play().catch(e => {});
     }
@@ -3479,7 +3479,7 @@ class DotsSurvivor {
         this.pauseGameMusic();
 
         const volumeMult = this.settings.volume / 100;
-        this.bossMusic.volume = 0.4 * volumeMult;
+        this.bossMusic.volume = 0.22 * volumeMult;
 
         this.bossMusic.play().then(() => {
             this.bossMusicPlaying = true;
@@ -3519,13 +3519,13 @@ class DotsSurvivor {
     updateMusicVolume() {
         const volumeMult = this.settings.volume / 100;
         if (this.menuMusic) {
-            this.menuMusic.volume = 0.3 * volumeMult;
+            this.menuMusic.volume = 0.18 * volumeMult;
         }
         if (this.gameMusic) {
-            this.gameMusic.volume = 0.35 * volumeMult;
+            this.gameMusic.volume = 0.18 * volumeMult;
         }
         if (this.bossMusic) {
-            this.bossMusic.volume = 0.4 * volumeMult;
+            this.bossMusic.volume = 0.22 * volumeMult;
         }
         if (this.beamSound) {
             this.beamSound.volume = 0.25 * volumeMult;
@@ -14833,7 +14833,7 @@ class DotsSurvivor {
 
             // Inner warning ring
             ctx.beginPath();
-            ctx.arc(sx, sy, radius - 10, 0, Math.PI * 2);
+            ctx.arc(sx, sy, Math.max(0, radius - 10), 0, Math.PI * 2);
             ctx.strokeStyle = 'rgba(200, 100, 255, 0.5)';
             ctx.lineWidth = 2;
             ctx.setLineDash([15, 10]);
@@ -16091,10 +16091,10 @@ class DotsSurvivor {
                     ctx.save();
                     ctx.rotate(e.rotationAngle * 0.3); // Slow rotation
                     ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-                    // Hit flash effect using composite operation
+                    // Hit flash effect (subtle tint, not blinding)
                     if (e.hitFlash > 0) {
                         ctx.globalCompositeOperation = 'lighter';
-                        ctx.globalAlpha = 0.6;
+                        ctx.globalAlpha = 0.15;
                         ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
                         ctx.globalCompositeOperation = 'source-over';
                         ctx.globalAlpha = 1;
@@ -16168,18 +16168,20 @@ class DotsSurvivor {
                 // Shockwave expanding ring visual
                 if (e.shockwaveVisual) {
                     const sw = e.shockwaveVisual;
-                    const swAlpha = Math.max(0, sw.timer / 0.6) * 0.5;
+                    const swAlpha = Math.max(0, sw.timer / 0.6) * 0.25;
                     ctx.save();
                     ctx.beginPath();
-                    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                    ctx.arc(sw.x, sw.y, Math.max(0, sw.radius), 0, Math.PI * 2);
                     ctx.strokeStyle = `rgba(136, 0, 255, ${swAlpha})`;
-                    ctx.lineWidth = 4;
+                    ctx.lineWidth = 3;
                     ctx.stroke();
-                    ctx.beginPath();
-                    ctx.arc(sw.x, sw.y, sw.radius - 5, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(255, 0, 200, ${swAlpha * 0.6})`;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
+                    if (sw.radius > 5) {
+                        ctx.beginPath();
+                        ctx.arc(sw.x, sw.y, sw.radius - 5, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(255, 0, 200, ${swAlpha * 0.5})`;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
                     ctx.restore();
                 }
 
