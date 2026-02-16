@@ -5,7 +5,9 @@ import { generateToken, generateRememberToken, hashPassword } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, rememberMe } = await request.json();
+    const body = await request.json();
+    const email = body.email || body.login; // Support both field names
+    const { password, rememberMe } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -77,6 +79,8 @@ export async function POST(request: NextRequest) {
         id: user._id,
         username: user.username,
         email: user.email,
+        isAdmin: user.isAdmin || false,
+        isTester: user.isTester || false,
         library: user.library,
         wishlist: user.wishlist,
         favorites: user.favorites,

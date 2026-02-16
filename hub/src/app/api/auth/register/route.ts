@@ -68,6 +68,9 @@ export async function POST(request: NextRequest) {
         id: user._id,
         username: user.username,
         email: user.email,
+        isAdmin: user.isAdmin || false,
+        isTester: user.isTester || false,
+        library: user.library || [],
       }
     });
   } catch (error: any) {

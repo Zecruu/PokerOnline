@@ -4508,62 +4508,69 @@ class DotsSurvivor {
     }
 
     setupTouch() {
+        this.joystick.touchId = null;
+
         this.canvas.addEventListener('touchstart', (e) => {
             if (!this.gameRunning || this.gamePaused) return;
             e.preventDefault();
-            const t = e.touches[0];
+
+            // Use changedTouches to get the NEW touch (not the first active touch)
+            const t = e.changedTouches[0];
             const rect = this.canvas.getBoundingClientRect();
             const touchX = t.clientX - rect.left;
             const touchY = t.clientY - rect.top;
 
             // Check if tap is on character abilities (bottom left)
+            // Use larger hit areas on mobile for easier tapping
             const compact = this.canvas.width < 768;
-            const abilitySize = compact ? 40 : 50;
+            const abilitySize = compact ? 48 : 50;
+            const hitPad = compact ? 8 : 4; // Extra hit area padding
             const padding = compact ? 6 : 10;
             const margin = 15;
             const charAbilityY = this.canvas.height - margin - abilitySize;
 
             // Q ability area (first slot, bottom left)
             const qX = margin;
-            if (touchX >= qX && touchX <= qX + abilitySize &&
-                touchY >= charAbilityY && touchY <= charAbilityY + abilitySize) {
+            if (touchX >= qX - hitPad && touchX <= qX + abilitySize + hitPad &&
+                touchY >= charAbilityY - hitPad && touchY <= charAbilityY + abilitySize + hitPad) {
                 this.activateCharacterAbility('q');
                 return;
             }
 
             // E ability area (second slot)
             const eX = margin + abilitySize + padding;
-            if (touchX >= eX && touchX <= eX + abilitySize &&
-                touchY >= charAbilityY && touchY <= charAbilityY + abilitySize) {
+            if (touchX >= eX - hitPad && touchX <= eX + abilitySize + hitPad &&
+                touchY >= charAbilityY - hitPad && touchY <= charAbilityY + abilitySize + hitPad) {
                 this.activateCharacterAbility('e');
                 return;
             }
 
             // Check if tap is on item abilities (bottom right)
-            const itemAbilitySize = compact ? 45 : 55;
+            const itemAbilitySize = compact ? 48 : 55;
             const itemPadding = compact ? 8 : 12;
             const itemMargin = compact ? 10 : 15;
             const itemAbilityY = this.canvas.height - itemMargin - itemAbilitySize;
 
             // Nuclear Blast (rightmost)
             const nuclearX = this.canvas.width - itemMargin - itemAbilitySize;
-            if (touchX >= nuclearX && touchX <= nuclearX + itemAbilitySize &&
-                touchY >= itemAbilityY && touchY <= itemAbilityY + itemAbilitySize) {
+            if (touchX >= nuclearX - hitPad && touchX <= nuclearX + itemAbilitySize + hitPad &&
+                touchY >= itemAbilityY - hitPad && touchY <= itemAbilityY + itemAbilitySize + hitPad) {
                 this.activateAbility('nuclearBlast');
                 return;
             }
 
             // Dash (second from right)
             const dashX = nuclearX - itemPadding - itemAbilitySize;
-            if (touchX >= dashX && touchX <= dashX + itemAbilitySize &&
-                touchY >= itemAbilityY && touchY <= itemAbilityY + itemAbilitySize) {
+            if (touchX >= dashX - hitPad && touchX <= dashX + itemAbilitySize + hitPad &&
+                touchY >= itemAbilityY - hitPad && touchY <= itemAbilityY + itemAbilitySize + hitPad) {
                 this.activateAbility('dash');
                 return;
             }
 
-            // Otherwise, start joystick if in bottom half
-            if (t.clientY > window.innerHeight / 2) {
+            // Otherwise, start joystick if in bottom half and no joystick active
+            if (t.clientY > window.innerHeight / 2 && !this.joystick.active) {
                 this.joystick.active = true;
+                this.joystick.touchId = t.identifier;
                 this.joystick.startX = t.clientX;
                 this.joystick.startY = t.clientY;
             }
@@ -4572,21 +4579,34 @@ class DotsSurvivor {
         this.canvas.addEventListener('touchmove', (e) => {
             if (!this.joystick.active) return;
             e.preventDefault();
-            const t = e.touches[0];
-            const dx = t.clientX - this.joystick.startX;
-            const dy = t.clientY - this.joystick.startY;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            if (d > 0) {
-                const c = Math.min(d, 60);
-                this.joystick.dx = (dx / d) * (c / 60);
-                this.joystick.dy = (dy / d) * (c / 60);
+            // Find the joystick touch by its identifier
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === this.joystick.touchId) {
+                    const t = e.touches[i];
+                    const dx = t.clientX - this.joystick.startX;
+                    const dy = t.clientY - this.joystick.startY;
+                    const d = Math.sqrt(dx * dx + dy * dy);
+                    if (d > 0) {
+                        const c = Math.min(d, 60);
+                        this.joystick.dx = (dx / d) * (c / 60);
+                        this.joystick.dy = (dy / d) * (c / 60);
+                    }
+                    break;
+                }
             }
         }, { passive: false });
 
-        this.canvas.addEventListener('touchend', () => {
-            this.joystick.active = false;
-            this.joystick.dx = 0;
-            this.joystick.dy = 0;
+        this.canvas.addEventListener('touchend', (e) => {
+            // Only stop joystick if the joystick finger was lifted
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === this.joystick.touchId) {
+                    this.joystick.active = false;
+                    this.joystick.touchId = null;
+                    this.joystick.dx = 0;
+                    this.joystick.dy = 0;
+                    break;
+                }
+            }
         });
     }
 
