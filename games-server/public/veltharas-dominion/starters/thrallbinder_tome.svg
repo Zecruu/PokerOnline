@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#1a0033"/>
+      <stop offset="100%" stop-color="#050008"/>
+    </radialGradient>
+    <linearGradient id="coverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6600aa"/>
+      <stop offset="40%" stop-color="#440066"/>
+      <stop offset="100%" stop-color="#2a0044"/>
+    </linearGradient>
+    <linearGradient id="spineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2a0044"/>
+      <stop offset="50%" stop-color="#440066"/>
+      <stop offset="100%" stop-color="#330055"/>
+    </linearGradient>
+    <linearGradient id="pageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a002a"/>
+      <stop offset="100%" stop-color="#0d0015"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feFlood flood-color="#7700cc" flood-opacity="0.5" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="chainGlow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feFlood flood-color="#6600aa" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" fill="url(#bg)" rx="4"/>
+  <!-- Shadow chains emanating from tome -->
+  <!-- Chain left-up -->
+  <path d="M18 32 Q10 24 8 16" stroke="#6600aa" stroke-width="1.5" fill="none" opacity="0.5" filter="url(#chainGlow)"/>
+  <ellipse cx="12" cy="22" rx="3" ry="2" fill="none" stroke="#7700cc" stroke-width="1" opacity="0.5" transform="rotate(-30 12 22)"/>
+  <ellipse cx="8" cy="16" rx="2.5" ry="1.5" fill="none" stroke="#6600aa" stroke-width="0.8" opacity="0.4" transform="rotate(-40 8 16)"/>
+  <!-- Chain right-up -->
+  <path d="M62 32 Q70 24 72 16" stroke="#6600aa" stroke-width="1.5" fill="none" opacity="0.5" filter="url(#chainGlow)"/>
+  <ellipse cx="68" cy="22" rx="3" ry="2" fill="none" stroke="#7700cc" stroke-width="1" opacity="0.5" transform="rotate(30 68 22)"/>
+  <ellipse cx="72" cy="16" rx="2.5" ry="1.5" fill="none" stroke="#6600aa" stroke-width="0.8" opacity="0.4" transform="rotate(40 72 16)"/>
+  <!-- Chain down-left -->
+  <path d="M22 58 Q14 64 10 70" stroke="#440066" stroke-width="1.2" fill="none" opacity="0.4" filter="url(#chainGlow)"/>
+  <ellipse cx="14" cy="64" rx="2.5" ry="1.5" fill="none" stroke="#6600aa" stroke-width="0.8" opacity="0.4" transform="rotate(40 14 64)"/>
+  <!-- Chain down-right -->
+  <path d="M58 58 Q66 64 70 70" stroke="#440066" stroke-width="1.2" fill="none" opacity="0.4" filter="url(#chainGlow)"/>
+  <ellipse cx="66" cy="64" rx="2.5" ry="1.5" fill="none" stroke="#6600aa" stroke-width="0.8" opacity="0.4" transform="rotate(-40 66 64)"/>
+  <!-- Book shadow -->
+  <ellipse cx="40" cy="62" rx="22" ry="4" fill="#1a002a" opacity="0.5"/>
+  <!-- Tome spine -->
+  <rect x="18" y="18" width="6" height="44" rx="1" fill="url(#spineGrad)" stroke="#6600aa" stroke-width="0.5"/>
+  <!-- Spine ridges -->
+  <line x1="19" y1="24" x2="23" y2="24" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="19" y1="30" x2="23" y2="30" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="19" y1="36" x2="23" y2="36" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="19" y1="48" x2="23" y2="48" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="19" y1="54" x2="23" y2="54" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <!-- Page edges visible -->
+  <rect x="23" y="20" width="1.5" height="40" fill="url(#pageGrad)" opacity="0.6"/>
+  <!-- Main book cover -->
+  <rect x="24" y="16" width="38" height="48" rx="2" fill="url(#coverGrad)" stroke="#7700cc" stroke-width="1" filter="url(#glow)"/>
+  <!-- Cover border decoration -->
+  <rect x="28" y="20" width="30" height="40" rx="1" fill="none" stroke="#6600aa" stroke-width="0.8" opacity="0.6"/>
+  <!-- Inner border -->
+  <rect x="31" y="23" width="24" height="34" rx="1" fill="none" stroke="#440066" stroke-width="0.5" opacity="0.4"/>
+  <!-- Central emblem - pentagonal binding symbol -->
+  <circle cx="43" cy="40" r="8" fill="#2a0044" stroke="#7700cc" stroke-width="1" opacity="0.8" filter="url(#glow)"/>
+  <polygon points="43,33 48,37 46,43 40,43 38,37" fill="none" stroke="#9933ff" stroke-width="1" filter="url(#glow)"/>
+  <!-- Inner star lines -->
+  <line x1="43" y1="33" x2="46" y2="43" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="43" y1="33" x2="40" y2="43" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="48" y1="37" x2="40" y2="43" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="38" y1="37" x2="46" y2="43" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <line x1="38" y1="37" x2="48" y2="37" stroke="#7700cc" stroke-width="0.6" opacity="0.5"/>
+  <!-- Emblem center gem -->
+  <circle cx="43" cy="39" r="2" fill="#9933ff" filter="url(#glow)"/>
+  <circle cx="43" cy="39" r="0.8" fill="#ddaaff"/>
+  <!-- Title area lines (text suggestion) -->
+  <line x1="33" y1="26" x2="53" y2="26" stroke="#6600aa" stroke-width="0.8" opacity="0.4"/>
+  <line x1="36" y1="28" x2="50" y2="28" stroke="#440066" stroke-width="0.5" opacity="0.3"/>
+  <!-- Bottom decoration -->
+  <line x1="35" y1="52" x2="51" y2="52" stroke="#6600aa" stroke-width="0.5" opacity="0.3"/>
+  <!-- Corner metal clasps -->
+  <rect x="26" y="18" width="4" height="3" rx="0.5" fill="#440066" stroke="#7700cc" stroke-width="0.5" opacity="0.7"/>
+  <rect x="56" y="18" width="4" height="3" rx="0.5" fill="#440066" stroke="#7700cc" stroke-width="0.5" opacity="0.7"/>
+  <rect x="26" y="59" width="4" height="3" rx="0.5" fill="#440066" stroke="#7700cc" stroke-width="0.5" opacity="0.7"/>
+  <rect x="56" y="59" width="4" height="3" rx="0.5" fill="#440066" stroke="#7700cc" stroke-width="0.5" opacity="0.7"/>
+</svg>

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="60%" r="60%">
+      <stop offset="0%" stop-color="#0d001a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <linearGradient id="bootGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6600aa" stop-opacity="0.7"/>
+      <stop offset="50%" stop-color="#440066" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#2a0044" stop-opacity="0.3"/>
+    </linearGradient>
+    <filter id="phantomGlow">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feFlood flood-color="#9933ff" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ghostTrail">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feFlood flood-color="#bb66ff" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ethereal">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" fill="url(#bg)" rx="4"/>
+  <!-- Ghost afterimage boots (trailing behind) -->
+  <g opacity="0.15" filter="url(#ethereal)" transform="translate(-6, -2)">
+    <path d="M16 56 L18 30 Q19 26 22 24 L26 24 Q30 26 30 30 L32 50 L34 54 L34 58 L30 60 L14 60 L14 58 Z" fill="#9933ff"/>
+    <path d="M46 56 L48 30 Q49 26 52 24 L56 24 Q60 26 60 30 L62 50 L64 54 L64 58 L60 60 L44 60 L44 58 Z" fill="#9933ff"/>
+  </g>
+  <g opacity="0.25" filter="url(#ethereal)" transform="translate(-3, -1)">
+    <path d="M16 56 L18 30 Q19 26 22 24 L26 24 Q30 26 30 30 L32 50 L34 54 L34 58 L30 60 L14 60 L14 58 Z" fill="#bb66ff"/>
+    <path d="M46 56 L48 30 Q49 26 52 24 L56 24 Q60 26 60 30 L62 50 L64 54 L64 58 L60 60 L44 60 L44 58 Z" fill="#bb66ff"/>
+  </g>
+  <!-- Phantom energy trails - extensive -->
+  <path d="M14 52 Q6 38 12 22" stroke="#9933ff" stroke-width="2" fill="none" opacity="0.5" filter="url(#ghostTrail)"/>
+  <path d="M18 48 Q8 32 14 16" stroke="#bb66ff" stroke-width="1.5" fill="none" opacity="0.4" filter="url(#ghostTrail)"/>
+  <path d="M10 56 Q2 44 6 28" stroke="#7700cc" stroke-width="1" fill="none" opacity="0.3" filter="url(#ghostTrail)"/>
+  <path d="M66 52 Q74 38 68 22" stroke="#9933ff" stroke-width="2" fill="none" opacity="0.5" filter="url(#ghostTrail)"/>
+  <path d="M62 48 Q72 32 66 16" stroke="#bb66ff" stroke-width="1.5" fill="none" opacity="0.4" filter="url(#ghostTrail)"/>
+  <path d="M70 56 Q78 44 74 28" stroke="#7700cc" stroke-width="1" fill="none" opacity="0.3" filter="url(#ghostTrail)"/>
+  <!-- Upward wisps -->
+  <path d="M24 22 Q22 12 26 4" stroke="#bb66ff" stroke-width="1" fill="none" opacity="0.5" filter="url(#phantomGlow)"/>
+  <path d="M54 22 Q56 12 52 4" stroke="#bb66ff" stroke-width="1" fill="none" opacity="0.5" filter="url(#phantomGlow)"/>
+  <!-- Left boot - ethereal/ghostly -->
+  <path d="M16 56 L18 30 Q19 26 22 24 L26 24 Q30 26 30 30 L32 50 L34 54 L34 58 L30 60 L14 60 L14 58 Z" fill="url(#bootGrad)" stroke="#9933ff" stroke-width="1.2" filter="url(#phantomGlow)"/>
+  <!-- Left boot energy lines -->
+  <path d="M20 28 L22 40 L20 52" stroke="#bb66ff" stroke-width="0.8" fill="none" opacity="0.6"/>
+  <path d="M26 28 L28 40 L26 52" stroke="#bb66ff" stroke-width="0.8" fill="none" opacity="0.4"/>
+  <!-- Left boot sole glow -->
+  <path d="M14 58 L14 60 L30 60 L34 58 Z" fill="#440066" stroke="#9933ff" stroke-width="0.8" opacity="0.8"/>
+  <!-- Left cuff with energy -->
+  <path d="M18 30 L18 24 Q20 20 24 20 L26 20 Q30 20 30 24 L30 30" fill="none" stroke="#bb66ff" stroke-width="1.5" opacity="0.8" filter="url(#phantomGlow)"/>
+  <!-- Right boot - ethereal/ghostly -->
+  <path d="M46 56 L48 30 Q49 26 52 24 L56 24 Q60 26 60 30 L62 50 L64 54 L64 58 L60 60 L44 60 L44 58 Z" fill="url(#bootGrad)" stroke="#9933ff" stroke-width="1.2" filter="url(#phantomGlow)"/>
+  <!-- Right boot energy lines -->
+  <path d="M50 28 L52 40 L50 52" stroke="#bb66ff" stroke-width="0.8" fill="none" opacity="0.6"/>
+  <path d="M56 28 L58 40 L56 52" stroke="#bb66ff" stroke-width="0.8" fill="none" opacity="0.4"/>
+  <!-- Right boot sole glow -->
+  <path d="M44 58 L44 60 L60 60 L64 58 Z" fill="#440066" stroke="#9933ff" stroke-width="0.8" opacity="0.8"/>
+  <!-- Right cuff with energy -->
+  <path d="M48 30 L48 24 Q50 20 54 20 L56 20 Q60 20 60 24 L60 30" fill="none" stroke="#bb66ff" stroke-width="1.5" opacity="0.8" filter="url(#phantomGlow)"/>
+  <!-- Bright energy gems on boots -->
+  <circle cx="24" cy="32" r="2" fill="#ddaaff" opacity="0.9" filter="url(#phantomGlow)"/>
+  <circle cx="54" cy="32" r="2" fill="#ddaaff" opacity="0.9" filter="url(#phantomGlow)"/>
+  <!-- Floating phantom particles -->
+  <circle cx="10" cy="40" r="1" fill="#bb66ff" opacity="0.6" filter="url(#phantomGlow)"/>
+  <circle cx="70" cy="40" r="1" fill="#bb66ff" opacity="0.6" filter="url(#phantomGlow)"/>
+  <circle cx="8" cy="30" r="0.8" fill="#9933ff" opacity="0.5" filter="url(#phantomGlow)"/>
+  <circle cx="72" cy="30" r="0.8" fill="#9933ff" opacity="0.5" filter="url(#phantomGlow)"/>
+  <!-- Ground phantom glow -->
+  <ellipse cx="40" cy="64" rx="30" ry="4" fill="#9933ff" opacity="0.15" filter="url(#ghostTrail)"/>
+</svg>

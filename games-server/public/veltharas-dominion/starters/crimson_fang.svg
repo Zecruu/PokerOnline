@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="cf-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#2a0000"/>
+      <stop offset="100%" stop-color="#0a0000"/>
+    </radialGradient>
+    <filter id="cf-glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feFlood flood-color="#cc0000" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="cf-fang" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff3333"/>
+      <stop offset="50%" stop-color="#cc0000"/>
+      <stop offset="100%" stop-color="#880000"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" rx="6" fill="url(#cf-bg)"/>
+  <rect width="80" height="80" rx="6" fill="none" stroke="#440000" stroke-width="1.5"/>
+  <!-- Curved fang/dagger -->
+  <g filter="url(#cf-glow)">
+    <!-- Main fang blade - curved -->
+    <path d="M40 10 C42 10, 48 25, 50 35 C52 45, 48 55, 40 68 C38 60, 36 50, 35 40 C34 30, 36 15, 40 10Z" fill="url(#cf-fang)"/>
+    <!-- Fang edge highlight -->
+    <path d="M40 12 C41 14, 46 28, 48 36 C49 42, 46 52, 40 64" fill="none" stroke="#ff4444" stroke-width="0.8" opacity="0.7"/>
+    <!-- Guard/handle -->
+    <ellipse cx="40" cy="35" rx="8" ry="3" fill="#660022" stroke="#aa2222" stroke-width="1"/>
+    <!-- Blood drip 1 -->
+    <path d="M42 62 C42 62, 44 67, 43 70 C42.5 72, 41 72, 41 70 C40.5 67, 42 62, 42 62Z" fill="#cc0000" opacity="0.9"/>
+    <!-- Blood drip 2 -->
+    <path d="M37 58 C37 58, 38 63, 37.5 65 C37.2 66.5, 36.2 66.5, 36.2 65 C35.8 63, 37 58, 37 58Z" fill="#aa0000" opacity="0.7"/>
+    <!-- Blood drip 3 (small) -->
+    <circle cx="44" cy="73" r="1.5" fill="#cc0000" opacity="0.6"/>
+  </g>
+</svg>

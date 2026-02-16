@@ -2438,7 +2438,7 @@ const STARTER_ITEMS = {
         }
     },
     // =========================================
-    // SHADOW MONARCH STARTER ITEMS
+    // SHADOW MONARCH STARTER ITEMS (upstream)
     // =========================================
     sm_umbral_lens: {
         id: 'sm_umbral_lens',
@@ -2540,7 +2540,107 @@ const STARTER_ITEMS = {
         }
     },
     // =========================================
-    // VOID BLADE (AZURA) STARTER ITEMS
+    // SHADOW MONARCH STARTER ITEMS (stashed)
+    // =========================================
+    sm_voidcaller_focus: {
+        id: 'sm_voidcaller_focus',
+        classLock: 'shadow_monarch',
+        name: "Voidcaller's Focus",
+        evolvedName: 'Abyssal Voidcaller',
+        icon: 'starters/voidcaller_focus.svg',
+        evolvedIcon: 'starters/abyssal_voidcaller.svg',
+        color: '#7700cc',
+        evolveWave: 10,
+        base: {
+            desc: '+10 Damage, +10% Orb Damage',
+            modifiers: { flatDamageBonus: 10, orbDamageMult: 0.10 },
+            passives: []
+        },
+        evolved: {
+            desc: '+18 Damage, +20% Orb Damage',
+            modifiers: { flatDamageBonus: 18, orbDamageMult: 0.20 },
+            passives: [{ type: 'damageVsOrbMarkedMult', value: 0.15, desc: 'Shadow lances deal +15% damage to orb-marked enemies' }]
+        }
+    },
+    sm_umbral_striders: {
+        id: 'sm_umbral_striders',
+        classLock: 'shadow_monarch',
+        name: 'Umbral Striders',
+        evolvedName: 'Phantomstep Striders',
+        icon: 'starters/umbral_striders.svg',
+        evolvedIcon: 'starters/phantomstep_striders.svg',
+        color: '#9933ff',
+        evolveWave: 10,
+        base: {
+            desc: '+12% Move Speed, +10% Orb Fire Rate',
+            modifiers: { moveSpeedMult: 0.12, orbFireRateMult: 0.10 },
+            passives: []
+        },
+        evolved: {
+            desc: '+18% Move Speed, +18% Orb Fire Rate',
+            modifiers: { moveSpeedMult: 0.18, orbFireRateMult: 0.18 },
+            passives: [{
+                type: 'shadowTrail',
+                dps: 25,
+                widthPx: 30,
+                durationSeconds: 1.5,
+                desc: 'Moving leaves a shadow trail that deals 25 DPS for 1.5s'
+            }]
+        }
+    },
+    sm_darkshield_mantle: {
+        id: 'sm_darkshield_mantle',
+        classLock: 'shadow_monarch',
+        name: 'Darkshield Mantle',
+        evolvedName: 'Mantle of the Abyss',
+        icon: 'starters/darkshield_mantle.svg',
+        evolvedIcon: 'starters/mantle_of_the_abyss.svg',
+        color: '#440066',
+        evolveWave: 10,
+        base: {
+            desc: '+120 Max HP, +15% Void Aura Radius',
+            modifiers: { maxHpFlat: 120, voidRadiusMult: 0.15 },
+            passives: []
+        },
+        evolved: {
+            desc: '+220 Max HP, +25% Void Aura Radius',
+            modifiers: { maxHpFlat: 220, voidRadiusMult: 0.25 },
+            passives: [{
+                type: 'onHitShadowNova',
+                damage: 80,
+                radiusPx: 130,
+                internalCooldownSeconds: 6.0,
+                desc: 'When hit, emit a shadow nova (80 dmg, 130px radius, 6s cooldown)'
+            }]
+        }
+    },
+    sm_thrallbinder_tome: {
+        id: 'sm_thrallbinder_tome',
+        classLock: 'shadow_monarch',
+        name: 'Thrallbinder Tome',
+        evolvedName: 'Tome of Dark Dominion',
+        icon: 'starters/thrallbinder_tome.svg',
+        evolvedIcon: 'starters/tome_of_dark_dominion.svg',
+        color: '#6600aa',
+        evolveWave: 10,
+        base: {
+            desc: '+15% Thrall Damage, +10% Void DPS',
+            modifiers: { thrallDamageMult: 0.15, voidDPSMult: 0.10 },
+            passives: []
+        },
+        evolved: {
+            desc: '+25% Thrall Damage, +20% Void DPS',
+            modifiers: { thrallDamageMult: 0.25, voidDPSMult: 0.20 },
+            passives: [{
+                type: 'dominionStackBonus',
+                extraMaxStacks: 3,
+                bonusPerStack: 0.01,
+                desc: 'Dominion Bond max stacks +3, each stack grants +1% extra orb damage'
+            }]
+        }
+    },
+    // =========================================
+    // VOID BLADE (AZURA) STARTER ITEMS (upstream)
     // =========================================
     vb_bloodedge_whetstone: {
         id: 'vb_bloodedge_whetstone',
@@ -2639,6 +2739,102 @@ const STARTER_ITEMS = {
                 desc: 'When a Blood Sword kills, all swords gain +25% attack speed for 3s'
             }]
         }
+    },
+    // =========================================
+    // VOID BLADE (AZURA) STARTER ITEMS (stashed)
+    // =========================================
+    vb_crimson_fang: {
+        id: 'vb_crimson_fang',
+        classLock: 'void_blade',
+        name: 'Crimson Fang',
+        evolvedName: 'Fang of the Bloodlord',
+        icon: 'starters/crimson_fang.svg',
+        evolvedIcon: 'starters/fang_of_the_bloodlord.svg',
+        color: '#cc0000',
+        evolveWave: 10,
+        base: {
+            desc: '+12 Damage, +15% Bleed DPS',
+            modifiers: { flatDamageBonus: 12, bleedDPSMult: 0.15 },
+            passives: []
+        },
+        evolved: {
+            desc: '+22 Damage, +30% Bleed DPS',
+            modifiers: { flatDamageBonus: 22, bleedDPSMult: 0.30 },
+            passives: [{ type: 'damageVsBleedingMult', value: 0.20, desc: 'Slash attacks deal +20% damage to bleeding enemies' }]
+        }
+    },
+    vb_voidstep_greaves: {
+        id: 'vb_voidstep_greaves',
+        classLock: 'void_blade',
+        name: 'Voidstep Greaves',
+        evolvedName: 'Greaves of the Phantom',
+        icon: 'starters/voidstep_greaves.svg',
+        evolvedIcon: 'starters/greaves_of_the_phantom.svg',
+        color: '#aa2222',
+        evolveWave: 10,
+        base: {
+            desc: '+12% Move Speed, +10% Slash Speed',
+            modifiers: { moveSpeedMult: 0.12, slashRateMult: 0.10 },
+            passives: []
+        },
+        evolved: {
+            desc: '+18% Move Speed, +18% Slash Speed',
+            modifiers: { moveSpeedMult: 0.18, slashRateMult: 0.18 },
+            passives: [{
+                type: 'momentumBleedBurst',
+                requiredMoveSeconds: 2.0,
+                extraBleedStacks: 2,
+                desc: 'After moving for 2s, next slash applies 2 extra bleed stacks'
+            }]
+        }
+    },
+    vb_bloodward_plate: {
+        id: 'vb_bloodward_plate',
+        classLock: 'void_blade',
+        name: 'Bloodward Plate',
+        evolvedName: 'Sanguine Bulwark',
+        icon: 'starters/bloodward_plate.svg',
+        evolvedIcon: 'starters/sanguine_bulwark.svg',
+        color: '#880000',
+        evolveWave: 10,
+        base: {
+            desc: '+120 Max HP, +8% Slash Range',
+            modifiers: { maxHpFlat: 120, slashRangeMult: 0.08 },
+            passives: []
+        },
+        evolved: {
+            desc: '+220 Max HP, +15% Slash Range',
+            modifiers: { maxHpFlat: 220, slashRangeMult: 0.15 },
+            passives: [{
+                type: 'bleedLifesteal',
+                percentOfBleedDmg: 0.08,
+                desc: 'Heal for 8% of all bleed damage dealt'
+            }]
+        }
+    },
+    vb_essence_drinker: {
+        id: 'vb_essence_drinker',
+        classLock: 'void_blade',
+        name: 'Essence Drinker Blade',
+        evolvedName: 'Blade of Infinite Thirst',
+        icon: 'starters/essence_drinker.svg',
+        evolvedIcon: 'starters/blade_of_infinite_thirst.svg',
+        color: '#660022',
+        evolveWave: 10,
+        base: {
+            desc: '+15% Blood Sword Damage, +1 Blood Essence per Kill',
+            modifiers: { bloodSwordDmgMult: 0.15, bloodEssencePerKillFlat: 1 },
+            passives: []
+        },
+        evolved: {
+            desc: '+30% Blood Sword Damage, +2 Blood Essence per Kill',
+            modifiers: { bloodSwordDmgMult: 0.30, bloodEssencePerKillFlat: 2 },
+            passives: [{
+                type: 'bloodSwordLifespan',
+                decayRateReduction: 0.40,
+                desc: 'Blood Swords decay 40% slower'
+            }]
+        }
     }
 };
 
@@ -2674,7 +2870,7 @@ function applyStarterModifiers(game, modifiers) {
     if (modifiers.burnDamageTakenMult) {
         game.starterBurnDamageTakenMult = (game.starterBurnDamageTakenMult || 0) + modifiers.burnDamageTakenMult;
     }
-    // Shadow Monarch modifiers
+    // Shadow Monarch modifiers (upstream)
     if (modifiers.umbralOrbDamageMult) {
         game.umbralOrbDamageBonus = (game.umbralOrbDamageBonus || 1) * (1 + modifiers.umbralOrbDamageMult);
     }
@@ -2686,12 +2882,45 @@ function applyStarterModifiers(game, modifiers) {
         game.thrallHPBonus = (game.thrallHPBonus || 1) * (1 + modifiers.thrallHPMult);
         if (game.shadowThrall && game.recalcThrallStats) game.recalcThrallStats();
     }
-    // Void Blade modifiers
+    // Shadow Monarch modifiers (stashed)
+    if (modifiers.orbDamageMult) {
+        game.umbralOrbDamageBonus = (game.umbralOrbDamageBonus || 1) * (1 + modifiers.orbDamageMult);
+    }
+    if (modifiers.orbFireRateMult) {
+        game.starterOrbFireRateMult = (game.starterOrbFireRateMult || 0) + modifiers.orbFireRateMult;
+    }
+    if (modifiers.voidRadiusMult) {
+        if (game.shadowVoid) {
+            game.shadowVoid.radius = Math.floor(game.shadowVoid.radius * (1 + modifiers.voidRadiusMult));
+        }
+    }
+    if (modifiers.voidDPSMult) {
+        if (game.shadowVoid) {
+            game.shadowVoid.baseDPS = Math.floor(game.shadowVoid.baseDPS * (1 + modifiers.voidDPSMult));
+        }
+    }
+    // Void Blade modifiers (upstream)
     if (modifiers.maxBleedStacksFlat) {
         game.maxBleedStacks = (game.maxBleedStacks || 8) + modifiers.maxBleedStacksFlat;
     }
     if (modifiers.bloodSwordCapFlat) {
         game.maxBloodSwords = (game.maxBloodSwords || 5) + modifiers.bloodSwordCapFlat;
+    }
+    // Void Blade modifiers (stashed)
+    if (modifiers.bleedDPSMult) {
+        game.voidBleedDPSMult = (game.voidBleedDPSMult || 1) * (1 + modifiers.bleedDPSMult);
+    }
+    if (modifiers.slashRateMult) {
+        game.slashRate = (game.slashRate || 0.4) * (1 - modifiers.slashRateMult);
+    }
+    if (modifiers.slashRangeMult) {
+        game.slashRange = Math.floor((game.slashRange || 130) * (1 + modifiers.slashRangeMult));
+    }
+    if (modifiers.bloodSwordDmgMult) {
+        game.bloodSwordDmgMult = (game.bloodSwordDmgMult || 1) * (1 + modifiers.bloodSwordDmgMult);
+    }
+    if (modifiers.bloodEssencePerKillFlat) {
+        game.bloodEssencePerKill = (game.bloodEssencePerKill || 1) + modifiers.bloodEssencePerKillFlat;
     }
 }
 
@@ -2720,7 +2949,7 @@ function removeStarterModifiers(game, modifiers) {
     if (modifiers.burnDamageTakenMult) {
         game.starterBurnDamageTakenMult = (game.starterBurnDamageTakenMult || 0) - modifiers.burnDamageTakenMult;
     }
-    // Shadow Monarch modifiers
+    // Shadow Monarch modifiers (upstream)
     if (modifiers.umbralOrbDamageMult) {
         game.umbralOrbDamageBonus = (game.umbralOrbDamageBonus || 1) / (1 + modifiers.umbralOrbDamageMult);
     }
@@ -2732,12 +2961,45 @@ function removeStarterModifiers(game, modifiers) {
         game.thrallHPBonus = (game.thrallHPBonus || 1) / (1 + modifiers.thrallHPMult);
         if (game.shadowThrall && game.recalcThrallStats) game.recalcThrallStats();
     }
-    // Void Blade modifiers
+    // Shadow Monarch modifiers (stashed)
+    if (modifiers.orbDamageMult) {
+        game.umbralOrbDamageBonus = (game.umbralOrbDamageBonus || 1) / (1 + modifiers.orbDamageMult);
+    }
+    if (modifiers.orbFireRateMult) {
+        game.starterOrbFireRateMult = (game.starterOrbFireRateMult || 0) - modifiers.orbFireRateMult;
+    }
+    if (modifiers.voidRadiusMult) {
+        if (game.shadowVoid) {
+            game.shadowVoid.radius = Math.floor(game.shadowVoid.radius / (1 + modifiers.voidRadiusMult));
+        }
+    }
+    if (modifiers.voidDPSMult) {
+        if (game.shadowVoid) {
+            game.shadowVoid.baseDPS = Math.floor(game.shadowVoid.baseDPS / (1 + modifiers.voidDPSMult));
+        }
+    }
+    // Void Blade modifiers (upstream)
     if (modifiers.maxBleedStacksFlat) {
         game.maxBleedStacks = (game.maxBleedStacks || 8) - modifiers.maxBleedStacksFlat;
     }
     if (modifiers.bloodSwordCapFlat) {
         game.maxBloodSwords = (game.maxBloodSwords || 5) - modifiers.bloodSwordCapFlat;
+    }
+    // Void Blade modifiers (stashed)
+    if (modifiers.bleedDPSMult) {
+        game.voidBleedDPSMult = (game.voidBleedDPSMult || 1) / (1 + modifiers.bleedDPSMult);
+    }
+    if (modifiers.slashRateMult) {
+        game.slashRate = (game.slashRate || 0.4) / (1 - modifiers.slashRateMult);
+    }
+    if (modifiers.slashRangeMult) {
+        game.slashRange = Math.floor((game.slashRange || 130) / (1 + modifiers.slashRangeMult));
+    }
+    if (modifiers.bloodSwordDmgMult) {
+        game.bloodSwordDmgMult = (game.bloodSwordDmgMult || 1) / (1 + modifiers.bloodSwordDmgMult);
+    }
+    if (modifiers.bloodEssencePerKillFlat) {
+        game.bloodEssencePerKill = (game.bloodEssencePerKill || 1) - modifiers.bloodEssencePerKillFlat;
     }
 }
 
@@ -2770,7 +3032,7 @@ function registerEvolvedPassives(game, passives) {
             case 'burnStacksCap':
                 game.starterBurnStacksCap = passive.maxStacks;
                 break;
-            // Shadow Monarch evolved passives
+            // Shadow Monarch evolved passives (upstream)
             case 'lanceSplinter':
                 game.starterLanceSplinter = {
                     splinterCount: passive.splinterCount,
@@ -2795,7 +3057,33 @@ function registerEvolvedPassives(game, passives) {
                     cooldownTimer: 0
                 };
                 break;
-            // Void Blade evolved passives
+            // Shadow Monarch passives (stashed)
+            case 'damageVsOrbMarkedMult':
+                game.starterDamageVsOrbMarkedMult = passive.value;
+                break;
+            case 'shadowTrail':
+                game.starterShadowTrail = {
+                    dps: passive.dps,
+                    widthPx: passive.widthPx,
+                    durationSeconds: passive.durationSeconds,
+                    segments: [],
+                    lastX: 0,
+                    lastY: 0
+                };
+                break;
+            case 'onHitShadowNova':
+                game.starterShadowNova = {
+                    damage: passive.damage,
+                    radiusPx: passive.radiusPx,
+                    internalCooldownSeconds: passive.internalCooldownSeconds,
+                    cooldownTimer: 0
+                };
+                break;
+            case 'dominionStackBonus':
+                game.dominionMaxStacks = (game.dominionMaxStacks || 10) + passive.extraMaxStacks;
+                game.starterDominionExtraBonus = passive.bonusPerStack;
+                break;
+            // Void Blade evolved passives (upstream)
             case 'deepWound':
                 game.starterDeepWound = {
                     extraStacks: passive.extraStacks
@@ -2818,6 +3106,25 @@ function registerEvolvedPassives(game, passives) {
                     buffDuration: passive.buffDuration,
                     buffTimer: 0
                 };
+                break;
+            // Void Blade passives (stashed)
+            case 'damageVsBleedingMult':
+                game.starterDamageVsBleedingMult = passive.value;
+                break;
+            case 'momentumBleedBurst':
+                game.starterMomentumBleed = {
+                    requiredMoveSeconds: passive.requiredMoveSeconds,
+                    extraBleedStacks: passive.extraBleedStacks || 2,
+                    moveTimer: 0,
+                    ready: false,
+                    lastMoveTime: 0
+                };
+                break;
+            case 'bleedLifesteal':
+                game.starterBleedLifesteal = passive.percentOfBleedDmg;
+                break;
+            case 'bloodSwordLifespan':
+                game.starterBloodSwordDecayReduction = passive.decayRateReduction;
                 break;
         }
     }
@@ -4162,7 +4469,7 @@ class DotsSurvivor {
             this.doubleBeam = state.doubleBeam || false;
             this.corruptedOrbDrain = state.corruptedOrbDrain || 0;
             this.corruptedThrallVulnerability = state.corruptedThrallVulnerability || 1;
-            this.dominionDamageBonus = 1 + (this.dominionStacks * 0.02);
+            this.dominionDamageBonus = 1 + (this.dominionStacks * (0.02 + (this.starterDominionExtraBonus || 0)));
 
             // Recreate umbral orbs
             if (this.umbralOrbs) {
@@ -4298,7 +4605,14 @@ class DotsSurvivor {
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
 
-        // Build character cards HTML
+        // Add wide panel class for character select
+        content.classList.add('wide-panel');
+
+        // Trigger fade-in animation
+        content.style.animation = 'none';
+        content.offsetHeight;
+        content.style.animation = '';
+
         // Disabled classes: shadow_master, necromancer (Coming Soon), void_blade (Coming Soon for non-admin/tester)
         const isAdminOrTester = (typeof authManager !== 'undefined' && authManager.user) ? (authManager.isAdmin() || authManager.isTester()) : false;
         const DISABLED_CLASSES = isAdminOrTester
@@ -4308,44 +4622,41 @@ class DotsSurvivor {
         const characterCardsHTML = PLAYABLE_CLASSES.map((charClass, index) => {
             const isDisabled = DISABLED_CLASSES.includes(charClass.id);
             const skillsHTML = Object.values(charClass.skills).map(s =>
-                `<div style="display:flex;align-items:center;gap:0.3rem;font-size:0.7rem;color:#ccc;"><span>${s.icon}</span><span>${s.name}</span></div>`
+                `<div class="skill-row"><span>${s.icon}</span><span>${s.name}</span></div>`
             ).join('');
 
-            // Show class passive instead of abilities
             const passiveHTML = charClass.passive ?
-                `<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.7rem;color:#fbbf24;background:rgba(251,191,36,0.15);padding:0.4rem 0.6rem;border-radius:6px;border:1px solid rgba(251,191,36,0.3);">
-                    <span style="font-size:1rem;">${charClass.passive.icon}</span>
+                `<div class="char-passive">
+                    <span class="passive-icon">${charClass.passive.icon}</span>
                     <div>
-                        <div style="font-weight:700;">${charClass.passive.name}</div>
-                        <div style="font-size:0.6rem;color:#ccc;">${charClass.passive.desc}</div>
+                        <div class="passive-name">${charClass.passive.name}</div>
+                        <div class="passive-desc">${charClass.passive.desc}</div>
                     </div>
                 </div>` : '';
 
-            // Coming Soon overlay for disabled classes
             const comingSoonOverlay = isDisabled ? `
-                <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;">
-                    <div style="font-size:2rem;margin-bottom:0.5rem;">🔒</div>
-                    <div style="color:#fbbf24;font-weight:700;font-size:1.1rem;text-transform:uppercase;">Coming Soon</div>
+                <div class="coming-soon-overlay">
+                    <div class="lock-icon">🔒</div>
+                    <div class="lock-text">Coming Soon</div>
                 </div>
             ` : '';
 
             return `
-                <div class="char-card ${isDisabled ? 'disabled' : ''}" data-class-index="${index}" data-disabled="${isDisabled}" style="background:${charClass.color}22;border:3px solid ${isDisabled ? '#444' : charClass.color};border-radius:16px;padding:1.2rem;width:220px;cursor:${isDisabled ? 'not-allowed' : 'pointer'};text-align:center;transition:all 0.3s;position:relative;opacity:${isDisabled ? '0.6' : '1'};">
+                <div class="char-card ${isDisabled ? 'disabled' : ''}" data-class-index="${index}" data-disabled="${isDisabled}"
+                     style="border-color: ${isDisabled ? '#333' : charClass.color};">
                     ${comingSoonOverlay}
                     ${charClass.portrait
-                        ? `<div style="width:100px;height:100px;margin:0 auto 0.3rem;"><img src="${getAssetUrl(charClass.portrait)}" style="width:100%;height:100%;object-fit:contain;" crossorigin="anonymous"></div>`
-                        : `<div style="font-size:3rem;margin-bottom:0.3rem;">${charClass.icon}</div>`
+                        ? `<img class="char-portrait" src="${getAssetUrl(charClass.portrait)}" crossorigin="anonymous">`
+                        : `<div class="char-icon">${charClass.icon}</div>`
                     }
-                    <div style="font-weight:700;color:${charClass.color};font-size:1.3rem;margin:0.3rem 0;">${charClass.name}</div>
-                    <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.8rem;line-height:1.3;">${charClass.description || charClass.desc}</div>
-
-                    <div style="text-align:left;margin-top:0.8rem;">
-                        <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:0.3rem;">⚔️ Skills</div>
+                    <div class="char-name" style="color:${charClass.color};">${charClass.name}</div>
+                    <div class="char-desc">${charClass.description || charClass.desc}</div>
+                    <div class="char-skills">
+                        <div class="char-skills-label">Skills</div>
                         ${skillsHTML}
                     </div>
-
-                    <div style="text-align:left;margin-top:0.6rem;">
-                        <div style="font-size:0.65rem;color:#888;text-transform:uppercase;margin-bottom:0.3rem;">⭐ Class Passive</div>
+                    <div class="char-skills">
+                        <div class="char-passive-label">Class Passive</div>
                         ${passiveHTML}
                     </div>
                 </div>
@@ -4354,34 +4665,22 @@ class DotsSurvivor {
 
         content.innerHTML = `
             <h1 class="game-title">VELTHARA'S<span>DOMINION</span></h1>
-            <p class="game-subtitle" style="margin-bottom:0.5rem;">Choose Your Champion</p>
-            <div style="display:flex;gap:1.2rem;justify-content:center;margin:1.5rem 0;flex-wrap:wrap;">
+            <p class="game-subtitle">Choose Your Champion</p>
+            <div class="char-select-grid">
                 ${characterCardsHTML}
             </div>
-            <a href="/" class="menu-btn secondary" style="margin-top:1rem;display:inline-block;">🏠 EXIT TO HUB</a>
-            <div class="controls-info" style="margin-top:1rem;color:#888;font-size:0.8rem;">
-                <p>🎮 WASD/Arrows to move • 🔫 Auto-attack • ⏸️ ESC to pause</p>
-                <p style="color:#fbbf24;">Q/E for special abilities</p>
+            <a href="/" class="menu-btn secondary">EXIT TO HUB</a>
+            <div class="controls-info">
+                <p>WASD/Arrows to move | Auto-attack | ESC to pause</p>
+                <p style="color:rgba(251,191,36,0.7);margin-top:0.2rem;">Q/E for special abilities</p>
             </div>
         `;
 
-        // Add hover effects and click handlers
+        // Click handlers only — hover handled by CSS
         const cards = content.querySelectorAll('.char-card');
         cards.forEach(card => {
-            const isDisabled = card.dataset.disabled === 'true';
-
-            card.addEventListener('mouseenter', () => {
-                if (isDisabled) return;
-                card.style.transform = 'scale(1.05)';
-                card.style.boxShadow = '0 0 30px rgba(255,255,255,0.2)';
-            });
-            card.addEventListener('mouseleave', () => {
-                if (isDisabled) return;
-                card.style.transform = 'scale(1)';
-                card.style.boxShadow = 'none';
-            });
             card.addEventListener('click', () => {
-                if (isDisabled) return; // Don't allow clicking disabled classes
+                if (card.dataset.disabled === 'true') return;
                 const classIndex = parseInt(card.dataset.classIndex);
                 const selectedClass = PLAYABLE_CLASSES[classIndex];
                 this.showStarterItemSelect(selectedClass);
@@ -4395,6 +4694,14 @@ class DotsSurvivor {
 
         const menu = document.getElementById('start-menu');
         const content = menu.querySelector('.menu-content');
+
+        // Add wide panel class for starter select
+        content.classList.add('wide-panel');
+
+        // Trigger fade-in animation
+        content.style.animation = 'none';
+        content.offsetHeight;
+        content.style.animation = '';
 
         // Get class-specific starter items using the classLock field
         const classId = characterClass.id || characterClass.name.toLowerCase().replace(/ /g, '_');
@@ -4410,28 +4717,26 @@ class DotsSurvivor {
         const CDN_BASE = '';
 
         content.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:0.5rem;">
-                <span style="font-size:2rem;">${characterClass.icon}</span>
-                <span style="color:${characterClass.color};font-size:1.2rem;font-weight:700;">${characterClass.name}</span>
+            <div class="starter-header">
+                <span class="class-icon">${characterClass.icon}</span>
+                <span class="class-name" style="color:${characterClass.color};">${characterClass.name}</span>
             </div>
-            <h1 style="color:#fbbf24;font-size:1.6rem;margin-bottom:0.5rem;">🔥 CHOOSE STARTER ITEM</h1>
-            <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Evolves automatically at Wave 10!</p>
-            <div id="starter-items-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;max-width:900px;margin:0 auto;">
+            <div class="starter-title">${characterClass.icon} CHOOSE STARTER ITEM</div>
+            <p class="starter-subtitle">Evolves automatically at Wave 10!</p>
+            <div id="starter-items-grid">
                 ${items.map(item => `
-                    <div class="starter-item-card" data-item="${item.key}" style="background:rgba(0,0,0,0.6);border:2px solid ${item.color};border-radius:12px;padding:1rem;cursor:pointer;text-align:left;transition:all 0.2s;">
-                        <div style="display:flex;gap:1rem;align-items:flex-start;">
-                            <div style="flex-shrink:0;">
-                                <img src="${CDN_BASE}${item.icon}" style="width:80px;height:80px;border-radius:8px;border:2px solid ${item.color};" crossorigin="anonymous" />
-                            </div>
-                            <div style="flex:1;">
-                                <div style="font-weight:700;color:${item.color};font-size:1rem;margin-bottom:0.3rem;">${item.name}</div>
-                                <div style="font-size:0.75rem;color:#aaa;margin-bottom:0.5rem;">${item.base.desc}</div>
-                                <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.1);">
-                                    <img src="${CDN_BASE}${item.evolvedIcon}" style="width:40px;height:40px;border-radius:4px;border:1px solid #ffaa00;" crossorigin="anonymous" />
+                    <div class="starter-item-card" data-item="${item.key}" style="border-color: ${item.color};">
+                        <div class="item-layout">
+                            <img class="item-icon" src="${CDN_BASE}${item.icon}" style="border-color:${item.color};" crossorigin="anonymous">
+                            <div>
+                                <div class="item-name" style="color:${item.color};">${item.name}</div>
+                                <div class="item-desc">${item.base.desc}</div>
+                                <div class="item-evolution">
+                                    <img class="evo-icon" src="${CDN_BASE}${item.evolvedIcon}" crossorigin="anonymous">
                                     <div>
-                                        <div style="font-size:0.7rem;color:#ffaa00;font-weight:600;">⭐ Wave 10: ${item.evolvedName}</div>
-                                        <div style="font-size:0.65rem;color:#888;">${item.evolved.desc}</div>
-                                        ${item.evolved.passives.length > 0 ? `<div style="font-size:0.6rem;color:#44ff88;margin-top:2px;">✨ ${item.evolved.passives[0].desc}</div>` : ''}
+                                        <div class="evo-name">Wave 10: ${item.evolvedName}</div>
+                                        <div class="evo-desc">${item.evolved.desc}</div>
+                                        ${item.evolved.passives.length > 0 ? `<div class="evo-passive">${item.evolved.passives[0].desc}</div>` : ''}
                                     </div>
                                 </div>
                             </div>
@@ -4439,26 +4744,14 @@ class DotsSurvivor {
                     </div>
                 `).join('')}
             </div>
-            <button id="skip-item-btn" style="margin-top:1.5rem;padding:10px 24px;background:transparent;border:1px solid #666;color:#888;border-radius:8px;cursor:pointer;font-family:inherit;">Skip (No Starter)</button>
-            <button id="back-to-chars-btn" style="margin-top:0.5rem;padding:8px 20px;background:transparent;border:1px solid #444;color:#666;border-radius:8px;cursor:pointer;font-family:inherit;display:block;margin-left:auto;margin-right:auto;">← Back to Characters</button>
+            <button class="starter-nav-btn" id="skip-item-btn">Skip (No Starter)</button>
+            <button class="starter-nav-btn back" id="back-to-chars-btn">Back to Characters</button>
         `;
 
-        // Add hover effects and click handlers (with one-shot guard)
+        // Click handlers only — hover handled by CSS
         let startClicked = false;
         const cards = content.querySelectorAll('.starter-item-card');
         cards.forEach(card => {
-            card.addEventListener('mouseenter', () => {
-                const item = STARTER_ITEMS[card.dataset.item];
-                card.style.borderColor = '#fbbf24';
-                card.style.background = 'rgba(251,191,36,0.15)';
-                card.style.transform = 'scale(1.02)';
-            });
-            card.addEventListener('mouseleave', () => {
-                const item = STARTER_ITEMS[card.dataset.item];
-                card.style.borderColor = item?.color || '#444';
-                card.style.background = 'rgba(0,0,0,0.6)';
-                card.style.transform = 'scale(1)';
-            });
             card.addEventListener('click', () => {
                 if (startClicked) return;
                 startClicked = true;
@@ -5142,17 +5435,28 @@ class DotsSurvivor {
         this.starterBurnStacksCap = 0;
         this.starterBurnDurationMult = 0;
         this.starterBurnDamageTakenMult = 0;
-        // Reset starter passive tracking — Shadow Monarch
+        // Reset starter passive tracking — Shadow Monarch (upstream)
         this.starterLanceSplinter = null;
         this.starterThrallLifeLink = null;
         this.starterVoidWeaken = null;
         this.starterDominionBurst = null;
-        // Reset starter passive tracking — Void Blade (Azura)
+        // Shadow Monarch starter passives (stashed)
+        this.starterDamageVsOrbMarkedMult = 0;
+        this.starterShadowTrail = null;
+        this.starterShadowNova = null;
+        this.starterDominionExtraBonus = 0;
+        this.starterOrbFireRateMult = 0;
+        // Reset starter passive tracking — Void Blade (upstream)
         this.starterDeepWound = null;
         this.starterBleedHeal = null;
         this.starterBloodShieldOnExecute = null;
         this.starterBloodSwordFrenzy = null;
         this.bloodShieldAmount = 0;
+        // Void Blade starter passives (stashed)
+        this.starterDamageVsBleedingMult = 0;
+        this.starterMomentumBleed = null;
+        this.starterBleedLifesteal = 0;
+        this.starterBloodSwordDecayReduction = 0;
 
         if (this.selectedStarterItem && STARTER_ITEMS[this.selectedStarterItem]) {
             const itemKey = this.selectedStarterItem;
@@ -5167,7 +5471,7 @@ class DotsSurvivor {
             // Show pickup message
             this.damageNumbers.push({
                 x: this.player.x, y: this.player.y - 40,
-                value: `🔥 ${item.name}`, lifetime: 2, color: item.color || '#fbbf24', scale: 1.3
+                value: `${this.selectedClass?.icon || '🔥'} ${item.name}`, lifetime: 2, color: item.color || '#fbbf24', scale: 1.3
             });
         }
 
@@ -8208,6 +8512,81 @@ class DotsSurvivor {
         if (this.starterBloodSwordFrenzy && this.starterBloodSwordFrenzy.buffTimer > 0) {
             this.starterBloodSwordFrenzy.buffTimer -= dt;
         }
+
+        // ---- Shadow Nova Cooldown (Darkshield Mantle evolved) ----
+        if (this.starterShadowNova && this.starterShadowNova.cooldownTimer > 0) {
+            this.starterShadowNova.cooldownTimer -= dt;
+        }
+
+        // ---- Shadow Trail (Umbral Striders evolved) ----
+        if (this.starterShadowTrail) {
+            const trail = this.starterShadowTrail;
+            const px = this.worldX;
+            const py = this.worldY;
+            const dx = px - (trail.lastX || px);
+            const dy = py - (trail.lastY || py);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Drop a new trail segment every 30px of movement
+            if (dist > 30) {
+                trail.segments.push({ x: px, y: py, timer: trail.durationSeconds });
+                trail.lastX = px;
+                trail.lastY = py;
+            }
+            if (!trail.lastX) { trail.lastX = px; trail.lastY = py; }
+
+            // Update and damage from trail segments
+            for (let i = trail.segments.length - 1; i >= 0; i--) {
+                const seg = trail.segments[i];
+                seg.timer -= dt;
+                if (seg.timer <= 0) {
+                    trail.segments.splice(i, 1);
+                    continue;
+                }
+                // Damage enemies near this trail segment
+                const nearby = this.enemyGrid.getNearby(seg.x, seg.y, trail.widthPx + 20);
+                for (const e of nearby) {
+                    if (e.health <= 0) continue;
+                    const edx = e.wx - seg.x;
+                    const edy = e.wy - seg.y;
+                    if (edx * edx + edy * edy <= trail.widthPx * trail.widthPx) {
+                        const dmg = Math.floor(trail.dps * dt);
+                        if (dmg > 0) {
+                            e.health -= dmg;
+                            e.hitFlash = 0.05;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- Momentum Bleed Burst (Voidstep Greaves evolved) ----
+        if (this.starterMomentumBleed) {
+            const isMoving = (this.keys['w'] || this.keys['arrowup'] ||
+                              this.keys['s'] || this.keys['arrowdown'] ||
+                              this.keys['a'] || this.keys['arrowleft'] ||
+                              this.keys['d'] || this.keys['arrowright'] ||
+                              this.joystick.dx || this.joystick.dy);
+
+            if (isMoving) {
+                this.starterMomentumBleed.moveTimer += dt;
+                this.starterMomentumBleed.lastMoveTime = this.gameTime;
+
+                if (this.starterMomentumBleed.moveTimer >= this.starterMomentumBleed.requiredMoveSeconds &&
+                    !this.starterMomentumBleed.ready) {
+                    this.starterMomentumBleed.ready = true;
+                    this.starterMomentumBleed.moveTimer = 0;
+                    this.damageNumbers.push({
+                        x: this.player.x, y: this.player.y - 30,
+                        value: '🩸 BLOOD RUSH!', lifetime: 1, color: '#cc0000', scale: 1.2
+                    });
+                }
+            } else {
+                if (this.gameTime - this.starterMomentumBleed.lastMoveTime > 200) {
+                    this.starterMomentumBleed.moveTimer = 0;
+                }
+            }
+        }
     }
 
     // Trigger Dominion Burst at max stacks (called from dominion stack handler)
@@ -8335,6 +8714,40 @@ class DotsSurvivor {
         this.damageNumbers.push({
             x: this.player.x, y: this.player.y - 40,
             value: '🔥 FLAME PULSE!', lifetime: 1, color: '#ff4400', scale: 1.3
+        });
+
+        this.playSound('explosion');
+    }
+
+    // Trigger shadow nova when player takes damage (called from damage handler)
+    triggerShadowNova() {
+        if (!this.starterShadowNova || this.starterShadowNova.cooldownTimer > 0) return;
+
+        this.starterShadowNova.cooldownTimer = this.starterShadowNova.internalCooldownSeconds;
+
+        const damage = this.starterShadowNova.damage;
+        const radius = this.starterShadowNova.radiusPx;
+
+        for (const enemy of this.enemies) {
+            const distToEnemy = Math.sqrt(
+                (enemy.wx - this.worldX) ** 2 + (enemy.wy - this.worldY) ** 2
+            );
+            if (distToEnemy <= radius) {
+                enemy.health -= damage;
+                enemy.hitFlash = 0.2;
+
+                const sx = this.player.x + (enemy.wx - this.worldX);
+                const sy = this.player.y + (enemy.wy - this.worldY);
+                this.damageNumbers.push({
+                    x: sx, y: sy - 10,
+                    value: damage, lifetime: 0.5, color: '#6600cc', scale: 1.0
+                });
+            }
+        }
+
+        this.damageNumbers.push({
+            x: this.player.x, y: this.player.y - 40,
+            value: '🌑 SHADOW NOVA!', lifetime: 1, color: '#6600cc', scale: 1.3
         });
 
         this.playSound('explosion');
@@ -10255,6 +10668,10 @@ class DotsSurvivor {
                         if (this.starterEvolved && this.starterFlamePulse) {
                             this.triggerFlamePulse();
                         }
+                        // Starter Passive: Shadow Nova (Darkshield Mantle evolved)
+                        if (this.starterEvolved && this.starterShadowNova) {
+                            this.triggerShadowNova();
+                        }
                     }
 
                     // Thorn Armor: reflect damage back to enemy
@@ -11375,7 +11792,11 @@ class DotsSurvivor {
                 const nearby = eyeNearby;
 
                 if (nearest && nd < 500 * 500) {
-                    const baseDmg = (this.weapons.bullet.damage || 50) * (this.umbralOrbDamageBonus || 1) * (this.dominionDamageBonus || 1);
+                    let baseDmg = (this.weapons.bullet.damage || 50) * (this.umbralOrbDamageBonus || 1) * (this.dominionDamageBonus || 1);
+                    // Starter Passive: +dmg to orb-marked enemies (Voidcaller's Focus evolved)
+                    if (this.starterDamageVsOrbMarkedMult > 0 && nearest.orbMarked) {
+                        baseDmg = Math.floor(baseDmg * (1 + this.starterDamageVsOrbMarkedMult));
+                    }
                     const targetSX = this.player.x + (nearest.wx - this.worldX);
                     const targetSY = this.player.y + (nearest.wy - this.worldY);
 
@@ -11452,7 +11873,8 @@ class DotsSurvivor {
                         }
                     }
 
-                    orb.fireCooldown = orb.fireRate;
+                    // Apply starter orb fire rate bonus (lower cooldown = faster)
+                    orb.fireCooldown = orb.fireRate * (1 - (this.starterOrbFireRateMult || 0));
                 }
             }
         }
@@ -11679,7 +12101,7 @@ class DotsSurvivor {
                 }
             }
         }
-        this.dominionDamageBonus = 1 + (this.dominionStacks * 0.02);
+        this.dominionDamageBonus = 1 + (this.dominionStacks * (0.02 + (this.starterDominionExtraBonus || 0)));
     }
 
     updateShadowLances(dt) {
@@ -11925,10 +12347,17 @@ class DotsSurvivor {
             if (dmg > 0) {
                 e.health -= dmg; // TRUE DAMAGE — direct HP reduction
                 e.hitFlash = 0.1;
-                // Bleed Heal: heal Azura from bleed ticks
+                // Bleed Heal: heal Azura from bleed ticks (upstream - Crimson Vial evolved)
                 if (this.starterBleedHeal) {
                     const heal = Math.max(1, Math.floor(dmg * this.starterBleedHeal.healPercent));
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                }
+                // Starter Passive: Bleed Lifesteal (Bloodward Plate evolved)
+                if (this.starterBleedLifesteal > 0) {
+                    const heal = Math.floor(dmg * this.starterBleedLifesteal);
+                    if (heal > 0) {
+                        this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    }
                 }
                 // Hemorrhage: max stacks explode
                 if (this.hemorrhageActive && bleed.stacks >= (this.maxBleedStacks || 8)) {
@@ -12040,6 +12469,10 @@ class DotsSurvivor {
             if (this.crimsonSenseActive && e.voidBleed && e.voidBleed.stacks > 0) {
                 dmg = Math.floor(dmg * (1 + crimsonBonus));
             }
+            // Starter Passive: +dmg to bleeding enemies (Crimson Fang evolved)
+            if (this.starterDamageVsBleedingMult > 0 && e.voidBleed && e.voidBleed.stacks > 0) {
+                dmg = Math.floor(dmg * (1 + this.starterDamageVsBleedingMult));
+            }
             // Crit check
             const critChance = (this.critChance || 0) + (this.critChanceBonus || 0) + (this.weapons.bullet.critChance || 0.05);
             if (Math.random() < critChance) {
@@ -12057,6 +12490,11 @@ class DotsSurvivor {
                 if (e.voidBleed.stacks < (this.maxBleedStacks || 8)) {
                     e.voidBleed.stacks++;
                 }
+            }
+            // Starter Passive: Momentum Bleed Burst (Voidstep Greaves evolved)
+            if (this.starterMomentumBleed && this.starterMomentumBleed.ready) {
+                const extraStacks = this.starterMomentumBleed.extraBleedStacks || 2;
+                e.voidBleed.stacks = Math.min(this.maxBleedStacks || 8, e.voidBleed.stacks + extraStacks);
             }
             e.voidBleed.timer = this.bleedStackDuration || 3;
             e.voidBleed.dpsPerStack = (this.voidBleedDPS || 12) * (this.voidBleedDPSMult || 1);
@@ -12078,6 +12516,10 @@ class DotsSurvivor {
                 range: slashRange,
                 arc: slashArc
             };
+            // Reset momentum bleed burst after slash connects
+            if (this.starterMomentumBleed && this.starterMomentumBleed.ready) {
+                this.starterMomentumBleed.ready = false;
+            }
         }
 
         this.slashCooldown = this.slashRate || 0.4;
@@ -12134,7 +12576,7 @@ class DotsSurvivor {
                 sword.y = this.player.y + Math.sin(sword.angle) * orbitRadius;
 
                 // Charge decay when no momentum
-                if (this.bloodSwordDecayTimer > (this.bloodSwordDecayRate || 6)) {
+                if (this.bloodSwordDecayTimer > (this.bloodSwordDecayRate || 6) / (1 - (this.starterBloodSwordDecayReduction || 0))) {
                     sword.charge = Math.max(0, sword.charge - dt * 15);
                     if (sword.charge <= 0 && !sword.empowered) {
                         this.spawnParticles(sword.x, sword.y, '#660000', 5);
@@ -17997,6 +18439,24 @@ class DotsSurvivor {
         if (this.inferno) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 100, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,100,0,0.3)'; ctx.lineWidth = 2; ctx.stroke(); }
 
         // ============ SHADOW VOID (SHADOW MONARCH PASSIVE AURA) ============
+        // Starter Passive: Shadow Trail visual (Umbral Striders evolved)
+        if (this.starterShadowTrail && this.starterShadowTrail.segments.length > 0) {
+            ctx.save();
+            for (const seg of this.starterShadowTrail.segments) {
+                const sx = this.player.x + (seg.x - this.worldX);
+                const sy = this.player.y + (seg.y - this.worldY);
+                const alpha = Math.min(0.6, seg.timer / this.starterShadowTrail.durationSeconds);
+                const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, this.starterShadowTrail.widthPx);
+                grad.addColorStop(0, `rgba(100, 0, 200, ${alpha})`);
+                grad.addColorStop(1, `rgba(50, 0, 100, 0)`);
+                ctx.beginPath();
+                ctx.arc(sx, sy, this.starterShadowTrail.widthPx, 0, Math.PI * 2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
         if (this.shadowVoid && this.selectedClass?.id === 'shadow_monarch') {
             ctx.save();
             const voidRadius = this.shadowVoid.radius;

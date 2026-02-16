@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="fb-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#300008"/>
+      <stop offset="100%" stop-color="#0a0000"/>
+    </radialGradient>
+    <filter id="fb-glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#ff2222" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="fb-aura">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feFlood flood-color="#cc0000" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in"/>
+    </filter>
+    <linearGradient id="fb-fang" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff4444"/>
+      <stop offset="40%" stop-color="#cc0000"/>
+      <stop offset="100%" stop-color="#660022"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" rx="6" fill="url(#fb-bg)"/>
+  <rect width="80" height="80" rx="6" fill="none" stroke="#660022" stroke-width="1.5"/>
+  <!-- Blood aura behind fang -->
+  <ellipse cx="40" cy="40" rx="22" ry="30" filter="url(#fb-aura)" fill="#cc0000" opacity="0.5"/>
+  <!-- Main fang - larger, ornate -->
+  <g filter="url(#fb-glow)">
+    <!-- Large curved fang -->
+    <path d="M40 6 C44 8, 52 22, 54 34 C56 46, 50 58, 40 72 C36 62, 32 48, 31 38 C30 26, 34 12, 40 6Z" fill="url(#fb-fang)"/>
+    <!-- Ornate center ridge -->
+    <path d="M40 10 L41 30 L40 65 L39 30Z" fill="#ff6666" opacity="0.4"/>
+    <!-- Side serrations -->
+    <path d="M34 24 L31 20 L35 26Z" fill="#cc0000"/>
+    <path d="M33 32 L29 29 L34 34Z" fill="#cc0000"/>
+    <path d="M46 24 L49 20 L45 26Z" fill="#cc0000"/>
+    <path d="M47 32 L51 29 L46 34Z" fill="#cc0000"/>
+    <!-- Ornate guard -->
+    <path d="M28 33 Q34 38, 40 36 Q46 38, 52 33 Q46 42, 40 40 Q34 42, 28 33Z" fill="#880000" stroke="#cc0000" stroke-width="0.8"/>
+    <!-- Blood gem in guard -->
+    <circle cx="40" cy="37" r="3" fill="#ff2222" opacity="0.9"/>
+    <circle cx="40" cy="37" r="1.5" fill="#ff6666" opacity="0.7"/>
+    <!-- Blood droplets -->
+    <path d="M43 66 C43 66, 46 72, 44.5 75 C43.8 76.5, 42.5 76.5, 42.5 75 C41.5 72, 43 66, 43 66Z" fill="#cc0000" opacity="0.9"/>
+    <path d="M36 62 C36 62, 34 68, 34.5 70 C34.8 71.5, 36 71.5, 36 70 C36.5 68, 36 62, 36 62Z" fill="#aa0000" opacity="0.8"/>
+    <path d="M48 58 C48 58, 50 62, 49 64 C48.5 65, 47.5 65, 47.5 64 C47 62, 48 58, 48 58Z" fill="#cc0000" opacity="0.7"/>
+    <circle cx="37" cy="74" r="1.8" fill="#aa0000" opacity="0.6"/>
+    <circle cx="46" cy="68" r="1.2" fill="#cc0000" opacity="0.5"/>
+  </g>
+</svg>

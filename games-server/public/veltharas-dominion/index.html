@@ -164,39 +164,36 @@
     <!-- Start Menu -->
     <div id="start-menu" class="menu-overlay hidden">
         <div class="menu-content">
-            <div id="user-info" style="position:absolute;top:1rem;right:1rem;text-align:right;"></div>
+            <div id="user-info" class="user-info-badge"></div>
             <h1 class="game-title">VELTHARA'S<span>DOMINION</span></h1>
             <p class="game-subtitle">How long can you survive?</p>
-            <p class="alpha-tag">⚠️ ALPHA VERSION</p>
+            <p class="alpha-tag">ALPHA VERSION</p>
 
             <!-- Saved Game Notice -->
-            <div id="saved-game-notice" class="hidden"
-                style="background:#00ffaa22;border:2px solid #00ffaa;border-radius:12px;padding:1rem;margin:1rem 0;">
-                <p style="color:#00ffaa;margin:0;">💾 You have a saved game!</p>
-                <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-                    <button id="continue-btn" class="menu-btn primary" style="flex:1;">CONTINUE</button>
-                    <button id="new-game-btn" class="menu-btn secondary" style="flex:1;">NEW GAME</button>
+            <div id="saved-game-notice" class="hidden saved-notice">
+                <p>You have a saved game!</p>
+                <div class="saved-notice-actions">
+                    <button id="continue-btn" class="menu-btn primary">CONTINUE</button>
+                    <button id="new-game-btn" class="menu-btn secondary">NEW GAME</button>
                 </div>
             </div>
 
             <button id="start-btn" class="menu-btn primary">START GAME</button>
-            <button id="customize-btn" class="menu-btn secondary" style="margin-top:0.5rem;background:linear-gradient(135deg,#a855f722,#6366f122);border-color:#a855f7;">🎨 CUSTOMIZE</button>
+            <button id="customize-btn" class="menu-btn secondary">CUSTOMIZE</button>
             <!-- Store button hidden until Stripe is configured for production -->
-            <!-- <button id="store-btn" class="menu-btn secondary" style="margin-top:0.5rem;background:linear-gradient(135deg,#fbbf2422,#ff880022);border-color:#fbbf24;">🛒 STORE</button> -->
-            <button id="leaderboard-btn" class="menu-btn secondary" style="margin-top:0.5rem;">🏆 LEADERBOARDS</button>
-            <button id="settings-btn" class="menu-btn secondary" style="margin-top:0.5rem;">⚙️ SETTINGS</button>
-            <button id="help-btn" class="menu-btn secondary" style="margin-top:0.5rem;">❓ GAME INFO</button>
-            <a href="https://www.zecrugames.com" class="menu-btn secondary" style="margin-top:0.5rem;">🏠 EXIT TO HUB</a>
+            <!-- <button id="store-btn" class="menu-btn secondary">STORE</button> -->
+            <button id="leaderboard-btn" class="menu-btn secondary">LEADERBOARDS</button>
+            <button id="settings-btn" class="menu-btn secondary">SETTINGS</button>
+            <button id="help-btn" class="menu-btn secondary">GAME INFO</button>
+            <a href="https://www.zecrugames.com" class="menu-btn secondary">EXIT TO HUB</a>
 
-            <!-- Donate Button -->
-            <a href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn" style="margin-top:1rem;background:linear-gradient(135deg,#ff5e5b,#ff9966);border:2px solid #ff5e5b;color:#fff;box-shadow:0 0 20px rgba(255,94,91,0.3);transition:all 0.2s;" onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 0 30px rgba(255,94,91,0.5)';" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 0 20px rgba(255,94,91,0.3)';">❤️ SUPPORT US</a>
-            <p style="color:#888;font-size:0.75rem;margin-top:0.25rem;">Help fund indie game development!</p>
+            <a href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn donate-btn">SUPPORT US</a>
+            <p class="donate-hint">Help fund indie game development</p>
 
             <p class="game-version">v0.3.0</p>
 
             <div class="controls-info">
-                <p>🎮 WASD or Arrow Keys to move</p>
-                <p>🔫 Auto-fire enabled</p>
+                <p>WASD or Arrow Keys to move | Auto-fire enabled</p>
             </div>
         </div>
     </div>

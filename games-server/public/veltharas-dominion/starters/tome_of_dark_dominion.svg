@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#0d001a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <linearGradient id="leftPage" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a002a"/>
+      <stop offset="100%" stop-color="#0d0015"/>
+    </linearGradient>
+    <linearGradient id="rightPage" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a002a"/>
+      <stop offset="100%" stop-color="#0d0015"/>
+    </linearGradient>
+    <linearGradient id="coverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7700cc"/>
+      <stop offset="50%" stop-color="#440066"/>
+      <stop offset="100%" stop-color="#2a0044"/>
+    </linearGradient>
+    <radialGradient id="darkPower" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#bb66ff" stop-opacity="0.8"/>
+      <stop offset="40%" stop-color="#9933ff" stop-opacity="0.5"/>
+      <stop offset="80%" stop-color="#6600aa" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#440066" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="intenseGlow">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feFlood flood-color="#9933ff" flood-opacity="0.7" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="powerRadiate">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feFlood flood-color="#bb66ff" flood-opacity="0.5" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textGlow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feFlood flood-color="#9933ff" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" fill="url(#bg)" rx="4"/>
+  <!-- Power radiating from open tome -->
+  <circle cx="40" cy="42" r="30" fill="url(#darkPower)" filter="url(#powerRadiate)"/>
+  <!-- Radiating energy beams -->
+  <line x1="40" y1="42" x2="40" y2="4" stroke="#9933ff" stroke-width="1.5" opacity="0.4" filter="url(#intenseGlow)"/>
+  <line x1="40" y1="42" x2="14" y2="14" stroke="#7700cc" stroke-width="1" opacity="0.3" filter="url(#intenseGlow)"/>
+  <line x1="40" y1="42" x2="66" y2="14" stroke="#7700cc" stroke-width="1" opacity="0.3" filter="url(#intenseGlow)"/>
+  <line x1="40" y1="42" x2="8" y2="34" stroke="#6600aa" stroke-width="0.8" opacity="0.25" filter="url(#intenseGlow)"/>
+  <line x1="40" y1="42" x2="72" y2="34" stroke="#6600aa" stroke-width="0.8" opacity="0.25" filter="url(#intenseGlow)"/>
+  <!-- Open tome - back cover hints -->
+  <path d="M6 28 Q8 24 12 22 L38 20 L38 64 L10 62 Q6 60 6 56 Z" fill="#2a0044" stroke="#440066" stroke-width="0.5" opacity="0.4"/>
+  <path d="M74 28 Q72 24 68 22 L42 20 L42 64 L70 62 Q74 60 74 56 Z" fill="#2a0044" stroke="#440066" stroke-width="0.5" opacity="0.4"/>
+  <!-- Left page -->
+  <path d="M10 28 Q12 24 16 24 L38 22 L38 62 L14 60 Q10 58 10 54 Z" fill="url(#leftPage)" stroke="#6600aa" stroke-width="0.8"/>
+  <!-- Right page -->
+  <path d="M70 28 Q68 24 64 24 L42 22 L42 62 L66 60 Q70 58 70 54 Z" fill="url(#rightPage)" stroke="#6600aa" stroke-width="0.8"/>
+  <!-- Spine/center -->
+  <line x1="40" y1="20" x2="40" y2="64" stroke="#7700cc" stroke-width="2" opacity="0.8"/>
+  <!-- Left page glowing text lines -->
+  <line x1="16" y1="30" x2="34" y2="29" stroke="#7700cc" stroke-width="0.6" opacity="0.4" filter="url(#textGlow)"/>
+  <line x1="16" y1="34" x2="35" y2="33" stroke="#6600aa" stroke-width="0.5" opacity="0.3" filter="url(#textGlow)"/>
+  <line x1="15" y1="38" x2="35" y2="37" stroke="#7700cc" stroke-width="0.6" opacity="0.4" filter="url(#textGlow)"/>
+  <line x1="15" y1="42" x2="34" y2="41" stroke="#6600aa" stroke-width="0.5" opacity="0.3" filter="url(#textGlow)"/>
+  <line x1="14" y1="46" x2="35" y2="45" stroke="#7700cc" stroke-width="0.6" opacity="0.35" filter="url(#textGlow)"/>
+  <line x1="14" y1="50" x2="34" y2="49" stroke="#6600aa" stroke-width="0.5" opacity="0.3" filter="url(#textGlow)"/>
+  <!-- Right page - crown/skull symbol -->
+  <!-- Skull shape -->
+  <ellipse cx="56" cy="36" rx="7" ry="6" fill="#1a002a" stroke="#9933ff" stroke-width="1" filter="url(#intenseGlow)"/>
+  <!-- Skull eye sockets -->
+  <ellipse cx="53" cy="35" rx="2" ry="1.5" fill="#000000" stroke="#bb66ff" stroke-width="0.5"/>
+  <ellipse cx="59" cy="35" rx="2" ry="1.5" fill="#000000" stroke="#bb66ff" stroke-width="0.5"/>
+  <!-- Skull eye glow -->
+  <circle cx="53" cy="35" r="0.8" fill="#bb66ff" filter="url(#intenseGlow)"/>
+  <circle cx="59" cy="35" r="0.8" fill="#bb66ff" filter="url(#intenseGlow)"/>
+  <!-- Skull nose -->
+  <path d="M55 37 L56 39 L57 37" fill="none" stroke="#7700cc" stroke-width="0.6"/>
+  <!-- Skull jaw -->
+  <path d="M51 40 Q56 44 61 40" fill="none" stroke="#9933ff" stroke-width="0.8" opacity="0.7"/>
+  <line x1="53" y1="40" x2="53" y2="42" stroke="#7700cc" stroke-width="0.4" opacity="0.5"/>
+  <line x1="55" y1="41" x2="55" y2="43" stroke="#7700cc" stroke-width="0.4" opacity="0.5"/>
+  <line x1="57" y1="41" x2="57" y2="43" stroke="#7700cc" stroke-width="0.4" opacity="0.5"/>
+  <line x1="59" y1="40" x2="59" y2="42" stroke="#7700cc" stroke-width="0.4" opacity="0.5"/>
+  <!-- Crown on skull -->
+  <path d="M48 31 L50 26 L53 30 L56 24 L59 30 L62 26 L64 31" fill="none" stroke="#bb66ff" stroke-width="1.2" filter="url(#intenseGlow)"/>
+  <path d="M48 31 L64 31" stroke="#9933ff" stroke-width="1" filter="url(#intenseGlow)"/>
+  <!-- Crown gems -->
+  <circle cx="50" cy="27" r="0.8" fill="#ddaaff" filter="url(#intenseGlow)"/>
+  <circle cx="56" cy="25" r="1" fill="#ddaaff" filter="url(#intenseGlow)"/>
+  <circle cx="62" cy="27" r="0.8" fill="#ddaaff" filter="url(#intenseGlow)"/>
+  <!-- Right page text below symbol -->
+  <line x1="46" y1="48" x2="65" y2="47" stroke="#7700cc" stroke-width="0.6" opacity="0.35" filter="url(#textGlow)"/>
+  <line x1="46" y1="52" x2="66" y2="51" stroke="#6600aa" stroke-width="0.5" opacity="0.3" filter="url(#textGlow)"/>
+  <line x1="46" y1="56" x2="65" y2="55" stroke="#7700cc" stroke-width="0.5" opacity="0.3" filter="url(#textGlow)"/>
+  <!-- Cover edges visible at bottom -->
+  <path d="M8 56 Q8 62 12 64 L38 66 L38 64" fill="none" stroke="#7700cc" stroke-width="1" opacity="0.5"/>
+  <path d="M72 56 Q72 62 68 64 L42 66 L42 64" fill="none" stroke="#7700cc" stroke-width="1" opacity="0.5"/>
+  <!-- Floating dark particles -->
+  <circle cx="20" cy="12" r="1" fill="#bb66ff" opacity="0.5" filter="url(#intenseGlow)"/>
+  <circle cx="60" cy="10" r="1" fill="#9933ff" opacity="0.5" filter="url(#intenseGlow)"/>
+  <circle cx="40" cy="6" r="1.2" fill="#bb66ff" opacity="0.6" filter="url(#intenseGlow)"/>
+  <circle cx="30" cy="8" r="0.8" fill="#7700cc" opacity="0.4" filter="url(#intenseGlow)"/>
+  <circle cx="50" cy="8" r="0.8" fill="#7700cc" opacity="0.4" filter="url(#intenseGlow)"/>
+  <!-- Cover corner clasps -->
+  <rect x="8" y="26" width="3" height="3" rx="0.5" fill="#440066" stroke="#9933ff" stroke-width="0.5" opacity="0.6"/>
+  <rect x="69" y="26" width="3" height="3" rx="0.5" fill="#440066" stroke="#9933ff" stroke-width="0.5" opacity="0.6"/>
+</svg>

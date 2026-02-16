@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#1a0033"/>
+      <stop offset="100%" stop-color="#050008"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#bb66ff" stop-opacity="0.9"/>
+      <stop offset="40%" stop-color="#7700cc" stop-opacity="0.8"/>
+      <stop offset="80%" stop-color="#440066" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#440066" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ddaaff"/>
+      <stop offset="50%" stop-color="#9933ff"/>
+      <stop offset="100%" stop-color="#7700cc"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#9933ff" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feFlood flood-color="#7700cc" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" fill="url(#bg)" rx="4"/>
+  <!-- Outer glow aura -->
+  <circle cx="40" cy="38" r="24" fill="url(#orb)" filter="url(#softGlow)"/>
+  <!-- Energy wisps -->
+  <path d="M28 28 Q20 20 24 14" stroke="#7700cc" stroke-width="1.5" fill="none" opacity="0.6" filter="url(#glow)"/>
+  <path d="M52 28 Q60 18 56 12" stroke="#7700cc" stroke-width="1.5" fill="none" opacity="0.6" filter="url(#glow)"/>
+  <path d="M30 48 Q22 56 26 62" stroke="#6600aa" stroke-width="1" fill="none" opacity="0.5" filter="url(#glow)"/>
+  <path d="M50 48 Q58 56 54 62" stroke="#6600aa" stroke-width="1" fill="none" opacity="0.5" filter="url(#glow)"/>
+  <path d="M40 18 Q38 10 42 6" stroke="#9933ff" stroke-width="1" fill="none" opacity="0.5" filter="url(#glow)"/>
+  <!-- Main orb -->
+  <circle cx="40" cy="38" r="14" fill="url(#orbCore)" filter="url(#glow)"/>
+  <!-- Inner highlight -->
+  <ellipse cx="37" cy="34" rx="5" ry="4" fill="#ddaaff" opacity="0.3"/>
+  <!-- Small sparkle -->
+  <circle cx="36" cy="33" r="1.5" fill="#ffffff" opacity="0.7"/>
+  <!-- Pedestal base -->
+  <path d="M32 56 L36 50 L44 50 L48 56 Z" fill="#2a0044" stroke="#6600aa" stroke-width="0.8" opacity="0.8"/>
+  <path d="M30 58 L32 56 L48 56 L50 58 Z" fill="#1a002a" stroke="#440066" stroke-width="0.5" opacity="0.7"/>
+  <!-- Label area hint line -->
+  <line x1="20" y1="70" x2="60" y2="70" stroke="#440066" stroke-width="0.5" opacity="0.3"/>
+</svg>

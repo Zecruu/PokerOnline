@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="ed-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#1a000a"/>
+      <stop offset="100%" stop-color="#060002"/>
+    </radialGradient>
+    <filter id="ed-glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feFlood flood-color="#990033" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="ed-blade" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#882244"/>
+      <stop offset="40%" stop-color="#660022"/>
+      <stop offset="100%" stop-color="#330011"/>
+    </linearGradient>
+    <linearGradient id="ed-edge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#cc3355"/>
+      <stop offset="100%" stop-color="#660022"/>
+    </linearGradient>
+    <filter id="ed-absorb">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#660022" flood-opacity="0.5" result="color"/>
+      <feComposite in="color" in2="blur" operator="in"/>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" rx="6" fill="url(#ed-bg)"/>
+  <rect width="80" height="80" rx="6" fill="none" stroke="#440011" stroke-width="1.5"/>
+  <!-- Dark energy being absorbed (behind blade) -->
+  <g filter="url(#ed-absorb)">
+    <path d="M20 20 C28 26, 34 30, 38 36" stroke="#880033" stroke-width="2" fill="none" opacity="0.5"/>
+    <path d="M60 18 C52 26, 46 30, 42 36" stroke="#880033" stroke-width="2" fill="none" opacity="0.5"/>
+    <path d="M16 45 C24 42, 32 40, 38 38" stroke="#660022" stroke-width="1.5" fill="none" opacity="0.4"/>
+    <path d="M64 42 C56 40, 48 39, 42 38" stroke="#660022" stroke-width="1.5" fill="none" opacity="0.4"/>
+  </g>
+  <g filter="url(#ed-glow)">
+    <!-- Blade - angled sword -->
+    <path d="M36 8 L42 8 L46 50 L40 56 L34 50Z" fill="url(#ed-blade)" stroke="#880033" stroke-width="0.5"/>
+    <!-- Blade edge highlight -->
+    <path d="M37 10 L36 48" stroke="url(#ed-edge)" stroke-width="1" opacity="0.7"/>
+    <!-- Blade center fuller -->
+    <path d="M39 12 L40 48" stroke="#440011" stroke-width="1.5" opacity="0.6"/>
+    <!-- Crossguard -->
+    <path d="M26 50 L54 50 L52 54 L28 54Z" fill="#550022" stroke="#880033" stroke-width="0.8"/>
+    <!-- Crossguard gems -->
+    <circle cx="32" cy="52" r="1.5" fill="#cc3355"/>
+    <circle cx="48" cy="52" r="1.5" fill="#cc3355"/>
+    <!-- Handle/grip -->
+    <rect x="37" y="54" width="6" height="12" rx="1" fill="#330011" stroke="#550022" stroke-width="0.5"/>
+    <!-- Handle wrap lines -->
+    <line x1="37" y1="57" x2="43" y2="57" stroke="#440016" stroke-width="0.8"/>
+    <line x1="37" y1="60" x2="43" y2="60" stroke="#440016" stroke-width="0.8"/>
+    <line x1="37" y1="63" x2="43" y2="63" stroke="#440016" stroke-width="0.8"/>
+    <!-- Pommel -->
+    <circle cx="40" cy="68" r="3" fill="#550022" stroke="#880033" stroke-width="0.8"/>
+    <circle cx="40" cy="68" r="1.2" fill="#cc3355" opacity="0.7"/>
+    <!-- Essence dripping from blade -->
+    <path d="M35 30 C34 30, 32 35, 32.5 38 C33 40, 34.5 39, 34 37 C33.5 35, 35 30, 35 30Z" fill="#660022" opacity="0.8"/>
+    <path d="M44 24 C45 24, 47 28, 46.5 31 C46 33, 44.5 32, 45 30 C45.5 28, 44 24, 44 24Z" fill="#660022" opacity="0.7"/>
+    <circle cx="32" cy="41" r="1.2" fill="#880033" opacity="0.6"/>
+    <!-- Absorbed energy particles -->
+    <circle cx="24" cy="24" r="1.5" fill="#cc3355" opacity="0.4"/>
+    <circle cx="56" cy="22" r="1.5" fill="#cc3355" opacity="0.4"/>
+    <circle cx="18" cy="44" r="1" fill="#880033" opacity="0.3"/>
+    <circle cx="62" cy="40" r="1" fill="#880033" opacity="0.3"/>
+  </g>
+</svg>

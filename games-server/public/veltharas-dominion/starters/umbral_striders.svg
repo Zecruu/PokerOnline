@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="60%" r="60%">
+      <stop offset="0%" stop-color="#1a0033"/>
+      <stop offset="100%" stop-color="#050008"/>
+    </radialGradient>
+    <linearGradient id="bootGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#440066"/>
+      <stop offset="50%" stop-color="#2a0044"/>
+      <stop offset="100%" stop-color="#1a002a"/>
+    </linearGradient>
+    <linearGradient id="bootHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6600aa" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#2a0044" stop-opacity="0.2"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feFlood flood-color="#7700cc" flood-opacity="0.5" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadowTrail">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#440066" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" fill="url(#bg)" rx="4"/>
+  <!-- Shadow trail effects behind boots -->
+  <ellipse cx="26" cy="58" rx="12" ry="4" fill="#440066" opacity="0.3" filter="url(#shadowTrail)"/>
+  <ellipse cx="54" cy="58" rx="12" ry="4" fill="#440066" opacity="0.3" filter="url(#shadowTrail)"/>
+  <!-- Shadow wisps trailing up -->
+  <path d="M18 54 Q14 44 18 36" stroke="#440066" stroke-width="2" fill="none" opacity="0.4" filter="url(#shadowTrail)"/>
+  <path d="M22 52 Q16 40 20 30" stroke="#6600aa" stroke-width="1.5" fill="none" opacity="0.3" filter="url(#shadowTrail)"/>
+  <path d="M62 54 Q66 44 62 36" stroke="#440066" stroke-width="2" fill="none" opacity="0.4" filter="url(#shadowTrail)"/>
+  <path d="M58 52 Q64 40 60 30" stroke="#6600aa" stroke-width="1.5" fill="none" opacity="0.3" filter="url(#shadowTrail)"/>
+  <!-- Left boot -->
+  <path d="M16 56 L18 30 Q19 26 22 24 L26 24 Q30 26 30 30 L32 50 L34 54 L34 58 L30 60 L14 60 L14 58 Z" fill="url(#bootGrad)" stroke="#6600aa" stroke-width="1" filter="url(#glow)"/>
+  <!-- Left boot highlight -->
+  <path d="M20 30 Q21 28 24 27 L26 27 Q28 28 28 32 L27 42" stroke="#7700cc" stroke-width="1" fill="none" opacity="0.5"/>
+  <!-- Left boot sole -->
+  <path d="M14 58 L14 60 L30 60 L34 58 Z" fill="#1a002a" stroke="#440066" stroke-width="0.5"/>
+  <!-- Left boot top cuff -->
+  <path d="M18 30 L18 26 Q20 22 24 22 L26 22 Q30 22 30 26 L30 30" fill="none" stroke="#7700cc" stroke-width="1.2" opacity="0.7"/>
+  <!-- Right boot -->
+  <path d="M46 56 L48 30 Q49 26 52 24 L56 24 Q60 26 60 30 L62 50 L64 54 L64 58 L60 60 L44 60 L44 58 Z" fill="url(#bootGrad)" stroke="#6600aa" stroke-width="1" filter="url(#glow)"/>
+  <!-- Right boot highlight -->
+  <path d="M50 30 Q51 28 54 27 L56 27 Q58 28 58 32 L57 42" stroke="#7700cc" stroke-width="1" fill="none" opacity="0.5"/>
+  <!-- Right boot sole -->
+  <path d="M44 58 L44 60 L60 60 L64 58 Z" fill="#1a002a" stroke="#440066" stroke-width="0.5"/>
+  <!-- Right boot top cuff -->
+  <path d="M48 30 L48 26 Q50 22 54 22 L56 22 Q60 22 60 26 L60 30" fill="none" stroke="#7700cc" stroke-width="1.2" opacity="0.7"/>
+  <!-- Small purple energy accents on boots -->
+  <circle cx="24" cy="34" r="1.5" fill="#9933ff" opacity="0.6" filter="url(#glow)"/>
+  <circle cx="54" cy="34" r="1.5" fill="#9933ff" opacity="0.6" filter="url(#glow)"/>
+  <!-- Ground shadow -->
+  <ellipse cx="40" cy="64" rx="28" ry="3" fill="#1a0033" opacity="0.4" filter="url(#shadowTrail)"/>
+</svg>

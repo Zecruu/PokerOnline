@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <radialGradient id="vg-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#220000"/>
+      <stop offset="100%" stop-color="#080000"/>
+    </radialGradient>
+    <filter id="vg-glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feFlood flood-color="#aa2222" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="vg-boot" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#aa2222"/>
+      <stop offset="50%" stop-color="#771111"/>
+      <stop offset="100%" stop-color="#440000"/>
+    </linearGradient>
+    <linearGradient id="vg-trim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#cc3333"/>
+      <stop offset="100%" stop-color="#660011"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="80" height="80" rx="6" fill="url(#vg-bg)"/>
+  <rect width="80" height="80" rx="6" fill="none" stroke="#440000" stroke-width="1.5"/>
+  <g filter="url(#vg-glow)">
+    <!-- Boot sole -->
+    <path d="M22 68 L20 64 L24 62 L56 62 L60 64 L58 68Z" fill="#330000" stroke="#550000" stroke-width="0.5"/>
+    <!-- Boot body - armored greave -->
+    <path d="M26 62 L24 40 C24 35, 26 28, 28 22 L28 18 C30 14, 38 12, 40 12 C42 12, 50 14, 52 18 L52 22 C54 28, 56 35, 56 40 L54 62Z" fill="url(#vg-boot)"/>
+    <!-- Armor plate segments -->
+    <path d="M28 55 L52 55" stroke="#660011" stroke-width="1.5"/>
+    <path d="M27 46 L53 46" stroke="#660011" stroke-width="1.5"/>
+    <path d="M28 37 L52 37" stroke="#660011" stroke-width="1.5"/>
+    <!-- Knee guard -->
+    <path d="M30 24 C32 18, 38 15, 40 15 C42 15, 48 18, 50 24 L48 28 C46 25, 42 22, 40 22 C38 22, 34 25, 32 28Z" fill="url(#vg-trim)"/>
+    <!-- Center plate ridge -->
+    <line x1="40" y1="22" x2="40" y2="60" stroke="#cc3333" stroke-width="1" opacity="0.5"/>
+    <!-- Blood-red energy wisps at base -->
+    <path d="M24 64 C22 60, 18 62, 16 66" stroke="#cc0000" stroke-width="1.2" fill="none" opacity="0.6"/>
+    <path d="M56 64 C58 60, 62 62, 64 66" stroke="#cc0000" stroke-width="1.2" fill="none" opacity="0.6"/>
+    <!-- Small energy dots -->
+    <circle cx="18" cy="66" r="1.5" fill="#ff3333" opacity="0.5"/>
+    <circle cx="62" cy="66" r="1.5" fill="#ff3333" opacity="0.5"/>
+  </g>
+</svg>
