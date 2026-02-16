@@ -37,6 +37,7 @@
         tr:hover { background: #2a2a3e; }
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
         .badge-admin { background: #a78bfa; color: #000; }
+        .badge-tester { background: #22d3ee; color: #000; }
         .badge-banned { background: #ef4444; color: #fff; }
         .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
         .login-container { max-width: 400px; margin: 100px auto; padding: 40px; background: #1a1a2e; border-radius: 16px; }
@@ -188,15 +189,16 @@
                     <td>Wave ${u.stats?.highestWave || 0} | ${u.stats?.highestKills || 0} kills</td>
                     <td>
                         <select class="role-select" onchange="changeRole('${u.id}', this.value)" style="
-                            background: ${u.isAdmin ? '#9333ea' : '#333'};
+                            background: ${u.isAdmin ? '#9333ea' : u.isTester ? '#0891b2' : '#333'};
                             color: #fff;
-                            border: 1px solid ${u.isAdmin ? '#a855f7' : '#555'};
+                            border: 1px solid ${u.isAdmin ? '#a855f7' : u.isTester ? '#22d3ee' : '#555'};
                             padding: 5px 10px;
                             border-radius: 5px;
                             cursor: pointer;
                             font-size: 12px;
                         ">
-                            <option value="user" ${!u.isAdmin ? 'selected' : ''}>👤 User</option>
+                            <option value="user" ${!u.isAdmin && !u.isTester ? 'selected' : ''}>👤 User</option>
+                            <option value="tester" ${u.isTester && !u.isAdmin ? 'selected' : ''}>🧪 Tester</option>
                             <option value="admin" ${u.isAdmin ? 'selected' : ''}>👑 Admin</option>
                         </select>
                     </td>
@@ -247,17 +249,19 @@
         }
 
         async function changeRole(userId, role) {
-            const isAdmin = role === 'admin';
-            const action = isAdmin ? 'promote to Admin' : 'demote to User';
+            const roleLabels = { user: 'User', tester: 'Tester', admin: 'Admin' };
+            const action = `change role to ${roleLabels[role]}`;
             if (!confirm(`Are you sure you want to ${action}?`)) {
                 loadUsers(currentPage); // Reset dropdown if cancelled
                 return;
             }
+            const isAdmin = role === 'admin';
+            const isTester = role === 'tester';
             try {
                 const res = await fetch(`/api/admin/role/${userId}`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ isAdmin })
+                    body: JSON.stringify({ isAdmin, isTester })
                 });
                 const data = await res.json();
                 if (!res.ok) {
