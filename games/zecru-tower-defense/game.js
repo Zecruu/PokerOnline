@@ -60,6 +60,7 @@ function loadSprite(key, src) {
   SPRITES[key] = img;
 }
 loadSprite('bolt', 'bolt-tower.png');
+loadSprite('frost', 'frost-tower.png');
 
 // ── TOWER DEFINITIONS ──────────────────────────────────────
 const TOWERS = {
@@ -77,6 +78,7 @@ const TOWERS = {
   frost: {
     name: 'Frost Spire', cost: 150, damage: 4, range: 115, fireRate: 0.8,
     color: '#00ddee', projColor: '#aaffff', projSpeed: 320,
+    sprite: 'frost',
     slow: 0.45, slowDur: 2.0,
     desc: 'Slows enemies with freezing shots.', type: 'single',
     upgrades: [
