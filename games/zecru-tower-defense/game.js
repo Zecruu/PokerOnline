@@ -52,11 +52,21 @@ for (let i = 0; i < PATH.length - 1; i++) {
   TOTAL_PATH_LENGTH += len;
 }
 
+// ── SPRITE LOADER ──────────────────────────────────────────
+const SPRITES = {};
+function loadSprite(key, src) {
+  const img = new Image();
+  img.src = src;
+  SPRITES[key] = img;
+}
+loadSprite('bolt', 'bolt-tower.png');
+
 // ── TOWER DEFINITIONS ──────────────────────────────────────
 const TOWERS = {
   bolt: {
     name: 'Bolt Tower', cost: 100, damage: 8, range: 130, fireRate: 1.0,
     color: '#4488ff', projColor: '#66aaff', projSpeed: 420,
+    sprite: 'bolt',
     desc: 'Rapid energy bolts. Fast fire rate.', type: 'single',
     upgrades: [
       { cost: 80, damage: 13, fireRate: 1.3, desc: 'Faster Bolts' },
@@ -1052,26 +1062,38 @@ class ZecruTD {
         ctx.stroke();
       }
 
-      // Tower base
+      // Tower rendering
       const baseSize = 14;
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.fillRect(t.x - baseSize - 1, t.y - baseSize - 1, baseSize * 2 + 2, baseSize * 2 + 2);
-      ctx.fillStyle = t.def.color;
-      ctx.fillRect(t.x - baseSize, t.y - baseSize, baseSize * 2, baseSize * 2);
+      const spriteKey = t.def.sprite;
+      const sprite = spriteKey && SPRITES[spriteKey];
 
-      // Inner detail
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fillRect(t.x - 8, t.y - 8, 16, 16);
-      ctx.fillStyle = t.def.color;
-      ctx.fillRect(t.x - 6, t.y - 6, 12, 12);
+      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+        // Draw sprite (rotated to face target)
+        const drawSize = TILE - 4;
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        ctx.rotate(t.angle);
+        ctx.drawImage(sprite, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx.restore();
+      } else {
+        // Fallback: colored rectangle with barrel
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(t.x - baseSize - 1, t.y - baseSize - 1, baseSize * 2 + 2, baseSize * 2 + 2);
+        ctx.fillStyle = t.def.color;
+        ctx.fillRect(t.x - baseSize, t.y - baseSize, baseSize * 2, baseSize * 2);
 
-      // Turret barrel
-      ctx.save();
-      ctx.translate(t.x, t.y);
-      ctx.rotate(t.angle);
-      ctx.fillStyle = '#ddd';
-      ctx.fillRect(4, -2, 14, 4);
-      ctx.restore();
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(t.x - 8, t.y - 8, 16, 16);
+        ctx.fillStyle = t.def.color;
+        ctx.fillRect(t.x - 6, t.y - 6, 12, 12);
+
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        ctx.rotate(t.angle);
+        ctx.fillStyle = '#ddd';
+        ctx.fillRect(4, -2, 14, 4);
+        ctx.restore();
+      }
 
       // Level pips
       for (let l = 0; l < t.level; l++) {
@@ -1251,8 +1273,15 @@ class ZecruTD {
 
     // Ghost tower
     ctx.globalAlpha = 0.5;
-    ctx.fillStyle = canPlace ? def.color : '#ff0000';
-    ctx.fillRect(px - 14, py - 14, 28, 28);
+    const spriteKey = def.sprite;
+    const sprite = spriteKey && SPRITES[spriteKey];
+    if (canPlace && sprite && sprite.complete && sprite.naturalWidth > 0) {
+      const drawSize = TILE - 4;
+      ctx.drawImage(sprite, px - drawSize / 2, py - drawSize / 2, drawSize, drawSize);
+    } else {
+      ctx.fillStyle = canPlace ? def.color : '#ff0000';
+      ctx.fillRect(px - 14, py - 14, 28, 28);
+    }
     ctx.globalAlpha = 1;
 
     // Grid highlight
