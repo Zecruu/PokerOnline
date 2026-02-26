@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zecru Tower Defense</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- MAIN MENU -->
+  <div id="menuScreen" class="screen active">
+    <div class="menu-bg"></div>
+    <div class="menu-content">
+      <h1 class="game-title">ZECRU<br><span>TOWER DEFENSE</span></h1>
+      <p class="tagline">Defend the realm. Build your towers. Stop the horde.</p>
+      <div class="menu-buttons">
+        <button id="btnSinglePlayer" class="menu-btn primary">Single Player</button>
+        <button id="btnMultiplayer" class="menu-btn">Multiplayer Co-op</button>
+      </div>
+      <div class="menu-footer">
+        <span>5 Towers &bull; 3 Ascended &bull; 30 Waves</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MULTIPLAYER LOBBY -->
+  <div id="lobbyScreen" class="screen">
+    <div class="lobby-panel">
+      <h2>Multiplayer Lobby</h2>
+      <div class="lobby-options">
+        <button id="btnCreateRoom" class="menu-btn primary">Create Room</button>
+        <div class="divider">OR</div>
+        <div class="join-row">
+          <input id="roomCodeInput" type="text" placeholder="Room Code" maxlength="6" autocomplete="off">
+          <button id="btnJoinRoom" class="menu-btn">Join</button>
+        </div>
+      </div>
+      <div id="lobbyInfo" class="lobby-info hidden">
+        <p>Room: <strong id="lobbyRoomCode"></strong></p>
+        <p>Players: <span id="lobbyPlayerCount">1</span>/4</p>
+        <div id="lobbyPlayerList" class="player-list"></div>
+        <button id="btnStartGame" class="menu-btn primary">Start Game</button>
+      </div>
+      <button id="btnBackToMenu" class="menu-btn small">Back</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" class="screen">
+    <!-- Top HUD -->
+    <div id="hud" class="hud">
+      <div class="hud-item"><span class="hud-icon">W</span> Wave <strong id="hudWave">0</strong>/<span id="hudTotalWaves">30</span></div>
+      <div class="hud-item"><span class="hud-icon gold">G</span> <strong id="hudGold">250</strong></div>
+      <div class="hud-item"><span class="hud-icon red">H</span> Lives <strong id="hudLives">20</strong></div>
+      <div class="hud-item"><span class="hud-icon blue">S</span> Score <strong id="hudScore">0</strong></div>
+      <div class="hud-right">
+        <button id="btnSpeed" class="hud-btn" title="Toggle Speed">1x</button>
+        <button id="btnPause" class="hud-btn" title="Pause">II</button>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Tower Selection Panel (Right Side) -->
+    <div id="towerPanel" class="tower-panel">
+      <h3>TOWERS</h3>
+      <div id="towerList" class="tower-list"></div>
+      <div class="panel-divider"></div>
+      <h3>ASCENDED</h3>
+      <div id="ascendedList" class="tower-list ascended-list"></div>
+    </div>
+
+    <!-- Tower Info Panel (Bottom) -->
+    <div id="towerInfo" class="tower-info hidden">
+      <div class="info-header">
+        <div class="info-icon" id="infoIcon"></div>
+        <div>
+          <h4 id="infoName">Tower Name</h4>
+          <span id="infoLevel" class="info-level">Lv 1</span>
+        </div>
+      </div>
+      <div class="info-stats">
+        <div>DMG: <strong id="infoDmg">0</strong></div>
+        <div>RNG: <strong id="infoRange">0</strong></div>
+        <div>SPD: <strong id="infoSpeed">0</strong></div>
+      </div>
+      <div class="info-actions">
+        <button id="btnUpgrade" class="info-btn upgrade">Upgrade (<span id="upgradeCost">0</span>g)</button>
+        <button id="btnSell" class="info-btn sell">Sell (<span id="sellValue">0</span>g)</button>
+      </div>
+    </div>
+
+    <!-- Wave Start Banner -->
+    <div id="waveBanner" class="wave-banner hidden">
+      <span id="waveBannerText">Wave 1</span>
+    </div>
+
+    <!-- Next Wave Button -->
+    <button id="btnNextWave" class="next-wave-btn hidden">Send Next Wave</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameOverScreen" class="screen">
+    <div class="gameover-panel">
+      <h2 id="gameOverTitle">GAME OVER</h2>
+      <div class="gameover-stats">
+        <p>Wave Reached: <strong id="goWave">0</strong></p>
+        <p>Score: <strong id="goScore">0</strong></p>
+        <p>Towers Built: <strong id="goTowers">0</strong></p>
+      </div>
+      <button id="btnPlayAgain" class="menu-btn primary">Play Again</button>
+      <button id="btnMainMenu" class="menu-btn">Main Menu</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

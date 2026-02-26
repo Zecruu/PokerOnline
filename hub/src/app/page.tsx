@@ -40,6 +40,16 @@ const GAMES: Array<{
     badgeColor: "gold",
     isFree: true,
   },
+  {
+    id: "zecru-tower-defense",
+    title: "Zecru Tower Defense",
+    description: "Build towers, stop the horde! 5 unique towers, 3 powerful Ascended towers, and 30 waves of enemies. Co-op multiplayer supported.",
+    thumbnail: "/games/zecru-tower-defense/thumbnail.png",
+    href: "/games/zecru-tower-defense/index.html",
+    badge: "NEW",
+    badgeColor: "green",
+    isFree: true,
+  },
 ];
 
 export default function Home() {
