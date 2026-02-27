@@ -1353,8 +1353,11 @@ class ZecruTD {
       if (sprite && sprite.complete && sprite.naturalWidth > 0) {
         ctx.save();
         ctx.translate(t.x, t.y);
-        // Only rotate bolt/cannon (turret types), not stationary towers like frost/sniper
-        if (t.type === 'bolt' || t.type === 'cannon') ctx.rotate(t.angle);
+        // Rotate turret types toward target; Kenney sprites point UP so offset by -90°
+        const noRotate = t.def.type === 'support' && t.def.camoReveal;  // radar doesn't rotate
+        if (!noRotate && t.def.fireRate > 0) {
+          ctx.rotate(t.angle - Math.PI / 2);
+        }
         ctx.drawImage(sprite, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
         ctx.restore();
       } else {
