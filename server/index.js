@@ -95,6 +95,9 @@ function generatePlayerId() {
     return 'player_' + Math.random().toString(36).substr(2, 9);
 }
 
+// In-memory TD rooms (no DB needed, rooms are ephemeral)
+const tdRooms = {};
+
 // Socket.IO Connection Handler
 io.on('connection', (socket) => {
     console.log(`🔌 Player connected: ${socket.id}`);
@@ -395,6 +398,22 @@ io.on('connection', (socket) => {
     socket.on('disconnect', async () => {
         console.log(`🔌 Player disconnected: ${socket.id}`);
 
+        // Handle TD room disconnect
+        if (socket.tdRoom) {
+            const room = tdRooms[socket.tdRoom];
+            if (room) {
+                room.players = room.players.filter(p => p.id !== socket.id);
+                if (room.players.length === 0) {
+                    delete tdRooms[socket.tdRoom];
+                } else {
+                    if (room.host === socket.id) room.host = room.players[0].id;
+                    io.to('td:' + socket.tdRoom).emit('td:roomUpdate', {
+                        players: room.players, host: room.host
+                    });
+                }
+            }
+        }
+
         if (socket.roomCode) {
             try {
                 const room = await Room.findOne({ roomCode: socket.roomCode });
@@ -414,6 +433,72 @@ io.on('connection', (socket) => {
                 console.error('Disconnect handling error:', error);
             }
         }
+    });
+
+    // ── ZECRU TOWER DEFENSE MULTIPLAYER ──────────────────────
+    socket.on('td:createRoom', (data) => {
+        const code = Math.random().toString(36).substr(2, 6).toUpperCase();
+        const player = { id: socket.id, name: data.name || 'Player 1' };
+        tdRooms[code] = { players: [player], host: socket.id, started: false };
+        socket.tdRoom = code;
+        socket.join('td:' + code);
+        socket.emit('td:roomCreated', { code, players: [player], host: socket.id });
+        console.log(`🏰 TD Room ${code} created by ${player.name}`);
+    });
+
+    socket.on('td:joinRoom', (data) => {
+        const code = (data.code || '').toUpperCase();
+        const room = tdRooms[code];
+        if (!room) return socket.emit('td:error', { msg: 'Room not found' });
+        if (room.players.length >= 4) return socket.emit('td:error', { msg: 'Room full' });
+        if (room.started) return socket.emit('td:error', { msg: 'Game already started' });
+        const player = { id: socket.id, name: data.name || 'Player ' + (room.players.length + 1) };
+        room.players.push(player);
+        socket.tdRoom = code;
+        socket.join('td:' + code);
+        socket.emit('td:roomJoined', { code, players: room.players, host: room.host });
+        socket.to('td:' + code).emit('td:roomUpdate', { players: room.players, host: room.host });
+        console.log(`🏰 ${player.name} joined TD room ${code}`);
+    });
+
+    socket.on('td:startGame', () => {
+        const room = tdRooms[socket.tdRoom];
+        if (!room || room.host !== socket.id) return;
+        room.started = true;
+        io.to('td:' + socket.tdRoom).emit('td:gameStart', { players: room.players });
+    });
+
+    socket.on('td:placeTower', (data) => {
+        if (!socket.tdRoom) return;
+        socket.to('td:' + socket.tdRoom).emit('td:towerPlaced', {
+            playerId: socket.id, ...data
+        });
+    });
+
+    socket.on('td:sellTower', (data) => {
+        if (!socket.tdRoom) return;
+        socket.to('td:' + socket.tdRoom).emit('td:towerSold', {
+            playerId: socket.id, ...data
+        });
+    });
+
+    socket.on('td:upgradeTower', (data) => {
+        if (!socket.tdRoom) return;
+        socket.to('td:' + socket.tdRoom).emit('td:towerUpgraded', {
+            playerId: socket.id, ...data
+        });
+    });
+
+    socket.on('td:sendWave', () => {
+        if (!socket.tdRoom) return;
+        io.to('td:' + socket.tdRoom).emit('td:waveStart');
+    });
+
+    socket.on('td:sendGold', (data) => {
+        if (!socket.tdRoom) return;
+        socket.to('td:' + socket.tdRoom).emit('td:goldReceived', {
+            from: socket.id, amount: data.amount
+        });
     });
 });
 

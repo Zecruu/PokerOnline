@@ -358,6 +358,9 @@ class ZecruTD {
     document.getElementById('btnBackToMenu').addEventListener('click', () => this.showScreen('menuScreen'));
     document.getElementById('btnCreateRoom').addEventListener('click', () => this.createRoom());
     document.getElementById('btnJoinRoom').addEventListener('click', () => this.joinRoom());
+    document.getElementById('btnStartGame').addEventListener('click', () => {
+      if (this.socket) this.socket.emit('td:startGame');
+    });
 
     // Game
     document.getElementById('btnNextWave').addEventListener('click', () => this.startNextWave());
@@ -470,8 +473,13 @@ class ZecruTD {
   }
 
   // ── WAVE SPAWNING ──────────────────────────────────────
-  startNextWave() {
+  startNextWave(fromServer) {
     if (this.waveActive || this.wave >= TOTAL_WAVES) return;
+    // In multiplayer, send to server first (server broadcasts to all including sender)
+    if (this.multiplayer && this.socket && !fromServer) {
+      this.socket.emit('td:sendWave');
+      return;
+    }
     this.wave++;
     this.waveActive = true;
     this.betweenWaves = false;
@@ -731,6 +739,11 @@ class ZecruTD {
     this.towers.push(tower);
     if (def.ascended) this.hasAscended = true;
 
+    // Sync to multiplayer
+    if (this.multiplayer && this.socket) {
+      this.socket.emit('td:placeTower', { gx, gy, type: this.selectedType });
+    }
+
     this.spawnParticles(tower.x, tower.y, def.color, 8);
     this.updateTowerButtons();
     return true;
@@ -760,6 +773,10 @@ class ZecruTD {
       }
     }
 
+    if (this.multiplayer && this.socket) {
+      this.socket.emit('td:upgradeTower', { gx: t.gx, gy: t.gy });
+    }
+
     this.spawnParticles(t.x, t.y, '#44ff88', 10);
     this.showTowerInfo(t);
     this.updateTowerButtons();
@@ -773,6 +790,9 @@ class ZecruTD {
     this.gold += refund;
     this.grid[t.gy][t.gx] = 0;
     if (t.def.ascended) this.hasAscended = false;
+    if (this.multiplayer && this.socket) {
+      this.socket.emit('td:sellTower', { gx: t.gx, gy: t.gy });
+    }
     this.towers = this.towers.filter(tw => tw !== t);
     this.selectedTower = null;
     this.hideTowerInfo();
@@ -887,13 +907,11 @@ class ZecruTD {
   // ── PROJECTILES ────────────────────────────────────────
   fireProjectile(tower, target) {
     const spd = tower.stats.projSpeed || tower.def.projSpeed;
-    const dx = target.x - tower.x;
-    const dy = target.y - tower.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
     this.projectiles.push({
       x: tower.x, y: tower.y,
-      vx: (dx / dist) * spd,
-      vy: (dy / dist) * spd,
+      vx: 0, vy: 0,
+      speed: spd,
+      target: target,        // homing: track the target
       damage: tower.stats.damage || tower.def.damage,
       color: tower.def.projColor,
       projSprite: tower.def.projSprite || null,
@@ -904,7 +922,7 @@ class ZecruTD {
       freezeChance: tower.stats.freezeChance || 0,
       pierce: tower.stats.pierce || 0,
       hit: new Set(),
-      life: 3
+      life: 4
     });
   }
 
@@ -949,9 +967,32 @@ class ZecruTD {
   updateProjectiles(dt) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
+      p.life -= dt;
+
+      // Homing: steer toward target
+      if (p.target && p.target.alive) {
+        const dx = p.target.x - p.x;
+        const dy = p.target.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+          p.vx = (dx / dist) * p.speed;
+          p.vy = (dy / dist) * p.speed;
+        }
+      }
+      // If target is dead, keep current velocity and find nearest enemy
+      if (p.target && !p.target.alive) {
+        let nearest = null, bestD = Infinity;
+        for (const e of this.enemies) {
+          if (!e.alive || p.hit.has(e)) continue;
+          const dx = e.x - p.x, dy = e.y - p.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < bestD) { bestD = d2; nearest = e; }
+        }
+        p.target = nearest;
+      }
+
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.life -= dt;
 
       // Off screen or expired
       if (p.life <= 0 || p.x < -20 || p.x > CANVAS_W + 20 || p.y < -20 || p.y > CANVAS_H + 20) {
@@ -963,7 +1004,7 @@ class ZecruTD {
       for (const e of this.enemies) {
         if (!e.alive || p.hit.has(e)) continue;
         const dx = e.x - p.x, dy = e.y - p.y;
-        const hitDist = e.size + 4;
+        const hitDist = e.size + 5;
         if (dx * dx + dy * dy <= hitDist * hitDist) {
           p.hit.add(e);
 
@@ -1519,24 +1560,130 @@ class ZecruTD {
     this.showScreen('gameOverScreen');
   }
 
-  // ── MULTIPLAYER (stub for Socket.IO) ───────────────────
-  createRoom() {
-    this.roomCode = this.generateCode();
+  // ── MULTIPLAYER (Socket.IO) ─────────────────────────────
+  connectSocket() {
+    if (this.socket) return;
+    const host = window.location.hostname === 'localhost'
+      ? 'http://localhost:3001'
+      : 'https://www.zecrugames.com';
+    this.socket = io(host, { transports: ['websocket', 'polling'] });
+
+    this.socket.on('td:roomCreated', (data) => {
+      this.roomCode = data.code;
+      this.isHost = true;
+      this.updateLobbyUI(data.players);
+      document.getElementById('btnStartGame').classList.remove('hidden');
+    });
+
+    this.socket.on('td:roomJoined', (data) => {
+      this.roomCode = data.code;
+      this.isHost = (data.host === this.socket.id);
+      this.updateLobbyUI(data.players);
+      if (this.isHost) document.getElementById('btnStartGame').classList.remove('hidden');
+      else document.getElementById('btnStartGame').classList.add('hidden');
+    });
+
+    this.socket.on('td:roomUpdate', (data) => {
+      this.isHost = (data.host === this.socket.id);
+      this.updateLobbyUI(data.players);
+      if (this.isHost) document.getElementById('btnStartGame').classList.remove('hidden');
+    });
+
+    this.socket.on('td:gameStart', (data) => {
+      this.playerCount = data.players.length;
+      this.startGame(true);
+    });
+
+    this.socket.on('td:error', (data) => {
+      alert(data.msg);
+    });
+
+    // In-game sync
+    this.socket.on('td:towerPlaced', (data) => {
+      this.placeTowerRemote(data.gx, data.gy, data.type);
+    });
+    this.socket.on('td:towerSold', (data) => {
+      const t = this.towers.find(tw => tw.gx === data.gx && tw.gy === data.gy);
+      if (t) {
+        this.grid[t.gy][t.gx] = 0;
+        if (t.def.ascended) this.hasAscended = false;
+        this.towers = this.towers.filter(tw => tw !== t);
+      }
+    });
+    this.socket.on('td:towerUpgraded', (data) => {
+      const t = this.towers.find(tw => tw.gx === data.gx && tw.gy === data.gy);
+      if (t && t.level < t.def.upgrades.length) {
+        const upg = t.def.upgrades[t.level];
+        t.level++;
+        for (const [k, v] of Object.entries(upg)) {
+          if (k !== 'cost' && k !== 'desc') t.stats[k] = v;
+        }
+      }
+    });
+    this.socket.on('td:waveStart', () => {
+      if (!this.waveActive && this.wave < TOTAL_WAVES) {
+        this.startNextWave(true);
+      }
+    });
+    this.socket.on('td:goldReceived', (data) => {
+      this.gold += data.amount;
+      this.spawnFloatText(CANVAS_W / 2, CANVAS_H / 2, `+${data.amount}g from ally!`, '#44ff88');
+      this.updateTowerButtons();
+    });
+  }
+
+  updateLobbyUI(players) {
     document.getElementById('lobbyRoomCode').textContent = this.roomCode;
+    document.getElementById('lobbyPlayerCount').textContent = players.length;
     document.getElementById('lobbyInfo').classList.remove('hidden');
-    document.getElementById('btnStartGame').addEventListener('click', () => this.startGame(true), { once: true });
+    const list = document.getElementById('lobbyPlayerList');
+    list.innerHTML = '';
+    players.forEach((p, i) => {
+      const div = document.createElement('div');
+      div.className = 'player-item';
+      div.textContent = p.name + (i === 0 ? ' (Host)' : '');
+      list.appendChild(div);
+    });
+  }
+
+  createRoom() {
+    this.connectSocket();
+    const userData = localStorage.getItem('user_data');
+    let name = 'Player';
+    try { name = JSON.parse(userData).username || name; } catch(e) {}
+    this.socket.emit('td:createRoom', { name });
   }
 
   joinRoom() {
     const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
     if (code.length < 4) return;
-    this.roomCode = code;
-    document.getElementById('lobbyRoomCode').textContent = this.roomCode;
-    document.getElementById('lobbyInfo').classList.remove('hidden');
+    this.connectSocket();
+    const userData = localStorage.getItem('user_data');
+    let name = 'Player';
+    try { name = JSON.parse(userData).username || name; } catch(e) {}
+    this.socket.emit('td:joinRoom', { code, name });
   }
 
-  generateCode() {
-    return Math.random().toString(36).substr(2, 6).toUpperCase();
+  // Place a tower from a remote player (no gold deduction)
+  placeTowerRemote(gx, gy, type) {
+    const allDefs = { ...TOWERS, ...ASCENDED };
+    const def = allDefs[type];
+    if (!def) return;
+    if (gx < 0 || gx >= COLS || gy < 0 || gy >= ROWS) return;
+    if (this.grid[gy][gx] !== 0) return;
+    this.grid[gy][gx] = 2;
+    this.towers.push({
+      id: Date.now() + Math.random(),
+      type, def, gx, gy,
+      x: gx * TILE + TILE / 2,
+      y: gy * TILE + TILE / 2,
+      level: 0, cooldown: 0, angle: 0,
+      totalCost: def.cost,
+      stats: { ...def },
+      remote: true
+    });
+    if (def.ascended) this.hasAscended = true;
+    this.spawnParticles(gx * TILE + TILE / 2, gy * TILE + TILE / 2, def.color, 8);
   }
 
   // ── CANVAS RESIZE ──────────────────────────────────────
