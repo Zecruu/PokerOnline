@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zecru's WordMaster</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- MAIN MENU -->
+  <div id="menuScreen" class="screen active">
+    <div class="menu-bg"></div>
+    <div class="menu-content">
+      <h1 class="game-title">ZECRU'S<br><span>WORDMASTER</span></h1>
+      <p class="tagline">Give clues. Guess words. Avoid the doom word.</p>
+      <div class="menu-buttons">
+        <input id="playerNameInput" type="text" class="name-input" placeholder="Your Name" maxlength="16" autocomplete="off">
+        <button id="btnCreateRoom" class="menu-btn primary">Create Room</button>
+        <div class="divider">OR</div>
+        <div class="join-row">
+          <input id="roomCodeInput" type="text" class="room-input" placeholder="Room Code" maxlength="6" autocomplete="off">
+          <button id="btnJoinRoom" class="menu-btn">Join</button>
+        </div>
+      </div>
+      <div class="menu-footer">
+        <span>25 Words &bull; 8 Safe &bull; 1 Doom</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="lobbyScreen" class="screen">
+    <div class="lobby-panel">
+      <h2>Game Lobby</h2>
+      <p>Room: <strong id="lobbyRoomCode"></strong></p>
+      <p>Players: <span id="lobbyPlayerCount">1</span>/2</p>
+      <div id="lobbyPlayerList" class="player-list"></div>
+      <div id="roleSelect" class="role-select hidden">
+        <p class="role-label">Choose your role:</p>
+        <div class="role-buttons">
+          <button id="btnRoleWordmaster" class="role-btn selected">WordMaster</button>
+          <button id="btnRoleGuesser" class="role-btn">Guesser</button>
+        </div>
+      </div>
+      <button id="btnStartGame" class="menu-btn primary hidden">Start Game</button>
+      <p id="lobbyStatus" class="lobby-status"></p>
+      <button id="btnBackToMenu" class="menu-btn small">Back</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" class="screen">
+    <div class="game-layout">
+      <!-- Top HUD -->
+      <div class="game-hud">
+        <div class="hud-item">
+          <span class="hud-label">Safe Found</span>
+          <strong id="hudSafeFound">0</strong><span class="hud-of">/8</span>
+        </div>
+        <div class="hud-item hint-display" id="hintDisplay">
+          <span class="hud-label">HINT</span>
+          <span id="hintWord" class="hint-word">Waiting...</span>
+          <span id="hintNumber" class="hint-number hidden">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Guesses Left</span>
+          <strong id="hudGuessesLeft">0</strong>
+        </div>
+        <div id="hudRole" class="role-badge wordmaster">WORDMASTER</div>
+      </div>
+
+      <!-- 5x5 Word Grid -->
+      <div id="wordGrid" class="word-grid"></div>
+
+      <!-- Bottom Area -->
+      <div class="bottom-area">
+        <!-- WordMaster: give hint -->
+        <div id="hintInputArea" class="hidden">
+          <div class="hint-input-row">
+            <input id="hintInput" type="text" class="game-input" placeholder="One-word hint..." maxlength="30" autocomplete="off">
+            <input id="hintNumberInput" type="number" class="game-input number-input" min="1" max="8" value="1">
+            <button id="btnGiveHint" class="action-btn">Give Hint</button>
+          </div>
+          <p class="input-hint">Enter a single word and the number of related safe words.</p>
+          <p id="hintError" class="input-error hidden"></p>
+        </div>
+        <!-- Guesser: pick or end turn -->
+        <div id="guessArea" class="hidden">
+          <p id="guessStatus" class="guess-status">Click a word card above to guess.</p>
+          <button id="btnEndTurn" class="menu-btn small">End Turn</button>
+          <p id="guessError" class="input-error hidden"></p>
+        </div>
+        <!-- Waiting -->
+        <div id="waitingArea" class="hidden">
+          <p id="waitingText" class="waiting-text">Waiting for other player...</p>
+        </div>
+      </div>
+
+      <!-- History Log -->
+      <div id="hintHistory" class="hint-history"></div>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameOverScreen" class="screen">
+    <div class="gameover-panel">
+      <h2 id="gameOverTitle">GAME OVER</h2>
+      <div class="gameover-stats">
+        <p>Safe Words Found: <strong id="goSafeFound">0</strong>/8</p>
+        <p>Hints Given: <strong id="goHintsGiven">0</strong></p>
+      </div>
+      <h3>BOARD REVEAL</h3>
+      <div id="revealGrid" class="word-grid reveal-grid"></div>
+      <button id="btnPlayAgain" class="menu-btn primary">Play Again</button>
+      <button id="btnMainMenu" class="menu-btn">Main Menu</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

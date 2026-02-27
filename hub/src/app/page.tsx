@@ -60,6 +60,16 @@ const GAMES: Array<{
     badgeColor: "green",
     isFree: true,
   },
+  {
+    id: "zecru-wordmaster",
+    title: "Zecru's WordMaster",
+    description: "Give clues and guess words — but avoid the doom word! A Codenames-style 2-player word game with a 5x5 grid.",
+    thumbnail: "/games/zecru-wordmaster/thumbnail.svg",
+    href: "/games/zecru-wordmaster/index.html",
+    badge: "NEW",
+    badgeColor: "green",
+    isFree: true,
+  },
 ];
 
 export default function Home() {

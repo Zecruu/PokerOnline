@@ -40,6 +40,28 @@ const ALL_GAMES = [
     isFree: true,
     category: "strategy",
   },
+  {
+    id: "zecru-15-clues",
+    title: "Zecru 15 Clues",
+    description: "One word. One chance. Can you crack the code? Give 1-word clues to help your partner guess 10 hidden words in 15 tries.",
+    thumbnail: "/games/zecru-15-clues/thumbnail.svg",
+    href: "/games/zecru-15-clues/index.html",
+    badge: "NEW",
+    badgeColor: "green" as const,
+    isFree: true,
+    category: "strategy",
+  },
+  {
+    id: "zecru-wordmaster",
+    title: "Zecru's WordMaster",
+    description: "Give clues and guess words — but avoid the doom word! A Codenames-style 2-player word game with a 5x5 grid.",
+    thumbnail: "/games/zecru-wordmaster/thumbnail.svg",
+    href: "/games/zecru-wordmaster/index.html",
+    badge: "NEW",
+    badgeColor: "green" as const,
+    isFree: true,
+    category: "strategy",
+  },
 ];
 
 const CATEGORIES = [
