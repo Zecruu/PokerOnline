@@ -327,11 +327,24 @@ class ZecruTD {
     const btn = document.createElement('button');
     btn.className = 'tower-btn';
     btn.dataset.tower = key;
+
+    // Build stat line
+    let stats = `${def.damage} dmg | ${def.range} rng`;
+    if (def.splash) stats += ` | ${def.splash} AoE`;
+    if (def.slow) stats += ` | ${Math.round((1 - def.slow) * 100)}% slow`;
+    if (def.chainCount) stats += ` | ${def.chainCount} chain`;
+    if (def.goldPerWave) stats += ` | +${def.goldPerWave}g/wave`;
+    if (def.goldBonus) stats += ` | +${Math.round(def.goldBonus * 100)}% gold`;
+    if (def.pullStr) stats += ` | ${def.pullStr} pull`;
+    if (def.globalSlow) stats += ` | ${Math.round((1 - def.globalSlow) * 100)}% time slow`;
+
     btn.innerHTML = `
       <div class="t-icon" style="background:${def.color}"></div>
       <div class="t-info">
         <span class="t-name">${def.name}</span>
         <span class="t-cost">${def.cost}g</span>
+        <span class="t-desc">${def.desc}</span>
+        <span class="t-stats">${stats}</span>
       </div>`;
     btn.addEventListener('click', () => this.selectTowerType(key));
     return btn;
@@ -1682,7 +1695,7 @@ class ZecruTD {
 
   // ── CANVAS RESIZE ──────────────────────────────────────
   resize() {
-    const panel = 160;
+    const panel = 190;
     const hud = 44;
     const maxW = window.innerWidth - panel;
     const maxH = window.innerHeight - hud;

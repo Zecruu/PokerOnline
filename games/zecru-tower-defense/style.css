@@ -221,7 +221,7 @@ body {
   position: fixed;
   top: 44px;
   right: 0;
-  width: 160px;
+  width: 190px;
   height: calc(100vh - 44px);
   background: rgba(8,8,20,0.94);
   border-left: 1px solid rgba(255,255,255,0.08);
@@ -293,6 +293,21 @@ body {
   font-size: 0.65rem;
   color: #ffd700;
 }
+.tower-btn .t-desc {
+  font-size: 0.58rem;
+  color: #888;
+  white-space: normal;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+.tower-btn .t-stats {
+  font-size: 0.55rem;
+  color: #6ab;
+  white-space: normal;
+  line-height: 1.3;
+  margin-top: 1px;
+  font-weight: 600;
+}
 .ascended-list .tower-btn {
   border-color: rgba(255,180,0,0.2);
 }
@@ -319,7 +334,7 @@ body {
 .tower-info {
   position: fixed;
   bottom: 0; left: 0;
-  right: 160px;
+  right: 190px;
   height: 70px;
   background: rgba(8,8,20,0.94);
   border-top: 1px solid rgba(255,255,255,0.08);
