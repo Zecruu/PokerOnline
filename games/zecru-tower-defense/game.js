@@ -82,16 +82,16 @@ const TOWERS = {
     ]
   },
   frost: {
-    // MAGIC - counters phantoms & runners (slow), weak vs shielded
+    // MAGIC - AoE frost pulse, counters phantoms & runners (slow), weak vs shielded
     name: 'Frost Spire', cost: 150, damage: 6, range: 120, fireRate: 0.9,
-    color: '#00ddee', projColor: '#aaffff', projSpeed: 320,
+    color: '#00ddee', projColor: '#aaffff', projSpeed: 0,
     sprite: 'frost', dmgType: 'magic',
     slow: 0.45, slowDur: 2.0,
-    desc: 'Magic ice. Counters Phantoms & Runners.', type: 'single',
+    desc: 'AoE frost pulse. Counters Phantoms & Runners.', type: 'frostpulse',
     upgrades: [
       { cost: 120, damage: 14, slow: 0.3, range: 140, fireRate: 1.1, desc: 'Deep Freeze' },
       { cost: 275, damage: 28, slow: 0.2, range: 160, fireRate: 1.3, freezeChance: 0.2, shieldBreak: true, desc: 'Shatter (breaks shields)' },
-      { cost: 500, damage: 50, slow: 0.1, range: 180, fireRate: 1.5, freezeChance: 0.35, splash: 65, desc: 'Blizzard' }
+      { cost: 500, damage: 50, slow: 0.1, range: 180, fireRate: 1.5, freezeChance: 0.35, desc: 'Blizzard' }
     ]
   },
   cannon: {
@@ -1035,6 +1035,39 @@ class ZecruTD {
         continue;
       }
 
+      // Frost Spire - AoE frost pulse: damages + slows all enemies in range
+      if (t.def.type === 'frostpulse') {
+        let hit = false;
+        const dmg = t.stats.damage || t.def.damage;
+        const slow = t.stats.slow || t.def.slow;
+        const slowDur = t.stats.slowDur || t.def.slowDur;
+        const fc = t.stats.freezeChance || 0;
+        for (const e of this.enemies) {
+          if (!e.alive || !this.canSeeCamo(t, e)) continue;
+          const dx = e.x - t.x, dy = e.y - t.y;
+          if (dx * dx + dy * dy <= range * range) {
+            this.damageEnemy(e, dmg, t, true);
+            e.slow = Math.min(e.slow, slow);
+            e.slowTimer = Math.max(e.slowTimer, slowDur);
+            if (fc > 0 && Math.random() < fc) {
+              e.frozen = true;
+              e.frozenTimer = 1.2;
+            }
+            hit = true;
+          }
+        }
+        if (hit) {
+          t.cooldown = 1 / fr;
+          // Frost pulse ring visual
+          this.particles.push({
+            type: 'frostRing', x: t.x, y: t.y,
+            radius: 0, maxRadius: range,
+            color: '#00ddee', life: 0.3, maxLife: 0.3
+          });
+        }
+        continue;
+      }
+
       // Chrono Sentinel - time slow is passive, but also shoots + has timeStop burst
       if (t.def.type === 'timeslow') {
         // Time Stop burst
@@ -1359,7 +1392,7 @@ class ZecruTD {
         ctx.save();
         ctx.translate(t.x, t.y);
         // Rotate turret types toward target; Kenney sprites point UP so offset by -90°
-        const noRotate = t.def.type === 'support' && t.def.camoReveal;  // radar doesn't rotate
+        const noRotate = (t.def.type === 'support' && t.def.camoReveal) || t.def.type === 'frostpulse';
         if (!noRotate && t.def.fireRate > 0) {
           ctx.rotate(t.angle + Math.PI / 2);
         }
@@ -1626,6 +1659,23 @@ class ZecruTD {
           else ctx.lineTo(pt.x + jx, pt.y + jy);
         }
         ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else if (p.type === 'frostRing') {
+        const progress = 1 - (p.life / p.maxLife);
+        const r = p.maxRadius * progress;
+        const alpha = (1 - progress) * 0.5;
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 3 * (1 - progress);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        // Inner fill
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = alpha * 0.15;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
         ctx.globalAlpha = 1;
       } else {
         const alpha = p.life / p.maxLife;
