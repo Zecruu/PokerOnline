@@ -42,6 +42,7 @@ class PokerApp {
         client.onPlayerJoined = (data) => {
             this.currentRoom = data.room;
             this.updateOnlinePlayersList();
+            this.updateOnlineStartButton();
         };
 
         client.onGameStarted = (data) => {
@@ -89,6 +90,7 @@ class PokerApp {
                 this.renderOnlineGame();
             } else if (this.currentScreen === 'lobby') {
                 this.updateOnlinePlayersList();
+                this.updateOnlineStartButton();
             }
         };
     }
