@@ -143,6 +143,18 @@ const TOWERS = {
       { cost: 400, damage: 55, chainCount: 7, chainRange: 110, range: 175, fireRate: 1.0, stunChance: 0.15, shieldBreak: true, desc: 'Shield Breaker' },
       { cost: 650, damage: 90, chainCount: 10, chainRange: 130, range: 200, fireRate: 1.2, stunChance: 0.25, desc: 'Overload' }
     ]
+  },
+  armorBreaker: {
+    // PHYSICAL - hard-counter to tanks/armored, strips armor permanently
+    name: 'Armor Destroyer', cost: 350, damage: 35, range: 150, fireRate: 0.4,
+    color: '#ff8844', projColor: '#ffaa66', projSpeed: 500,
+    dmgType: 'physical', armorPierce: true, armorShred: 0.1,
+    desc: 'Pierces & shreds armor. Counters Tanks.', type: 'single',
+    upgrades: [
+      { cost: 250, damage: 60, armorShred: 0.2, range: 170, fireRate: 0.5, desc: 'Sunder (shreds 20%)' },
+      { cost: 500, damage: 100, armorShred: 0.35, range: 190, fireRate: 0.6, shieldBreak: true, desc: 'Demolish (breaks shields)' },
+      { cost: 800, damage: 160, armorShred: 0.5, range: 210, fireRate: 0.7, antiTank: true, desc: 'Tank Buster (2x vs tanks)' }
+    ]
   }
 };
 
@@ -151,12 +163,13 @@ const ASCENDED = {
   moneyman: {
     name: 'Money Man', cost: 500, damage: 5, range: 150, fireRate: 0.5,
     color: '#ffd700', projColor: '#fff44f', projSpeed: 300,
-    desc: 'Generates gold & boosts income nearby.', type: 'support',
-    goldPerWave: 50, goldBonus: 0.5, ascended: true,
+    desc: 'Generates gold. Levels up from kills nearby.', type: 'support',
+    goldPerWave: 15, goldBonus: 0.15, ascended: true, xpBased: true,
+    xpToLevel: [30, 80, 180],  // kills needed for each level
     upgrades: [
-      { cost: 350, damage: 12, goldPerWave: 100, goldBonus: 0.85, range: 170, desc: 'Gold Rush' },
-      { cost: 650, damage: 25, goldPerWave: 175, goldBonus: 1.2, range: 200, nearbyBoost: 0.2, desc: 'Inspire (+20% ally dmg)' },
-      { cost: 1000, damage: 45, goldPerWave: 300, goldBonus: 2.0, range: 230, nearbyBoost: 0.4, goldExplosion: true, desc: 'Golden Touch' }
+      { damage: 10, goldPerWave: 25, goldBonus: 0.25, range: 165, desc: 'Gold Rush' },
+      { damage: 18, goldPerWave: 40, goldBonus: 0.35, range: 180, nearbyBoost: 0.1, desc: 'Inspire (+10% ally dmg)' },
+      { damage: 30, goldPerWave: 60, goldBonus: 0.5, range: 200, nearbyBoost: 0.2, desc: 'Golden Touch' }
     ]
   },
   voidwarden: {
@@ -209,9 +222,39 @@ const ENEMY_TYPES = {
               camo: true, evasion: 0.15 },  // fast + invisible
   camoArmored:{ name: 'Camo Tank', hp: 80, speed: 1.0, gold: 30, color: '#556622', size: 11,
               camo: true, armor: 0.4, resist: { physical: 0.3 } },  // armored + invisible, nasty
+  // Heavy tanks — very slow, massive HP/armor, need armor destroyer
+  tank:     { name: 'Heavy Tank', hp: 200, speed: 0.6, gold: 40, color: '#8888aa', size: 13,
+              armor: 0.6, resist: { physical: 0.3, magic: 0.2, explosive: 0.4 } },
+  superTank:{ name: 'Mega Tank', hp: 500, speed: 0.45, gold: 80, color: '#667799', size: 15,
+              armor: 0.75, resist: { physical: 0.5, magic: 0.3, explosive: 0.5 },
+              shield: 80, shieldMax: 80, shieldRegen: 10 },
+
+  // MOAB-style layered enemies — pop into smaller enemies on death
+  moab:     { name: 'MOAB', hp: 350, speed: 0.5, gold: 60, color: '#0066cc', size: 18,
+              armor: 0.3, moabChildren: 'ceramicx4',
+              label: 'MOAB' },
+  bfb:      { name: 'BFB', hp: 900, speed: 0.35, gold: 100, color: '#cc2200', size: 22,
+              armor: 0.4, moabChildren: 'moabx3',
+              label: 'BFB' },
+  zomg:     { name: 'ZOMG', hp: 3000, speed: 0.25, gold: 250, color: '#222222', size: 26,
+              armor: 0.5, resist: { physical: 0.3, explosive: 0.3 },
+              moabChildren: 'bfbx2',
+              label: 'ZOMG' },
+  ceramic:  { name: 'Ceramic', hp: 60, speed: 2.0, gold: 10, color: '#cc6633', size: 8,
+              armor: 0.35 },
+
+  // Boss variants
   boss:     { name: 'Boss',     hp: 500, speed: 0.65, gold: 150, color: '#ff0044', size: 16,
               armor: 0.2, shield: 100, shieldMax: 100, shieldRegen: 8,
-              resist: { physical: 0.15 } }
+              resist: { physical: 0.15 } },
+  bossTank: { name: 'Siege Boss', hp: 1200, speed: 0.4, gold: 250, color: '#445577', size: 20,
+              armor: 0.55, shield: 200, shieldMax: 200, shieldRegen: 15,
+              resist: { physical: 0.3, explosive: 0.4 },
+              label: 'SIEGE' },
+  bossSwarm:{ name: 'Hive Mother', hp: 600, speed: 0.7, gold: 200, color: '#ff66aa', size: 17,
+              shield: 80, shieldMax: 80, shieldRegen: 5,
+              spawnMinions: true, minionType: 'swarm', minionRate: 2.0, minionCount: 4,
+              label: 'HIVE' }
 };
 
 // ── WAVE GENERATOR (Bloons-style pacing) ───────────────────
@@ -303,12 +346,50 @@ function generateWaves() {
       push('camoArmored', 3 + (w - 24), 0.7);
     }
 
-    // Boss every 5 waves
+    // Tanks from wave 16
+    if (w >= 16 && w <= 25) {
+      t += 0.3;
+      push('tank', 2 + Math.floor((w - 16) / 2), 1.0);
+    }
+    if (w > 25) {
+      t += 0.2;
+      push('tank', 4 + (w - 25) * 2, 0.7);
+      if (w >= 30) { push('superTank', 1 + Math.floor((w - 30) / 3), 2.0); }
+    }
+
+    // MOAB-style enemies from wave 18
+    if (w >= 18 && w < 25) {
+      wave.push({ type: 'moab', delay: t + 1, hpMult: hpS, spdMult: spS });
+    }
+    if (w >= 25 && w < 32) {
+      wave.push({ type: 'moab', delay: t + 0.5, hpMult: hpS, spdMult: spS });
+      if (w >= 28) wave.push({ type: 'moab', delay: t + 3, hpMult: hpS, spdMult: spS });
+    }
+    if (w >= 32 && w < 38) {
+      wave.push({ type: 'bfb', delay: t + 1, hpMult: hpS, spdMult: spS });
+      wave.push({ type: 'moab', delay: t + 4, hpMult: hpS, spdMult: spS });
+    }
+    if (w >= 38) {
+      wave.push({ type: 'zomg', delay: t + 2, hpMult: hpS, spdMult: spS });
+      wave.push({ type: 'bfb', delay: t + 6, hpMult: hpS, spdMult: spS });
+    }
+
+    // Boss every 5 waves — with new boss variants
     if (w % 5 === 0) {
       const bm = hpS * (1 + Math.floor(w / 5) * 0.5);
-      wave.push({ type: 'boss', delay: t + 1.5, hpMult: bm, spdMult: spS * 0.9 });
-      if (w >= 15) wave.push({ type: 'boss', delay: t + 5, hpMult: bm * 0.8, spdMult: spS });
-      if (w >= 30) wave.push({ type: 'boss', delay: t + 8, hpMult: bm * 0.7, spdMult: spS * 1.1 });
+      if (w <= 10) {
+        wave.push({ type: 'boss', delay: t + 1.5, hpMult: bm, spdMult: spS * 0.9 });
+      } else if (w <= 20) {
+        wave.push({ type: 'boss', delay: t + 1.5, hpMult: bm, spdMult: spS * 0.9 });
+        wave.push({ type: 'bossTank', delay: t + 5, hpMult: bm * 0.7, spdMult: spS * 0.8 });
+      } else if (w <= 30) {
+        wave.push({ type: 'bossTank', delay: t + 1.5, hpMult: bm, spdMult: spS * 0.85 });
+        wave.push({ type: 'bossSwarm', delay: t + 5, hpMult: bm * 0.8, spdMult: spS });
+      } else {
+        wave.push({ type: 'bossTank', delay: t + 1.5, hpMult: bm * 1.2, spdMult: spS * 0.8 });
+        wave.push({ type: 'bossSwarm', delay: t + 4, hpMult: bm, spdMult: spS });
+        wave.push({ type: 'boss', delay: t + 7, hpMult: bm * 0.9, spdMult: spS * 1.1 });
+      }
     }
 
     wave.sort((a, b) => a.delay - b.delay);
@@ -415,6 +496,8 @@ class ZecruTD {
     if (def.chainCount) stats += ` | ${def.chainCount} chain`;
     if (def.goldPerWave) stats += ` | +${def.goldPerWave}g/wave`;
     if (def.goldBonus) stats += ` | +${Math.round(def.goldBonus * 100)}% gold`;
+    if (def.armorShred) stats += ` | -${Math.round(def.armorShred * 100)}% armor`;
+    if (def.xpBased) stats += ` | XP leveling`;
     if (def.pullStr) stats += ` | ${def.pullStr} pull`;
     if (def.globalSlow) stats += ` | ${Math.round((1 - def.globalSlow) * 100)}% time slow`;
 
@@ -673,7 +756,14 @@ class ZecruTD {
       frozenTimer: 0,
       stunned: false,
       stunnedTimer: 0,
-      alive: true
+      alive: true,
+      moabChildren: def.moabChildren || null,
+      label: def.label || null,
+      spawnMinions: def.spawnMinions || false,
+      minionType: def.minionType || null,
+      minionRate: def.minionRate || 0,
+      minionCount: def.minionCount || 0,
+      minionTimer: 0
     });
   }
 
@@ -690,6 +780,17 @@ class ZecruTD {
       // Shield regen
       if (e.shieldRegen > 0 && e.shield < e.shieldMax) {
         e.shield = Math.min(e.shieldMax, e.shield + e.shieldRegen * dt);
+      }
+
+      // Boss minion spawning (Hive Mother)
+      if (e.spawnMinions && e.minionType && e.minionRate > 0) {
+        e.minionTimer += dt;
+        if (e.minionTimer >= e.minionRate) {
+          e.minionTimer = 0;
+          for (let m = 0; m < e.minionCount; m++) {
+            this.spawnEnemy(e.minionType, e.hpMult * 0.5, e.spdMult * 1.3, e.pathDist + (m - 1) * 6);
+          }
+        }
       }
 
       if (e.frozen || e.stunned) continue;
@@ -788,6 +889,17 @@ class ZecruTD {
       dmg *= 2;
     }
 
+    // Anti-tank bonus
+    if (tower && tower.stats.antiTank && (enemy.type === 'tank' || enemy.type === 'superTank' || enemy.type === 'armored')) {
+      dmg *= 2;
+      this.spawnFloatText(enemy.x, enemy.y - 15, 'SHRED!', '#ff8844');
+    }
+
+    // Armor shred: permanently reduce enemy armor
+    if (tower && tower.stats.armorShred && enemy.armor > 0) {
+      enemy.armor = Math.max(0, enemy.armor - tower.stats.armorShred);
+    }
+
     // Instakill threshold
     if (tower && tower.stats.instakillThresh) {
       if (enemy.hp / enemy.maxHp <= tower.stats.instakillThresh && enemy.type !== 'boss') {
@@ -838,7 +950,7 @@ class ZecruTD {
 
   onEnemyKill(enemy, tower) {
     let goldEarned = enemy.gold;
-    // Money Man gold bonus
+    // Money Man gold bonus + XP tracking
     for (const t of this.towers) {
       if (t.def.goldBonus) {
         const gb = t.stats.goldBonus || t.def.goldBonus;
@@ -847,13 +959,12 @@ class ZecruTD {
         const rng = t.stats.range || t.def.range;
         if (dx * dx + dy * dy <= rng * rng) {
           goldEarned = Math.round(goldEarned * (1 + gb));
+          // XP-based leveling for Money Man
+          if (t.def.xpBased) {
+            t.xp = (t.xp || 0) + 1;
+            this.checkXpLevelUp(t);
+          }
         }
-      }
-      // Gold explosion
-      if (t.stats.goldExplosion && Math.random() < 0.2) {
-        const bonus = Math.round(enemy.gold * 0.5);
-        goldEarned += bonus;
-        this.spawnParticles(enemy.x, enemy.y, '#ffd700', 12);
       }
     }
     this.gold += goldEarned;
@@ -869,7 +980,40 @@ class ZecruTD {
       this.spawnParticles(enemy.x, enemy.y, '#ff8800', 10);
     }
 
+    // MOAB children: pop into smaller enemies on death
+    if (enemy.moabChildren) {
+      this.spawnMoabChildren(enemy);
+    }
+
     this.updateTowerButtons();
+  }
+
+  spawnMoabChildren(enemy) {
+    const spec = enemy.moabChildren;  // e.g. "ceramicx4", "moabx3", "bfbx2"
+    const match = spec.match(/^(\w+)x(\d+)$/);
+    if (!match) return;
+    const childType = match[1];
+    const count = parseInt(match[2]);
+    for (let i = 0; i < count; i++) {
+      this.spawnEnemy(childType, enemy.hpMult * 0.7, enemy.spdMult * 1.1, enemy.pathDist + (i - count / 2) * 12);
+    }
+    this.spawnParticles(enemy.x, enemy.y, enemy.color, 15);
+    this.spawnFloatText(enemy.x, enemy.y - 15, `POP! x${count}`, '#ffaa00');
+  }
+
+  checkXpLevelUp(tower) {
+    if (!tower.def.xpToLevel) return;
+    while (tower.level < tower.def.upgrades.length) {
+      const needed = tower.def.xpToLevel[tower.level];
+      if (!needed || tower.xp < needed) break;
+      tower.level++;
+      const upg = tower.def.upgrades[tower.level - 1];
+      for (const [k, v] of Object.entries(upg)) {
+        if (k !== 'cost' && k !== 'desc') tower.stats[k] = v;
+      }
+      this.spawnParticles(tower.x, tower.y, '#ffd700', 12);
+      this.spawnFloatText(tower.x, tower.y - 20, `LEVEL ${tower.level + 1}!`, '#ffd700');
+    }
   }
 
   // ── TOWERS ─────────────────────────────────────────────
@@ -908,7 +1052,8 @@ class ZecruTD {
       cooldown: 0,
       angle: 0,
       totalCost: def.cost,
-      stats: { ...def }  // mutable copy of current stats
+      stats: { ...def },  // mutable copy of current stats
+      xp: 0
     };
 
     this.towers.push(tower);
@@ -927,6 +1072,7 @@ class ZecruTD {
   upgradeSelected() {
     const t = this.selectedTower;
     if (!t) return;
+    if (t.def.xpBased) return;  // XP-based towers can't be manually upgraded
     if (t.level >= t.def.upgrades.length) return;
     const upg = t.def.upgrades[t.level];
     if (upg.cost > this.gold) return;
@@ -1566,9 +1712,32 @@ class ZecruTD {
       }
 
       ctx.fillStyle = e.color;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-      ctx.fill();
+      // MOAB-style: draw as rounded rectangle
+      if (e.moabChildren || e.type === 'tank' || e.type === 'superTank') {
+        const w = e.size * 2.2;
+        const h = e.size * 1.4;
+        const r = 4;
+        ctx.beginPath();
+        ctx.moveTo(e.x - w/2 + r, e.y - h/2);
+        ctx.lineTo(e.x + w/2 - r, e.y - h/2);
+        ctx.quadraticCurveTo(e.x + w/2, e.y - h/2, e.x + w/2, e.y - h/2 + r);
+        ctx.lineTo(e.x + w/2, e.y + h/2 - r);
+        ctx.quadraticCurveTo(e.x + w/2, e.y + h/2, e.x + w/2 - r, e.y + h/2);
+        ctx.lineTo(e.x - w/2 + r, e.y + h/2);
+        ctx.quadraticCurveTo(e.x - w/2, e.y + h/2, e.x - w/2, e.y + h/2 - r);
+        ctx.lineTo(e.x - w/2, e.y - h/2 + r);
+        ctx.quadraticCurveTo(e.x - w/2, e.y - h/2, e.x - w/2 + r, e.y - h/2);
+        ctx.closePath();
+        ctx.fill();
+        // Border for MOABs
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // Reset phantom glow
       if (e.phase) {
@@ -1619,12 +1788,12 @@ class ZecruTD {
         ctx.fillRect(bx, by, bw * ratio, 4);
       }
 
-      // Boss label
-      if (e.type === 'boss') {
+      // Boss / MOAB label
+      if (e.label || e.type === 'boss') {
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('BOSS', e.x, e.y + e.size + 12);
+        ctx.fillText(e.label || 'BOSS', e.x, e.y + e.size + 12);
       }
 
       // Splitter icon (small "x3" below enemy)
@@ -1863,20 +2032,55 @@ class ZecruTD {
     el.classList.remove('hidden');
     document.getElementById('infoIcon').style.background = tower.def.color;
     document.getElementById('infoName').textContent = tower.def.name;
-    document.getElementById('infoLevel').textContent = `Lv ${tower.level + 1}`;
-    document.getElementById('infoDmg').textContent = tower.stats.damage || tower.def.damage;
-    document.getElementById('infoRange').textContent = tower.stats.range || tower.def.range;
-    document.getElementById('infoSpeed').textContent = (tower.stats.fireRate || tower.def.fireRate).toFixed(1) + '/s';
+
+    const curDmg = tower.stats.damage || tower.def.damage;
+    const curRange = tower.stats.range || tower.def.range;
+    const curSpd = tower.stats.fireRate || tower.def.fireRate;
 
     const upgradeBtn = document.getElementById('btnUpgrade');
-    if (tower.level < tower.def.upgrades.length) {
+    const upgradePreview = document.getElementById('upgradePreview');
+
+    if (tower.def.xpBased) {
+      // XP-based tower: show XP progress instead of upgrade button
+      const xp = tower.xp || 0;
+      const nextLevel = tower.def.xpToLevel[tower.level];
+      if (nextLevel) {
+        document.getElementById('infoLevel').textContent = `Lv ${tower.level + 1} (${xp}/${nextLevel} kills)`;
+      } else {
+        document.getElementById('infoLevel').textContent = `Lv ${tower.level + 1} MAX`;
+      }
+      document.getElementById('infoDmg').textContent = curDmg;
+      document.getElementById('infoRange').textContent = curRange;
+      document.getElementById('infoSpeed').textContent = curSpd.toFixed(1) + '/s';
+      upgradeBtn.style.display = 'none';
+      if (upgradePreview) upgradePreview.textContent = '';
+    } else if (tower.level < tower.def.upgrades.length) {
       const upg = tower.def.upgrades[tower.level];
+      document.getElementById('infoLevel').textContent = `Lv ${tower.level + 1}`;
+
+      // Show stat comparisons: current > next
+      const nextDmg = upg.damage || curDmg;
+      const nextRange = upg.range || curRange;
+      const nextSpd = upg.fireRate || curSpd;
+      document.getElementById('infoDmg').innerHTML = curDmg !== nextDmg
+        ? `${curDmg} <span class="stat-arrow">&rarr;</span> <span class="stat-up">${nextDmg}</span>` : `${curDmg}`;
+      document.getElementById('infoRange').innerHTML = curRange !== nextRange
+        ? `${curRange} <span class="stat-arrow">&rarr;</span> <span class="stat-up">${nextRange}</span>` : `${curRange}`;
+      document.getElementById('infoSpeed').innerHTML = curSpd !== nextSpd
+        ? `${curSpd.toFixed(1)} <span class="stat-arrow">&rarr;</span> <span class="stat-up">${nextSpd.toFixed(1)}</span>/s` : `${curSpd.toFixed(1)}/s`;
+
       upgradeBtn.disabled = upg.cost > this.gold;
       document.getElementById('upgradeCost').textContent = upg.cost;
       upgradeBtn.title = upg.desc;
       upgradeBtn.style.display = '';
+      if (upgradePreview) upgradePreview.textContent = upg.desc;
     } else {
+      document.getElementById('infoLevel').textContent = `Lv ${tower.level + 1} MAX`;
+      document.getElementById('infoDmg').textContent = curDmg;
+      document.getElementById('infoRange').textContent = curRange;
+      document.getElementById('infoSpeed').textContent = curSpd.toFixed(1) + '/s';
       upgradeBtn.style.display = 'none';
+      if (upgradePreview) upgradePreview.textContent = '';
     }
 
     const ratio = tower.def.ascended ? ASCENDED_SELL_RATIO : SELL_RATIO;

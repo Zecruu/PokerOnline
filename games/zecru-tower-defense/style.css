@@ -408,6 +408,17 @@ body {
 }
 .info-btn.sell:hover { background: rgba(255,60,60,0.22); }
 
+/* ── Upgrade Preview ──────────────────────────────── */
+.upgrade-preview {
+  font-size: 0.75rem;
+  color: #44ff88;
+  font-style: italic;
+  max-width: 200px;
+  line-height: 1.3;
+}
+.stat-arrow { color: #888; margin: 0 2px; }
+.stat-up { color: #44ff88; font-weight: 700; }
+
 /* ── Wave Banner ───────────────────────────────────── */
 .wave-banner {
   position: fixed;
