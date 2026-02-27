@@ -181,8 +181,8 @@ function generateWaves() {
   const waves = [];
   for (let w = 1; w <= TOTAL_WAVES; w++) {
     const wave = [];
-    const hpS = 1 + (w - 1) * 0.14;
-    const spS = 1 + (w - 1) * 0.012;
+    const hpS = 1 + (w - 1) * 0.22;
+    const spS = 1 + (w - 1) * 0.018;
     let t = 0;
     const push = (type, count, gap) => {
       for (let i = 0; i < count; i++) {
@@ -191,49 +191,43 @@ function generateWaves() {
       }
     };
 
-    // Bloons-style pacing: easy start, steady ramp, overwhelming endgame
+    // Aggressive scaling: easy intro, fast ramp, overwhelming endgame
     if (w <= 3) {
-      // Waves 1-3: small scout groups, comfortable pace
       push('scout', 2 + w * 2, 1.0);
     } else if (w <= 6) {
-      // Waves 4-6: more scouts, runners introduced
-      push('scout', 4 + w * 2, 0.8);
-      t += 1.0;
-      push('runner', w - 2, 0.7);
+      push('scout', 5 + w * 3, 0.65);
+      t += 0.8;
+      push('runner', w - 1, 0.55);
     } else if (w <= 10) {
-      // Waves 7-10: mixed groups, brutes appear
-      push('scout', 6 + w, 0.6);
-      t += 0.8;
-      push('runner', 2 + w - 6, 0.5);
-      t += 0.8;
-      push('brute', Math.floor((w - 5) / 2), 1.5);
+      push('scout', 8 + w * 2, 0.45);
+      t += 0.6;
+      push('runner', 3 + (w - 6) * 2, 0.4);
+      t += 0.6;
+      push('brute', 1 + Math.floor((w - 5) / 2), 1.2);
     } else if (w <= 15) {
-      // Waves 11-15: swarms start, tighter spawns
-      push('runner', 4 + w - 10, 0.4);
-      t += 0.5;
-      push('scout', 8 + w, 0.4);
-      t += 0.5;
-      push('brute', 2 + Math.floor((w - 10) / 2), 1.2);
-      t += 0.5;
-      push('swarm', 5 + (w - 10) * 3, 0.18);
-    } else if (w <= 25) {
-      // Waves 16-25: heavy mixed, armored, dense
-      push('runner', 6 + w - 14, 0.3);
-      push('scout', 10 + w - 10, 0.3);
+      push('runner', 6 + (w - 10) * 2, 0.3);
       t += 0.4;
-      push('brute', 3 + Math.floor((w - 14) / 2), 1.0);
-      push('swarm', 8 + (w - 14) * 3, 0.12);
-      t += 0.5;
-      push('armored', 1 + Math.floor((w - 15) / 2), 1.8);
-    } else {
-      // Waves 26-40: endgame onslaught
-      push('runner', 12 + w - 24, 0.2);
-      push('swarm', 15 + (w - 24) * 5, 0.1);
+      push('scout', 10 + w * 2, 0.3);
+      t += 0.4;
+      push('brute', 3 + (w - 10), 0.9);
       t += 0.3;
-      push('brute', 4 + Math.floor((w - 24) / 2), 0.8);
-      push('armored', 2 + Math.floor((w - 24) / 2), 1.4);
-      t += 0.5;
-      push('scout', 12, 0.22);
+      push('swarm', 8 + (w - 10) * 5, 0.14);
+    } else if (w <= 25) {
+      push('runner', 10 + (w - 14) * 2, 0.22);
+      push('scout', 15 + (w - 10) * 2, 0.22);
+      t += 0.3;
+      push('brute', 4 + (w - 14), 0.7);
+      push('swarm', 12 + (w - 14) * 5, 0.08);
+      t += 0.4;
+      push('armored', 2 + Math.floor((w - 15) / 2), 1.3);
+    } else {
+      push('runner', 18 + (w - 24) * 3, 0.12);
+      push('swarm', 25 + (w - 24) * 8, 0.06);
+      t += 0.2;
+      push('brute', 6 + (w - 24), 0.5);
+      push('armored', 4 + (w - 24), 0.9);
+      t += 0.3;
+      push('scout', 20 + (w - 24) * 2, 0.14);
     }
 
     // Boss every 5 waves
