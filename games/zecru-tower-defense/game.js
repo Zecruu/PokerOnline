@@ -554,6 +554,7 @@ class ZecruTD {
 
   // ── WAVE SPAWNING ──────────────────────────────────────
   startNextWave(fromServer) {
+    if (this.state !== 'playing') return;
     if (this.waveActive || this.wave >= TOTAL_WAVES) return;
     // In multiplayer, send to server first (server broadcasts to all including sender)
     if (this.multiplayer && this.socket && !fromServer) {
@@ -596,6 +597,10 @@ class ZecruTD {
     if (this.waveSpawnIdx >= this.waveQueue.length && this.enemies.length === 0) {
       this.waveActive = false;
       this.betweenWaves = true;
+      // Tell server wave is done so next wave can be sent
+      if (this.multiplayer && this.socket) {
+        this.socket.emit('td:waveComplete');
+      }
       if (this.wave >= TOTAL_WAVES) {
         this.victory();
       } else {
@@ -1797,25 +1802,21 @@ class ZecruTD {
   }
 
   // ── GAME END ───────────────────────────────────────────
-  gameOver() {
+  endGame(isVictory) {
     this.state = 'gameover';
-    document.getElementById('gameOverTitle').textContent = 'GAME OVER';
-    document.getElementById('gameOverTitle').className = '';
+    this.waveActive = false;
+    this.enemies = [];
+    this.projectiles = [];
+    document.getElementById('gameOverTitle').textContent = isVictory ? 'VICTORY!' : 'GAME OVER';
+    document.getElementById('gameOverTitle').className = isVictory ? 'victory' : '';
     document.getElementById('goWave').textContent = this.wave;
     document.getElementById('goScore').textContent = this.score;
     document.getElementById('goTowers').textContent = this.towersBuilt;
     this.showScreen('gameOverScreen');
   }
 
-  victory() {
-    this.state = 'gameover';
-    document.getElementById('gameOverTitle').textContent = 'VICTORY!';
-    document.getElementById('gameOverTitle').className = 'victory';
-    document.getElementById('goWave').textContent = this.wave;
-    document.getElementById('goScore').textContent = this.score;
-    document.getElementById('goTowers').textContent = this.towersBuilt;
-    this.showScreen('gameOverScreen');
-  }
+  gameOver() { this.endGame(false); }
+  victory() { this.endGame(true); }
 
   // ── MULTIPLAYER (Socket.IO) ─────────────────────────────
   connectSocket() {
@@ -1855,19 +1856,23 @@ class ZecruTD {
       alert(data.msg);
     });
 
-    // In-game sync
+    // In-game sync — all handlers guarded by state check
     this.socket.on('td:towerPlaced', (data) => {
+      if (this.state !== 'playing') return;
       this.placeTowerRemote(data.gx, data.gy, data.type);
     });
     this.socket.on('td:towerSold', (data) => {
+      if (this.state !== 'playing') return;
       const t = this.towers.find(tw => tw.gx === data.gx && tw.gy === data.gy);
       if (t) {
         this.grid[t.gy][t.gx] = 0;
         if (t.def.ascended) this.hasAscended = false;
         this.towers = this.towers.filter(tw => tw !== t);
+        this.updateTowerButtons();
       }
     });
     this.socket.on('td:towerUpgraded', (data) => {
+      if (this.state !== 'playing') return;
       const t = this.towers.find(tw => tw.gx === data.gx && tw.gy === data.gy);
       if (t && t.level < t.def.upgrades.length) {
         const upg = t.def.upgrades[t.level];
@@ -1875,14 +1880,15 @@ class ZecruTD {
         for (const [k, v] of Object.entries(upg)) {
           if (k !== 'cost' && k !== 'desc') t.stats[k] = v;
         }
+        this.spawnParticles(t.x, t.y, '#44ff88', 6);
       }
     });
     this.socket.on('td:waveStart', () => {
-      if (!this.waveActive && this.wave < TOTAL_WAVES) {
-        this.startNextWave(true);
-      }
+      if (this.state !== 'playing') return;
+      this.startNextWave(true);
     });
     this.socket.on('td:goldReceived', (data) => {
+      if (this.state !== 'playing') return;
       this.gold += data.amount;
       this.spawnFloatText(CANVAS_W / 2, CANVAS_H / 2, `+${data.amount}g from ally!`, '#44ff88');
       this.updateTowerButtons();

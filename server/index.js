@@ -439,7 +439,7 @@ io.on('connection', (socket) => {
     socket.on('td:createRoom', (data) => {
         const code = Math.random().toString(36).substr(2, 6).toUpperCase();
         const player = { id: socket.id, name: data.name || 'Player 1' };
-        tdRooms[code] = { players: [player], host: socket.id, started: false };
+        tdRooms[code] = { players: [player], host: socket.id, started: false, waveActive: false, wave: 0 };
         socket.tdRoom = code;
         socket.join('td:' + code);
         socket.emit('td:roomCreated', { code, players: [player], host: socket.id });
@@ -491,7 +491,17 @@ io.on('connection', (socket) => {
 
     socket.on('td:sendWave', () => {
         if (!socket.tdRoom) return;
+        const room = tdRooms[socket.tdRoom];
+        if (!room || room.waveActive) return;  // prevent double wave
+        room.waveActive = true;
+        room.wave++;
         io.to('td:' + socket.tdRoom).emit('td:waveStart');
+    });
+
+    socket.on('td:waveComplete', () => {
+        if (!socket.tdRoom) return;
+        const room = tdRooms[socket.tdRoom];
+        if (room) room.waveActive = false;
     });
 
     socket.on('td:sendGold', (data) => {
