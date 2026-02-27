@@ -95,307 +95,287 @@ function generatePlayerId() {
     return 'player_' + Math.random().toString(36).substr(2, 9);
 }
 
-// In-memory TD rooms (no DB needed, rooms are ephemeral)
+// In-memory rooms (no DB needed, rooms are ephemeral)
 const tdRooms = {};
+const pokerRooms = {};
 
 // Socket.IO Connection Handler
 io.on('connection', (socket) => {
     console.log(`🔌 Player connected: ${socket.id}`);
 
-    // Create Room
-    socket.on('createRoom', async (data) => {
-        try {
-            const { playerName, settings, withAI } = data;
-            const roomCode = generateRoomCode();
-            const playerId = generatePlayerId();
+    // Create Room (in-memory, like TD)
+    socket.on('createRoom', (data) => {
+        const { playerName, settings, withAI } = data;
+        const roomCode = generateRoomCode();
+        const playerId = generatePlayerId();
 
-            const room = new Room({
-                roomCode,
-                players: [{
-                    odId: socket.id,
-                    oderId: playerId,
-                    name: playerName,
-                    chips: settings?.startingChips || 1000,
-                    isHost: true,
-                    isConnected: true
-                }],
-                settings: settings || {},
-                gamePhase: 'waiting'
-            });
-
-            // Add AI player if requested
-            if (withAI) {
-                room.players.push({
-                    odId: 'AI_DEALER',
-                    oderId: generatePlayerId(),
-                    name: 'Dealer',
-                    chips: settings?.startingChips || 1000,
-                    isAI: true,
-                    isConnected: true
-                });
-            }
-
-            await room.save();
-
-            socket.join(roomCode);
-            socket.roomCode = roomCode;
-            socket.oderId = playerId;
-
-            socket.emit('roomCreated', {
-                roomCode,
-                playerId,
-                room: sanitizeRoom(room)
-            });
-
-            console.log(`🏠 Room ${roomCode} created by ${playerName}`);
-        } catch (error) {
-            console.error('Create room error:', error);
-            socket.emit('error', { message: 'Failed to create room' });
-        }
-    });
-
-    // Join Room
-    socket.on('joinRoom', async (data) => {
-        try {
-            const { roomCode, playerName } = data;
-
-            const room = await Room.findOne({ roomCode: roomCode.toUpperCase() });
-            if (!room) {
-                socket.emit('error', { message: 'Room not found' });
-                return;
-            }
-
-            if (room.players.length >= 8) {
-                socket.emit('error', { message: 'Room is full' });
-                return;
-            }
-
-            if (room.gamePhase !== 'waiting') {
-                socket.emit('error', { message: 'Game already in progress' });
-                return;
-            }
-
-            const playerId = generatePlayerId();
-            room.players.push({
+        const room = {
+            roomCode,
+            players: [{
                 odId: socket.id,
                 oderId: playerId,
                 name: playerName,
-                chips: room.settings.startingChips || 1000,
+                chips: (settings?.startingChips) || 1000,
+                bet: 0,
+                cards: [],
+                folded: false,
+                isHost: true,
+                isActive: false,
+                isAI: false,
+                buyBacksUsed: 0,
+                isConnected: true
+            }],
+            settings: {
+                startingChips: 1000,
+                smallBlind: 10,
+                bigBlind: 20,
+                turnTimeLimit: 30,
+                allowBuyBack: true,
+                maxBuyBacks: 3,
+                buyBackAmount: 1000,
+                ...(settings || {})
+            },
+            deck: [],
+            communityCards: [],
+            pot: 0,
+            currentBet: 0,
+            currentPlayerIndex: 0,
+            gamePhase: 'waiting',
+            dealerIndex: 0,
+            chatMessages: [],
+            playersActedThisRound: [],
+            revealedCards: {}
+        };
+
+        // Add AI player if requested
+        if (withAI) {
+            room.players.push({
+                odId: 'AI_DEALER',
+                oderId: generatePlayerId(),
+                name: 'Dealer',
+                chips: room.settings.startingChips,
+                bet: 0,
+                cards: [],
+                folded: false,
+                isHost: false,
+                isActive: false,
+                isAI: true,
+                buyBacksUsed: 0,
                 isConnected: true
             });
-            room.lastActivity = new Date();
-            await room.save();
-
-            socket.join(roomCode);
-            socket.roomCode = roomCode;
-            socket.oderId = playerId;
-
-            socket.emit('roomJoined', {
-                roomCode,
-                playerId,
-                room: sanitizeRoom(room)
-            });
-
-            // Notify others
-            socket.to(roomCode).emit('playerJoined', {
-                player: { name: playerName, oderId: playerId },
-                room: sanitizeRoom(room)
-            });
-
-            console.log(`👤 ${playerName} joined room ${roomCode}`);
-        } catch (error) {
-            console.error('Join room error:', error);
-            socket.emit('error', { message: 'Failed to join room' });
         }
+
+        pokerRooms[roomCode] = room;
+
+        socket.join(roomCode);
+        socket.roomCode = roomCode;
+        socket.oderId = playerId;
+
+        socket.emit('roomCreated', {
+            roomCode,
+            playerId,
+            room: sanitizeRoom(room)
+        });
+
+        console.log(`🏠 Room ${roomCode} created by ${playerName}`);
+    });
+
+    // Join Room
+    socket.on('joinRoom', (data) => {
+        const { roomCode, playerName } = data;
+        const code = (roomCode || '').toUpperCase();
+        const room = pokerRooms[code];
+
+        if (!room) {
+            socket.emit('error', { message: 'Room not found' });
+            return;
+        }
+        if (room.players.length >= 8) {
+            socket.emit('error', { message: 'Room is full' });
+            return;
+        }
+        if (room.gamePhase !== 'waiting') {
+            socket.emit('error', { message: 'Game already in progress' });
+            return;
+        }
+
+        const playerId = generatePlayerId();
+        room.players.push({
+            odId: socket.id,
+            oderId: playerId,
+            name: playerName,
+            chips: room.settings.startingChips || 1000,
+            bet: 0,
+            cards: [],
+            folded: false,
+            isHost: false,
+            isActive: false,
+            isAI: false,
+            buyBacksUsed: 0,
+            isConnected: true
+        });
+
+        socket.join(code);
+        socket.roomCode = code;
+        socket.oderId = playerId;
+
+        socket.emit('roomJoined', {
+            roomCode: code,
+            playerId,
+            room: sanitizeRoom(room)
+        });
+
+        socket.to(code).emit('playerJoined', {
+            player: { name: playerName, oderId: playerId },
+            room: sanitizeRoom(room)
+        });
+
+        console.log(`👤 ${playerName} joined room ${code}`);
     });
 
     // Start Game
-    socket.on('startGame', async () => {
-        try {
-            const room = await Room.findOne({ roomCode: socket.roomCode });
-            if (!room) return;
+    socket.on('startGame', () => {
+        const room = pokerRooms[socket.roomCode];
+        if (!room) return;
 
-            const player = room.players.find(p => p.oderId === socket.oderId);
-            if (!player || !player.isHost) {
-                socket.emit('error', { message: 'Only host can start the game' });
-                return;
-            }
-
-            if (room.players.length < 2) {
-                socket.emit('error', { message: 'Need at least 2 players' });
-                return;
-            }
-
-            // Initialize game
-            await startNewRound(room);
-
-            io.to(socket.roomCode).emit('gameStarted', {
-                room: sanitizeRoom(room)
-            });
-
-            // Check if AI goes first
-            scheduleAITurn(room);
-
-        } catch (error) {
-            console.error('Start game error:', error);
-            socket.emit('error', { message: 'Failed to start game' });
+        const player = room.players.find(p => p.oderId === socket.oderId);
+        if (!player || !player.isHost) {
+            socket.emit('error', { message: 'Only host can start the game' });
+            return;
         }
+        if (room.players.length < 2) {
+            socket.emit('error', { message: 'Need at least 2 players' });
+            return;
+        }
+
+        startNewRound(room);
+
+        io.to(socket.roomCode).emit('gameStarted', {
+            room: sanitizeRoom(room)
+        });
+
+        scheduleAITurn(room);
     });
 
     // Player Action
-    socket.on('playerAction', async (data) => {
-        try {
-            const { action, amount } = data;
-            const room = await Room.findOne({ roomCode: socket.roomCode });
-            if (!room) return;
+    socket.on('playerAction', (data) => {
+        const { action, amount } = data;
+        const room = pokerRooms[socket.roomCode];
+        if (!room) return;
 
-            const playerIndex = room.players.findIndex(p => p.oderId === socket.oderId);
-            if (playerIndex === -1 || playerIndex !== room.currentPlayerIndex) {
-                socket.emit('error', { message: 'Not your turn' });
-                return;
-            }
+        const playerIndex = room.players.findIndex(p => p.oderId === socket.oderId);
+        if (playerIndex === -1 || playerIndex !== room.currentPlayerIndex) {
+            socket.emit('error', { message: 'Not your turn' });
+            return;
+        }
 
-            const player = room.players[playerIndex];
-            if (!player.isActive || player.folded) {
-                socket.emit('error', { message: 'Cannot act' });
-                return;
-            }
+        const player = room.players[playerIndex];
+        if (!player.isActive || player.folded) {
+            socket.emit('error', { message: 'Cannot act' });
+            return;
+        }
 
-            // Process action
-            const result = processAction(room, playerIndex, action, amount);
-            if (!result.success) {
-                socket.emit('error', { message: result.message });
-                return;
-            }
+        const result = processAction(room, playerIndex, action, amount);
+        if (!result.success) {
+            socket.emit('error', { message: result.message });
+            return;
+        }
 
-            room.lastActivity = new Date();
-            await room.save();
+        io.to(socket.roomCode).emit('gameUpdate', {
+            room: sanitizeRoom(room),
+            lastAction: { playerId: socket.oderId, action, amount }
+        });
 
-            // Broadcast update
+        const activePlayers = room.players.filter(p => !p.folded);
+        if (activePlayers.length === 1) {
+            handleWinner(room, activePlayers[0], 'All others folded');
+        } else if (isBettingRoundComplete(room)) {
+            advanceGamePhase(room);
+        } else {
+            moveToNextPlayer(room);
             io.to(socket.roomCode).emit('gameUpdate', {
-                room: sanitizeRoom(room),
-                lastAction: { playerId: socket.oderId, action, amount }
+                room: sanitizeRoom(room)
             });
-
-            // Check for winner or advance phase
-            const activePlayers = room.players.filter(p => !p.folded);
-            if (activePlayers.length === 1) {
-                await handleWinner(room, activePlayers[0], 'All others folded');
-            } else if (isBettingRoundComplete(room)) {
-                await advanceGamePhase(room);
-            } else {
-                // Next player
-                moveToNextPlayer(room);
-                await room.save();
-
-                io.to(socket.roomCode).emit('gameUpdate', {
-                    room: sanitizeRoom(room)
-                });
-
-                scheduleAITurn(room);
-            }
-
-        } catch (error) {
-            console.error('Player action error:', error);
-            socket.emit('error', { message: 'Action failed' });
+            scheduleAITurn(room);
         }
     });
 
     // Chat Message
-    socket.on('chatMessage', async (data) => {
-        try {
-            const { message } = data;
-            const room = await Room.findOne({ roomCode: socket.roomCode });
-            if (!room) return;
+    socket.on('chatMessage', (data) => {
+        const { message } = data;
+        const room = pokerRooms[socket.roomCode];
+        if (!room) return;
 
-            const player = room.players.find(p => p.oderId === socket.oderId);
-            if (!player) return;
+        const player = room.players.find(p => p.oderId === socket.oderId);
+        if (!player) return;
 
-            const chatMessage = {
-                playerId: socket.oderId,
-                playerName: player.name,
-                message: message.substring(0, 200),
-                isAI: false,
-                timestamp: new Date()
-            };
+        const chatMessage = {
+            playerId: socket.oderId,
+            playerName: player.name,
+            message: message.substring(0, 200),
+            isAI: false,
+            timestamp: new Date()
+        };
 
-            room.chatMessages.push(chatMessage);
-            if (room.chatMessages.length > 50) {
-                room.chatMessages.shift();
-            }
-            await room.save();
-
-            io.to(socket.roomCode).emit('newChatMessage', chatMessage);
-
-        } catch (error) {
-            console.error('Chat error:', error);
+        room.chatMessages.push(chatMessage);
+        if (room.chatMessages.length > 50) {
+            room.chatMessages.shift();
         }
+
+        io.to(socket.roomCode).emit('newChatMessage', chatMessage);
     });
 
     // Next Round
-    socket.on('nextRound', async () => {
-        try {
-            const room = await Room.findOne({ roomCode: socket.roomCode });
-            if (!room) return;
+    socket.on('nextRound', () => {
+        const room = pokerRooms[socket.roomCode];
+        if (!room) return;
 
-            room.dealerIndex = (room.dealerIndex + 1) % room.players.length;
-            await startNewRound(room);
+        room.dealerIndex = (room.dealerIndex + 1) % room.players.length;
+        startNewRound(room);
 
-            io.to(socket.roomCode).emit('gameStarted', {
-                room: sanitizeRoom(room)
-            });
+        io.to(socket.roomCode).emit('gameStarted', {
+            room: sanitizeRoom(room)
+        });
 
-            scheduleAITurn(room);
-
-        } catch (error) {
-            console.error('Next round error:', error);
-        }
+        scheduleAITurn(room);
     });
 
     // Buy Back
-    socket.on('buyBack', async () => {
-        try {
-            const room = await Room.findOne({ roomCode: socket.roomCode });
-            if (!room) return;
+    socket.on('buyBack', () => {
+        const room = pokerRooms[socket.roomCode];
+        if (!room) return;
 
-            const player = room.players.find(p => p.oderId === socket.oderId);
-            if (!player) return;
+        const player = room.players.find(p => p.oderId === socket.oderId);
+        if (!player) return;
 
-            if (!room.settings.allowBuyBack) {
-                socket.emit('error', { message: 'Buy-backs not allowed' });
-                return;
-            }
-
-            if (player.buyBacksUsed >= room.settings.maxBuyBacks) {
-                socket.emit('error', { message: 'Max buy-backs reached' });
-                return;
-            }
-
-            if (player.chips > 0) {
-                socket.emit('error', { message: 'You still have chips' });
-                return;
-            }
-
-            player.chips = room.settings.buyBackAmount || 1000;
-            player.buyBacksUsed++;
-            await room.save();
-
-            socket.emit('buyBackSuccess', {
-                chips: player.chips,
-                buyBacksRemaining: room.settings.maxBuyBacks - player.buyBacksUsed
-            });
-
-            io.to(socket.roomCode).emit('gameUpdate', {
-                room: sanitizeRoom(room)
-            });
-
-        } catch (error) {
-            console.error('Buy back error:', error);
+        if (!room.settings.allowBuyBack) {
+            socket.emit('error', { message: 'Buy-backs not allowed' });
+            return;
         }
+        if (player.buyBacksUsed >= room.settings.maxBuyBacks) {
+            socket.emit('error', { message: 'Max buy-backs reached' });
+            return;
+        }
+        if (player.chips > 0) {
+            socket.emit('error', { message: 'You still have chips' });
+            return;
+        }
+
+        player.chips = room.settings.buyBackAmount || 1000;
+        player.buyBacksUsed++;
+
+        socket.emit('buyBackSuccess', {
+            chips: player.chips,
+            buyBacksRemaining: room.settings.maxBuyBacks - player.buyBacksUsed
+        });
+
+        io.to(socket.roomCode).emit('gameUpdate', {
+            room: sanitizeRoom(room)
+        });
     });
 
     // Disconnect
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', () => {
         console.log(`🔌 Player disconnected: ${socket.id}`);
 
         // Handle TD room disconnect
@@ -417,23 +397,23 @@ io.on('connection', (socket) => {
             }
         }
 
+        // Handle poker room disconnect
         if (socket.roomCode) {
-            try {
-                const room = await Room.findOne({ roomCode: socket.roomCode });
-                if (room) {
-                    const player = room.players.find(p => p.odId === socket.id);
-                    if (player) {
-                        player.isConnected = false;
-                        await room.save();
-
-                        io.to(socket.roomCode).emit('playerDisconnected', {
-                            playerId: player.oderId,
-                            room: sanitizeRoom(room)
-                        });
-                    }
+            const room = pokerRooms[socket.roomCode];
+            if (room) {
+                const player = room.players.find(p => p.odId === socket.id);
+                if (player) {
+                    player.isConnected = false;
+                    io.to(socket.roomCode).emit('playerDisconnected', {
+                        playerId: player.oderId,
+                        room: sanitizeRoom(room)
+                    });
                 }
-            } catch (error) {
-                console.error('Disconnect handling error:', error);
+                // Clean up empty rooms
+                const connected = room.players.filter(p => p.isConnected && !p.isAI);
+                if (connected.length === 0) {
+                    delete pokerRooms[socket.roomCode];
+                }
             }
         }
     });
@@ -529,14 +509,14 @@ io.on('connection', (socket) => {
 });
 
 // Game Logic Functions
-async function startNewRound(room) {
+function startNewRound(room) {
     room.deck = shuffleDeck(createDeck());
     room.communityCards = [];
     room.pot = 0;
     room.currentBet = room.settings.bigBlind || 20;
     room.gamePhase = 'preflop';
     room.playersActedThisRound = [];
-    room.revealedCards = new Map();
+    room.revealedCards = {};
 
     // Reset players
     room.players.forEach(p => {
@@ -590,8 +570,6 @@ async function startNewRound(room) {
     }
 
     room.players[room.currentPlayerIndex].isActive = true;
-
-    await room.save();
 }
 
 function processAction(room, playerIndex, action, amount) {
@@ -659,11 +637,11 @@ function isBettingRoundComplete(room) {
     return allActed && betsEqual;
 }
 
-async function advanceGamePhase(room) {
+function advanceGamePhase(room) {
     const activePlayers = room.players.filter(p => !p.folded);
 
     if (activePlayers.length === 1) {
-        await handleWinner(room, activePlayers[0], 'All others folded');
+        handleWinner(room, activePlayers[0], 'All others folded');
         return;
     }
 
@@ -684,7 +662,7 @@ async function advanceGamePhase(room) {
             room.gamePhase = 'river';
             break;
         case 'river':
-            await showdown(room);
+            showdown(room);
             return;
     }
 
@@ -703,8 +681,6 @@ async function advanceGamePhase(room) {
     room.currentPlayerIndex = startIndex;
     room.players[startIndex].isActive = true;
 
-    await room.save();
-
     io.to(room.roomCode).emit('gameUpdate', {
         room: sanitizeRoom(room)
     });
@@ -712,7 +688,7 @@ async function advanceGamePhase(room) {
     scheduleAITurn(room);
 }
 
-async function showdown(room) {
+function showdown(room) {
     room.gamePhase = 'showdown';
 
     const activePlayers = room.players.filter(p => !p.folded);
@@ -732,16 +708,14 @@ async function showdown(room) {
     // Reveal AI cards
     room.players.forEach(p => {
         if (p.isAI && !p.folded) {
-            room.revealedCards.set(p.oderId, [0, 1]);
+            room.revealedCards[p.oderId] = [0, 1];
         }
     });
-
-    await room.save();
 
     // Send AI taunt
     const aiPlayer = room.players.find(p => p.isAI);
     if (aiPlayer && winner.isAI) {
-        setTimeout(async () => {
+        setTimeout(() => {
             const tauntCategory = winAmount > 100 ? 'bigWin' : 'win';
             const taunt = getRandomTaunt(tauntCategory);
             if (taunt) {
@@ -754,7 +728,6 @@ async function showdown(room) {
                     timestamp: new Date()
                 };
                 room.chatMessages.push(chatMessage);
-                await room.save();
                 io.to(room.roomCode).emit('newChatMessage', chatMessage);
             }
         }, 500);
@@ -777,17 +750,15 @@ async function showdown(room) {
     });
 }
 
-async function handleWinner(room, winner, reason) {
+function handleWinner(room, winner, reason) {
     const winAmount = room.pot;
     winner.chips += winAmount;
     room.gamePhase = 'showdown';
 
-    await room.save();
-
     // AI taunt when player folds
     const aiPlayer = room.players.find(p => p.isAI);
     if (aiPlayer && winner.isAI && reason === 'All others folded') {
-        setTimeout(async () => {
+        setTimeout(() => {
             const taunt = getRandomTaunt('playerFolded');
             if (taunt) {
                 const chatMessage = {
@@ -799,7 +770,6 @@ async function handleWinner(room, winner, reason) {
                     timestamp: new Date()
                 };
                 room.chatMessages.push(chatMessage);
-                await room.save();
                 io.to(room.roomCode).emit('newChatMessage', chatMessage);
             }
         }, 500);
@@ -829,9 +799,9 @@ function scheduleAITurn(room) {
         clearTimeout(aiTimers.get(room.roomCode));
     }
 
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
         try {
-            const freshRoom = await Room.findOne({ roomCode: room.roomCode });
+            const freshRoom = pokerRooms[room.roomCode];
             if (!freshRoom || freshRoom.gamePhase === 'showdown') return;
 
             const aiPlayer = freshRoom.players[freshRoom.currentPlayerIndex];
@@ -851,8 +821,6 @@ function scheduleAITurn(room) {
             const result = processAction(freshRoom, freshRoom.currentPlayerIndex, decision.action, decision.amount);
             if (!result.success) return;
 
-            await freshRoom.save();
-
             // Send taunt if applicable
             if (decision.taunt) {
                 const chatMessage = {
@@ -864,7 +832,6 @@ function scheduleAITurn(room) {
                     timestamp: new Date()
                 };
                 freshRoom.chatMessages.push(chatMessage);
-                await freshRoom.save();
                 io.to(freshRoom.roomCode).emit('newChatMessage', chatMessage);
             }
 
@@ -876,17 +843,14 @@ function scheduleAITurn(room) {
             // Check game state
             const activePlayers = freshRoom.players.filter(p => !p.folded);
             if (activePlayers.length === 1) {
-                await handleWinner(freshRoom, activePlayers[0], 'All others folded');
+                handleWinner(freshRoom, activePlayers[0], 'All others folded');
             } else if (isBettingRoundComplete(freshRoom)) {
-                await advanceGamePhase(freshRoom);
+                advanceGamePhase(freshRoom);
             } else {
                 moveToNextPlayer(freshRoom);
-                await freshRoom.save();
-
                 io.to(freshRoom.roomCode).emit('gameUpdate', {
                     room: sanitizeRoom(freshRoom)
                 });
-
                 scheduleAITurn(freshRoom);
             }
 
@@ -898,16 +862,16 @@ function scheduleAITurn(room) {
     aiTimers.set(room.roomCode, timer);
 }
 
-// Sanitize room data (hide other players' cards)
+// Sanitize room data (hide other players' cards, strip deck)
 function sanitizeRoom(room) {
-    const data = room.toObject ? room.toObject() : room;
+    const data = JSON.parse(JSON.stringify(room));
 
     // Remove deck from response
     delete data.deck;
 
     // Only show revealed cards
     data.players = data.players.map(p => {
-        const revealed = data.revealedCards?.get?.(p.oderId) || [];
+        const revealed = (data.revealedCards && data.revealedCards[p.oderId]) || [];
         return {
             ...p,
             cards: p.isAI && data.gamePhase !== 'showdown' && revealed.length === 0
