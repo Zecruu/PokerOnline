@@ -61,6 +61,8 @@ function loadSprite(key, src) {
 }
 loadSprite('bolt', 'bolt-tower.png');
 loadSprite('frost', 'frost-tower.png');
+loadSprite('cannon', 'cannon-tower.png');
+loadSprite('cannonProj', 'cannon-projectile.png');
 
 // ── TOWER DEFINITIONS ──────────────────────────────────────
 const TOWERS = {
@@ -90,6 +92,7 @@ const TOWERS = {
   cannon: {
     name: 'Cannon Turret', cost: 225, damage: 22, range: 125, fireRate: 0.45,
     color: '#dd4444', projColor: '#ff6644', projSpeed: 260,
+    sprite: 'cannon', projSprite: 'cannonProj',
     splash: 50, desc: 'Explosive area-of-effect blasts.', type: 'splash',
     upgrades: [
       { cost: 140, damage: 35, splash: 65, desc: 'Bigger Blasts' },
@@ -844,6 +847,7 @@ class ZecruTD {
       vy: (dy / dist) * spd,
       damage: tower.stats.damage || tower.def.damage,
       color: tower.def.projColor,
+      projSprite: tower.def.projSprite || null,
       tower: tower,
       splash: tower.stats.splash || tower.def.splash || 0,
       slow: tower.stats.slow || tower.def.slow || 0,
@@ -1206,10 +1210,20 @@ class ZecruTD {
 
   drawProjectiles(ctx) {
     for (const p of this.projectiles) {
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-      ctx.fill();
+      const spr = p.projSprite && SPRITES[p.projSprite];
+      if (spr && spr.complete && spr.naturalWidth > 0) {
+        const size = 16;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(Math.atan2(p.vy, p.vx));
+        ctx.drawImage(spr, -size / 2, -size / 2, size, size);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
