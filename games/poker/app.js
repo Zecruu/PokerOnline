@@ -76,6 +76,21 @@ class PokerApp {
         client.onError = (data) => {
             alert(data.message || 'An error occurred');
         };
+
+        client.onBuyBackSuccess = (data) => {
+            // Room update comes via separate gameUpdate event
+            // Just show confirmation
+            console.log(`Buy-back success: ${data.chips} chips, ${data.buyBacksRemaining} remaining`);
+        };
+
+        client.onPlayerDisconnected = (data) => {
+            this.currentRoom = data.room;
+            if (this.currentScreen === 'game') {
+                this.renderOnlineGame();
+            } else if (this.currentScreen === 'lobby') {
+                this.updateOnlinePlayersList();
+            }
+        };
     }
 
     initializeEventListeners() {

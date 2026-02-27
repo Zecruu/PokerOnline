@@ -26,7 +26,7 @@ class SocketClient {
     getServerUrl() {
         // Check if we're on localhost
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            return 'http://localhost:3002';
+            return 'http://localhost:3001';
         }
         // For production, default to the same origin (monolith deployment)
         // Or check for environment variable injected by build process
@@ -122,6 +122,10 @@ class SocketClient {
 
             this.socket.on('buyBackSuccess', (data) => {
                 if (this.onBuyBackSuccess) this.onBuyBackSuccess(data);
+            });
+
+            this.socket.on('playerDisconnected', (data) => {
+                if (this.onPlayerDisconnected) this.onPlayerDisconnected(data);
             });
 
         } catch (error) {
