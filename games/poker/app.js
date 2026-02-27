@@ -240,27 +240,9 @@ class PokerApp {
         this.gameSettings = settings;
         document.getElementById('settings-modal').classList.remove('active');
 
-        // For multiplayer without AI - use local sync for same-browser tabs, online for remote
+        // For multiplayer without AI - always use online server
         if (!withDealer) {
-            // Use local cross-tab sync (works without server, across browser tabs on same machine)
-            if (window.roomSync) {
-                const result = window.roomSync.createRoom(playerName, settings);
-                this.isOnlineMode = false;
-                this.useLocalSync = true;
-                this.currentPlayerId = result.playerId;
-
-                // Also create local game instance
-                const { roomCode, game } = this.roomManager.createRoom(playerName, settings, false);
-                this.currentGame = game;
-
-                // Setup sync callbacks
-                this.setupSyncCallbacks();
-                this.setupGameCallbacks();
-                this.showLobby(result.roomCode);
-            } else {
-                // Fall back to online server
-                this.createOnlineRoom(playerName, settings, false);
-            }
+            this.createOnlineRoom(playerName, settings, false);
             return;
         }
 
@@ -292,39 +274,8 @@ class PokerApp {
             return;
         }
 
-        // Try local cross-tab sync first (works without server)
-        if (window.roomSync) {
-            window.roomSync.joinRoom(roomCode, playerName).then(result => {
-                if (result.success) {
-                    this.isOnlineMode = false;
-                    this.useLocalSync = true;
-                    this.currentPlayerId = result.playerId;
-
-                    // Setup sync callbacks
-                    this.setupSyncCallbacks();
-
-                    // Create a local game instance from the synced data
-                    this.currentGame = this.roomManager.getRoom(roomCode);
-                    if (!this.currentGame) {
-                        // Create game from sync data
-                        const room = window.roomSync.getRoom();
-                        this.currentGame = new PokerGame(roomCode, '', false, room.settings || {});
-                        this.currentGame.players = room.players;
-                        this.roomManager.rooms.set(roomCode, this.currentGame);
-                    }
-
-                    this.setupGameCallbacks();
-                    this.showLobby(roomCode);
-                } else {
-                    // Fall back to online server
-                    console.log('Local sync failed, trying online server:', result.message);
-                    this.joinOnlineRoom(roomCode, playerName);
-                }
-            });
-        } else {
-            // No local sync available, use online
-            this.joinOnlineRoom(roomCode, playerName);
-        }
+        // Always use online server for multiplayer
+        this.joinOnlineRoom(roomCode, playerName);
     }
 
     setupGameCallbacks() {
