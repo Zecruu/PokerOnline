@@ -1361,7 +1361,7 @@ class ZecruTD {
         // Rotate turret types toward target; Kenney sprites point UP so offset by -90°
         const noRotate = t.def.type === 'support' && t.def.camoReveal;  // radar doesn't rotate
         if (!noRotate && t.def.fireRate > 0) {
-          ctx.rotate(t.angle - Math.PI / 2);
+          ctx.rotate(t.angle + Math.PI / 2);
         }
         ctx.drawImage(sprite, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
         ctx.restore();
