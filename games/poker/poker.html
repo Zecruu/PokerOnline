@@ -95,6 +95,11 @@
                     <input type="text" id="player-name-join" placeholder="Enter your name" maxlength="20">
                 </div>
 
+                <div class="input-group">
+                    <label>Choose Avatar</label>
+                    <div class="avatar-picker" id="join-avatar-picker"></div>
+                </div>
+
                 <button id="join-room-submit" class="primary-btn">Join Game</button>
             </div>
         </div>
@@ -145,6 +150,13 @@
             </div>
 
             <div class="poker-table">
+                <div class="dealer-seat" id="dealer-seat">
+                    <img src="sprites/dealer-chair.png" alt="Dealer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="dealer-seat-fallback">
+                        <span class="dealer-seat-icon">D</span>
+                    </div>
+                </div>
+
                 <div class="community-cards" id="community-cards">
                     <!-- Community cards will be added here -->
                 </div>

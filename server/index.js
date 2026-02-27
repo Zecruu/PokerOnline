@@ -106,7 +106,7 @@ io.on('connection', (socket) => {
 
     // Create Room (in-memory, like TD)
     socket.on('createRoom', (data) => {
-        const { playerName, settings, withAI } = data;
+        const { playerName, settings, withAI, avatarId } = data;
         const roomCode = generateRoomCode();
         const playerId = generatePlayerId();
 
@@ -116,6 +116,7 @@ io.on('connection', (socket) => {
                 odId: socket.id,
                 oderId: playerId,
                 name: playerName,
+                avatarId: avatarId || 'avatar1',
                 chips: (settings?.startingChips) || 1000,
                 bet: 0,
                 cards: [],
@@ -183,7 +184,7 @@ io.on('connection', (socket) => {
 
     // Join Room
     socket.on('joinRoom', (data) => {
-        const { roomCode, playerName } = data;
+        const { roomCode, playerName, avatarId } = data;
         const code = (roomCode || '').toUpperCase();
         const room = pokerRooms[code];
 
@@ -205,6 +206,7 @@ io.on('connection', (socket) => {
             odId: socket.id,
             oderId: playerId,
             name: playerName,
+            avatarId: avatarId || 'avatar1',
             chips: room.settings.startingChips || 1000,
             bet: 0,
             cards: [],

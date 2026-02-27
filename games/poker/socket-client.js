@@ -134,14 +134,14 @@ class SocketClient {
     }
 
     // Room operations
-    createRoom(playerName, settings, withAI) {
+    createRoom(playerName, settings, withAI, avatarId) {
         if (!this.socket) return;
-        this.socket.emit('createRoom', { playerName, settings, withAI });
+        this.socket.emit('createRoom', { playerName, settings, withAI, avatarId });
     }
 
-    joinRoom(roomCode, playerName) {
+    joinRoom(roomCode, playerName, avatarId) {
         if (!this.socket) return;
-        this.socket.emit('joinRoom', { roomCode, playerName });
+        this.socket.emit('joinRoom', { roomCode, playerName, avatarId });
     }
 
     // Game operations

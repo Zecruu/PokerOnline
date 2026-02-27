@@ -1,6 +1,18 @@
 // Main Application Logic - Full Featured Version
 // Supports both local AI games and online multiplayer via WebSocket
 
+// Player avatar definitions — images loaded from sprites/ folder
+const PLAYER_AVATARS = [
+    { id: 'avatar1', name: 'Wolf', file: 'sprites/avatar1.png', color: '#6b7280' },
+    { id: 'avatar2', name: 'Fox', file: 'sprites/avatar2.png', color: '#f97316' },
+    { id: 'avatar3', name: 'Bear', file: 'sprites/avatar3.png', color: '#92400e' },
+    { id: 'avatar4', name: 'Eagle', file: 'sprites/avatar4.png', color: '#3b82f6' },
+    { id: 'avatar5', name: 'Shark', file: 'sprites/avatar5.png', color: '#0891b2' },
+    { id: 'avatar6', name: 'Dragon', file: 'sprites/avatar6.png', color: '#dc2626' },
+    { id: 'avatar7', name: 'Owl', file: 'sprites/avatar7.png', color: '#7c3aed' },
+    { id: 'avatar8', name: 'Lion', file: 'sprites/avatar8.png', color: '#eab308' },
+];
+
 class PokerApp {
     constructor() {
         this.roomManager = new RoomManager();
@@ -11,6 +23,9 @@ class PokerApp {
         this.lastRenderedCommunity = '';
         this.lastRenderedOpponents = '';
         this.gameSettings = { ...DEFAULT_SETTINGS };
+
+        // Avatar
+        this.selectedAvatar = PLAYER_AVATARS[0].id;
 
         // Multiplayer mode
         this.isOnlineMode = false;
@@ -123,6 +138,9 @@ class PokerApp {
         document.getElementById('player-name-join').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinRoom();
         });
+
+        // Initialize join screen avatar picker
+        this.renderAvatarPicker('join-avatar-picker');
     }
 
     showScreen(screenName) {
@@ -149,6 +167,11 @@ class PokerApp {
                         <div class="input-group">
                             <label>Your Name</label>
                             <input type="text" id="settings-player-name" placeholder="Enter your name" maxlength="20">
+                        </div>
+
+                        <div class="input-group">
+                            <label>Choose Avatar</label>
+                            <div class="avatar-picker" id="settings-avatar-picker"></div>
                         </div>
                         
                         <div class="input-group">
@@ -216,6 +239,8 @@ class PokerApp {
             document.getElementById('settings-multi').addEventListener('click', () => {
                 this.createRoomWithSettings(false);
             });
+
+            this.renderAvatarPicker('settings-avatar-picker');
         }
 
         modal.classList.add('active');
@@ -1007,13 +1032,48 @@ class PokerApp {
         return div.innerHTML;
     }
 
+    // ===== AVATAR METHODS =====
+
+    renderAvatarPicker(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        PLAYER_AVATARS.forEach(avatar => {
+            const option = document.createElement('div');
+            option.className = 'avatar-option' + (avatar.id === this.selectedAvatar ? ' selected' : '');
+            option.dataset.avatarId = avatar.id;
+            option.innerHTML = `
+                <div class="avatar-sprite" style="background:${avatar.color}">
+                    <img src="${avatar.file}" alt="${avatar.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <span class="avatar-fallback" style="display:none">${avatar.name.charAt(0)}</span>
+                </div>
+                <span class="avatar-name">${avatar.name}</span>
+            `;
+            option.addEventListener('click', () => {
+                container.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                this.selectedAvatar = avatar.id;
+            });
+            container.appendChild(option);
+        });
+    }
+
+    getAvatarHtml(avatarId, size) {
+        size = size || 48;
+        const avatar = PLAYER_AVATARS.find(a => a.id === avatarId) || PLAYER_AVATARS[0];
+        return `<div class="avatar-sprite" style="width:${size}px;height:${size}px;background:${avatar.color};border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center">
+            <img src="${avatar.file}" alt="${avatar.name}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <span class="avatar-fallback" style="display:none;color:#fff;font-weight:700;font-size:${Math.round(size * 0.45)}px">${avatar.name.charAt(0)}</span>
+        </div>`;
+    }
+
     // ===== ONLINE MULTIPLAYER METHODS =====
 
     async createOnlineRoom(playerName, settings, withAI) {
         try {
             await window.socketClient.connect();
             this.isOnlineMode = true;
-            window.socketClient.createRoom(playerName, settings, withAI);
+            window.socketClient.createRoom(playerName, settings, withAI, this.selectedAvatar);
         } catch (error) {
             alert('Failed to connect to server. Playing locally instead.');
             this.isOnlineMode = false;
@@ -1025,7 +1085,7 @@ class PokerApp {
         try {
             await window.socketClient.connect();
             this.isOnlineMode = true;
-            window.socketClient.joinRoom(roomCode, playerName);
+            window.socketClient.joinRoom(roomCode, playerName, this.selectedAvatar);
         } catch (error) {
             alert('Failed to connect to server: ' + error.message);
         }
@@ -1048,7 +1108,7 @@ class PokerApp {
             const playerItem = document.createElement('div');
             playerItem.className = 'player-item' + (player.isHost ? ' host' : '');
             playerItem.innerHTML = `
-                <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
+                <div class="player-avatar-sprite">${this.getAvatarHtml(player.avatarId, 48)}</div>
                 <div class="player-details">
                     <div class="player-name">${player.name}</div>
                     ${player.isHost ? '<div class="player-badge">👑 Host</div>' : ''}
@@ -1120,6 +1180,7 @@ class PokerApp {
             opponentDiv.style.transform = 'translate(-50%, -50%)';
 
             opponentDiv.innerHTML = `
+                <div class="opponent-avatar">${this.getAvatarHtml(opponent.avatarId, 36)}</div>
                 <div class="opponent-info">
                     <div class="opponent-name">${opponent.name}${opponent.isAI ? ' 🤖' : ''}</div>
                     <div class="opponent-chips">$${opponent.chips}</div>
@@ -1192,6 +1253,9 @@ class PokerApp {
     }
 
     showOnlineShowdown(data) {
+        // Update game state first so table shows final state
+        this.renderOnlineGame();
+
         let modal = document.getElementById('showdown-modal');
         if (!modal) {
             modal = document.createElement('div');
@@ -1200,53 +1264,121 @@ class PokerApp {
             document.body.appendChild(modal);
         }
 
-        let html = '<div class="showdown-content"><h2>🏆 Showdown!</h2><div class="showdown-hands">';
+        // Build community cards HTML
+        const communityCards = this.currentRoom?.communityCards || [];
+        let communityHtml = '';
+        for (let i = 0; i < 5; i++) {
+            if (i < communityCards.length) {
+                const c = communityCards[i];
+                const isRed = c.suit === 'hearts' || c.suit === 'diamonds';
+                communityHtml += `<div class="sd-card"><span style="color:${isRed ? '#e53e3e' : '#1a202c'}">${c.rank}${this.getSuitSymbol(c.suit)}</span></div>`;
+            } else {
+                communityHtml += `<div class="sd-card empty"></div>`;
+            }
+        }
 
+        // Build player hands HTML
+        let handsHtml = '';
         data.hands.forEach(hand => {
             const isWinner = hand.playerId === data.winner.playerId;
-            html += `
-                <div class="showdown-hand ${isWinner ? 'winner' : ''}">
-                    <div class="showdown-player-name">${hand.playerName} ${isWinner ? '👑' : ''}</div>
-                    <div class="showdown-cards">
-                        ${hand.cards.map(card => `
-                            <div class="showdown-card" style="background:white;padding:10px;border-radius:8px;">
-                                <span style="color:${card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : 'black'}">
-                                    ${card.rank}${this.getSuitSymbol(card.suit)}
-                                </span>
-                            </div>
-                        `).join('')}
+            const player = this.currentRoom?.players?.find(p => p.oderId === hand.playerId);
+            const avatarId = player?.avatarId || 'avatar1';
+            handsHtml += `
+                <div class="sd-player ${isWinner ? 'winner' : ''}">
+                    <div class="sd-player-header">
+                        ${this.getAvatarHtml(avatarId, 40)}
+                        <div class="sd-player-info">
+                            <div class="sd-player-name">${hand.playerName} ${isWinner ? '👑' : ''}</div>
+                            <div class="sd-hand-name">${hand.hand.name}</div>
+                        </div>
                     </div>
-                    <div class="showdown-hand-name">${hand.hand.name}</div>
+                    <div class="sd-player-cards">
+                        ${hand.cards.map(card => {
+                            const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
+                            return `<div class="sd-card"><span style="color:${isRed ? '#e53e3e' : '#1a202c'}">${card.rank}${this.getSuitSymbol(card.suit)}</span></div>`;
+                        }).join('')}
+                    </div>
                 </div>
             `;
         });
 
-        html += `</div><p style="margin-top:20px;color:#fbbf24">${data.winner.name} wins $${data.winner.winAmount}!</p></div>`;
-        modal.innerHTML = html;
+        modal.innerHTML = `
+            <div class="sd-content">
+                <h2 class="sd-title">Showdown</h2>
+                <div class="sd-community">
+                    <div class="sd-community-label">Community Cards</div>
+                    <div class="sd-community-cards">${communityHtml}</div>
+                </div>
+                <div class="sd-players">${handsHtml}</div>
+                <div class="sd-winner-msg">${data.winner.name} wins $${data.winner.winAmount}</div>
+                <div class="sd-actions">
+                    ${this.getEndRoundButtons()}
+                </div>
+            </div>
+        `;
         modal.classList.add('active');
 
-        // Auto-hide and prompt for next round
-        setTimeout(() => {
-            modal.classList.remove('active');
-            if (confirm('Play another round?')) {
-                window.socketClient.nextRound();
-            }
-        }, 4000);
+        this.attachEndRoundListeners(modal);
     }
 
     showOnlineRoundEnd(data) {
-        setTimeout(() => {
-            alert(`${data.winner.name} wins $${data.winner.winAmount}!\n${data.winner.reason || ''}`);
+        let modal = document.getElementById('showdown-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'showdown-modal';
+            modal.className = 'showdown-overlay';
+            document.body.appendChild(modal);
+        }
 
-            const myPlayer = this.currentRoom.players.find(p => p.oderId === this.currentPlayerId);
-            if (myPlayer && myPlayer.chips <= 0) {
-                if (confirm('You are out of chips! Buy back?')) {
-                    window.socketClient.buyBack();
-                }
-            } else if (confirm('Play another round?')) {
+        const winner = this.currentRoom?.players?.find(p => p.oderId === data.winner.playerId);
+        const avatarId = winner?.avatarId || 'avatar1';
+
+        modal.innerHTML = `
+            <div class="sd-content">
+                <h2 class="sd-title">Round Over</h2>
+                <div class="sd-round-winner">
+                    ${this.getAvatarHtml(avatarId, 64)}
+                    <div class="sd-winner-name">${data.winner.name}</div>
+                    <div class="sd-winner-amount">Wins $${data.winner.winAmount}</div>
+                    <div class="sd-winner-reason">${data.winner.reason || ''}</div>
+                </div>
+                <div class="sd-actions">
+                    ${this.getEndRoundButtons()}
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+
+        this.attachEndRoundListeners(modal);
+    }
+
+    getEndRoundButtons() {
+        const myPlayer = this.currentRoom?.players?.find(p => p.oderId === this.currentPlayerId);
+        const isBusted = myPlayer && myPlayer.chips <= 0;
+        if (isBusted) {
+            return `
+                <button class="primary-btn sd-btn" id="sd-buyback-btn">Buy Back</button>
+                <button class="secondary-btn sd-btn" id="sd-next-btn">Next Round</button>
+            `;
+        }
+        return `<button class="primary-btn sd-btn" id="sd-next-btn">Next Round</button>`;
+    }
+
+    attachEndRoundListeners(modal) {
+        const nextBtn = modal.querySelector('#sd-next-btn');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                modal.classList.remove('active');
                 window.socketClient.nextRound();
-            }
-        }, 1000);
+            });
+        }
+        const buybackBtn = modal.querySelector('#sd-buyback-btn');
+        if (buybackBtn) {
+            buybackBtn.addEventListener('click', () => {
+                modal.classList.remove('active');
+                window.socketClient.buyBack();
+            });
+        }
     }
 }
 
