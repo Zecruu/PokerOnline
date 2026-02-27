@@ -68,18 +68,18 @@ loadSprite('sniper', 'sniper-tower.png');
 // ── TOWER DEFINITIONS ──────────────────────────────────────
 const TOWERS = {
   bolt: {
-    name: 'Bolt Tower', cost: 100, damage: 8, range: 130, fireRate: 1.0,
-    color: '#4488ff', projColor: '#66aaff', projSpeed: 420,
+    name: 'Bolt Tower', cost: 100, damage: 12, range: 140, fireRate: 1.2,
+    color: '#4488ff', projColor: '#66aaff', projSpeed: 450,
     sprite: 'bolt',
     desc: 'Rapid energy bolts. Fast fire rate.', type: 'single',
     upgrades: [
-      { cost: 80, damage: 13, fireRate: 1.3, desc: 'Faster Bolts' },
-      { cost: 175, damage: 20, fireRate: 1.7, pierce: 2, desc: 'Piercing Bolts' },
-      { cost: 350, damage: 30, fireRate: 2.2, pierce: 3, desc: 'Double Bolt' }
+      { cost: 80, damage: 18, fireRate: 1.5, desc: 'Faster Bolts' },
+      { cost: 175, damage: 26, fireRate: 1.8, pierce: 2, desc: 'Piercing Bolts' },
+      { cost: 350, damage: 38, fireRate: 2.2, pierce: 3, desc: 'Double Bolt' }
     ]
   },
   frost: {
-    name: 'Frost Spire', cost: 150, damage: 4, range: 115, fireRate: 0.8,
+    name: 'Frost Spire', cost: 150, damage: 6, range: 120, fireRate: 0.9,
     color: '#00ddee', projColor: '#aaffff', projSpeed: 320,
     sprite: 'frost',
     slow: 0.45, slowDur: 2.0,
@@ -91,7 +91,7 @@ const TOWERS = {
     ]
   },
   cannon: {
-    name: 'Cannon Turret', cost: 225, damage: 22, range: 125, fireRate: 0.45,
+    name: 'Cannon Turret', cost: 225, damage: 28, range: 130, fireRate: 0.5,
     color: '#dd4444', projColor: '#ff6644', projSpeed: 260,
     sprite: 'cannon', projSprite: 'cannonProj',
     splash: 50, desc: 'Explosive area-of-effect blasts.', type: 'splash',
@@ -113,7 +113,7 @@ const TOWERS = {
     ]
   },
   tesla: {
-    name: 'Tesla Coil', cost: 300, damage: 14, range: 135, fireRate: 0.6,
+    name: 'Tesla Coil', cost: 300, damage: 18, range: 140, fireRate: 0.7,
     color: '#ffcc00', projColor: '#ffee66', projSpeed: 0,
     chainCount: 3, chainRange: 80,
     desc: 'Chain lightning hits multiple enemies.', type: 'chain',
@@ -164,12 +164,12 @@ const ASCENDED = {
 
 // ── ENEMY DEFINITIONS ──────────────────────────────────────
 const ENEMY_TYPES = {
-  scout:   { name: 'Scout',   hp: 15,  speed: 2.2, gold: 5,  color: '#ff4444', size: 7 },
-  runner:  { name: 'Runner',  hp: 20,  speed: 3.6, gold: 8,  color: '#44ff44', size: 6 },
-  brute:   { name: 'Brute',   hp: 65,  speed: 1.3, gold: 15, color: '#4488ff', size: 10 },
-  swarm:   { name: 'Swarm',   hp: 8,   speed: 2.8, gold: 2,  color: '#cc44ff', size: 5 },
-  armored: { name: 'Armored', hp: 110, speed: 1.0, gold: 25, color: '#ffcc00', size: 11, armor: 0.3 },
-  boss:    { name: 'Boss',    hp: 600, speed: 0.7, gold: 150, color: '#ff0044', size: 16, armor: 0.2 }
+  scout:   { name: 'Scout',   hp: 10,  speed: 1.8, gold: 5,  color: '#ff4444', size: 7 },
+  runner:  { name: 'Runner',  hp: 16,  speed: 3.0, gold: 8,  color: '#44ff44', size: 6 },
+  brute:   { name: 'Brute',   hp: 50,  speed: 1.2, gold: 15, color: '#4488ff', size: 10 },
+  swarm:   { name: 'Swarm',   hp: 6,   speed: 2.4, gold: 2,  color: '#cc44ff', size: 5 },
+  armored: { name: 'Armored', hp: 90,  speed: 0.9, gold: 25, color: '#ffcc00', size: 11, armor: 0.3 },
+  boss:    { name: 'Boss',    hp: 500, speed: 0.65, gold: 150, color: '#ff0044', size: 16, armor: 0.2 }
 };
 
 // ── WAVE GENERATOR (Bloons-style pacing) ───────────────────
@@ -191,49 +191,49 @@ function generateWaves() {
       }
     };
 
-    // Bloons-style: short early waves, escalating fast
+    // Bloons-style pacing: easy start, steady ramp, overwhelming endgame
     if (w <= 3) {
-      // Waves 1-3: just scouts, small groups, quick intro
-      push('scout', 3 + w * 3, 0.65);
+      // Waves 1-3: small scout groups, comfortable pace
+      push('scout', 2 + w * 2, 1.0);
     } else if (w <= 6) {
-      // Waves 4-6: scouts + runners introduced
-      push('scout', 6 + w * 2, 0.45);
-      t += 0.8;
-      push('runner', w - 2, 0.35);
+      // Waves 4-6: more scouts, runners introduced
+      push('scout', 4 + w * 2, 0.8);
+      t += 1.0;
+      push('runner', w - 2, 0.7);
     } else if (w <= 10) {
       // Waves 7-10: mixed groups, brutes appear
-      push('scout', 8 + w, 0.35);
-      t += 0.5;
-      push('runner', 3 + w - 6, 0.3);
-      t += 0.5;
-      push('brute', Math.floor((w - 5) / 2) + 1, 1.2);
+      push('scout', 6 + w, 0.6);
+      t += 0.8;
+      push('runner', 2 + w - 6, 0.5);
+      t += 0.8;
+      push('brute', Math.floor((w - 5) / 2), 1.5);
     } else if (w <= 15) {
-      // Waves 11-15: everything, swarms start
-      push('runner', 6 + w - 10, 0.25);
-      t += 0.3;
-      push('scout', 10 + w, 0.28);
-      t += 0.3;
-      push('brute', 2 + Math.floor((w - 10) / 2), 1.0);
-      t += 0.3;
-      push('swarm', 6 + (w - 10) * 4, 0.12);
-    } else if (w <= 25) {
-      // Waves 16-25: heavy mixed, armored appear
-      push('runner', 8 + w - 14, 0.2);
-      push('scout', 12 + w - 10, 0.22);
-      t += 0.3;
-      push('brute', 3 + Math.floor((w - 14) / 2), 0.9);
-      push('swarm', 10 + (w - 14) * 4, 0.1);
+      // Waves 11-15: swarms start, tighter spawns
+      push('runner', 4 + w - 10, 0.4);
       t += 0.5;
-      push('armored', 1 + Math.floor((w - 15) / 2), 1.5);
+      push('scout', 8 + w, 0.4);
+      t += 0.5;
+      push('brute', 2 + Math.floor((w - 10) / 2), 1.2);
+      t += 0.5;
+      push('swarm', 5 + (w - 10) * 3, 0.18);
+    } else if (w <= 25) {
+      // Waves 16-25: heavy mixed, armored, dense
+      push('runner', 6 + w - 14, 0.3);
+      push('scout', 10 + w - 10, 0.3);
+      t += 0.4;
+      push('brute', 3 + Math.floor((w - 14) / 2), 1.0);
+      push('swarm', 8 + (w - 14) * 3, 0.12);
+      t += 0.5;
+      push('armored', 1 + Math.floor((w - 15) / 2), 1.8);
     } else {
       // Waves 26-40: endgame onslaught
-      push('runner', 15 + w - 24, 0.15);
-      push('swarm', 20 + (w - 24) * 5, 0.08);
+      push('runner', 12 + w - 24, 0.2);
+      push('swarm', 15 + (w - 24) * 5, 0.1);
       t += 0.3;
-      push('brute', 5 + Math.floor((w - 24) / 2), 0.7);
-      push('armored', 3 + Math.floor((w - 24) / 2), 1.2);
+      push('brute', 4 + Math.floor((w - 24) / 2), 0.8);
+      push('armored', 2 + Math.floor((w - 24) / 2), 1.4);
       t += 0.5;
-      push('scout', 15, 0.18);
+      push('scout', 12, 0.22);
     }
 
     // Boss every 5 waves
