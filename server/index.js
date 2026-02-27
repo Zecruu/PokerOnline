@@ -520,6 +520,12 @@ io.on('connection', (socket) => {
             playerId: socket.id, gold: data.gold, name: data.name
         });
     });
+
+    socket.on('td:setSpeed', (data) => {
+        if (!socket.tdRoom) return;
+        const speed = [1, 2, 3].includes(data.speed) ? data.speed : 1;
+        socket.to('td:' + socket.tdRoom).emit('td:speedChanged', { speed });
+    });
 });
 
 // Game Logic Functions

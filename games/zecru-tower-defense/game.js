@@ -1897,6 +1897,14 @@ class ZecruTD {
     const idx = speeds.indexOf(this.gameSpeed);
     this.gameSpeed = speeds[(idx + 1) % speeds.length];
     document.getElementById('btnSpeed').textContent = this.gameSpeed + 'x';
+    if (this.multiplayer && this.socket) {
+      this.socket.emit('td:setSpeed', { speed: this.gameSpeed });
+    }
+  }
+
+  setSpeed(speed) {
+    this.gameSpeed = speed;
+    document.getElementById('btnSpeed').textContent = this.gameSpeed + 'x';
   }
 
   toggleAutoWave() {
@@ -2013,6 +2021,11 @@ class ZecruTD {
     this.socket.on('td:allyState', (data) => {
       if (this.state !== 'playing') return;
       this.allies[data.playerId] = { name: data.name, gold: data.gold };
+    });
+
+    this.socket.on('td:speedChanged', (data) => {
+      if (this.state !== 'playing') return;
+      this.setSpeed(data.speed);
     });
 
     this.socket.on('td:playerLeft', (data) => {
