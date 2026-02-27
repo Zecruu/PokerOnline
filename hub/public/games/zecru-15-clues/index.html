@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zecru 15 Clues</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- MAIN MENU -->
+  <div id="menuScreen" class="screen active">
+    <div class="menu-bg"></div>
+    <div class="menu-content">
+      <h1 class="game-title">ZECRU<br><span>15 CLUES</span></h1>
+      <p class="tagline">One word. One chance. Can you crack the code?</p>
+      <div class="menu-buttons">
+        <input id="playerNameInput" type="text" class="name-input" placeholder="Your Name" maxlength="16" autocomplete="off">
+        <button id="btnCreateRoom" class="menu-btn primary">Create Room</button>
+        <div class="divider">OR</div>
+        <div class="join-row">
+          <input id="roomCodeInput" type="text" class="room-input" placeholder="Room Code" maxlength="6" autocomplete="off">
+          <button id="btnJoinRoom" class="menu-btn">Join</button>
+        </div>
+      </div>
+      <div class="menu-footer">
+        <span>10 Words &bull; 15 Guesses &bull; 1-Word Clues</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="lobbyScreen" class="screen">
+    <div class="lobby-panel">
+      <h2>Game Lobby</h2>
+      <p>Room: <strong id="lobbyRoomCode"></strong></p>
+      <p>Players: <span id="lobbyPlayerCount">1</span>/2</p>
+      <div id="lobbyPlayerList" class="player-list"></div>
+      <div id="roleSelect" class="role-select hidden">
+        <p class="role-label">Choose your role:</p>
+        <div class="role-buttons">
+          <button id="btnRoleWordmaster" class="role-btn selected">Wordmaster</button>
+          <button id="btnRoleGuesser" class="role-btn">Guesser</button>
+        </div>
+      </div>
+      <button id="btnStartGame" class="menu-btn primary hidden">Start Game</button>
+      <p id="lobbyStatus" class="lobby-status"></p>
+      <button id="btnBackToMenu" class="menu-btn small">Back</button>
+    </div>
+  </div>
+
+  <!-- WORD SELECTION -->
+  <div id="wordSelectScreen" class="screen">
+    <!-- Wordmaster view -->
+    <div id="wordmasterSetup" class="word-select-panel hidden">
+      <h2>Choose Your 10 Words</h2>
+      <p class="subtitle">The Guesser must guess these in order.</p>
+      <div id="wordInputList" class="word-input-list"></div>
+      <p id="wordError" class="error-text hidden"></p>
+      <button id="btnSubmitWords" class="menu-btn primary">Lock In Words</button>
+    </div>
+    <!-- Guesser view -->
+    <div id="guesserWaiting" class="waiting-panel hidden">
+      <h2>Waiting for Wordmaster...</h2>
+      <div class="waiting-spinner"></div>
+      <p>The Wordmaster is choosing 10 words for you to guess.</p>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" class="screen">
+    <div class="game-layout">
+      <!-- Top HUD -->
+      <div class="game-hud">
+        <div class="hud-item">
+          <span class="hud-label">Word</span>
+          <strong id="hudWordNum">1</strong><span class="hud-of">/10</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Guesses Left</span>
+          <strong id="hudGuesses">15</strong>
+        </div>
+        <div id="hudRole" class="role-badge wordmaster">WORDMASTER</div>
+      </div>
+
+      <!-- Game Body -->
+      <div class="game-body">
+        <!-- Word List Sidebar (Wordmaster only) -->
+        <div id="wordListPanel" class="word-list-panel hidden">
+          <h3>YOUR WORDS</h3>
+          <ol id="wordList" class="word-list"></ol>
+        </div>
+
+        <!-- Center Area -->
+        <div class="game-center">
+          <!-- History Log -->
+          <div id="guessHistory" class="guess-history"></div>
+
+          <!-- Current Round -->
+          <div id="currentRound" class="current-round">
+            <div id="clueDisplay" class="clue-display hidden">
+              <span class="clue-label">CLUE</span>
+              <span id="clueWord" class="clue-word"></span>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="input-area">
+            <!-- Wordmaster: give clue -->
+            <div id="clueInputArea" class="hidden">
+              <p id="currentWordHint" class="current-word-hint"></p>
+              <div class="input-row">
+                <input id="clueInput" type="text" class="game-input" placeholder="Type a one-word clue..." maxlength="30" autocomplete="off">
+                <button id="btnGiveClue" class="action-btn">Give Clue</button>
+              </div>
+              <p class="input-hint">Must be exactly one word. Cannot be the answer itself.</p>
+              <p id="clueError" class="input-error hidden"></p>
+            </div>
+            <!-- Guesser: make guess -->
+            <div id="guessInputArea" class="hidden">
+              <div class="input-row">
+                <input id="guessInput" type="text" class="game-input" placeholder="Type your guess..." maxlength="30" autocomplete="off">
+                <button id="btnMakeGuess" class="action-btn">Guess</button>
+              </div>
+              <p id="guessHint" class="input-hint">Guess the word the Wordmaster is thinking of.</p>
+              <p id="guessError" class="input-error hidden"></p>
+            </div>
+            <!-- Waiting -->
+            <div id="waitingArea" class="hidden">
+              <p id="waitingText" class="waiting-text">Waiting for other player...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Flash -->
+    <div id="resultFlash" class="result-flash hidden">
+      <span id="resultText" class="flash-text"></span>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameOverScreen" class="screen">
+    <div class="gameover-panel">
+      <h2 id="gameOverTitle">GAME OVER</h2>
+      <div class="gameover-stats">
+        <p>Words Guessed: <strong id="goWordsGuessed">0</strong>/10</p>
+        <p>Guesses Used: <strong id="goGuessesUsed">0</strong>/15</p>
+      </div>
+      <div id="goWordReveal" class="word-reveal">
+        <h3>WORD REVEAL</h3>
+        <div id="revealList" class="reveal-list"></div>
+      </div>
+      <button id="btnPlayAgain" class="menu-btn primary">Play Again</button>
+      <button id="btnMainMenu" class="menu-btn">Main Menu</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

@@ -50,6 +50,16 @@ const GAMES: Array<{
     badgeColor: "green",
     isFree: true,
   },
+  {
+    id: "zecru-15-clues",
+    title: "Zecru 15 Clues",
+    description: "One word. One chance. Can you crack the code? Give 1-word clues to help your partner guess 10 hidden words in 15 tries.",
+    thumbnail: "/games/zecru-15-clues/thumbnail.svg",
+    href: "/games/zecru-15-clues/index.html",
+    badge: "NEW",
+    badgeColor: "green",
+    isFree: true,
+  },
 ];
 
 export default function Home() {
