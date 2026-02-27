@@ -111,9 +111,21 @@ const TOWERS = {
     sprite: 'sniper', dmgType: 'physical',
     desc: 'Armor piercing. Counters Armored & Brutes.', type: 'single',
     upgrades: [
-      { cost: 200, damage: 85, range: 310, critChance: 0.25, critMult: 3.0, desc: 'Critical Shots' },
-      { cost: 425, damage: 150, range: 340, fireRate: 0.4, armorPierce: true, critChance: 0.3, critMult: 3.0, dmgType: 'energy', desc: 'Energy Rounds (pierce all)' },
-      { cost: 700, damage: 250, range: 380, fireRate: 0.5, instakillThresh: 0.2, desc: 'Headshot (execute <20%)' }
+      { cost: 200, damage: 85, range: 310, critChance: 0.25, critMult: 3.0, camoDetect: true, desc: 'Night Vision (sees Camo)' },
+      { cost: 425, damage: 150, range: 340, fireRate: 0.4, armorPierce: true, critChance: 0.3, critMult: 3.0, camoDetect: true, dmgType: 'energy', desc: 'Energy Rounds (pierce all)' },
+      { cost: 700, damage: 250, range: 380, fireRate: 0.5, instakillThresh: 0.2, camoDetect: true, desc: 'Headshot (execute <20%)' }
+    ]
+  },
+  radar: {
+    // SUPPORT - reveals camo enemies in range, no damage
+    name: 'Radar Station', cost: 200, damage: 0, range: 180, fireRate: 0,
+    color: '#55ff99', projColor: '#55ff99', projSpeed: 0,
+    dmgType: 'none', camoReveal: true,
+    desc: 'Reveals Camo enemies for all towers.', type: 'support',
+    upgrades: [
+      { cost: 150, range: 230, desc: 'Extended Radar' },
+      { cost: 350, range: 280, camoStrip: true, desc: 'Scrambler (strips Camo)' },
+      { cost: 600, range: 340, nearbyBoost: 0.1, desc: 'Command Center (+10% ally dmg)' }
     ]
   },
   tesla: {
@@ -187,6 +199,12 @@ const ENEMY_TYPES = {
               shield: 30, shieldMax: 30, shieldRegen: 5 },  // shield absorbs → need fast fire or shieldBreak
   splitter: { name: 'Splitter', hp: 45,  speed: 1.6, gold: 12,  color: '#ff8800', size: 10,
               splits: 3 },  // splits on death → need AoE to clean up children
+  camoScout:{ name: 'Camo Scout',  hp: 12, speed: 2.2, gold: 8, color: '#336633', size: 7,
+              camo: true },  // invisible → need Radar or Sniper Lv1+
+  camoRunner:{ name: 'Camo Runner', hp: 18, speed: 3.2, gold: 12, color: '#225522', size: 6,
+              camo: true, evasion: 0.15 },  // fast + invisible
+  camoArmored:{ name: 'Camo Tank', hp: 80, speed: 1.0, gold: 30, color: '#556622', size: 11,
+              camo: true, armor: 0.4, resist: { physical: 0.3 } },  // armored + invisible, nasty
   boss:     { name: 'Boss',     hp: 500, speed: 0.65, gold: 150, color: '#ff0044', size: 16,
               armor: 0.2, shield: 100, shieldMax: 100, shieldRegen: 8,
               resist: { physical: 0.15 } }
@@ -211,61 +229,74 @@ function generateWaves() {
       }
     };
 
-    // Aggressive scaling: easy intro, fast ramp, overwhelming endgame
-    // New types introduced: phantom ~w8, shielded ~w12, splitter ~w14
+    // Aggressive scaling: BTD-inspired pacing
+    // Camo introduced wave 6, phantom w8, shielded w12, splitter w14
+    // Spawn gaps tightened significantly for more pressure
     if (w <= 3) {
-      push('scout', 2 + w * 2, 1.0);
+      push('scout', 4 + w * 3, 0.6);
     } else if (w <= 6) {
-      push('scout', 5 + w * 3, 0.65);
-      t += 0.8;
-      push('runner', w - 1, 0.55);
+      push('scout', 8 + w * 3, 0.35);
+      t += 0.4;
+      push('runner', w, 0.35);
+      // Camo scouts introduced wave 6 — need Radar or Sniper Lv1
+      if (w >= 6) { t += 0.3; push('camoScout', 3, 0.7); }
     } else if (w <= 10) {
-      push('scout', 8 + w * 2, 0.45);
-      t += 0.6;
-      push('runner', 3 + (w - 6) * 2, 0.4);
-      t += 0.6;
-      push('brute', 1 + Math.floor((w - 5) / 2), 1.2);
-      // Phantoms start at wave 8 — need magic/energy to counter
-      if (w >= 8) { t += 0.5; push('phantom', 1 + (w - 8), 0.9); }
+      push('scout', 12 + w * 2, 0.25);
+      t += 0.3;
+      push('runner', 4 + (w - 6) * 3, 0.25);
+      t += 0.3;
+      push('brute', 2 + Math.floor((w - 5) / 2), 0.8);
+      push('camoScout', 3 + (w - 6) * 2, 0.5);
+      // Phantoms start at wave 8
+      if (w >= 8) { t += 0.3; push('phantom', 2 + (w - 8), 0.6); }
+      if (w >= 9) { push('camoRunner', 2 + (w - 9), 0.6); }
     } else if (w <= 15) {
-      push('runner', 6 + (w - 10) * 2, 0.3);
-      t += 0.4;
-      push('scout', 10 + w * 2, 0.3);
-      t += 0.4;
-      push('brute', 3 + (w - 10), 0.9);
-      t += 0.3;
-      push('swarm', 8 + (w - 10) * 5, 0.14);
-      // Phantoms continue
-      t += 0.4; push('phantom', 2 + (w - 10), 0.7);
-      // Shielded start at wave 12 — need fast fire or shieldBreak
-      if (w >= 12) { t += 0.5; push('shielded', 1 + (w - 12), 1.1); }
-      // Splitters start at wave 14 — need AoE for children
-      if (w >= 14) { t += 0.4; push('splitter', 1 + (w - 14), 1.0); }
-    } else if (w <= 25) {
-      push('runner', 10 + (w - 14) * 2, 0.22);
-      push('scout', 15 + (w - 10) * 2, 0.22);
-      t += 0.3;
-      push('brute', 4 + (w - 14), 0.7);
-      push('swarm', 12 + (w - 14) * 5, 0.08);
-      t += 0.4;
-      push('armored', 2 + Math.floor((w - 15) / 2), 1.3);
-      t += 0.3;
-      push('phantom', 3 + (w - 15), 0.6);
-      push('shielded', 2 + (w - 15), 0.8);
-      t += 0.3;
-      push('splitter', 2 + Math.floor((w - 15) / 2), 0.9);
-    } else {
-      push('runner', 18 + (w - 24) * 3, 0.12);
-      push('swarm', 25 + (w - 24) * 8, 0.06);
+      push('runner', 8 + (w - 10) * 3, 0.18);
       t += 0.2;
-      push('brute', 6 + (w - 24), 0.5);
-      push('armored', 4 + (w - 24), 0.9);
-      t += 0.3;
-      push('scout', 20 + (w - 24) * 2, 0.14);
-      t += 0.3;
-      push('phantom', 5 + (w - 24) * 2, 0.5);
-      push('shielded', 4 + (w - 24) * 2, 0.6);
-      push('splitter', 3 + (w - 24), 0.7);
+      push('scout', 15 + w * 2, 0.18);
+      t += 0.2;
+      push('brute', 4 + (w - 10), 0.6);
+      t += 0.15;
+      push('swarm', 12 + (w - 10) * 6, 0.08);
+      t += 0.2;
+      push('phantom', 3 + (w - 10), 0.5);
+      push('camoScout', 5 + (w - 10) * 2, 0.35);
+      push('camoRunner', 3 + (w - 10), 0.4);
+      // Shielded start at wave 12
+      if (w >= 12) { t += 0.3; push('shielded', 2 + (w - 12), 0.7); }
+      // Splitters start at wave 14
+      if (w >= 14) { t += 0.2; push('splitter', 2 + (w - 14), 0.6); }
+    } else if (w <= 25) {
+      push('runner', 14 + (w - 14) * 3, 0.12);
+      push('scout', 20 + (w - 10) * 2, 0.12);
+      t += 0.15;
+      push('brute', 5 + (w - 14) * 2, 0.45);
+      push('swarm', 18 + (w - 14) * 7, 0.05);
+      t += 0.2;
+      push('armored', 3 + (w - 15), 0.8);
+      t += 0.15;
+      push('phantom', 4 + (w - 15) * 2, 0.4);
+      push('shielded', 3 + (w - 15), 0.55);
+      t += 0.15;
+      push('splitter', 3 + Math.floor((w - 15) / 2), 0.6);
+      push('camoScout', 8 + (w - 15) * 2, 0.2);
+      push('camoRunner', 5 + (w - 15), 0.3);
+      if (w >= 20) { push('camoArmored', 1 + Math.floor((w - 20) / 2), 1.0); }
+    } else {
+      push('runner', 22 + (w - 24) * 4, 0.07);
+      push('swarm', 35 + (w - 24) * 10, 0.04);
+      t += 0.1;
+      push('brute', 8 + (w - 24) * 2, 0.3);
+      push('armored', 5 + (w - 24) * 2, 0.5);
+      t += 0.1;
+      push('scout', 25 + (w - 24) * 3, 0.08);
+      t += 0.1;
+      push('phantom', 6 + (w - 24) * 3, 0.3);
+      push('shielded', 5 + (w - 24) * 2, 0.4);
+      push('splitter', 4 + (w - 24) * 2, 0.45);
+      push('camoScout', 12 + (w - 24) * 3, 0.12);
+      push('camoRunner', 8 + (w - 24) * 2, 0.18);
+      push('camoArmored', 3 + (w - 24), 0.7);
     }
 
     // Boss every 5 waves
@@ -442,7 +473,7 @@ class ZecruTD {
         this.hideTowerInfo();
       }
       if (e.key === ' ') { e.preventDefault(); this.startNextWave(); }
-      const keys = ['1','2','3','4','5','6','7','8'];
+      const keys = ['1','2','3','4','5','6','7','8','9'];
       const allKeys = [...Object.keys(TOWERS), ...Object.keys(ASCENDED)];
       const idx = keys.indexOf(e.key);
       if (idx >= 0 && idx < allKeys.length) this.selectTowerType(allKeys[idx]);
@@ -594,6 +625,8 @@ class ZecruTD {
       resist: def.resist ? { ...def.resist } : {},
       evasion: def.evasion || 0,
       phase: def.phase || false,
+      camo: def.camo || false,
+      revealed: false,  // set true when in radar range or camo stripped
       shield: def.shield ? Math.round(def.shield * hpMult) : 0,
       shieldMax: def.shieldMax ? Math.round(def.shieldMax * hpMult) : 0,
       shieldRegen: def.shieldRegen || 0,
@@ -911,8 +944,42 @@ class ZecruTD {
     this.updateTowerButtons();
   }
 
+  // Check if a tower can see a camo enemy
+  canSeeCamo(tower, enemy) {
+    if (!enemy.camo) return true;           // not camo, everyone sees it
+    if (enemy.revealed) return true;        // revealed by radar
+    if (tower.stats.camoDetect) return true; // tower has camo detection upgrade
+    if (tower.def.camoDetect) return true;  // tower innately detects camo
+    return false;
+  }
+
   updateTowers(dt) {
+    // ── Radar pass: reveal/strip camo for enemies in radar range ──
+    // Reset revealed flag each frame (only revealed while in radar range)
+    for (const e of this.enemies) {
+      if (e.camo) e.revealed = false;
+    }
     for (const t of this.towers) {
+      if (!t.def.camoReveal && !t.stats.camoReveal) continue;
+      const range = t.stats.range || t.def.range;
+      for (const e of this.enemies) {
+        if (!e.alive || !e.camo) continue;
+        const dx = e.x - t.x, dy = e.y - t.y;
+        if (dx * dx + dy * dy <= range * range) {
+          e.revealed = true;
+          // Scrambler upgrade permanently strips camo
+          if (t.stats.camoStrip) {
+            e.camo = false;
+            e.revealed = true;
+          }
+        }
+      }
+    }
+
+    for (const t of this.towers) {
+      // Radar tower is support only — no attacking
+      if (t.def.type === 'support' && t.def.camoReveal) continue;
+
       t.cooldown -= dt;
       if (t.cooldown > 0) continue;
 
@@ -923,7 +990,7 @@ class ZecruTD {
       if (t.def.type === 'aoe') {
         let hit = false;
         for (const e of this.enemies) {
-          if (!e.alive) continue;
+          if (!e.alive || !this.canSeeCamo(t, e)) continue;
           const dx = e.x - t.x, dy = e.y - t.y;
           if (dx * dx + dy * dy <= range * range) {
             this.damageEnemy(e, t.stats.damage || t.def.damage, t, true);
@@ -991,6 +1058,8 @@ class ZecruTD {
       let bestDist = -1;
       for (const e of this.enemies) {
         if (!e.alive) continue;
+        // Camo visibility check
+        if (!this.canSeeCamo(t, e)) continue;
         const dx = e.x - t.x, dy = e.y - t.y;
         if (dx * dx + dy * dy <= range * range) {
           if (e.pathDist > bestDist) {
@@ -1350,6 +1419,27 @@ class ZecruTD {
         ctx.restore();
       }
 
+      // Radar pulse ring
+      if (t.def.camoReveal) {
+        const rng = t.stats.range || t.def.range;
+        const pulse = (Date.now() % 2000) / 2000;  // 0-1 every 2s
+        ctx.save();
+        ctx.strokeStyle = `rgba(85,255,153,${0.3 * (1 - pulse)})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, rng * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Static outer ring
+        ctx.strokeStyle = 'rgba(85,255,153,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, rng, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Void Warden pull ring
       if (t.def.type === 'aoe') {
         const rng = t.stats.range || t.def.range;
@@ -1395,6 +1485,12 @@ class ZecruTD {
       }
 
       // Enemy body
+      // Camo: semi-transparent with dashed outline
+      if (e.camo && !e.revealed) {
+        ctx.globalAlpha = 0.3;
+      } else if (e.camo && e.revealed) {
+        ctx.globalAlpha = 0.7;
+      }
       // Phantom: translucent with phase glow
       if (e.phase) {
         ctx.globalAlpha = 0.4 + 0.15 * Math.sin(Date.now() * 0.005);
@@ -1411,6 +1507,18 @@ class ZecruTD {
       if (e.phase) {
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
+      }
+
+      // Camo indicator: dashed ring
+      if (e.camo) {
+        ctx.strokeStyle = e.revealed ? '#aaff44' : '#335533';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size + 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
       }
 
       // Armor ring
