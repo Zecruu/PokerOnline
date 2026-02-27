@@ -665,14 +665,20 @@ io.on('connection', (socket) => {
     });
 
     socket.on('clue:makeGuess', (data) => {
+        console.log(`[Clue] makeGuess from ${socket.id}, room=${socket.clueRoom}, guess="${data && data.guess}"`);
         const room = clueRooms[socket.clueRoom];
-        if (!room || room.state !== 'playing') return;
+        if (!room || room.state !== 'playing') {
+            console.log(`[Clue] makeGuess rejected: room=${!!room}, state=${room && room.state}`);
+            return socket.emit('clue:error', { msg: 'Game room not found or not active' });
+        }
 
         const player = room.players.find(p => p.id === socket.id);
         if (!player || player.role !== 'guesser') {
+            console.log(`[Clue] makeGuess rejected: player=${!!player}, role=${player && player.role}`);
             return socket.emit('clue:error', { msg: 'Only the Guesser can make guesses' });
         }
         if (room.currentClue === null) {
+            console.log(`[Clue] makeGuess rejected: currentClue is null`);
             return socket.emit('clue:error', { msg: 'Wait for a clue first' });
         }
 

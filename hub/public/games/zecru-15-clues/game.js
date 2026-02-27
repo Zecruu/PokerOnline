@@ -144,6 +144,7 @@ class ZecruClues {
 
         // Game flow
         this.socket.on('clue:gameStarted', (data) => {
+            console.log('[15 Clues] Game started, my role:', data.role);
             this.role = data.role;
             this.currentWordIndex = 0;
             this.guessesRemaining = 15;
@@ -169,6 +170,8 @@ class ZecruClues {
         });
 
         this.socket.on('clue:clueGiven', (data) => {
+            if (this._clueTimeout) { clearTimeout(this._clueTimeout); this._clueTimeout = null; }
+            console.log('[15 Clues] Clue given:', data.clue, 'My role:', this.role);
             this.currentClue = data.clue;
             this.showCurrentClue(data.clue);
 
@@ -181,6 +184,8 @@ class ZecruClues {
         });
 
         this.socket.on('clue:guessResult', (data) => {
+            if (this._guessTimeout) { clearTimeout(this._guessTimeout); this._guessTimeout = null; }
+            console.log('[15 Clues] Guess result:', data);
             this.currentWordIndex = data.currentWordIndex;
             this.guessesRemaining = data.guessesRemaining;
             this.currentClue = null;
@@ -214,12 +219,29 @@ class ZecruClues {
         });
 
         this.socket.on('clue:gameOver', (data) => {
+            if (this._guessTimeout) { clearTimeout(this._guessTimeout); this._guessTimeout = null; }
+            if (this._clueTimeout) { clearTimeout(this._clueTimeout); this._clueTimeout = null; }
             setTimeout(() => {
                 this.showGameOver(data);
             }, 1800);
         });
 
         this.socket.on('clue:error', (data) => {
+            console.error('[15 Clues] Error:', data.msg);
+            // Re-enable inputs so the player isn't stuck
+            if (this._guessTimeout) { clearTimeout(this._guessTimeout); this._guessTimeout = null; }
+            if (this._clueTimeout) { clearTimeout(this._clueTimeout); this._clueTimeout = null; }
+            if (this.role === 'guesser') {
+                const input = document.getElementById('guessInput');
+                if (input) { input.disabled = false; }
+                const btn = document.getElementById('btnMakeGuess');
+                if (btn) { btn.disabled = false; }
+            } else if (this.role === 'wordmaster') {
+                const input = document.getElementById('clueInput');
+                if (input) { input.disabled = false; }
+                const btn = document.getElementById('btnGiveClue');
+                if (btn) { btn.disabled = false; }
+            }
             alert(data.msg || 'An error occurred.');
         });
     }
@@ -453,9 +475,24 @@ class ZecruClues {
             return;
         }
 
+        if (!this.socket || !this.socket.connected) {
+            errorEl.textContent = 'Disconnected from server. Please refresh.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
         input.disabled = true;
         document.getElementById('btnGiveClue').disabled = true;
+        console.log('[15 Clues] Sending clue:', clue);
         this.socket.emit('clue:giveClue', { clue });
+
+        // Failsafe: re-enable input if no response in 5 seconds
+        this._clueTimeout = setTimeout(() => {
+            console.warn('[15 Clues] No response for clue, re-enabling input');
+            this.switchInputArea('clue');
+            errorEl.textContent = 'No response from server. Try again.';
+            errorEl.classList.remove('hidden');
+        }, 5000);
     }
 
     // ── Make Guess ───────────────────────────────────────────
@@ -467,9 +504,24 @@ class ZecruClues {
 
         if (!guess) return;
 
+        if (!this.socket || !this.socket.connected) {
+            errorEl.textContent = 'Disconnected from server. Please refresh.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
         input.disabled = true;
         document.getElementById('btnMakeGuess').disabled = true;
+        console.log('[15 Clues] Sending guess:', guess);
         this.socket.emit('clue:makeGuess', { guess });
+
+        // Failsafe: re-enable input if no response in 5 seconds
+        this._guessTimeout = setTimeout(() => {
+            console.warn('[15 Clues] No response for guess, re-enabling input');
+            this.switchInputArea('guess');
+            errorEl.textContent = 'No response from server. Try again.';
+            errorEl.classList.remove('hidden');
+        }, 5000);
     }
 
     // ── Show Clue ────────────────────────────────────────────
