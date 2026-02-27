@@ -68,58 +68,63 @@ loadSprite('sniper', 'sniper-tower.png');
 // ── TOWER DEFINITIONS ──────────────────────────────────────
 const TOWERS = {
   bolt: {
+    // PHYSICAL - good vs scouts/runners, weak vs phantoms/shielded
     name: 'Bolt Tower', cost: 100, damage: 12, range: 140, fireRate: 1.2,
     color: '#4488ff', projColor: '#66aaff', projSpeed: 450,
-    sprite: 'bolt',
-    desc: 'Rapid energy bolts. Fast fire rate.', type: 'single',
+    sprite: 'bolt', dmgType: 'physical',
+    desc: 'Physical bolts. Weak vs Phantoms.', type: 'single',
     upgrades: [
       { cost: 80, damage: 18, fireRate: 1.5, desc: 'Faster Bolts' },
       { cost: 175, damage: 26, fireRate: 1.8, pierce: 2, desc: 'Piercing Bolts' },
-      { cost: 350, damage: 38, fireRate: 2.2, pierce: 3, desc: 'Double Bolt' }
+      { cost: 350, damage: 38, fireRate: 2.2, pierce: 3, dmgType: 'energy', desc: 'Plasma Bolts (Energy)' }
     ]
   },
   frost: {
+    // MAGIC - counters phantoms & runners (slow), weak vs shielded
     name: 'Frost Spire', cost: 150, damage: 6, range: 120, fireRate: 0.9,
     color: '#00ddee', projColor: '#aaffff', projSpeed: 320,
-    sprite: 'frost',
+    sprite: 'frost', dmgType: 'magic',
     slow: 0.45, slowDur: 2.0,
-    desc: 'Slows enemies with freezing shots.', type: 'single',
+    desc: 'Magic ice. Counters Phantoms & Runners.', type: 'single',
     upgrades: [
       { cost: 110, damage: 7, slow: 0.35, desc: 'Deep Freeze' },
-      { cost: 220, damage: 12, slow: 0.25, freezeChance: 0.15, desc: 'Flash Freeze' },
+      { cost: 220, damage: 12, slow: 0.25, freezeChance: 0.15, shieldBreak: true, desc: 'Shatter (breaks shields)' },
       { cost: 380, damage: 18, slow: 0.15, freezeChance: 0.3, splash: 55, desc: 'Blizzard' }
     ]
   },
   cannon: {
+    // EXPLOSIVE - counters swarms & splitters (AoE), weak vs armored
     name: 'Cannon Turret', cost: 225, damage: 28, range: 130, fireRate: 0.5,
     color: '#dd4444', projColor: '#ff6644', projSpeed: 260,
-    sprite: 'cannon', projSprite: 'cannonProj',
-    splash: 50, desc: 'Explosive area-of-effect blasts.', type: 'splash',
+    sprite: 'cannon', projSprite: 'cannonProj', dmgType: 'explosive',
+    splash: 50, desc: 'AoE explosive. Counters Swarms & Splitters.', type: 'splash',
     upgrades: [
       { cost: 140, damage: 35, splash: 65, desc: 'Bigger Blasts' },
-      { cost: 280, damage: 52, splash: 80, desc: 'Heavy Ordnance' },
+      { cost: 280, damage: 52, splash: 80, antiSwarm: true, desc: 'Fragmentation (2x vs Swarm)' },
       { cost: 450, damage: 75, splash: 100, fireRate: 0.55, desc: 'Cluster Bombs' }
     ]
   },
   sniper: {
+    // PHYSICAL - counters armored & brutes (armor pierce), weak vs swarms
     name: 'Sniper Nest', cost: 275, damage: 45, range: 280, fireRate: 0.3,
     color: '#44cc44', projColor: '#88ff88', projSpeed: 900,
-    sprite: 'sniper',
-    desc: 'Extreme range, high single-target damage.', type: 'single',
+    sprite: 'sniper', dmgType: 'physical',
+    desc: 'Armor piercing. Counters Armored & Brutes.', type: 'single',
     upgrades: [
       { cost: 160, damage: 65, critChance: 0.2, critMult: 2.5, desc: 'Critical Shots' },
-      { cost: 320, damage: 90, armorPierce: true, desc: 'Armor Piercing' },
+      { cost: 320, damage: 90, armorPierce: true, dmgType: 'energy', desc: 'Energy Rounds (pierce all)' },
       { cost: 550, damage: 120, instakillThresh: 0.15, desc: 'Headshot' }
     ]
   },
   tesla: {
+    // ENERGY - counters phantoms & shielded, good vs groups
     name: 'Tesla Coil', cost: 300, damage: 18, range: 140, fireRate: 0.7,
     color: '#ffcc00', projColor: '#ffee66', projSpeed: 0,
-    chainCount: 3, chainRange: 80,
-    desc: 'Chain lightning hits multiple enemies.', type: 'chain',
+    chainCount: 3, chainRange: 80, dmgType: 'energy',
+    desc: 'Energy chains. Counters Phantoms & Shielded.', type: 'chain',
     upgrades: [
       { cost: 160, damage: 22, chainCount: 4, desc: 'More Chains' },
-      { cost: 330, damage: 32, chainCount: 5, stunChance: 0.12, desc: 'Shocking' },
+      { cost: 330, damage: 32, chainCount: 5, stunChance: 0.12, shieldBreak: true, desc: 'Shield Breaker' },
       { cost: 500, damage: 45, chainCount: 7, stunChance: 0.2, chainRange: 100, desc: 'Overload' }
     ]
   }
@@ -163,13 +168,28 @@ const ASCENDED = {
 };
 
 // ── ENEMY DEFINITIONS ──────────────────────────────────────
+// resist: { physical, energy, magic, explosive } — 0=full dmg, 1=immune
+// evasion: chance to dodge single-target hits
+// shield: absorbs damage before HP, regens between waves
+// splits: on death spawn N smaller enemies
 const ENEMY_TYPES = {
-  scout:   { name: 'Scout',   hp: 10,  speed: 1.8, gold: 5,  color: '#ff4444', size: 7 },
-  runner:  { name: 'Runner',  hp: 16,  speed: 3.0, gold: 8,  color: '#44ff44', size: 6 },
-  brute:   { name: 'Brute',   hp: 50,  speed: 1.2, gold: 15, color: '#4488ff', size: 10 },
-  swarm:   { name: 'Swarm',   hp: 6,   speed: 2.4, gold: 2,  color: '#cc44ff', size: 5 },
-  armored: { name: 'Armored', hp: 90,  speed: 0.9, gold: 25, color: '#ffcc00', size: 11, armor: 0.3 },
-  boss:    { name: 'Boss',    hp: 500, speed: 0.65, gold: 150, color: '#ff0044', size: 16, armor: 0.2 }
+  scout:    { name: 'Scout',    hp: 10,  speed: 1.8, gold: 5,   color: '#ff4444', size: 7 },
+  runner:   { name: 'Runner',   hp: 16,  speed: 3.0, gold: 8,   color: '#44ff44', size: 6,
+              evasion: 0.2 },  // 20% dodge vs single-target → use AoE or frost slow
+  brute:    { name: 'Brute',    hp: 50,  speed: 1.2, gold: 15,  color: '#4488ff', size: 10,
+              armor: 0.25, resist: { explosive: 0.3 } },  // tanky, resists explosions → use sniper
+  swarm:    { name: 'Swarm',    hp: 6,   speed: 2.4, gold: 2,   color: '#cc44ff', size: 5 },  // use AoE/chain
+  armored:  { name: 'Armored',  hp: 90,  speed: 0.9, gold: 25,  color: '#ffcc00', size: 11,
+              armor: 0.5, resist: { physical: 0.4, magic: 0.2 } },  // need armor pierce or energy
+  phantom:  { name: 'Phantom',  hp: 35,  speed: 2.0, gold: 18,  color: '#88ffff', size: 8,
+              resist: { physical: 0.85, explosive: 0.6 }, phase: true },  // immune to physical → need magic/energy
+  shielded: { name: 'Shielded', hp: 40,  speed: 1.5, gold: 20,  color: '#ffffff', size: 9,
+              shield: 30, shieldMax: 30, shieldRegen: 5 },  // shield absorbs → need fast fire or shieldBreak
+  splitter: { name: 'Splitter', hp: 45,  speed: 1.6, gold: 12,  color: '#ff8800', size: 10,
+              splits: 3 },  // splits on death → need AoE to clean up children
+  boss:     { name: 'Boss',     hp: 500, speed: 0.65, gold: 150, color: '#ff0044', size: 16,
+              armor: 0.2, shield: 100, shieldMax: 100, shieldRegen: 8,
+              resist: { physical: 0.15 } }
 };
 
 // ── WAVE GENERATOR (Bloons-style pacing) ───────────────────
@@ -192,6 +212,7 @@ function generateWaves() {
     };
 
     // Aggressive scaling: easy intro, fast ramp, overwhelming endgame
+    // New types introduced: phantom ~w8, shielded ~w12, splitter ~w14
     if (w <= 3) {
       push('scout', 2 + w * 2, 1.0);
     } else if (w <= 6) {
@@ -204,6 +225,8 @@ function generateWaves() {
       push('runner', 3 + (w - 6) * 2, 0.4);
       t += 0.6;
       push('brute', 1 + Math.floor((w - 5) / 2), 1.2);
+      // Phantoms start at wave 8 — need magic/energy to counter
+      if (w >= 8) { t += 0.5; push('phantom', 1 + (w - 8), 0.9); }
     } else if (w <= 15) {
       push('runner', 6 + (w - 10) * 2, 0.3);
       t += 0.4;
@@ -212,6 +235,12 @@ function generateWaves() {
       push('brute', 3 + (w - 10), 0.9);
       t += 0.3;
       push('swarm', 8 + (w - 10) * 5, 0.14);
+      // Phantoms continue
+      t += 0.4; push('phantom', 2 + (w - 10), 0.7);
+      // Shielded start at wave 12 — need fast fire or shieldBreak
+      if (w >= 12) { t += 0.5; push('shielded', 1 + (w - 12), 1.1); }
+      // Splitters start at wave 14 — need AoE for children
+      if (w >= 14) { t += 0.4; push('splitter', 1 + (w - 14), 1.0); }
     } else if (w <= 25) {
       push('runner', 10 + (w - 14) * 2, 0.22);
       push('scout', 15 + (w - 10) * 2, 0.22);
@@ -220,6 +249,11 @@ function generateWaves() {
       push('swarm', 12 + (w - 14) * 5, 0.08);
       t += 0.4;
       push('armored', 2 + Math.floor((w - 15) / 2), 1.3);
+      t += 0.3;
+      push('phantom', 3 + (w - 15), 0.6);
+      push('shielded', 2 + (w - 15), 0.8);
+      t += 0.3;
+      push('splitter', 2 + Math.floor((w - 15) / 2), 0.9);
     } else {
       push('runner', 18 + (w - 24) * 3, 0.12);
       push('swarm', 25 + (w - 24) * 8, 0.06);
@@ -228,6 +262,10 @@ function generateWaves() {
       push('armored', 4 + (w - 24), 0.9);
       t += 0.3;
       push('scout', 20 + (w - 24) * 2, 0.14);
+      t += 0.3;
+      push('phantom', 5 + (w - 24) * 2, 0.5);
+      push('shielded', 4 + (w - 24) * 2, 0.6);
+      push('splitter', 3 + (w - 24), 0.7);
     }
 
     // Boss every 5 waves
@@ -539,7 +577,7 @@ class ZecruTD {
   }
 
   // ── ENEMIES ────────────────────────────────────────────
-  spawnEnemy(type, hpMult, spdMult) {
+  spawnEnemy(type, hpMult, spdMult, pathDist) {
     const def = ENEMY_TYPES[type];
     this.enemies.push({
       type,
@@ -553,10 +591,19 @@ class ZecruTD {
       color: def.color,
       size: def.size,
       armor: def.armor || 0,
-      pathDist: 0,       // distance traveled along path
-      pathSeg: 0,        // current path segment index
-      segDist: 0,        // distance into current segment
-      slow: 1,           // speed multiplier (1 = normal)
+      resist: def.resist ? { ...def.resist } : {},
+      evasion: def.evasion || 0,
+      phase: def.phase || false,
+      shield: def.shield ? Math.round(def.shield * hpMult) : 0,
+      shieldMax: def.shieldMax ? Math.round(def.shieldMax * hpMult) : 0,
+      shieldRegen: def.shieldRegen || 0,
+      splits: def.splits || 0,
+      hpMult: hpMult,
+      spdMult: spdMult,
+      pathDist: pathDist || 0,
+      pathSeg: 0,
+      segDist: 0,
+      slow: 1,
       slowTimer: 0,
       frozen: false,
       frozenTimer: 0,
@@ -575,6 +622,11 @@ class ZecruTD {
       if (e.slowTimer > 0) { e.slowTimer -= dt; if (e.slowTimer <= 0) e.slow = 1; }
       if (e.frozenTimer > 0) { e.frozenTimer -= dt; if (e.frozenTimer <= 0) e.frozen = false; }
       if (e.stunnedTimer > 0) { e.stunnedTimer -= dt; if (e.stunnedTimer <= 0) e.stunned = false; }
+
+      // Shield regen
+      if (e.shieldRegen > 0 && e.shield < e.shieldMax) {
+        e.shield = Math.min(e.shieldMax, e.shield + e.shieldRegen * dt);
+      }
 
       if (e.frozen || e.stunned) continue;
 
@@ -637,24 +689,49 @@ class ZecruTD {
     }
   }
 
-  damageEnemy(enemy, damage, tower) {
+  damageEnemy(enemy, damage, tower, isSplash) {
     let dmg = damage;
-    // Armor reduction
+    const dt = tower ? (tower.stats.dmgType || tower.def.dmgType || 'physical') : 'physical';
+
+    // Evasion check (single-target only, not splash/chain)
+    if (enemy.evasion > 0 && !isSplash && Math.random() < enemy.evasion) {
+      this.spawnFloatText(enemy.x, enemy.y - 12, 'DODGE', '#aaaaaa');
+      return;
+    }
+
+    // Damage type resistance
+    if (enemy.resist && enemy.resist[dt]) {
+      dmg *= (1 - enemy.resist[dt]);
+      if (dmg < 1) {
+        this.spawnFloatText(enemy.x, enemy.y - 12, 'RESIST', '#888888');
+        return;
+      }
+    }
+
+    // Armor reduction (unless armor pierce)
     if (enemy.armor > 0 && !(tower && tower.stats.armorPierce)) {
       dmg *= (1 - enemy.armor);
     }
+
     // Crit
     if (tower && tower.stats.critChance && Math.random() < tower.stats.critChance) {
       dmg *= (tower.stats.critMult || 2);
       this.spawnFloatText(enemy.x, enemy.y - 15, 'CRIT!', '#ff4444');
     }
+
+    // Anti-swarm bonus
+    if (tower && tower.stats.antiSwarm && (enemy.type === 'swarm' || enemy.type === 'splitter')) {
+      dmg *= 2;
+    }
+
     // Instakill threshold
     if (tower && tower.stats.instakillThresh) {
       if (enemy.hp / enemy.maxHp <= tower.stats.instakillThresh && enemy.type !== 'boss') {
-        dmg = enemy.hp;
+        dmg = enemy.hp + enemy.shield;
         this.spawnFloatText(enemy.x, enemy.y - 15, 'EXECUTE!', '#ff0000');
       }
     }
+
     // Money Man nearby boost
     for (const t of this.towers) {
       if (t.def.nearbyBoost || t.stats.nearbyBoost) {
@@ -670,7 +747,25 @@ class ZecruTD {
       }
     }
 
-    enemy.hp -= Math.round(dmg);
+    dmg = Math.round(dmg);
+
+    // Shield absorb first
+    if (enemy.shield > 0) {
+      const shieldBreak = tower && (tower.stats.shieldBreak);
+      if (shieldBreak) {
+        enemy.shield = 0;
+        this.spawnFloatText(enemy.x, enemy.y - 15, 'SHATTER!', '#00ffff');
+      } else {
+        if (dmg <= enemy.shield) {
+          enemy.shield -= dmg;
+          return; // fully absorbed
+        }
+        dmg -= enemy.shield;
+        enemy.shield = 0;
+      }
+    }
+
+    enemy.hp -= dmg;
     if (enemy.hp <= 0) {
       enemy.alive = false;
       this.onEnemyKill(enemy, tower);
@@ -701,6 +796,15 @@ class ZecruTD {
     this.score += enemy.maxHp;
     this.spawnFloatText(enemy.x, enemy.y - 10, `+${goldEarned}g`, '#ffd700');
     this.spawnParticles(enemy.x, enemy.y, enemy.color, 6);
+
+    // Splitter: spawn smaller children at same position
+    if (enemy.splits > 0) {
+      for (let i = 0; i < enemy.splits; i++) {
+        this.spawnEnemy('swarm', enemy.hpMult * 0.8, enemy.spdMult * 1.2, enemy.pathDist + (i - 1) * 8);
+      }
+      this.spawnParticles(enemy.x, enemy.y, '#ff8800', 10);
+    }
+
     this.updateTowerButtons();
   }
 
@@ -822,7 +926,7 @@ class ZecruTD {
           if (!e.alive) continue;
           const dx = e.x - t.x, dy = e.y - t.y;
           if (dx * dx + dy * dy <= range * range) {
-            this.damageEnemy(e, t.stats.damage || t.def.damage, t);
+            this.damageEnemy(e, t.stats.damage || t.def.damage, t, true);
             hit = true;
           }
         }
@@ -835,7 +939,7 @@ class ZecruTD {
               if (!e.alive) continue;
               const dx = e.x - t.x, dy = e.y - t.y;
               if (dx * dx + dy * dy <= (range * 1.5) * (range * 1.5)) {
-                this.damageEnemy(e, (t.stats.damage || t.def.damage) * 0.5, t);
+                this.damageEnemy(e, (t.stats.damage || t.def.damage) * 0.5, t, true);
               }
             }
             this.spawnParticles(t.x, t.y, '#cc66ff', 15);
@@ -947,7 +1051,7 @@ class ZecruTD {
       if (!current || !current.alive) break;
       hit.add(current);
       chainPts.push({ x: current.x, y: current.y });
-      this.damageEnemy(current, dmg * (c === 0 ? 1 : 0.7), tower);
+      this.damageEnemy(current, dmg * (c === 0 ? 1 : 0.7), tower, true);
       if (stun > 0 && Math.random() < stun) {
         current.stunned = true;
         current.stunnedTimer = 0.8;
@@ -1021,7 +1125,7 @@ class ZecruTD {
               if (!e2.alive) continue;
               const sx = e2.x - p.x, sy = e2.y - p.y;
               if (sx * sx + sy * sy <= p.splash * p.splash) {
-                this.damageEnemy(e2, p.damage * (e2 === e ? 1 : 0.5), p.tower);
+                this.damageEnemy(e2, p.damage * (e2 === e ? 1 : 0.5), p.tower, true);
                 if (p.slow > 0) { e2.slow = p.slow; e2.slowTimer = p.slowDur; }
               }
             }
@@ -1291,10 +1395,23 @@ class ZecruTD {
       }
 
       // Enemy body
+      // Phantom: translucent with phase glow
+      if (e.phase) {
+        ctx.globalAlpha = 0.4 + 0.15 * Math.sin(Date.now() * 0.005);
+        ctx.shadowColor = '#88ffff';
+        ctx.shadowBlur = 12;
+      }
+
       ctx.fillStyle = e.color;
       ctx.beginPath();
       ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
       ctx.fill();
+
+      // Reset phantom glow
+      if (e.phase) {
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
 
       // Armor ring
       if (e.armor > 0) {
@@ -1305,10 +1422,20 @@ class ZecruTD {
         ctx.stroke();
       }
 
+      // Shield bar (above health bar, blue)
+      const bw = e.size * 2 + 4;
+      const bx = e.x - bw / 2;
+      if (e.shieldMax > 0) {
+        const sby = e.y - e.size - 12;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(bx, sby, bw, 3);
+        const sRatio = Math.max(0, e.shield / e.shieldMax);
+        ctx.fillStyle = '#44aaff';
+        ctx.fillRect(bx, sby, bw * sRatio, 3);
+      }
+
       // Health bar
       if (e.hp < e.maxHp) {
-        const bw = e.size * 2 + 4;
-        const bx = e.x - bw / 2;
         const by = e.y - e.size - 8;
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(bx, by, bw, 4);
@@ -1323,6 +1450,14 @@ class ZecruTD {
         ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('BOSS', e.x, e.y + e.size + 12);
+      }
+
+      // Splitter icon (small "x3" below enemy)
+      if (e.splits > 0) {
+        ctx.fillStyle = '#ff8800';
+        ctx.font = 'bold 7px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('x' + e.splits, e.x, e.y + e.size + 10);
       }
 
       // Slow visual
