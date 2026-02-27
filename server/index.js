@@ -98,6 +98,7 @@ function generatePlayerId() {
 // In-memory rooms (no DB needed, rooms are ephemeral)
 const tdRooms = {};
 const pokerRooms = {};
+const clueRooms = {};
 
 // Socket.IO Connection Handler
 io.on('connection', (socket) => {
@@ -397,6 +398,27 @@ io.on('connection', (socket) => {
             }
         }
 
+        // Handle Clue room disconnect
+        if (socket.clueRoom) {
+            const cRoom = clueRooms[socket.clueRoom];
+            if (cRoom) {
+                cRoom.players = cRoom.players.filter(p => p.id !== socket.id);
+                if (cRoom.players.length === 0) {
+                    delete clueRooms[socket.clueRoom];
+                } else {
+                    if (cRoom.host === socket.id) cRoom.host = cRoom.players[0].id;
+                    if (cRoom.state === 'playing' || cRoom.state === 'wordSelection') {
+                        cRoom.state = 'gameOver';
+                        cRoom.winner = 'disconnect';
+                    }
+                    io.to('clue:' + socket.clueRoom).emit('clue:playerLeft', {
+                        playerId: socket.id,
+                        players: cRoom.players
+                    });
+                }
+            }
+        }
+
         // Handle poker room disconnect
         if (socket.roomCode) {
             const room = pokerRooms[socket.roomCode];
@@ -505,6 +527,208 @@ io.on('connection', (socket) => {
         if (!socket.tdRoom) return;
         const speed = [1, 2, 3].includes(data.speed) ? data.speed : 1;
         socket.to('td:' + socket.tdRoom).emit('td:speedChanged', { speed });
+    });
+
+    // ── ZECRU 15 CLUES ──────────────────────────────────────
+    socket.on('clue:createRoom', (data) => {
+        const code = Math.random().toString(36).substr(2, 6).toUpperCase();
+        const player = { id: socket.id, name: (data.name || 'Player 1').substring(0, 16) };
+        clueRooms[code] = {
+            roomCode: code,
+            host: socket.id,
+            players: [player],
+            state: 'lobby',
+            words: [],
+            currentWordIndex: 0,
+            guessesRemaining: 15,
+            currentClue: null,
+            guessHistory: [],
+            winner: null,
+            hostRole: 'wordmaster'
+        };
+        socket.clueRoom = code;
+        socket.join('clue:' + code);
+        socket.emit('clue:roomCreated', { code, players: [player] });
+        console.log(`Clue Room ${code} created by ${player.name}`);
+    });
+
+    socket.on('clue:joinRoom', (data) => {
+        const code = ((data.code || '') + '').toUpperCase();
+        const room = clueRooms[code];
+        if (!room) return socket.emit('clue:error', { msg: 'Room not found' });
+        if (room.players.length >= 2) return socket.emit('clue:error', { msg: 'Room is full (2 players max)' });
+        if (room.state !== 'lobby') return socket.emit('clue:error', { msg: 'Game already in progress' });
+
+        const player = { id: socket.id, name: (data.name || 'Player 2').substring(0, 16) };
+        room.players.push(player);
+        socket.clueRoom = code;
+        socket.join('clue:' + code);
+        socket.emit('clue:roomJoined', { code, players: room.players });
+        socket.to('clue:' + code).emit('clue:playerJoined', { players: room.players });
+        console.log(`${player.name} joined Clue room ${code}`);
+    });
+
+    socket.on('clue:startGame', (data) => {
+        const room = clueRooms[socket.clueRoom];
+        if (!room || room.host !== socket.id) return;
+        if (room.players.length !== 2) return socket.emit('clue:error', { msg: 'Need exactly 2 players' });
+
+        room.state = 'wordSelection';
+        room.hostRole = data.hostRole || 'wordmaster';
+
+        // Assign roles
+        room.players.forEach(p => {
+            if (p.id === room.host) {
+                p.role = room.hostRole;
+            } else {
+                p.role = room.hostRole === 'wordmaster' ? 'guesser' : 'wordmaster';
+            }
+        });
+
+        // Send each player their role
+        room.players.forEach(p => {
+            io.to(p.id).emit('clue:gameStarted', { role: p.role });
+        });
+        console.log(`Clue game started in room ${socket.clueRoom}`);
+    });
+
+    socket.on('clue:submitWords', (data) => {
+        const room = clueRooms[socket.clueRoom];
+        if (!room || room.state !== 'wordSelection') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'wordmaster') {
+            return socket.emit('clue:error', { msg: 'Only the Wordmaster can submit words' });
+        }
+
+        const words = data.words;
+        if (!Array.isArray(words) || words.length !== 10) {
+            return socket.emit('clue:error', { msg: 'Must submit exactly 10 words' });
+        }
+
+        const cleaned = [];
+        for (let i = 0; i < 10; i++) {
+            const w = ((words[i] || '') + '').trim().toLowerCase();
+            if (!w || w.includes(' ')) {
+                return socket.emit('clue:error', { msg: 'Word ' + (i + 1) + ' is invalid' });
+            }
+            if (cleaned.includes(w)) {
+                return socket.emit('clue:error', { msg: 'Word ' + (i + 1) + ' is a duplicate' });
+            }
+            cleaned.push(w);
+        }
+
+        room.words = cleaned;
+        room.state = 'playing';
+        room.currentWordIndex = 0;
+        room.guessesRemaining = 15;
+        room.currentClue = null;
+        room.guessHistory = [];
+
+        // Send words only to wordmaster, not guesser
+        room.players.forEach(p => {
+            if (p.role === 'wordmaster') {
+                io.to(p.id).emit('clue:wordsReady', { words: cleaned });
+            } else {
+                io.to(p.id).emit('clue:wordsReady', {});
+            }
+        });
+        console.log(`Words submitted in Clue room ${socket.clueRoom}`);
+    });
+
+    socket.on('clue:giveClue', (data) => {
+        const room = clueRooms[socket.clueRoom];
+        if (!room || room.state !== 'playing') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'wordmaster') {
+            return socket.emit('clue:error', { msg: 'Only the Wordmaster can give clues' });
+        }
+        if (room.currentClue !== null) {
+            return socket.emit('clue:error', { msg: 'Clue already given for this word' });
+        }
+
+        const clue = ((data.clue || '') + '').trim().toLowerCase();
+        if (!clue || clue.includes(' ')) {
+            return socket.emit('clue:error', { msg: 'Clue must be exactly one word' });
+        }
+
+        const currentWord = room.words[room.currentWordIndex];
+        if (clue === currentWord) {
+            return socket.emit('clue:error', { msg: 'Clue cannot be the answer itself' });
+        }
+
+        room.currentClue = clue;
+        io.to('clue:' + socket.clueRoom).emit('clue:clueGiven', { clue });
+    });
+
+    socket.on('clue:makeGuess', (data) => {
+        const room = clueRooms[socket.clueRoom];
+        if (!room || room.state !== 'playing') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'guesser') {
+            return socket.emit('clue:error', { msg: 'Only the Guesser can make guesses' });
+        }
+        if (room.currentClue === null) {
+            return socket.emit('clue:error', { msg: 'Wait for a clue first' });
+        }
+
+        const guess = ((data.guess || '') + '').trim().toLowerCase();
+        if (!guess) return;
+
+        const currentWord = room.words[room.currentWordIndex];
+        const correct = (guess === currentWord);
+
+        const entry = {
+            wordNum: room.currentWordIndex + 1,
+            clue: room.currentClue,
+            guess: guess,
+            correct: correct,
+            word: correct ? currentWord : null
+        };
+        room.guessHistory.push(entry);
+
+        if (correct) {
+            room.currentWordIndex++;
+            room.currentClue = null;
+        } else {
+            room.guessesRemaining--;
+            room.currentClue = null;
+        }
+
+        // Check game over
+        let gameOver = false;
+        if (room.currentWordIndex >= 10) {
+            room.state = 'gameOver';
+            room.winner = 'guesser';
+            gameOver = true;
+        } else if (room.guessesRemaining <= 0) {
+            room.state = 'gameOver';
+            room.winner = 'wordmaster';
+            gameOver = true;
+        }
+
+        io.to('clue:' + socket.clueRoom).emit('clue:guessResult', {
+            correct, guess,
+            clue: entry.clue,
+            word: correct ? currentWord : null,
+            wordNum: entry.wordNum,
+            currentWordIndex: room.currentWordIndex,
+            guessesRemaining: room.guessesRemaining,
+            gameOver
+        });
+
+        if (gameOver) {
+            io.to('clue:' + socket.clueRoom).emit('clue:gameOver', {
+                winner: room.winner,
+                wordsGuessed: room.currentWordIndex,
+                guessesUsed: 15 - room.guessesRemaining,
+                words: room.words,
+                guessHistory: room.guessHistory
+            });
+            console.log(`Clue game over in room ${socket.clueRoom}: ${room.winner} wins`);
+        }
     });
 });
 
