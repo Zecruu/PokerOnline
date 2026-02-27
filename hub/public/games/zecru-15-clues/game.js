@@ -19,6 +19,12 @@ class ZecruClues {
         this.guessHistory = [];
         this.hostRole = 'wordmaster';
 
+        // Token system
+        this.tokenPool = [];
+        this.selectedTokens = [];
+        this.guessedTokens = {};
+        this.canGuess = false;
+
         this.loadPlayerName();
         this.setupEvents();
         this.showScreen('menuScreen');
@@ -65,15 +71,19 @@ class ZecruClues {
 
         // Word Selection
         document.getElementById('btnSubmitWords').addEventListener('click', () => this.submitWords());
+        document.getElementById('btnAddCustomWord').addEventListener('click', () => this.addCustomWord());
+        document.getElementById('customWordInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.addCustomWord();
+        });
 
         // Game
         document.getElementById('btnGiveClue').addEventListener('click', () => this.giveClue());
-        document.getElementById('btnMakeGuess').addEventListener('click', () => this.makeGuess());
         document.getElementById('clueInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.giveClue();
         });
+        document.getElementById('btnMakeGuess').addEventListener('click', () => this.makeCustomGuess());
         document.getElementById('guessInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.makeGuess();
+            if (e.key === 'Enter') this.makeCustomGuess();
         });
 
         // Game Over
@@ -151,11 +161,15 @@ class ZecruClues {
             this.guessHistory = [];
             this.currentClue = null;
             this.words = [];
+            this.tokenPool = data.tokenPool || [];
+            this.selectedTokens = [];
+            this.guessedTokens = {};
+            this.canGuess = false;
 
             if (this.role === 'wordmaster') {
                 document.getElementById('wordmasterSetup').classList.remove('hidden');
                 document.getElementById('guesserWaiting').classList.add('hidden');
-                this.buildWordInputs();
+                this.buildTokenSelectGrid();
             } else {
                 document.getElementById('wordmasterSetup').classList.add('hidden');
                 document.getElementById('guesserWaiting').classList.remove('hidden');
@@ -198,6 +212,9 @@ class ZecruClues {
                 word: data.word
             });
 
+            // Mark the guessed token visually
+            this.markTokenGuessed(data.guess, data.correct);
+
             this.showResultFlash(data.correct);
             this.updateGameHUD();
             if (this.role === 'wordmaster') this.updateWordList();
@@ -228,14 +245,15 @@ class ZecruClues {
 
         this.socket.on('clue:error', (data) => {
             console.error('[15 Clues] Error:', data.msg);
-            // Re-enable inputs so the player isn't stuck
             if (this._guessTimeout) { clearTimeout(this._guessTimeout); this._guessTimeout = null; }
             if (this._clueTimeout) { clearTimeout(this._clueTimeout); this._clueTimeout = null; }
             if (this.role === 'guesser') {
-                const input = document.getElementById('guessInput');
-                if (input) { input.disabled = false; }
-                const btn = document.getElementById('btnMakeGuess');
-                if (btn) { btn.disabled = false; }
+                this.canGuess = true;
+                this.updateTokenClickability();
+                const gi = document.getElementById('guessInput');
+                if (gi) gi.disabled = false;
+                const gb = document.getElementById('btnMakeGuess');
+                if (gb) gb.disabled = false;
             } else if (this.role === 'wordmaster') {
                 const input = document.getElementById('clueInput');
                 if (input) { input.disabled = false; }
@@ -280,6 +298,10 @@ class ZecruClues {
         this.words = [];
         this.guessHistory = [];
         this.currentClue = null;
+        this.tokenPool = [];
+        this.selectedTokens = [];
+        this.guessedTokens = {};
+        this.canGuess = false;
         this.showScreen('menuScreen');
     }
 
@@ -307,81 +329,158 @@ class ZecruClues {
         this.socket.emit('clue:startGame', { hostRole: this.hostRole });
     }
 
-    // ── Word Selection ───────────────────────────────────────
-    buildWordInputs() {
-        const container = document.getElementById('wordInputList');
+    // ── Word Selection (Token Grid + Custom Input) ──────────
+    buildTokenSelectGrid() {
+        const container = document.getElementById('tokenSelectGrid');
         container.innerHTML = '';
-        for (let i = 0; i < 10; i++) {
-            const row = document.createElement('div');
-            row.className = 'word-input-row';
-            row.innerHTML =
-                '<span class="word-num">' + (i + 1) + '</span>' +
-                '<input type="text" id="wordInput' + i + '" class="word-input" placeholder="Word ' + (i + 1) + '" maxlength="30" autocomplete="off">';
-            container.appendChild(row);
-        }
-        // Enter advances to next input
-        for (let i = 0; i < 10; i++) {
-            document.getElementById('wordInput' + i).addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (i < 9) {
-                        document.getElementById('wordInput' + (i + 1)).focus();
-                    } else {
-                        this.submitWords();
-                    }
-                }
-            });
-        }
-        document.getElementById('wordInput0').focus();
+        this.selectedTokens = [];
+
+        this.tokenPool.forEach((token) => {
+            const card = document.createElement('div');
+            card.className = 'token-card';
+            card.dataset.word = token.word;
+            card.dataset.category = token.category;
+            card.innerHTML =
+                '<span class="token-word">' + token.word.charAt(0).toUpperCase() + token.word.slice(1) + '</span>' +
+                '<span class="token-category">' + token.category + '</span>' +
+                '<span class="select-num"></span>';
+            card.addEventListener('click', () => this.toggleTokenSelection(token.word, card));
+            container.appendChild(card);
+        });
+
+        this.updateSelectionCount();
     }
 
-    submitWords() {
-        const words = [];
+    toggleTokenSelection(word, card) {
+        const idx = this.selectedTokens.indexOf(word);
+        if (idx !== -1) {
+            this.selectedTokens.splice(idx, 1);
+            card.classList.remove('selected');
+        } else {
+            if (this.selectedTokens.length >= 10) return;
+            this.selectedTokens.push(word);
+            card.classList.add('selected');
+        }
+        this.updateSelectionNumbers();
+        this.updateSelectionCount();
+    }
+
+    updateSelectionNumbers() {
+        const container = document.getElementById('tokenSelectGrid');
+        if (!container) return;
+        container.querySelectorAll('.token-card').forEach(card => {
+            const word = card.dataset.word;
+            const idx = this.selectedTokens.indexOf(word);
+            const numEl = card.querySelector('.select-num');
+            if (idx !== -1) {
+                card.classList.add('selected');
+                numEl.textContent = idx + 1;
+            } else {
+                card.classList.remove('selected');
+                numEl.textContent = '';
+            }
+        });
+    }
+
+    updateSelectionCount() {
+        const count = this.selectedTokens.length;
+        const countEl = document.getElementById('selectionCount');
+        if (countEl) countEl.innerHTML = 'Selected: <strong>' + count + '</strong>/10';
+        const btn = document.getElementById('btnSubmitWords');
+        if (btn) {
+            btn.textContent = 'Lock In Words (' + count + '/10)';
+            btn.disabled = (count !== 10);
+        }
+        this.renderSelectedWords();
+    }
+
+    addCustomWord() {
+        const input = document.getElementById('customWordInput');
+        const word = input.value.trim().toLowerCase();
         const errorEl = document.getElementById('wordError');
         errorEl.classList.add('hidden');
 
-        for (let i = 0; i < 10; i++) {
-            const val = document.getElementById('wordInput' + i).value.trim().toLowerCase();
-            if (!val) {
-                errorEl.textContent = 'Word ' + (i + 1) + ' is empty.';
-                errorEl.classList.remove('hidden');
-                document.getElementById('wordInput' + i).focus();
-                return;
-            }
-            if (val.includes(' ')) {
-                errorEl.textContent = 'Word ' + (i + 1) + ' must be a single word.';
-                errorEl.classList.remove('hidden');
-                document.getElementById('wordInput' + i).focus();
-                return;
-            }
-            if (words.includes(val)) {
-                errorEl.textContent = 'Word ' + (i + 1) + ' is a duplicate.';
-                errorEl.classList.remove('hidden');
-                document.getElementById('wordInput' + i).focus();
-                return;
-            }
-            words.push(val);
+        if (!word) return;
+        if (word.includes(' ')) {
+            errorEl.textContent = 'Must be a single word.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        if (this.selectedTokens.length >= 10) {
+            errorEl.textContent = 'Already selected 10 words.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        if (this.selectedTokens.includes(word)) {
+            errorEl.textContent = '"' + word + '" is already selected.';
+            errorEl.classList.remove('hidden');
+            return;
         }
 
-        this.words = words;
-        this.socket.emit('clue:submitWords', { words });
+        this.selectedTokens.push(word);
+        input.value = '';
+        this.updateSelectionNumbers();
+        this.updateSelectionCount();
+    }
+
+    removeSelectedWord(word) {
+        const idx = this.selectedTokens.indexOf(word);
+        if (idx === -1) return;
+        this.selectedTokens.splice(idx, 1);
+        this.updateSelectionNumbers();
+        this.updateSelectionCount();
+    }
+
+    renderSelectedWords() {
+        const container = document.getElementById('selectedWordsList');
+        if (!container) return;
+        container.innerHTML = '';
+        if (this.selectedTokens.length === 0) return;
+
+        this.selectedTokens.forEach((word, i) => {
+            const tag = document.createElement('span');
+            tag.className = 'selected-word-tag';
+            const isToken = this.tokenPool.some(t => t.word === word);
+            tag.innerHTML = '<span class="tag-num">' + (i + 1) + '</span> ' +
+                word.charAt(0).toUpperCase() + word.slice(1) +
+                (!isToken ? ' <span class="tag-custom">custom</span>' : '') +
+                ' <span class="tag-remove" data-word="' + word + '">&times;</span>';
+            container.appendChild(tag);
+        });
+
+        container.querySelectorAll('.tag-remove').forEach(btn => {
+            btn.addEventListener('click', () => this.removeSelectedWord(btn.dataset.word));
+        });
+    }
+
+    submitWords() {
+        const errorEl = document.getElementById('wordError');
+        errorEl.classList.add('hidden');
+
+        if (this.selectedTokens.length !== 10) {
+            errorEl.textContent = 'You must select exactly 10 tokens.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        this.words = [...this.selectedTokens];
+        this.socket.emit('clue:submitWords', { words: this.words });
     }
 
     // ── Game Screen Setup ────────────────────────────────────
     setupGameScreen() {
-        // Reset HUD
         this.updateGameHUD();
 
-        // Role badge
         const badge = document.getElementById('hudRole');
         badge.textContent = this.role === 'wordmaster' ? 'WORDMASTER' : 'GUESSER';
         badge.className = 'role-badge ' + this.role;
 
-        // Clear history
         document.getElementById('guessHistory').innerHTML = '';
         document.getElementById('clueDisplay').classList.add('hidden');
 
-        // Wordmaster sidebar
+        // Build the 25-token game grid
+        this.buildGameTokenGrid();
+
         if (this.role === 'wordmaster') {
             document.getElementById('wordListPanel').classList.remove('hidden');
             this.updateWordList();
@@ -440,17 +539,24 @@ class ZecruClues {
             input.disabled = false;
             document.getElementById('btnGiveClue').disabled = false;
             document.getElementById('clueError').classList.add('hidden');
+            this.canGuess = false;
             input.focus();
         } else if (mode === 'guess') {
             document.getElementById('guessInputArea').classList.remove('hidden');
-            const input = document.getElementById('guessInput');
-            input.value = '';
-            input.disabled = false;
-            document.getElementById('btnMakeGuess').disabled = false;
             document.getElementById('guessError').classList.add('hidden');
-            input.focus();
+            const customInput = document.getElementById('guessInput');
+            if (customInput) {
+                customInput.value = '';
+                customInput.disabled = false;
+            }
+            const customBtn = document.getElementById('btnMakeGuess');
+            if (customBtn) customBtn.disabled = false;
+            this.canGuess = true;
+            this.updateTokenClickability();
         } else {
             document.getElementById('waitingArea').classList.remove('hidden');
+            this.canGuess = false;
+            this.updateTokenClickability();
         }
     }
 
@@ -495,14 +601,72 @@ class ZecruClues {
         }, 5000);
     }
 
-    // ── Make Guess ───────────────────────────────────────────
-    makeGuess() {
+    // ── Token Grid (Game Screen) ──────────────────────────────
+    buildGameTokenGrid() {
+        const container = document.getElementById('gameTokenGrid');
+        container.innerHTML = '';
+
+        this.tokenPool.forEach((token) => {
+            const card = document.createElement('div');
+            card.className = 'token-card';
+            card.id = 'gameToken_' + token.word;
+            card.dataset.word = token.word;
+            card.dataset.category = token.category;
+            card.innerHTML =
+                '<span class="token-word">' + token.word.charAt(0).toUpperCase() + token.word.slice(1) + '</span>' +
+                '<span class="token-category">' + token.category + '</span>';
+
+            if (this.role === 'wordmaster' && this.words.includes(token.word)) {
+                card.classList.add('my-word');
+            }
+
+            if (this.role === 'guesser') {
+                card.addEventListener('click', () => this.clickGuessToken(token.word));
+            }
+
+            container.appendChild(card);
+        });
+    }
+
+    clickGuessToken(word) {
+        if (!this.canGuess) return;
+        if (this.guessedTokens[word]) return;
+
+        if (!this.socket || !this.socket.connected) {
+            const errorEl = document.getElementById('guessError');
+            errorEl.textContent = 'Disconnected from server. Please refresh.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        this.canGuess = false;
+        this.updateTokenClickability();
+        console.log('[15 Clues] Sending guess:', word);
+        this.socket.emit('clue:makeGuess', { guess: word });
+
+        this._guessTimeout = setTimeout(() => {
+            console.warn('[15 Clues] No response for guess, re-enabling');
+            this.canGuess = true;
+            this.updateTokenClickability();
+            const errorEl = document.getElementById('guessError');
+            errorEl.textContent = 'No response from server. Try again.';
+            errorEl.classList.remove('hidden');
+        }, 5000);
+    }
+
+    makeCustomGuess() {
         const input = document.getElementById('guessInput');
+        if (!input) return;
         const guess = input.value.trim().toLowerCase();
         const errorEl = document.getElementById('guessError');
         errorEl.classList.add('hidden');
 
         if (!guess) return;
+        if (guess.includes(' ')) {
+            errorEl.textContent = 'Guess must be a single word.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
 
         if (!this.socket || !this.socket.connected) {
             errorEl.textContent = 'Disconnected from server. Please refresh.';
@@ -510,18 +674,49 @@ class ZecruClues {
             return;
         }
 
+        this.canGuess = false;
+        this.updateTokenClickability();
         input.disabled = true;
-        document.getElementById('btnMakeGuess').disabled = true;
-        console.log('[15 Clues] Sending guess:', guess);
+        const btn = document.getElementById('btnMakeGuess');
+        if (btn) btn.disabled = true;
+        console.log('[15 Clues] Sending custom guess:', guess);
         this.socket.emit('clue:makeGuess', { guess });
 
-        // Failsafe: re-enable input if no response in 5 seconds
         this._guessTimeout = setTimeout(() => {
-            console.warn('[15 Clues] No response for guess, re-enabling input');
-            this.switchInputArea('guess');
+            console.warn('[15 Clues] No response for guess, re-enabling');
+            this.canGuess = true;
+            this.updateTokenClickability();
+            if (input) input.disabled = false;
+            if (btn) btn.disabled = false;
             errorEl.textContent = 'No response from server. Try again.';
             errorEl.classList.remove('hidden');
         }, 5000);
+    }
+
+    updateTokenClickability() {
+        const container = document.getElementById('gameTokenGrid');
+        if (!container) return;
+        container.querySelectorAll('.token-card').forEach(card => {
+            const word = card.dataset.word;
+            if (this.guessedTokens[word]) {
+                card.classList.remove('clickable');
+                card.classList.add('disabled');
+            } else if (this.canGuess && this.role === 'guesser') {
+                card.classList.add('clickable');
+                card.classList.remove('disabled');
+            } else {
+                card.classList.remove('clickable');
+            }
+        });
+    }
+
+    markTokenGuessed(word, correct) {
+        this.guessedTokens[word] = correct ? 'correct' : 'wrong';
+        const card = document.getElementById('gameToken_' + word);
+        if (!card) return;
+        card.classList.add(correct ? 'guessed-correct' : 'guessed-wrong');
+        card.classList.add('disabled');
+        card.classList.remove('clickable');
     }
 
     // ── Show Clue ────────────────────────────────────────────

@@ -690,3 +690,243 @@ body {
   color: #ff4444;
   background: rgba(255,68,68,0.1);
 }
+
+/* ── Token Grid ───────────────────────────────────── */
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  max-width: 650px;
+  margin: 16px auto;
+  padding: 12px;
+}
+
+.word-select-panel {
+  min-width: 580px;
+  max-width: 720px;
+}
+
+.token-card {
+  position: relative;
+  background: rgba(255,255,255,0.04);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.token-card:hover:not(.disabled):not(.guessed-correct):not(.guessed-wrong) {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.25);
+  transform: translateY(-2px);
+}
+.token-word {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e0e0e0;
+  text-transform: capitalize;
+  margin-bottom: 4px;
+}
+.token-category {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+/* Category accent colors */
+.token-card[data-category="heroes"]   { border-left: 3px solid #00b4ff; }
+.token-card[data-category="heroes"]   .token-category { color: #00b4ff; }
+.token-card[data-category="villains"] { border-left: 3px solid #ff4466; }
+.token-card[data-category="villains"] .token-category { color: #ff4466; }
+.token-card[data-category="objects"]  { border-left: 3px solid #ffd700; }
+.token-card[data-category="objects"]  .token-category { color: #ffd700; }
+.token-card[data-category="places"]   { border-left: 3px solid #44ff88; }
+.token-card[data-category="places"]   .token-category { color: #44ff88; }
+.token-card[data-category="animals"]  { border-left: 3px solid #ff8844; }
+.token-card[data-category="animals"]  .token-category { color: #ff8844; }
+.token-card[data-category="nature"]   { border-left: 3px solid #bb66ff; }
+.token-card[data-category="nature"]   .token-category { color: #bb66ff; }
+
+/* Selection state (wordmaster picking) */
+.token-card.selected {
+  background: rgba(0,180,255,0.12);
+  border-color: #00b4ff;
+  box-shadow: 0 0 12px rgba(0,180,255,0.2);
+}
+.token-card.selected .token-word { color: #00b4ff; }
+
+/* Order number badge */
+.token-card .select-num {
+  display: none;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  background: #00b4ff;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+.token-card.selected .select-num { display: block; }
+
+/* Guessed states (during gameplay) */
+.token-card.guessed-correct {
+  background: rgba(68,255,136,0.12);
+  border-color: rgba(68,255,136,0.4);
+  cursor: default;
+  opacity: 0.85;
+}
+.token-card.guessed-correct .token-word { color: #44ff88; }
+
+.token-card.guessed-wrong {
+  background: rgba(255,68,68,0.08);
+  border-color: rgba(255,68,68,0.25);
+  cursor: default;
+  opacity: 0.45;
+}
+.token-card.guessed-wrong .token-word {
+  color: #ff4444;
+  text-decoration: line-through;
+}
+
+.token-card.disabled {
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Guesser clickable highlight */
+.token-card.clickable:hover {
+  background: rgba(68,255,136,0.08);
+  border-color: rgba(68,255,136,0.3);
+  box-shadow: 0 0 10px rgba(68,255,136,0.15);
+}
+
+/* Wordmaster's picks shown during game */
+.token-card.my-word {
+  border-left-width: 4px;
+}
+
+/* Selection count */
+.selection-count {
+  color: #aaa;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+}
+.selection-count strong {
+  color: #00b4ff;
+  font-size: 1.1rem;
+}
+
+/* Game grid (smaller, inside game screen) */
+.token-grid.game-grid {
+  max-width: 580px;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.game-grid .token-card {
+  padding: 8px 6px;
+}
+.game-grid .token-word {
+  font-size: 0.85rem;
+}
+.game-grid .token-category {
+  font-size: 0.55rem;
+}
+
+/* Custom word area */
+.custom-word-area {
+  margin: 12px auto 0;
+  max-width: 400px;
+}
+.custom-word-label {
+  color: #aaa;
+  font-size: 0.8rem;
+  margin-bottom: 6px;
+}
+
+/* Selected words list */
+.selected-words-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin: 12px auto 0;
+  max-width: 600px;
+}
+.selected-word-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0,180,255,0.1);
+  border: 1px solid rgba(0,180,255,0.3);
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  color: #e0e0e0;
+}
+.selected-word-tag .tag-num {
+  background: #00b4ff;
+  color: #fff;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+.selected-word-tag .tag-custom {
+  font-size: 0.55rem;
+  color: #ffd700;
+  opacity: 0.7;
+}
+.selected-word-tag .tag-remove {
+  cursor: pointer;
+  color: #ff4466;
+  font-size: 1rem;
+  line-height: 1;
+  margin-left: 2px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.selected-word-tag .tag-remove:hover {
+  opacity: 1;
+}
+
+/* Responsive token grid */
+@media (max-width: 600px) {
+  .token-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    padding: 8px;
+  }
+  .token-card {
+    padding: 8px 4px;
+    border-radius: 8px;
+  }
+  .token-word { font-size: 0.72rem; }
+  .token-category { font-size: 0.48rem; }
+  .token-card .select-num {
+    width: 16px; height: 16px;
+    font-size: 0.55rem; line-height: 16px;
+    top: -4px; right: -4px;
+  }
+  .word-select-panel {
+    min-width: unset;
+    max-width: 100vw;
+    padding: 1.5rem 0.75rem;
+  }
+  .game-grid .token-word { font-size: 0.68rem; }
+  .game-grid .token-category { font-size: 0.45rem; }
+}

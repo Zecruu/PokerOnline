@@ -52,17 +52,26 @@
   <div id="wordSelectScreen" class="screen">
     <!-- Wordmaster view -->
     <div id="wordmasterSetup" class="word-select-panel hidden">
-      <h2>Choose Your 10 Words</h2>
-      <p class="subtitle">The Guesser must guess these in order.</p>
-      <div id="wordInputList" class="word-input-list"></div>
+      <h2>Select Your 10 Words</h2>
+      <p class="subtitle">Click tokens from the grid or type custom words below.</p>
+      <p id="selectionCount" class="selection-count">Selected: <strong>0</strong>/10</p>
+      <div id="tokenSelectGrid" class="token-grid"></div>
+      <div class="custom-word-area">
+        <p class="custom-word-label">Or add a custom word:</p>
+        <div class="input-row">
+          <input id="customWordInput" type="text" class="game-input" placeholder="Type a custom word..." maxlength="30" autocomplete="off">
+          <button id="btnAddCustomWord" class="action-btn">Add</button>
+        </div>
+      </div>
+      <div id="selectedWordsList" class="selected-words-list"></div>
       <p id="wordError" class="error-text hidden"></p>
-      <button id="btnSubmitWords" class="menu-btn primary">Lock In Words</button>
+      <button id="btnSubmitWords" class="menu-btn primary" disabled>Lock In Words (0/10)</button>
     </div>
     <!-- Guesser view -->
     <div id="guesserWaiting" class="waiting-panel hidden">
       <h2>Waiting for Wordmaster...</h2>
       <div class="waiting-spinner"></div>
-      <p>The Wordmaster is choosing 10 words for you to guess.</p>
+      <p>The Wordmaster is choosing 10 words from the token grid.</p>
     </div>
   </div>
 
@@ -92,8 +101,8 @@
 
         <!-- Center Area -->
         <div class="game-center">
-          <!-- History Log -->
-          <div id="guessHistory" class="guess-history"></div>
+          <!-- Token Grid (visible to both players during game) -->
+          <div id="gameTokenGrid" class="token-grid game-grid"></div>
 
           <!-- Current Round -->
           <div id="currentRound" class="current-round">
@@ -115,13 +124,13 @@
               <p class="input-hint">Must be exactly one word. Cannot be the answer itself.</p>
               <p id="clueError" class="input-error hidden"></p>
             </div>
-            <!-- Guesser: make guess -->
+            <!-- Guesser: click a token OR type a custom word -->
             <div id="guessInputArea" class="hidden">
+              <p id="guessHint" class="input-hint">Click a token above or type a custom word below.</p>
               <div class="input-row">
-                <input id="guessInput" type="text" class="game-input" placeholder="Type your guess..." maxlength="30" autocomplete="off">
+                <input id="guessInput" type="text" class="game-input" placeholder="Type a custom guess..." maxlength="30" autocomplete="off">
                 <button id="btnMakeGuess" class="action-btn">Guess</button>
               </div>
-              <p id="guessHint" class="input-hint">Guess the word the Wordmaster is thinking of.</p>
               <p id="guessError" class="input-error hidden"></p>
             </div>
             <!-- Waiting -->
@@ -129,6 +138,9 @@
               <p id="waitingText" class="waiting-text">Waiting for other player...</p>
             </div>
           </div>
+
+          <!-- History Log -->
+          <div id="guessHistory" class="guess-history"></div>
         </div>
       </div>
     </div>

@@ -100,6 +100,48 @@ const tdRooms = {};
 const pokerRooms = {};
 const clueRooms = {};
 
+const CLUE_WORD_BANK = [
+    { word: 'batman', category: 'heroes' }, { word: 'superman', category: 'heroes' }, { word: 'supergirl', category: 'heroes' },
+    { word: 'spiderman', category: 'heroes' }, { word: 'wolverine', category: 'heroes' }, { word: 'thor', category: 'heroes' },
+    { word: 'hulk', category: 'heroes' }, { word: 'aquaman', category: 'heroes' }, { word: 'flash', category: 'heroes' },
+    { word: 'robin', category: 'heroes' }, { word: 'hawkeye', category: 'heroes' }, { word: 'cyclops', category: 'heroes' },
+    { word: 'rogue', category: 'heroes' }, { word: 'nightwing', category: 'heroes' }, { word: 'daredevil', category: 'heroes' },
+    { word: 'joker', category: 'villains' }, { word: 'thanos', category: 'villains' }, { word: 'magneto', category: 'villains' },
+    { word: 'venom', category: 'villains' }, { word: 'loki', category: 'villains' }, { word: 'ultron', category: 'villains' },
+    { word: 'galactus', category: 'villains' }, { word: 'kingpin', category: 'villains' }, { word: 'mystique', category: 'villains' },
+    { word: 'carnage', category: 'villains' }, { word: 'riddler', category: 'villains' }, { word: 'catwoman', category: 'villains' },
+    { word: 'bane', category: 'villains' }, { word: 'brainiac', category: 'villains' }, { word: 'darkseid', category: 'villains' },
+    { word: 'sword', category: 'objects' }, { word: 'shield', category: 'objects' }, { word: 'crown', category: 'objects' },
+    { word: 'potion', category: 'objects' }, { word: 'ring', category: 'objects' }, { word: 'scroll', category: 'objects' },
+    { word: 'dagger', category: 'objects' }, { word: 'amulet', category: 'objects' }, { word: 'chalice', category: 'objects' },
+    { word: 'orb', category: 'objects' }, { word: 'lantern', category: 'objects' }, { word: 'compass', category: 'objects' },
+    { word: 'tome', category: 'objects' }, { word: 'relic', category: 'objects' }, { word: 'anchor', category: 'objects' },
+    { word: 'castle', category: 'places' }, { word: 'forest', category: 'places' }, { word: 'dungeon', category: 'places' },
+    { word: 'village', category: 'places' }, { word: 'mountain', category: 'places' }, { word: 'tower', category: 'places' },
+    { word: 'cave', category: 'places' }, { word: 'temple', category: 'places' }, { word: 'bridge', category: 'places' },
+    { word: 'harbor', category: 'places' }, { word: 'ruins', category: 'places' }, { word: 'oasis', category: 'places' },
+    { word: 'fortress', category: 'places' }, { word: 'tavern', category: 'places' }, { word: 'crypt', category: 'places' },
+    { word: 'wolf', category: 'animals' }, { word: 'eagle', category: 'animals' }, { word: 'bear', category: 'animals' },
+    { word: 'snake', category: 'animals' }, { word: 'lion', category: 'animals' }, { word: 'hawk', category: 'animals' },
+    { word: 'stag', category: 'animals' }, { word: 'raven', category: 'animals' }, { word: 'fox', category: 'animals' },
+    { word: 'spider', category: 'animals' }, { word: 'falcon', category: 'animals' }, { word: 'panther', category: 'animals' },
+    { word: 'whale', category: 'animals' }, { word: 'owl', category: 'animals' }, { word: 'beetle', category: 'animals' },
+    { word: 'storm', category: 'nature' }, { word: 'fire', category: 'nature' }, { word: 'shadow', category: 'nature' },
+    { word: 'crystal', category: 'nature' }, { word: 'star', category: 'nature' }, { word: 'moon', category: 'nature' },
+    { word: 'frost', category: 'nature' }, { word: 'thunder', category: 'nature' }, { word: 'ember', category: 'nature' },
+    { word: 'mist', category: 'nature' }, { word: 'tide', category: 'nature' }, { word: 'aurora', category: 'nature' },
+    { word: 'bloom', category: 'nature' }, { word: 'thorn', category: 'nature' }, { word: 'vortex', category: 'nature' }
+];
+
+function shuffleClueBank(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
 // Socket.IO Connection Handler
 io.on('connection', (socket) => {
     console.log(`🔌 Player connected: ${socket.id}`);
@@ -578,6 +620,10 @@ io.on('connection', (socket) => {
         room.state = 'wordSelection';
         room.hostRole = data.hostRole || 'wordmaster';
 
+        // Generate 25 random tokens from the word bank
+        room.tokenPool = shuffleClueBank(CLUE_WORD_BANK).slice(0, 25);
+        room.guessedTokens = [];
+
         // Assign roles
         room.players.forEach(p => {
             if (p.id === room.host) {
@@ -587,11 +633,11 @@ io.on('connection', (socket) => {
             }
         });
 
-        // Send each player their role
+        // Send each player their role + the token pool
         room.players.forEach(p => {
-            io.to(p.id).emit('clue:gameStarted', { role: p.role });
+            io.to(p.id).emit('clue:gameStarted', { role: p.role, tokenPool: room.tokenPool });
         });
-        console.log(`Clue game started in room ${socket.clueRoom}`);
+        console.log(`Clue game started in room ${socket.clueRoom} with ${room.tokenPool.length} tokens`);
     });
 
     socket.on('clue:submitWords', (data) => {
@@ -605,9 +651,10 @@ io.on('connection', (socket) => {
 
         const words = data.words;
         if (!Array.isArray(words) || words.length !== 10) {
-            return socket.emit('clue:error', { msg: 'Must submit exactly 10 words' });
+            return socket.emit('clue:error', { msg: 'Must select exactly 10 words' });
         }
 
+        // Validate words (can be from token pool or custom typed)
         const cleaned = [];
         for (let i = 0; i < 10; i++) {
             const w = ((words[i] || '') + '').trim().toLowerCase();
@@ -615,7 +662,7 @@ io.on('connection', (socket) => {
                 return socket.emit('clue:error', { msg: 'Word ' + (i + 1) + ' is invalid' });
             }
             if (cleaned.includes(w)) {
-                return socket.emit('clue:error', { msg: 'Word ' + (i + 1) + ' is a duplicate' });
+                return socket.emit('clue:error', { msg: 'Duplicate selection' });
             }
             cleaned.push(w);
         }
@@ -668,22 +715,28 @@ io.on('connection', (socket) => {
         console.log(`[Clue] makeGuess from ${socket.id}, room=${socket.clueRoom}, guess="${data && data.guess}"`);
         const room = clueRooms[socket.clueRoom];
         if (!room || room.state !== 'playing') {
-            console.log(`[Clue] makeGuess rejected: room=${!!room}, state=${room && room.state}`);
             return socket.emit('clue:error', { msg: 'Game room not found or not active' });
         }
 
         const player = room.players.find(p => p.id === socket.id);
         if (!player || player.role !== 'guesser') {
-            console.log(`[Clue] makeGuess rejected: player=${!!player}, role=${player && player.role}`);
             return socket.emit('clue:error', { msg: 'Only the Guesser can make guesses' });
         }
         if (room.currentClue === null) {
-            console.log(`[Clue] makeGuess rejected: currentClue is null`);
             return socket.emit('clue:error', { msg: 'Wait for a clue first' });
         }
 
         const guess = ((data.guess || '') + '').trim().toLowerCase();
-        if (!guess) return;
+        if (!guess || guess.includes(' ')) return;
+
+        // Prevent re-guessing a token already guessed
+        if (room.guessedTokens && room.guessedTokens.includes(guess)) {
+            return socket.emit('clue:error', { msg: 'Already guessed' });
+        }
+
+        // Track guessed word
+        if (!room.guessedTokens) room.guessedTokens = [];
+        room.guessedTokens.push(guess);
 
         const currentWord = room.words[room.currentWordIndex];
         const correct = (guess === currentWord);
@@ -724,6 +777,7 @@ io.on('connection', (socket) => {
             wordNum: entry.wordNum,
             currentWordIndex: room.currentWordIndex,
             guessesRemaining: room.guessesRemaining,
+            guessedTokens: room.guessedTokens,
             gameOver
         });
 
@@ -733,7 +787,8 @@ io.on('connection', (socket) => {
                 wordsGuessed: room.currentWordIndex,
                 guessesUsed: 15 - room.guessesRemaining,
                 words: room.words,
-                guessHistory: room.guessHistory
+                guessHistory: room.guessHistory,
+                tokenPool: room.tokenPool
             });
             console.log(`Clue game over in room ${socket.clueRoom}: ${room.winner} wins`);
         }
