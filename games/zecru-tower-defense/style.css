@@ -207,12 +207,30 @@ body {
   transition: all 0.15s;
 }
 .hud-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.hud-btn.active { background: rgba(0,180,255,0.25); border-color: #00b4ff; color: #00b4ff; }
+
+/* ── Ally Info ─────────────────────────────────────── */
+.hud-allies {
+  display: flex;
+  gap: 16px;
+}
+.hud-allies .ally-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #aaa;
+  font-size: 0.8rem;
+}
+.hud-allies .ally-name { color: #00b4ff; font-weight: 600; }
+.hud-allies .ally-gold { color: #ffd700; font-weight: 700; }
 
 /* ── Canvas ────────────────────────────────────────── */
 #gameCanvas {
   position: fixed;
   top: 44px;
   left: 0;
+  width: calc(100vw - 190px);
+  height: calc(100vh - 44px);
   background: #111;
 }
 

@@ -410,6 +410,9 @@ io.on('connection', (socket) => {
                     io.to('td:' + socket.tdRoom).emit('td:roomUpdate', {
                         players: room.players, host: room.host
                     });
+                    io.to('td:' + socket.tdRoom).emit('td:playerLeft', {
+                        playerId: socket.id
+                    });
                 }
             }
         }
@@ -508,6 +511,13 @@ io.on('connection', (socket) => {
         if (!socket.tdRoom) return;
         socket.to('td:' + socket.tdRoom).emit('td:goldReceived', {
             from: socket.id, amount: data.amount
+        });
+    });
+
+    socket.on('td:syncState', (data) => {
+        if (!socket.tdRoom) return;
+        socket.to('td:' + socket.tdRoom).emit('td:allyState', {
+            playerId: socket.id, gold: data.gold, name: data.name
         });
     });
 });

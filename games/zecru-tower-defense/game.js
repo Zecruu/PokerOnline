@@ -372,10 +372,17 @@ class ZecruTD {
     this.gameSpeed = 1;
     this.paused = false;
 
+    // Auto-wave
+    this.autoWave = false;
+    this.autoWaveTimeout = null;
+
     // Multiplayer (stub)
     this.multiplayer = false;
     this.socket = null;
     this.roomCode = null;
+    this.playerName = 'Player';
+    this.allies = {};
+    this.allySyncTimer = 0;
 
     this.buildUI();
     this.setupEvents();
@@ -446,6 +453,7 @@ class ZecruTD {
     document.getElementById('btnNextWave').addEventListener('click', () => this.startNextWave());
     document.getElementById('btnPause').addEventListener('click', () => this.togglePause());
     document.getElementById('btnSpeed').addEventListener('click', () => this.toggleSpeed());
+    document.getElementById('btnAutoWave').addEventListener('click', () => this.toggleAutoWave());
     document.getElementById('btnUpgrade').addEventListener('click', () => this.upgradeSelected());
     document.getElementById('btnSell').addEventListener('click', () => this.sellSelected());
 
@@ -508,6 +516,10 @@ class ZecruTD {
     this.hasAscended = false;
     this.gameSpeed = 1;
     this.paused = false;
+    if (this.autoWaveTimeout) clearTimeout(this.autoWaveTimeout);
+    this.autoWaveTimeout = null;
+    this.allies = {};
+    this.allySyncTimer = 0;
 
     // Reset grid
     for (let r = 0; r < ROWS; r++) {
@@ -522,6 +534,8 @@ class ZecruTD {
     this.hideTowerInfo();
     document.getElementById('btnNextWave').classList.remove('hidden');
     document.getElementById('btnSpeed').textContent = '1x';
+    document.getElementById('allyInfo').classList.add('hidden');
+    document.getElementById('btnAutoWave').classList.remove('active');
 
     this.lastTime = performance.now();
     requestAnimationFrame(this.gameLoop);
@@ -549,6 +563,7 @@ class ZecruTD {
     this.updateParticles(dt);
     this.updateFloatTexts(dt);
     this.checkWaveEnd();
+    this.syncAllyState(dt);
     this.updateHUD();
   }
 
@@ -605,6 +620,13 @@ class ZecruTD {
         this.victory();
       } else {
         document.getElementById('btnNextWave').classList.remove('hidden');
+        // Auto-wave: start next wave after 5 seconds
+        if (this.autoWave) {
+          if (this.autoWaveTimeout) clearTimeout(this.autoWaveTimeout);
+          this.autoWaveTimeout = setTimeout(() => {
+            if (this.state === 'playing' && this.betweenWaves) this.startNextWave();
+          }, 5000);
+        }
       }
     }
   }
@@ -1792,6 +1814,32 @@ class ZecruTD {
     document.getElementById('hudGold').textContent = this.gold;
     document.getElementById('hudLives').textContent = this.lives;
     document.getElementById('hudScore').textContent = this.score;
+    this.updateAllyUI();
+  }
+
+  syncAllyState(dt) {
+    if (!this.multiplayer || !this.socket) return;
+    this.allySyncTimer += dt;
+    if (this.allySyncTimer >= 2) {
+      this.allySyncTimer = 0;
+      this.socket.emit('td:syncState', { gold: this.gold, name: this.playerName });
+    }
+  }
+
+  updateAllyUI() {
+    const el = document.getElementById('allyInfo');
+    if (!this.multiplayer || Object.keys(this.allies).length === 0) {
+      el.classList.add('hidden');
+      return;
+    }
+    el.classList.remove('hidden');
+    el.innerHTML = '';
+    for (const [id, ally] of Object.entries(this.allies)) {
+      const div = document.createElement('div');
+      div.className = 'ally-item';
+      div.innerHTML = `<span class="ally-name">${ally.name}</span> <span class="ally-gold">${ally.gold}g</span>`;
+      el.appendChild(div);
+    }
   }
 
   updateTowerButtons() {
@@ -1851,12 +1899,30 @@ class ZecruTD {
     document.getElementById('btnSpeed').textContent = this.gameSpeed + 'x';
   }
 
+  toggleAutoWave() {
+    this.autoWave = !this.autoWave;
+    const btn = document.getElementById('btnAutoWave');
+    btn.classList.toggle('active', this.autoWave);
+    if (!this.autoWave && this.autoWaveTimeout) {
+      clearTimeout(this.autoWaveTimeout);
+      this.autoWaveTimeout = null;
+    }
+    // If turning on while between waves, schedule immediately
+    if (this.autoWave && this.betweenWaves && this.wave < TOTAL_WAVES && this.state === 'playing') {
+      if (this.autoWaveTimeout) clearTimeout(this.autoWaveTimeout);
+      this.autoWaveTimeout = setTimeout(() => {
+        if (this.state === 'playing' && this.betweenWaves) this.startNextWave();
+      }, 5000);
+    }
+  }
+
   // ── GAME END ───────────────────────────────────────────
   endGame(isVictory) {
     this.state = 'gameover';
     this.waveActive = false;
     this.enemies = [];
     this.projectiles = [];
+    if (this.autoWaveTimeout) { clearTimeout(this.autoWaveTimeout); this.autoWaveTimeout = null; }
     document.getElementById('gameOverTitle').textContent = isVictory ? 'VICTORY!' : 'GAME OVER';
     document.getElementById('gameOverTitle').className = isVictory ? 'victory' : '';
     document.getElementById('goWave').textContent = this.wave;
@@ -1943,6 +2009,15 @@ class ZecruTD {
       this.spawnFloatText(CANVAS_W / 2, CANVAS_H / 2, `+${data.amount}g from ally!`, '#44ff88');
       this.updateTowerButtons();
     });
+
+    this.socket.on('td:allyState', (data) => {
+      if (this.state !== 'playing') return;
+      this.allies[data.playerId] = { name: data.name, gold: data.gold };
+    });
+
+    this.socket.on('td:playerLeft', (data) => {
+      delete this.allies[data.playerId];
+    });
   }
 
   updateLobbyUI(players) {
@@ -1964,6 +2039,7 @@ class ZecruTD {
     const userData = localStorage.getItem('user_data');
     let name = 'Player';
     try { name = JSON.parse(userData).username || name; } catch(e) {}
+    this.playerName = name;
     this.socket.emit('td:createRoom', { name });
   }
 
@@ -1974,6 +2050,7 @@ class ZecruTD {
     const userData = localStorage.getItem('user_data');
     let name = 'Player';
     try { name = JSON.parse(userData).username || name; } catch(e) {}
+    this.playerName = name;
     this.socket.emit('td:joinRoom', { code, name });
   }
 
@@ -2001,13 +2078,9 @@ class ZecruTD {
 
   // ── CANVAS RESIZE ──────────────────────────────────────
   resize() {
-    const panel = 190;
-    const hud = 44;
-    const maxW = window.innerWidth - panel;
-    const maxH = window.innerHeight - hud;
-    const scale = Math.min(maxW / CANVAS_W, maxH / CANVAS_H);
-    this.canvas.style.width = (CANVAS_W * scale) + 'px';
-    this.canvas.style.height = (CANVAS_H * scale) + 'px';
+    // CSS handles full-area stretch; clear any inline overrides
+    this.canvas.style.width = '';
+    this.canvas.style.height = '';
   }
 }
 
