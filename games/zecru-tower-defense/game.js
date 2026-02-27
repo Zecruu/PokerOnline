@@ -63,6 +63,7 @@ loadSprite('bolt', 'bolt-tower.png');
 loadSprite('frost', 'frost-tower.png');
 loadSprite('cannon', 'cannon-tower.png');
 loadSprite('cannonProj', 'cannon-projectile.png');
+loadSprite('sniper', 'sniper-tower.png');
 
 // ── TOWER DEFINITIONS ──────────────────────────────────────
 const TOWERS = {
@@ -103,6 +104,7 @@ const TOWERS = {
   sniper: {
     name: 'Sniper Nest', cost: 275, damage: 45, range: 280, fireRate: 0.3,
     color: '#44cc44', projColor: '#88ff88', projSpeed: 900,
+    sprite: 'sniper',
     desc: 'Extreme range, high single-target damage.', type: 'single',
     upgrades: [
       { cost: 160, damage: 65, critChance: 0.2, critMult: 2.5, desc: 'Critical Shots' },
@@ -170,14 +172,17 @@ const ENEMY_TYPES = {
   boss:    { name: 'Boss',    hp: 600, speed: 0.7, gold: 150, color: '#ff0044', size: 16, armor: 0.2 }
 };
 
-// ── WAVE GENERATOR ─────────────────────────────────────────
-const TOTAL_WAVES = 30;
+// ── WAVE GENERATOR (Bloons-style pacing) ───────────────────
+// Early waves: small groups, fast spawns, quick ramp
+// Mid waves: mixed enemy types, tighter spacing
+// Late waves: massive swarms + tanks + bosses, relentless
+const TOTAL_WAVES = 40;
 function generateWaves() {
   const waves = [];
   for (let w = 1; w <= TOTAL_WAVES; w++) {
     const wave = [];
-    const hpS = 1 + (w - 1) * 0.18;
-    const spS = 1 + (w - 1) * 0.015;
+    const hpS = 1 + (w - 1) * 0.14;
+    const spS = 1 + (w - 1) * 0.012;
     let t = 0;
     const push = (type, count, gap) => {
       for (let i = 0; i < count; i++) {
@@ -185,16 +190,60 @@ function generateWaves() {
         t += gap;
       }
     };
-    push('scout', Math.min(5 + w * 2, 28), 0.55);
-    if (w >= 3)  push('runner',  Math.min(2 + w - 3, 14), 0.4);
-    if (w >= 6)  push('brute',   Math.min(1 + Math.floor((w - 6) / 2), 9), 1.4);
-    if (w >= 10) push('swarm',   Math.min(8 + (w - 10) * 3, 35), 0.18);
-    if (w >= 13) push('armored', Math.min(1 + Math.floor((w - 13) / 3), 7), 1.8);
+
+    // Bloons-style: short early waves, escalating fast
+    if (w <= 3) {
+      // Waves 1-3: just scouts, small groups, quick intro
+      push('scout', 3 + w * 3, 0.65);
+    } else if (w <= 6) {
+      // Waves 4-6: scouts + runners introduced
+      push('scout', 6 + w * 2, 0.45);
+      t += 0.8;
+      push('runner', w - 2, 0.35);
+    } else if (w <= 10) {
+      // Waves 7-10: mixed groups, brutes appear
+      push('scout', 8 + w, 0.35);
+      t += 0.5;
+      push('runner', 3 + w - 6, 0.3);
+      t += 0.5;
+      push('brute', Math.floor((w - 5) / 2) + 1, 1.2);
+    } else if (w <= 15) {
+      // Waves 11-15: everything, swarms start
+      push('runner', 6 + w - 10, 0.25);
+      t += 0.3;
+      push('scout', 10 + w, 0.28);
+      t += 0.3;
+      push('brute', 2 + Math.floor((w - 10) / 2), 1.0);
+      t += 0.3;
+      push('swarm', 6 + (w - 10) * 4, 0.12);
+    } else if (w <= 25) {
+      // Waves 16-25: heavy mixed, armored appear
+      push('runner', 8 + w - 14, 0.2);
+      push('scout', 12 + w - 10, 0.22);
+      t += 0.3;
+      push('brute', 3 + Math.floor((w - 14) / 2), 0.9);
+      push('swarm', 10 + (w - 14) * 4, 0.1);
+      t += 0.5;
+      push('armored', 1 + Math.floor((w - 15) / 2), 1.5);
+    } else {
+      // Waves 26-40: endgame onslaught
+      push('runner', 15 + w - 24, 0.15);
+      push('swarm', 20 + (w - 24) * 5, 0.08);
+      t += 0.3;
+      push('brute', 5 + Math.floor((w - 24) / 2), 0.7);
+      push('armored', 3 + Math.floor((w - 24) / 2), 1.2);
+      t += 0.5;
+      push('scout', 15, 0.18);
+    }
+
+    // Boss every 5 waves
     if (w % 5 === 0) {
       const bm = hpS * (1 + Math.floor(w / 5) * 0.5);
-      wave.push({ type: 'boss', delay: t + 2, hpMult: bm, spdMult: spS * 0.9 });
-      if (w >= 15) wave.push({ type: 'boss', delay: t + 7, hpMult: bm * 0.8, spdMult: spS });
+      wave.push({ type: 'boss', delay: t + 1.5, hpMult: bm, spdMult: spS * 0.9 });
+      if (w >= 15) wave.push({ type: 'boss', delay: t + 5, hpMult: bm * 0.8, spdMult: spS });
+      if (w >= 30) wave.push({ type: 'boss', delay: t + 8, hpMult: bm * 0.7, spdMult: spS * 1.1 });
     }
+
     wave.sort((a, b) => a.delay - b.delay);
     waves.push(wave);
   }
@@ -1072,51 +1121,81 @@ class ZecruTD {
       const baseSize = 14;
       const spriteKey = t.def.sprite;
       const sprite = spriteKey && SPRITES[spriteKey];
+      // 60% bigger base, +8% per upgrade level
+      const sizeScale = 1.6 + t.level * 0.08;
+      const drawSize = TILE * sizeScale;
 
       if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-        // Draw sprite (rotated to face target)
-        const drawSize = TILE - 4;
         ctx.save();
         ctx.translate(t.x, t.y);
-        ctx.rotate(t.angle);
+        // Only rotate bolt/cannon (turret types), not stationary towers like frost/sniper
+        if (t.type === 'bolt' || t.type === 'cannon') ctx.rotate(t.angle);
         ctx.drawImage(sprite, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
         ctx.restore();
       } else {
         // Fallback: colored rectangle with barrel
+        const fb = baseSize * sizeScale / 1.6;
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(t.x - baseSize - 1, t.y - baseSize - 1, baseSize * 2 + 2, baseSize * 2 + 2);
+        ctx.fillRect(t.x - fb - 1, t.y - fb - 1, fb * 2 + 2, fb * 2 + 2);
         ctx.fillStyle = t.def.color;
-        ctx.fillRect(t.x - baseSize, t.y - baseSize, baseSize * 2, baseSize * 2);
+        ctx.fillRect(t.x - fb, t.y - fb, fb * 2, fb * 2);
 
         ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.fillRect(t.x - 8, t.y - 8, 16, 16);
+        ctx.fillRect(t.x - fb * 0.57, t.y - fb * 0.57, fb * 1.14, fb * 1.14);
         ctx.fillStyle = t.def.color;
-        ctx.fillRect(t.x - 6, t.y - 6, 12, 12);
+        ctx.fillRect(t.x - fb * 0.43, t.y - fb * 0.43, fb * 0.86, fb * 0.86);
 
         ctx.save();
         ctx.translate(t.x, t.y);
         ctx.rotate(t.angle);
         ctx.fillStyle = '#ddd';
-        ctx.fillRect(4, -2, 14, 4);
+        ctx.fillRect(fb * 0.3, -2, fb, 4);
         ctx.restore();
       }
 
-      // Level pips
-      for (let l = 0; l < t.level; l++) {
-        ctx.fillStyle = '#44ff88';
+      // Upgrade glow ring (per level)
+      if (t.level > 0) {
+        const glowColors = ['#44ff88', '#44ccff', '#ffaa00'];
+        const gc = glowColors[Math.min(t.level - 1, 2)];
+        const ringR = drawSize / 2 + 3;
+        ctx.save();
+        ctx.shadowColor = gc;
+        ctx.shadowBlur = 6 + t.level * 3;
+        ctx.strokeStyle = gc;
+        ctx.lineWidth = 1 + t.level * 0.5;
+        ctx.globalAlpha = 0.5 + t.level * 0.1;
         ctx.beginPath();
-        ctx.arc(t.x - 8 + l * 8, t.y + baseSize + 5, 2.5, 0, Math.PI * 2);
+        ctx.arc(t.x, t.y, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+
+      // Level stars
+      for (let l = 0; l < t.level; l++) {
+        const starX = t.x - (t.level - 1) * 5 + l * 10;
+        const starY = t.y + drawSize / 2 + 6;
+        ctx.fillStyle = l === 2 ? '#ffaa00' : l === 1 ? '#44ccff' : '#44ff88';
+        ctx.beginPath();
+        ctx.arc(starX, starY, 3, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
       }
 
       // Ascended glow
       if (t.def.ascended) {
+        const aR = drawSize / 2 + 5;
+        ctx.save();
         ctx.shadowColor = t.def.color;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 18;
         ctx.strokeStyle = t.def.color;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(t.x - baseSize - 2, t.y - baseSize - 2, baseSize * 2 + 4, baseSize * 2 + 4);
-        ctx.shadowBlur = 0;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, aR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // Void Warden pull ring
@@ -1287,16 +1366,17 @@ class ZecruTD {
     ctx.arc(px, py, def.range, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Ghost tower
+    // Ghost tower (60% bigger)
     ctx.globalAlpha = 0.5;
+    const ghostSize = TILE * 1.6;
     const spriteKey = def.sprite;
     const sprite = spriteKey && SPRITES[spriteKey];
     if (canPlace && sprite && sprite.complete && sprite.naturalWidth > 0) {
-      const drawSize = TILE - 4;
-      ctx.drawImage(sprite, px - drawSize / 2, py - drawSize / 2, drawSize, drawSize);
+      ctx.drawImage(sprite, px - ghostSize / 2, py - ghostSize / 2, ghostSize, ghostSize);
     } else {
       ctx.fillStyle = canPlace ? def.color : '#ff0000';
-      ctx.fillRect(px - 14, py - 14, 28, 28);
+      const hs = ghostSize / 2;
+      ctx.fillRect(px - hs, py - hs, ghostSize, ghostSize);
     }
     ctx.globalAlpha = 1;
 
