@@ -74,9 +74,9 @@ const TOWERS = {
     sprite: 'bolt', dmgType: 'physical',
     desc: 'Physical bolts. Weak vs Phantoms.', type: 'single',
     upgrades: [
-      { cost: 80, damage: 18, fireRate: 1.5, desc: 'Faster Bolts' },
-      { cost: 175, damage: 26, fireRate: 1.8, pierce: 2, desc: 'Piercing Bolts' },
-      { cost: 350, damage: 38, fireRate: 2.2, pierce: 3, dmgType: 'energy', desc: 'Plasma Bolts (Energy)' }
+      { cost: 100, damage: 22, fireRate: 1.8, range: 155, desc: 'Rapid Bolts' },
+      { cost: 250, damage: 40, fireRate: 2.4, range: 170, pierce: 2, desc: 'Piercing Bolts' },
+      { cost: 500, damage: 70, fireRate: 3.0, range: 190, pierce: 4, dmgType: 'energy', desc: 'Plasma Bolts (Energy)' }
     ]
   },
   frost: {
@@ -87,9 +87,9 @@ const TOWERS = {
     slow: 0.45, slowDur: 2.0,
     desc: 'Magic ice. Counters Phantoms & Runners.', type: 'single',
     upgrades: [
-      { cost: 110, damage: 7, slow: 0.35, desc: 'Deep Freeze' },
-      { cost: 220, damage: 12, slow: 0.25, freezeChance: 0.15, shieldBreak: true, desc: 'Shatter (breaks shields)' },
-      { cost: 380, damage: 18, slow: 0.15, freezeChance: 0.3, splash: 55, desc: 'Blizzard' }
+      { cost: 120, damage: 14, slow: 0.3, range: 140, fireRate: 1.1, desc: 'Deep Freeze' },
+      { cost: 275, damage: 28, slow: 0.2, range: 160, fireRate: 1.3, freezeChance: 0.2, shieldBreak: true, desc: 'Shatter (breaks shields)' },
+      { cost: 500, damage: 50, slow: 0.1, range: 180, fireRate: 1.5, freezeChance: 0.35, splash: 65, desc: 'Blizzard' }
     ]
   },
   cannon: {
@@ -99,9 +99,9 @@ const TOWERS = {
     sprite: 'cannon', projSprite: 'cannonProj', dmgType: 'explosive',
     splash: 50, desc: 'AoE explosive. Counters Swarms & Splitters.', type: 'splash',
     upgrades: [
-      { cost: 140, damage: 35, splash: 65, desc: 'Bigger Blasts' },
-      { cost: 280, damage: 52, splash: 80, antiSwarm: true, desc: 'Fragmentation (2x vs Swarm)' },
-      { cost: 450, damage: 75, splash: 100, fireRate: 0.55, desc: 'Cluster Bombs' }
+      { cost: 175, damage: 50, splash: 70, range: 145, fireRate: 0.6, desc: 'Bigger Blasts' },
+      { cost: 375, damage: 85, splash: 95, range: 160, fireRate: 0.7, antiSwarm: true, desc: 'Fragmentation (2x vs Swarm)' },
+      { cost: 600, damage: 140, splash: 120, range: 175, fireRate: 0.8, desc: 'Cluster Bombs' }
     ]
   },
   sniper: {
@@ -111,9 +111,9 @@ const TOWERS = {
     sprite: 'sniper', dmgType: 'physical',
     desc: 'Armor piercing. Counters Armored & Brutes.', type: 'single',
     upgrades: [
-      { cost: 160, damage: 65, critChance: 0.2, critMult: 2.5, desc: 'Critical Shots' },
-      { cost: 320, damage: 90, armorPierce: true, dmgType: 'energy', desc: 'Energy Rounds (pierce all)' },
-      { cost: 550, damage: 120, instakillThresh: 0.15, desc: 'Headshot' }
+      { cost: 200, damage: 85, range: 310, critChance: 0.25, critMult: 3.0, desc: 'Critical Shots' },
+      { cost: 425, damage: 150, range: 340, fireRate: 0.4, armorPierce: true, critChance: 0.3, critMult: 3.0, dmgType: 'energy', desc: 'Energy Rounds (pierce all)' },
+      { cost: 700, damage: 250, range: 380, fireRate: 0.5, instakillThresh: 0.2, desc: 'Headshot (execute <20%)' }
     ]
   },
   tesla: {
@@ -123,9 +123,9 @@ const TOWERS = {
     chainCount: 3, chainRange: 80, dmgType: 'energy',
     desc: 'Energy chains. Counters Phantoms & Shielded.', type: 'chain',
     upgrades: [
-      { cost: 160, damage: 22, chainCount: 4, desc: 'More Chains' },
-      { cost: 330, damage: 32, chainCount: 5, stunChance: 0.12, shieldBreak: true, desc: 'Shield Breaker' },
-      { cost: 500, damage: 45, chainCount: 7, stunChance: 0.2, chainRange: 100, desc: 'Overload' }
+      { cost: 200, damage: 32, chainCount: 5, chainRange: 95, range: 160, fireRate: 0.85, desc: 'Arc Spread' },
+      { cost: 400, damage: 55, chainCount: 7, chainRange: 110, range: 175, fireRate: 1.0, stunChance: 0.15, shieldBreak: true, desc: 'Shield Breaker' },
+      { cost: 650, damage: 90, chainCount: 10, chainRange: 130, range: 200, fireRate: 1.2, stunChance: 0.25, desc: 'Overload' }
     ]
   }
 };
@@ -138,9 +138,9 @@ const ASCENDED = {
     desc: 'Generates gold & boosts income nearby.', type: 'support',
     goldPerWave: 50, goldBonus: 0.5, ascended: true,
     upgrades: [
-      { cost: 300, goldPerWave: 85, goldBonus: 0.75, desc: 'Gold Rush' },
-      { cost: 550, goldPerWave: 130, goldBonus: 1.0, nearbyBoost: 0.15, desc: 'Inspire' },
-      { cost: 850, goldPerWave: 200, goldBonus: 1.5, nearbyBoost: 0.3, goldExplosion: true, desc: 'Golden Touch' }
+      { cost: 350, damage: 12, goldPerWave: 100, goldBonus: 0.85, range: 170, desc: 'Gold Rush' },
+      { cost: 650, damage: 25, goldPerWave: 175, goldBonus: 1.2, range: 200, nearbyBoost: 0.2, desc: 'Inspire (+20% ally dmg)' },
+      { cost: 1000, damage: 45, goldPerWave: 300, goldBonus: 2.0, range: 230, nearbyBoost: 0.4, goldExplosion: true, desc: 'Golden Touch' }
     ]
   },
   voidwarden: {
@@ -149,9 +149,9 @@ const ASCENDED = {
     desc: 'Gravity well pulls enemies in. Massive AoE.', type: 'aoe',
     pullStr: 35, ascended: true,
     upgrades: [
-      { cost: 400, damage: 55, pullStr: 55, range: 180, desc: 'Stronger Pull' },
-      { cost: 650, damage: 80, pullStr: 75, voidErupt: true, desc: 'Void Eruption' },
-      { cost: 950, damage: 120, pullStr: 100, blackHole: true, desc: 'Black Hole' }
+      { cost: 450, damage: 70, pullStr: 65, range: 190, fireRate: 0.45, desc: 'Stronger Pull' },
+      { cost: 750, damage: 120, pullStr: 90, range: 220, fireRate: 0.55, voidErupt: true, desc: 'Void Eruption' },
+      { cost: 1100, damage: 200, pullStr: 130, range: 260, fireRate: 0.65, blackHole: true, desc: 'Black Hole' }
     ]
   },
   chrono: {
@@ -160,9 +160,9 @@ const ASCENDED = {
     desc: 'Warps time - massive slow field.', type: 'timeslow',
     globalSlow: 0.5, ascended: true,
     upgrades: [
-      { cost: 350, globalSlow: 0.35, range: 220, damage: 18, desc: 'Time Dilation' },
-      { cost: 600, globalSlow: 0.2, timeStop: true, damage: 28, desc: 'Time Stop Burst' },
-      { cost: 900, globalSlow: 0.1, rewind: true, damage: 40, desc: 'Temporal Rewind' }
+      { cost: 400, damage: 30, globalSlow: 0.3, range: 240, fireRate: 0.55, desc: 'Time Dilation' },
+      { cost: 700, damage: 55, globalSlow: 0.15, range: 280, fireRate: 0.7, timeStop: true, desc: 'Time Stop Burst' },
+      { cost: 1050, damage: 90, globalSlow: 0.05, range: 330, fireRate: 0.9, rewind: true, desc: 'Temporal Rewind' }
     ]
   }
 };
