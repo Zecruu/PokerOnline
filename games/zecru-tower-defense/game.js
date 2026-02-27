@@ -64,6 +64,8 @@ loadSprite('frost', 'frost-tower.png');
 loadSprite('cannon', 'cannon-tower.png');
 loadSprite('cannonProj', 'cannon-projectile.png');
 loadSprite('sniper', 'sniper-tower.png');
+loadSprite('tesla', 'tesla-tower.png');
+loadSprite('radar', 'radar-tower.png');
 
 // ── TOWER DEFINITIONS ──────────────────────────────────────
 const TOWERS = {
@@ -121,6 +123,7 @@ const TOWERS = {
     name: 'Radar Station', cost: 200, damage: 0, range: 180, fireRate: 0,
     color: '#55ff99', projColor: '#55ff99', projSpeed: 0,
     dmgType: 'none', camoReveal: true,
+    sprite: 'radar',
     desc: 'Reveals Camo enemies for all towers.', type: 'support',
     upgrades: [
       { cost: 150, range: 230, desc: 'Extended Radar' },
@@ -133,6 +136,7 @@ const TOWERS = {
     name: 'Tesla Coil', cost: 300, damage: 18, range: 140, fireRate: 0.7,
     color: '#ffcc00', projColor: '#ffee66', projSpeed: 0,
     chainCount: 3, chainRange: 80, dmgType: 'energy',
+    sprite: 'tesla',
     desc: 'Energy chains. Counters Phantoms & Shielded.', type: 'chain',
     upgrades: [
       { cost: 200, damage: 32, chainCount: 5, chainRange: 95, range: 160, fireRate: 0.85, desc: 'Arc Spread' },
@@ -185,7 +189,7 @@ const ASCENDED = {
 // shield: absorbs damage before HP, regens between waves
 // splits: on death spawn N smaller enemies
 const ENEMY_TYPES = {
-  scout:    { name: 'Scout',    hp: 10,  speed: 1.8, gold: 5,   color: '#ff4444', size: 7 },
+  scout:    { name: 'Scout',    hp: 10,  speed: 1.8, gold: 7,   color: '#ff4444', size: 7 },
   runner:   { name: 'Runner',   hp: 16,  speed: 3.0, gold: 8,   color: '#44ff44', size: 6,
               evasion: 0.2 },  // 20% dodge vs single-target → use AoE or frost slow
   brute:    { name: 'Brute',    hp: 50,  speed: 1.2, gold: 15,  color: '#4488ff', size: 10,
