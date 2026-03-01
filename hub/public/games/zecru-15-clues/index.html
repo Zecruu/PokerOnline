@@ -48,32 +48,14 @@
     </div>
   </div>
 
-  <!-- WORD SELECTION -->
-  <div id="wordSelectScreen" class="screen">
-    <!-- Wordmaster view -->
-    <div id="wordmasterSetup" class="word-select-panel hidden">
-      <h2>Choose Your 10 Words</h2>
-      <p class="subtitle">The Guesser must guess these in order.</p>
-      <div id="wordInputList" class="word-input-list"></div>
-      <p id="wordError" class="error-text hidden"></p>
-      <button id="btnSubmitWords" class="menu-btn primary">Lock In Words</button>
-    </div>
-    <!-- Guesser view -->
-    <div id="guesserWaiting" class="waiting-panel hidden">
-      <h2>Waiting for Wordmaster...</h2>
-      <div class="waiting-spinner"></div>
-      <p>The Wordmaster is choosing 10 words for you to guess.</p>
-    </div>
-  </div>
-
   <!-- GAME SCREEN -->
   <div id="gameScreen" class="screen">
     <div class="game-layout">
       <!-- Top HUD -->
       <div class="game-hud">
         <div class="hud-item">
-          <span class="hud-label">Word</span>
-          <strong id="hudWordNum">1</strong><span class="hud-of">/10</span>
+          <span class="hud-label">Found</span>
+          <strong id="hudWordNum">0</strong><span class="hud-of">/10</span>
         </div>
         <div class="hud-item">
           <span class="hud-label">Guesses Left</span>
@@ -100,6 +82,7 @@
             <div id="clueDisplay" class="clue-display hidden">
               <span class="clue-label">CLUE</span>
               <span id="clueWord" class="clue-word"></span>
+              <span class="clue-count-badge">for <strong id="clueCount">1</strong></span>
             </div>
           </div>
 
@@ -107,12 +90,23 @@
           <div class="input-area">
             <!-- Wordmaster: give clue -->
             <div id="clueInputArea" class="hidden">
-              <p id="currentWordHint" class="current-word-hint"></p>
               <div class="input-row">
                 <input id="clueInput" type="text" class="game-input" placeholder="Type a one-word clue..." maxlength="30" autocomplete="off">
+                <select id="clueCountInput" class="count-select">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                  <option value="9">9</option>
+                  <option value="10">10</option>
+                </select>
                 <button id="btnGiveClue" class="action-btn">Give Clue</button>
               </div>
-              <p class="input-hint">Must be exactly one word. Cannot be the answer itself.</p>
+              <p class="input-hint">One-word clue + how many words it relates to. Cannot be one of the words.</p>
               <p id="clueError" class="input-error hidden"></p>
             </div>
             <!-- Guesser: make guess -->
@@ -120,6 +114,7 @@
               <div class="input-row">
                 <input id="guessInput" type="text" class="game-input" placeholder="Type your guess..." maxlength="30" autocomplete="off">
                 <button id="btnMakeGuess" class="action-btn">Guess</button>
+                <button id="btnPassTurn" class="action-btn pass-btn">Pass</button>
               </div>
               <p id="guessHint" class="input-hint">Guess the word the Wordmaster is thinking of.</p>
               <p id="guessError" class="input-error hidden"></p>

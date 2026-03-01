@@ -535,6 +535,42 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+.action-btn.pass-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #aaa;
+  padding: 0.7rem 1.2rem;
+}
+.action-btn.pass-btn:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  box-shadow: none;
+}
+.count-select {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  cursor: pointer;
+  min-width: 52px;
+}
+.count-select:focus { border-color: #00b4ff; }
+.count-select option { background: #1a1a2e; color: #fff; }
+.clue-count-badge {
+  display: block;
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: 4px;
+}
+.clue-count-badge strong {
+  color: #00b4ff;
+  font-size: 1.1rem;
+}
 .input-hint {
   font-size: 0.75rem;
   color: #555;

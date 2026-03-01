@@ -99,6 +99,58 @@ function generatePlayerId() {
 const tdRooms = {};
 const pokerRooms = {};
 const clueRooms = {};
+const CLUE_WORD_BANK = [
+    // Animals
+    'dog','cat','horse','eagle','shark','dolphin','tiger','lion','bear','wolf','rabbit','snake','turtle','penguin',
+    'elephant','monkey','parrot','whale','fox','deer','owl','spider','butterfly','octopus','crab','falcon','panther',
+    'gorilla','seal','hawk','cheetah','bison','otter','raven','scorpion',
+    // Food & Drink
+    'pizza','burger','sushi','pasta','bread','cheese','apple','banana','grape','lemon','chocolate','cookie','cake',
+    'steak','salad','rice','soup','taco','waffle','bacon','honey','butter','pepper','cherry','mango','coconut',
+    'pretzel','popcorn','pancake','cinnamon',
+    // Nature
+    'mountain','ocean','river','forest','desert','island','volcano','glacier','canyon','meadow','jungle','coral',
+    'rainbow','tornado','sunset','waterfall','cliff','valley','lagoon','prairie','geyser','aurora','cavern','marsh',
+    'tsunami',
+    // Objects
+    'phone','laptop','camera','clock','mirror','candle','bottle','blanket','pillow','trophy','compass','diamond',
+    'crystal','hammer','ladder','umbrella','basket','helmet','guitar','piano','telescope','lantern','whistle',
+    'magnet','anchor','barrel','beacon','flag','drum','microscope',
+    // Weapons & Tools
+    'sword','shield','arrow','blade','cannon','drill','wrench','chisel','anvil','axe','dagger','spear','crossbow',
+    'catapult','mace','trident','slingshot','boomerang','javelin','harpoon',
+    // Body
+    'heart','brain','muscle','skeleton','lungs','shoulder','elbow','spine','throat','knuckle','ribcage','temple',
+    'marrow','tendon','skull',
+    // Places
+    'castle','palace','museum','library','stadium','theater','bridge','tunnel','lighthouse','factory','dungeon',
+    'fortress','cathedral','monument','pyramid','tower','vault','harbor','mansion','prison',
+    // Professions
+    'doctor','teacher','pilot','chef','soldier','detective','astronaut','painter','surgeon','engineer','scientist',
+    'architect','lawyer','farmer','blacksmith',
+    // Weather
+    'blizzard','hurricane','drought','frost','lightning','thunder','breeze','avalanche','monsoon','hailstorm',
+    // Clothing & Accessories
+    'jacket','gloves','boots','scarf','sandals','crown','belt','armor','cloak','turban',
+    // Vehicles
+    'rocket','submarine','helicopter','tractor','ambulance','spaceship','chariot','gondola','sailboat','locomotive',
+    // Mythology & Fantasy
+    'dragon','wizard','knight','pirate','ninja','samurai','vampire','zombie','phoenix','griffin','mermaid','centaur',
+    'cyclops','minotaur','unicorn','kraken','sphinx','banshee','werewolf','goblin','troll','fairy','demon','angel',
+    'sorcerer',
+    // Science & Tech
+    'gravity','oxygen','neutron','plasma','circuit','laser','radar','prism','fossil','enzyme','genome','quasar',
+    'nebula','comet','asteroid',
+    // Music & Arts
+    'violin','trumpet','symphony','canvas','mosaic','sculpture','pottery','origami','opera','ballet','melody',
+    'rhythm','chorus','encore','fresco',
+    // Miscellaneous
+    'feather','pearl','marble','ribbon','silk','ivory','jade','ember','spark','flame','steam','cobalt','scarlet',
+    'crimson','amber','velvet','mercury','copper','granite','obsidian','sapphire','emerald','ruby','topaz','quartz',
+    'shadow','whisper','echo','puzzle','riddle','treasure','secret','legend','phantom','spirit','ghost','mystery',
+    'prophecy','illusion','mirage','paradox','enigma','karma','destiny','chaos','voyage','horizon','summit',
+    'tempest','serpent','gargoyle','labyrinth','obelisk','relic','talisman','vortex'
+];
 
 // Socket.IO Connection Handler
 io.on('connection', (socket) => {
@@ -541,9 +593,11 @@ io.on('connection', (socket) => {
             players: [player],
             state: 'lobby',
             words: [],
-            currentWordIndex: 0,
+            foundWords: [],
             guessesRemaining: 15,
             currentClue: null,
+            currentClueCount: 0,
+            clueGuessesLeft: 0,
             guessHistory: [],
             winner: null,
             hostRole: 'wordmaster'
@@ -575,7 +629,6 @@ io.on('connection', (socket) => {
         if (!room || room.host !== socket.id) return;
         if (room.players.length !== 2) return socket.emit('clue:error', { msg: 'Need exactly 2 players' });
 
-        room.state = 'wordSelection';
         room.hostRole = data.hostRole || 'wordmaster';
 
         // Assign roles
@@ -587,67 +640,41 @@ io.on('connection', (socket) => {
             }
         });
 
-        // Send each player their role
-        room.players.forEach(p => {
-            io.to(p.id).emit('clue:gameStarted', { role: p.role });
-        });
-        console.log(`Clue game started in room ${socket.clueRoom}`);
-    });
-
-    socket.on('clue:submitWords', (data) => {
-        const room = clueRooms[socket.clueRoom];
-        if (!room || room.state !== 'wordSelection') return;
-
-        const player = room.players.find(p => p.id === socket.id);
-        if (!player || player.role !== 'wordmaster') {
-            return socket.emit('clue:error', { msg: 'Only the Wordmaster can submit words' });
-        }
-
-        const words = data.words;
-        if (!Array.isArray(words) || words.length !== 10) {
-            return socket.emit('clue:error', { msg: 'Must submit exactly 10 words' });
-        }
-
-        const cleaned = [];
-        for (let i = 0; i < 10; i++) {
-            const w = ((words[i] || '') + '').trim().toLowerCase();
-            if (!w || w.includes(' ')) {
-                return socket.emit('clue:error', { msg: 'Word ' + (i + 1) + ' is invalid' });
-            }
-            if (cleaned.includes(w)) {
-                return socket.emit('clue:error', { msg: 'Word ' + (i + 1) + ' is a duplicate' });
-            }
-            cleaned.push(w);
-        }
-
-        room.words = cleaned;
+        // Pick 10 random words from word bank
+        const shuffled = [...CLUE_WORD_BANK].sort(() => Math.random() - 0.5);
+        room.words = shuffled.slice(0, 10);
+        room.foundWords = new Array(10).fill(false);
         room.state = 'playing';
-        room.currentWordIndex = 0;
         room.guessesRemaining = 15;
         room.currentClue = null;
+        room.currentClueCount = 0;
+        room.clueGuessesLeft = 0;
         room.guessHistory = [];
+        room.winner = null;
 
-        // Send words only to wordmaster, not guesser
+        // Send role + words (only to wordmaster)
         room.players.forEach(p => {
             if (p.role === 'wordmaster') {
-                io.to(p.id).emit('clue:wordsReady', { words: cleaned });
+                io.to(p.id).emit('clue:gameStarted', { role: p.role, words: room.words });
             } else {
-                io.to(p.id).emit('clue:wordsReady', {});
+                io.to(p.id).emit('clue:gameStarted', { role: p.role, wordCount: 10 });
             }
         });
-        console.log(`Words submitted in Clue room ${socket.clueRoom}`);
+        console.log(`Clue game started in room ${socket.clueRoom} with words:`, room.words);
     });
 
     socket.on('clue:giveClue', (data) => {
         const room = clueRooms[socket.clueRoom];
-        if (!room || room.state !== 'playing') return;
+        if (!room || room.state !== 'playing') {
+            return socket.emit('clue:error', { msg: 'Game not active' });
+        }
 
         const player = room.players.find(p => p.id === socket.id);
         if (!player || player.role !== 'wordmaster') {
             return socket.emit('clue:error', { msg: 'Only the Wordmaster can give clues' });
         }
         if (room.currentClue !== null) {
-            return socket.emit('clue:error', { msg: 'Clue already given for this word' });
+            return socket.emit('clue:error', { msg: 'Clue already given' });
         }
 
         const clue = ((data.clue || '') + '').trim().toLowerCase();
@@ -655,59 +682,71 @@ io.on('connection', (socket) => {
             return socket.emit('clue:error', { msg: 'Clue must be exactly one word' });
         }
 
-        const currentWord = room.words[room.currentWordIndex];
-        if (clue === currentWord) {
-            return socket.emit('clue:error', { msg: 'Clue cannot be the answer itself' });
+        // Clue cannot be one of the unguessed words
+        for (let i = 0; i < room.words.length; i++) {
+            if (!room.foundWords[i] && clue === room.words[i]) {
+                return socket.emit('clue:error', { msg: 'Clue cannot be one of the words!' });
+            }
         }
 
+        const count = Math.max(1, Math.min(10, parseInt(data.count) || 1));
         room.currentClue = clue;
-        io.to('clue:' + socket.clueRoom).emit('clue:clueGiven', { clue });
+        room.currentClueCount = count;
+        room.clueGuessesLeft = count;
+
+        io.to('clue:' + socket.clueRoom).emit('clue:clueGiven', { clue, count });
+        console.log(`[Clue] Clue given in ${socket.clueRoom}: "${clue}" for ${count}`);
     });
 
     socket.on('clue:makeGuess', (data) => {
-        console.log(`[Clue] makeGuess from ${socket.id}, room=${socket.clueRoom}, guess="${data && data.guess}"`);
         const room = clueRooms[socket.clueRoom];
         if (!room || room.state !== 'playing') {
-            console.log(`[Clue] makeGuess rejected: room=${!!room}, state=${room && room.state}`);
-            return socket.emit('clue:error', { msg: 'Game room not found or not active' });
+            return socket.emit('clue:error', { msg: 'Game not active' });
         }
 
         const player = room.players.find(p => p.id === socket.id);
         if (!player || player.role !== 'guesser') {
-            console.log(`[Clue] makeGuess rejected: player=${!!player}, role=${player && player.role}`);
-            return socket.emit('clue:error', { msg: 'Only the Guesser can make guesses' });
+            return socket.emit('clue:error', { msg: 'Only the Guesser can guess' });
         }
-        if (room.currentClue === null) {
-            console.log(`[Clue] makeGuess rejected: currentClue is null`);
+        if (room.currentClue === null || room.clueGuessesLeft <= 0) {
             return socket.emit('clue:error', { msg: 'Wait for a clue first' });
         }
 
         const guess = ((data.guess || '') + '').trim().toLowerCase();
         if (!guess) return;
 
-        const currentWord = room.words[room.currentWordIndex];
-        const correct = (guess === currentWord);
+        // Check against all unguessed words
+        let matchedIndex = -1;
+        for (let i = 0; i < room.words.length; i++) {
+            if (!room.foundWords[i] && guess === room.words[i]) {
+                matchedIndex = i;
+                break;
+            }
+        }
+
+        const correct = matchedIndex >= 0;
+        if (correct) {
+            room.foundWords[matchedIndex] = true;
+        } else {
+            room.guessesRemaining--;
+        }
+        room.clueGuessesLeft--;
 
         const entry = {
-            wordNum: room.currentWordIndex + 1,
             clue: room.currentClue,
-            guess: guess,
-            correct: correct,
-            word: correct ? currentWord : null
+            guess,
+            correct,
+            word: correct ? room.words[matchedIndex] : null,
+            wordIndex: matchedIndex
         };
         room.guessHistory.push(entry);
 
-        if (correct) {
-            room.currentWordIndex++;
-            room.currentClue = null;
-        } else {
-            room.guessesRemaining--;
-            room.currentClue = null;
-        }
+        const wordsFound = room.foundWords.filter(Boolean).length;
+        // Turn ends on wrong guess OR all clue guesses used
+        const turnOver = !correct || room.clueGuessesLeft <= 0;
 
-        // Check game over
         let gameOver = false;
-        if (room.currentWordIndex >= 10) {
+        if (wordsFound >= 10) {
             room.state = 'gameOver';
             room.winner = 'guesser';
             gameOver = true;
@@ -717,26 +756,54 @@ io.on('connection', (socket) => {
             gameOver = true;
         }
 
+        if (turnOver || gameOver) {
+            room.currentClue = null;
+            room.currentClueCount = 0;
+            room.clueGuessesLeft = 0;
+        }
+
         io.to('clue:' + socket.clueRoom).emit('clue:guessResult', {
             correct, guess,
             clue: entry.clue,
-            word: correct ? currentWord : null,
-            wordNum: entry.wordNum,
-            currentWordIndex: room.currentWordIndex,
+            word: entry.word,
+            wordIndex: matchedIndex,
+            wordsFound,
             guessesRemaining: room.guessesRemaining,
-            gameOver
+            clueGuessesLeft: room.clueGuessesLeft,
+            turnOver,
+            gameOver,
+            foundWords: room.foundWords
         });
 
         if (gameOver) {
             io.to('clue:' + socket.clueRoom).emit('clue:gameOver', {
                 winner: room.winner,
-                wordsGuessed: room.currentWordIndex,
+                wordsGuessed: wordsFound,
                 guessesUsed: 15 - room.guessesRemaining,
                 words: room.words,
+                foundWords: room.foundWords,
                 guessHistory: room.guessHistory
             });
             console.log(`Clue game over in room ${socket.clueRoom}: ${room.winner} wins`);
         }
+    });
+
+    socket.on('clue:passTurn', () => {
+        const room = clueRooms[socket.clueRoom];
+        if (!room || room.state !== 'playing') return;
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'guesser') return;
+        if (room.currentClue === null) return;
+
+        room.currentClue = null;
+        room.clueGuessesLeft = 0;
+        room.currentClueCount = 0;
+
+        io.to('clue:' + socket.clueRoom).emit('clue:turnPassed', {
+            guessesRemaining: room.guessesRemaining,
+            wordsFound: room.foundWords.filter(Boolean).length,
+            foundWords: room.foundWords
+        });
     });
 });
 
