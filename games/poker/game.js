@@ -536,6 +536,8 @@ class PokerGame {
             player.cards = [];
             player.folded = player.chips <= 0; // Auto-fold if no chips
             player.isActive = false;
+            player.lastAction = null;
+            player.lastActionAmount = 0;
             if (player.chips <= 0) player.isBankrupt = true;
         });
     }
@@ -705,6 +707,8 @@ class PokerGame {
 
         this.playersActedThisRound.add(playerId);
         player.isActive = false;
+        player.lastAction = action;
+        player.lastActionAmount = (action === 'raise') ? amount : 0;
 
         const activePlayers = this.players.filter(p => !p.folded && p.chips >= 0);
         if (activePlayers.length === 1) {

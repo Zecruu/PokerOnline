@@ -61,6 +61,9 @@ class ZecruClues {
         document.getElementById('btnStartGame').addEventListener('click', () => this.startGame());
         document.getElementById('btnBackToMenu').addEventListener('click', () => this.backToMenu());
 
+        // Word Input
+        document.getElementById('btnSubmitWords').addEventListener('click', () => this.submitWords());
+
         // Game
         document.getElementById('btnGiveClue').addEventListener('click', () => this.giveClue());
         document.getElementById('btnMakeGuess').addEventListener('click', () => this.makeGuess());
@@ -135,7 +138,7 @@ class ZecruClues {
             }
         });
 
-        // ── Game Started (skips word selection, goes straight to game) ──
+        // ── Game Started — Wordmaster picks words, Guesser waits ──
         this.socket.on('clue:gameStarted', (data) => {
             console.log('[15 Clues] Game started, role:', data.role);
             this.role = data.role;
@@ -145,13 +148,22 @@ class ZecruClues {
             this.currentClueCount = 0;
             this.clueGuessesLeft = 0;
             this.foundWords = new Array(10).fill(false);
+            this.words = [];
 
-            if (data.words) {
-                this.words = data.words;
+            if (this.role === 'wordmaster') {
+                this.buildWordInputScreen();
+                this.showScreen('wordInputScreen');
             } else {
-                this.words = [];
+                this.showScreen('wordWaitScreen');
             }
+        });
 
+        // ── Words Submitted — both players enter the game ──
+        this.socket.on('clue:wordsSubmitted', (data) => {
+            console.log('[15 Clues] Words submitted, starting game');
+            if (data.words) {
+                this.words = data.words; // wordmaster gets the words
+            }
             this.showScreen('gameScreen');
             this.setupGameScreen();
         });
@@ -315,6 +327,80 @@ class ZecruClues {
     startGame() {
         if (!this.isHost) return;
         this.socket.emit('clue:startGame', { hostRole: this.hostRole });
+    }
+
+    // ── Word Input (Wordmaster types 10 words) ─────────────
+    buildWordInputScreen() {
+        const list = document.getElementById('wordInputList');
+        list.innerHTML = '';
+        for (let i = 0; i < 10; i++) {
+            const row = document.createElement('div');
+            row.className = 'word-input-row';
+            row.innerHTML =
+                '<span class="word-num">' + (i + 1) + '</span>' +
+                '<input type="text" class="word-input" id="wordInput' + i + '" placeholder="Word ' + (i + 1) + '" maxlength="30" autocomplete="off">';
+            list.appendChild(row);
+        }
+        // Auto-focus first input
+        const first = document.getElementById('wordInput0');
+        if (first) setTimeout(() => first.focus(), 100);
+
+        // Enter key moves to next input
+        for (let i = 0; i < 10; i++) {
+            const inp = document.getElementById('wordInput' + i);
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (i < 9) {
+                        document.getElementById('wordInput' + (i + 1)).focus();
+                    } else {
+                        this.submitWords();
+                    }
+                }
+            });
+        }
+
+        document.getElementById('wordInputError').classList.add('hidden');
+        document.getElementById('btnSubmitWords').disabled = false;
+    }
+
+    submitWords() {
+        const errorEl = document.getElementById('wordInputError');
+        errorEl.classList.add('hidden');
+
+        const words = [];
+        for (let i = 0; i < 10; i++) {
+            const inp = document.getElementById('wordInput' + i);
+            const val = (inp.value || '').trim().toLowerCase();
+            if (!val) {
+                errorEl.textContent = 'Word ' + (i + 1) + ' is empty.';
+                errorEl.classList.remove('hidden');
+                inp.focus();
+                return;
+            }
+            if (val.includes(' ')) {
+                errorEl.textContent = 'Word ' + (i + 1) + ' must be a single word.';
+                errorEl.classList.remove('hidden');
+                inp.focus();
+                return;
+            }
+            if (words.includes(val)) {
+                errorEl.textContent = 'Word ' + (i + 1) + ' is a duplicate.';
+                errorEl.classList.remove('hidden');
+                inp.focus();
+                return;
+            }
+            words.push(val);
+        }
+
+        if (!this.socket || !this.socket.connected) {
+            errorEl.textContent = 'Disconnected. Please refresh.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('btnSubmitWords').disabled = true;
+        this.socket.emit('clue:submitWords', { words });
     }
 
     // ── Game Screen Setup ───────────────────────────────────

@@ -31,6 +31,9 @@ class PokerApp {
         this.isOnlineMode = false;
         this.currentRoom = null;
 
+        // Action indicators per player { [playerId]: { action, amount, time } }
+        this.playerLastActions = {};
+
         // Setup socket callbacks
         this.setupSocketCallbacks();
 
@@ -62,6 +65,7 @@ class PokerApp {
 
         client.onGameStarted = (data) => {
             this.currentRoom = data.room;
+            this.playerLastActions = {};
             this.showScreen('game');
             this.resetRenderCache();
             this.renderOnlineGame();
@@ -69,7 +73,18 @@ class PokerApp {
         };
 
         client.onGameUpdate = (data) => {
+            // Clear actions when betting round changes (new phase)
+            if (this.currentRoom && data.room.gamePhase !== this.currentRoom.gamePhase) {
+                this.playerLastActions = {};
+            }
             this.currentRoom = data.room;
+            if (data.lastAction) {
+                this.playerLastActions[data.lastAction.playerId] = {
+                    action: data.lastAction.action,
+                    amount: data.lastAction.amount,
+                    time: Date.now()
+                };
+            }
             if (this.currentScreen === 'game') {
                 this.renderOnlineGame();
             }
@@ -82,6 +97,7 @@ class PokerApp {
 
         client.onRoundEnd = (data) => {
             this.currentRoom = data.room;
+            this.playerLastActions = {};
             this.showOnlineRoundEnd(data);
         };
 
@@ -752,7 +768,7 @@ class PokerApp {
     renderOpponents(state, force = false) {
         const opponents = state.players.filter(p => p.id !== this.currentPlayerId);
         const opponentHash = JSON.stringify(opponents.map(o => ({
-            chips: o.chips, active: o.isActive, folded: o.folded, bet: o.bet
+            chips: o.chips, active: o.isActive, folded: o.folded, bet: o.bet, lastAction: o.lastAction
         }))) + state.dealerIndex + state.gamePhase + JSON.stringify(state.revealedCards);
 
         if (!force && this.lastRenderedOpponents === opponentHash) return;
@@ -773,6 +789,16 @@ class PokerApp {
             opponentDiv.style.left = positions[index].x;
             opponentDiv.style.top = positions[index].y;
             opponentDiv.style.transform = 'translate(-50%, -50%)';
+
+            // Action badge
+            if (opponent.lastAction) {
+                const badge = document.createElement('div');
+                badge.className = 'player-action-badge action-' + opponent.lastAction;
+                let label = opponent.lastAction.toUpperCase();
+                if (opponent.lastAction === 'raise' && opponent.lastActionAmount) label += ` $${opponent.lastActionAmount}`;
+                badge.textContent = label;
+                opponentDiv.appendChild(badge);
+            }
 
             const info = document.createElement('div');
             info.className = 'opponent-info';
@@ -906,7 +932,10 @@ class PokerApp {
             // Online multiplayer - send to server
             window.socketClient.playerAction(action, amount);
         } else {
-            // Local game
+            // Local game — track action for display
+            this.playerLastActions[this.currentPlayerId] = {
+                action, amount, time: Date.now()
+            };
             const result = this.currentGame.playerAction(this.currentPlayerId, action, amount);
             if (!result.success) {
                 alert(result.message);
@@ -1161,6 +1190,19 @@ class PokerApp {
         this.updateOnlineBetSlider(myPlayer);
     }
 
+    getActionBadgeHtml(playerId) {
+        const info = this.playerLastActions[playerId];
+        if (!info) return '';
+
+        const labels = {
+            fold: 'FOLD', check: 'CHECK', call: 'CALL', raise: 'RAISE'
+        };
+        const label = labels[info.action] || info.action.toUpperCase();
+        const amountText = (info.action === 'raise' && info.amount) ? ` $${info.amount}` : '';
+
+        return `<div class="player-action-badge action-${info.action}">${label}${amountText}</div>`;
+    }
+
     renderOnlineOpponents() {
         const opponents = this.currentRoom.players.filter(p => p.oderId !== this.currentPlayerId);
         const container = document.getElementById('players-container');
@@ -1180,6 +1222,7 @@ class PokerApp {
             opponentDiv.style.transform = 'translate(-50%, -50%)';
 
             opponentDiv.innerHTML = `
+                ${this.getActionBadgeHtml(opponent.oderId)}
                 <div class="opponent-avatar">${this.getAvatarHtml(opponent.avatarId, 36)}</div>
                 <div class="opponent-info">
                     <div class="opponent-name">${opponent.name}${opponent.isAI ? ' 🤖' : ''}</div>

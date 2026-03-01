@@ -796,9 +796,6 @@ io.on('connection', (socket) => {
         if (room.players.length !== 2) return socket.emit('clue:error', { msg: 'Need exactly 2 players' });
 
         room.hostRole = data.hostRole || 'wordmaster';
-
-        // Generate 25 random tokens from the word bank
-        room.tokenPool = shuffleClueBank(CLUE_WORD_BANK).slice(0, 25);
         room.guessedTokens = [];
 
         // Assign roles
@@ -810,9 +807,44 @@ io.on('connection', (socket) => {
             }
         });
 
-        // Pick 10 random words from word bank
-        const shuffled = [...CLUE_WORD_BANK].sort(() => Math.random() - 0.5);
-        room.words = shuffled.slice(0, 10);
+        // Wordmaster will submit words — set state to wordSelection
+        room.state = 'wordSelection';
+
+        // Send roles — wordmaster goes to word input, guesser waits
+        room.players.forEach(p => {
+            io.to(p.id).emit('clue:gameStarted', { role: p.role });
+        });
+        console.log(`Clue game started in room ${socket.clueRoom}, waiting for word submission`);
+    });
+
+    // Wordmaster submits their 10 custom words
+    socket.on('clue:submitWords', (data) => {
+        const room = clueRooms[socket.clueRoom];
+        if (!room || room.state !== 'wordSelection') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'wordmaster') {
+            return socket.emit('clue:error', { msg: 'Only the Wordmaster can submit words' });
+        }
+
+        const words = data.words;
+        if (!Array.isArray(words) || words.length !== 10) {
+            return socket.emit('clue:error', { msg: 'Must submit exactly 10 words' });
+        }
+
+        const cleaned = [];
+        for (let i = 0; i < 10; i++) {
+            const w = ((words[i] || '') + '').trim().toLowerCase();
+            if (!w || w.includes(' ')) {
+                return socket.emit('clue:error', { msg: 'Word ' + (i + 1) + ' is invalid' });
+            }
+            if (cleaned.includes(w)) {
+                return socket.emit('clue:error', { msg: 'Duplicate word: ' + w });
+            }
+            cleaned.push(w);
+        }
+
+        room.words = cleaned;
         room.foundWords = new Array(10).fill(false);
         room.state = 'playing';
         room.guessesRemaining = 15;
@@ -822,15 +854,15 @@ io.on('connection', (socket) => {
         room.guessHistory = [];
         room.winner = null;
 
-        // Send role + words (only to wordmaster)
+        // Send to both — wordmaster gets the words, guesser does not
         room.players.forEach(p => {
             if (p.role === 'wordmaster') {
-                io.to(p.id).emit('clue:gameStarted', { role: p.role, words: room.words });
+                io.to(p.id).emit('clue:wordsSubmitted', { words: room.words });
             } else {
-                io.to(p.id).emit('clue:gameStarted', { role: p.role, wordCount: 10 });
+                io.to(p.id).emit('clue:wordsSubmitted', { wordCount: 10 });
             }
         });
-        console.log(`Clue game started in room ${socket.clueRoom} with words:`, room.words);
+        console.log(`Clue words submitted in room ${socket.clueRoom}:`, room.words);
     });
 
     socket.on('clue:giveClue', (data) => {

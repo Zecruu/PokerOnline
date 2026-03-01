@@ -198,7 +198,9 @@ class ZecruWordMaster {
                     document.getElementById('waitingText').textContent = 'Waiting for WordMaster\'s hint...';
                 }
             } else if (this.role === 'guesser') {
-                // Still have guesses left
+                // Still have guesses left — re-enable picking
+                this.canPick = true;
+                this.updateCardClickability();
                 document.getElementById('guessStatus').textContent =
                     'Correct! ' + this.guessesLeft + ' guess(es) left. Pick another or End Turn.';
             }

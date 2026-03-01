@@ -48,6 +48,25 @@
     </div>
   </div>
 
+  <!-- WORD INPUT (Wordmaster types 10 words) -->
+  <div id="wordInputScreen" class="screen">
+    <div class="word-select-panel">
+      <h2>Choose Your 10 Words</h2>
+      <p class="subtitle">Type the words for the Guesser to find</p>
+      <div id="wordInputList" class="word-input-list"></div>
+      <p id="wordInputError" class="error-text hidden"></p>
+      <button id="btnSubmitWords" class="menu-btn primary">Lock In Words</button>
+    </div>
+  </div>
+
+  <!-- WAITING FOR WORDS (Guesser waits) -->
+  <div id="wordWaitScreen" class="screen">
+    <div class="waiting-panel">
+      <div class="waiting-spinner"></div>
+      <p>Wordmaster is choosing words...</p>
+    </div>
+  </div>
+
   <!-- GAME SCREEN -->
   <div id="gameScreen" class="screen">
     <div class="game-layout">

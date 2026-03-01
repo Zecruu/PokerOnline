@@ -534,6 +534,48 @@ h2 {
     box-shadow: 0 0 15px rgba(0, 212, 170, 0.4);
 }
 
+/* Player Action Badge */
+.player-action-badge {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100%);
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    z-index: 20;
+    animation: actionPop 0.35s ease-out;
+    pointer-events: none;
+}
+.action-fold {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+}
+.action-check {
+    background: rgba(156, 163, 175, 0.2);
+    border: 1px solid rgba(156, 163, 175, 0.5);
+    color: #d1d5db;
+}
+.action-call {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    color: #60a5fa;
+}
+.action-raise {
+    background: rgba(0, 212, 170, 0.2);
+    border: 1px solid rgba(0, 212, 170, 0.5);
+    color: #00d4aa;
+}
+@keyframes actionPop {
+    0% { transform: translateX(-50%) translateY(-100%) scale(0.5); opacity: 0; }
+    60% { transform: translateX(-50%) translateY(-100%) scale(1.15); opacity: 1; }
+    100% { transform: translateX(-50%) translateY(-100%) scale(1); opacity: 1; }
+}
+
 /* ===== PLAYER HAND SECTION ===== */
 .player-hand-section {
     background: var(--surface);
