@@ -99,6 +99,8 @@ function generatePlayerId() {
 const tdRooms = {};
 const pokerRooms = {};
 const clueRooms = {};
+const wmRooms = {};
+
 const CLUE_WORD_BANK = [
     // Animals
     'dog','cat','horse','eagle','shark','dolphin','tiger','lion','bear','wolf','rabbit','snake','turtle','penguin',
@@ -151,6 +153,144 @@ const CLUE_WORD_BANK = [
     'prophecy','illusion','mirage','paradox','enigma','karma','destiny','chaos','voyage','horizon','summit',
     'tempest','serpent','gargoyle','labyrinth','obelisk','relic','talisman','vortex'
 ];
+
+const WORDMASTER_WORDS = [
+    // Animals
+    'dog','cat','horse','whale','eagle','shark','tiger','bear','wolf','snake','lion','hawk','fox','deer','rabbit',
+    'dolphin','penguin','parrot','monkey','zebra','giraffe','elephant','gorilla','panther','falcon','turtle','frog',
+    'crab','lobster','octopus','squid','jellyfish','butterfly','beetle','ant','spider','scorpion','bat','owl','crow',
+    'swan','pelican','flamingo','peacock','rooster','donkey','camel','moose','bison','ram','goat','pig','sheep',
+    'duck','goose','salmon','trout','tuna','seal','walrus','otter','beaver','raccoon','skunk','porcupine','mole',
+    'hamster','mouse','rat','ferret','lizard','cobra','python','viper','cheetah','leopard','jaguar','hyena','rhino',
+    'hippo','koala','kangaroo','panda','sloth','armadillo','hedgehog','chameleon','iguana','gecko','stingray','clam',
+    // Food & Drink
+    'pizza','bread','cheese','apple','steak','pasta','rice','cake','cookie','pie','soup','salad','burger','taco',
+    'sushi','waffle','pancake','donut','muffin','bagel','pretzel','popcorn','candy','chocolate','honey','butter',
+    'cream','yogurt','cereal','oatmeal','bacon','sausage','ham','turkey','chicken','shrimp','oyster','grape','lemon',
+    'orange','banana','mango','peach','cherry','plum','melon','coconut','avocado','tomato','potato','carrot','onion',
+    'garlic','pepper','corn','bean','peanut','almond','walnut','olive','pickle','mustard','ketchup','vinegar','coffee',
+    'milk','juice','wine','beer','whiskey','vodka','brandy','cider','smoothie','milkshake','espresso',
+    // Objects & Things
+    'chair','table','clock','mirror','phone','lamp','book','key','door','window','wall','floor','roof','fence',
+    'bridge','tower','wheel','engine','battery','cable','wire','pipe','chain','rope','nail','screw','bolt','hammer',
+    'wrench','drill','saw','blade','needle','thread','button','zipper','buckle','hinge','lock','safe','vault',
+    'chest','barrel','bucket','basket','bottle','jar','cup','plate','bowl','fork','knife','spoon','pan','pot',
+    'oven','stove','fridge','sink','toilet','shower','bathtub','pillow','blanket','curtain','carpet','shelf',
+    'drawer','cabinet','closet','bench','couch','desk','ladder','staircase','elevator','crane','anchor','compass',
+    'telescope','microscope','camera','projector','speaker','microphone','headphones','remote','antenna','satellite',
+    'umbrella','candle','torch','lantern','lighter','match','broom','mop','sponge','brush','comb','razor','scissors',
+    // Places & Locations
+    'beach','school','church','park','airport','museum','garden','library','hospital','prison','castle','palace',
+    'temple','mosque','cathedral','stadium','arena','theater','cinema','casino','hotel','motel','resort','cabin',
+    'cottage','mansion','apartment','penthouse','basement','attic','garage','barn','warehouse','factory','office',
+    'market','mall','pharmacy','bakery','restaurant','cafe','bar','pub','nightclub','gym','spa','salon','studio',
+    'gallery','aquarium','zoo','circus','carnival','playground','fountain','monument','statue','pyramid','tunnel',
+    'subway','harbor','dock','pier','lighthouse','island','volcano','canyon','valley','cliff','cave','glacier',
+    'desert','jungle','swamp','meadow','prairie','forest','mountain','river','lake','ocean','waterfall','spring',
+    // Body & Health
+    'heart','brain','hand','eye','bone','skull','tooth','blood','muscle','nerve','spine','lung','liver','kidney',
+    'stomach','throat','tongue','finger','thumb','elbow','knee','ankle','wrist','shoulder','neck','chest','rib',
+    'skin','hair','nail','vein','artery','joint','tendon','cell','tissue','organ','pulse','breath','fever',
+    'wound','bruise','scar','rash','cough','sneeze','hiccup','cramp','ache',
+    // Professions & Roles
+    'doctor','pilot','chef','judge','artist','nurse','farmer','teacher','lawyer','soldier','sailor','pirate',
+    'knight','wizard','ninja','samurai','cowboy','sheriff','detective','spy','thief','bandit','guard','captain',
+    'general','president','queen','king','prince','princess','emperor','pope','monk','priest','bishop','angel',
+    'demon','ghost','vampire','zombie','robot','alien','clone','giant','dwarf','elf','troll','goblin','witch',
+    'mermaid','centaur','dragon','phoenix','unicorn','griffin',
+    // Sports & Games
+    'soccer','tennis','boxing','skiing','golf','rugby','hockey','cricket','baseball','football','basketball',
+    'volleyball','wrestling','fencing','archery','bowling','darts','billiards','chess','poker','dice','domino',
+    'puzzle','maze','race','sprint','marathon','relay','hurdle','javelin','discus','shotput','gymnastics',
+    'diving','surfing','sailing','rowing','kayak','canoe','skateboard','snowboard','trophy','medal','champion',
+    // Technology & Science
+    'robot','laser','rocket','radar','drone','pixel','server','network','database','software','hardware','browser',
+    'virus','malware','firewall','password','algorithm','binary','quantum','atom','molecule','electron','proton',
+    'neutron','plasma','magnet','gravity','friction','voltage','circuit','transistor','chip','sensor','motor',
+    'turbine','reactor','satellite','telescope','spectrum','frequency','wavelength','radiation','isotope','enzyme',
+    'protein','genome','fossil','mineral','crystal','prism','lens','fiber','carbon','oxygen','nitrogen','hydrogen',
+    // Nature & Weather
+    'river','ocean','desert','volcano','glacier','thunder','rain','snow','hail','frost','fog','mist','cloud',
+    'rainbow','tornado','hurricane','tsunami','earthquake','avalanche','flood','drought','lightning','blizzard',
+    'breeze','gale','storm','sunrise','sunset','eclipse','comet','meteor','asteroid','nebula','galaxy','orbit',
+    'tide','wave','current','reef','coral','pebble','boulder','gravel','sand','mud','clay','soil','moss',
+    'vine','thorn','root','trunk','branch','leaf','petal','bloom','seed','acorn','mushroom','algae','bamboo',
+    // Clothing & Fashion
+    'jacket','helmet','boots','gloves','scarf','belt','crown','cape','armor','shield','mask','goggles','visor',
+    'bandana','turban','beret','fedora','bowler','sombrero','sandal','sneaker','slipper','heel','loafer','tie',
+    'vest','sweater','hoodie','blazer','tuxedo','gown','robe','apron','uniform','jersey','shorts','jeans',
+    'skirt','dress','blouse','collar','pocket','sleeve','cuff','hem','stitch','fabric','silk','cotton','leather',
+    'denim','velvet','lace','satin','wool','linen','nylon','fleece',
+    // Vehicles & Transport
+    'truck','plane','train','bicycle','rocket','canoe','tank','submarine','helicopter','blimp','glider','yacht',
+    'ferry','gondola','chariot','wagon','carriage','sled','motorcycle','scooter','tractor','bulldozer','ambulance',
+    'firetruck','limousine','convertible','minivan','jeep','trailer','hovercraft','spaceship',
+    // Music & Art
+    'guitar','piano','drum','violin','trumpet','flute','harp','cello','banjo','saxophone','clarinet','trombone',
+    'harmonica','accordion','tambourine','cymbal','xylophone','organ','synthesizer','melody','rhythm','harmony',
+    'chorus','verse','lyric','opera','symphony','concert','album','record','canvas','portrait','sculpture',
+    'mosaic','mural','sketch','painting','gallery','easel','palette','brush','ink','charcoal','crayon','pastel',
+    // Abstract & Concepts
+    'dream','ghost','secret','riddle','magic','chaos','shadow','silence','echo','whisper','scream','fear',
+    'anger','joy','sorrow','pride','shame','guilt','envy','greed','lust','sloth','wrath','mercy','grace',
+    'faith','hope','love','hate','peace','war','truth','lie','honor','glory','fame','fortune','destiny',
+    'karma','spirit','soul','mind','memory','thought','idea','theory','logic','reason','wisdom','knowledge',
+    'power','energy','force','speed','time','space','void','infinity','zero','origin','end','cycle','pattern',
+    'balance','chaos','order','freedom','justice','revenge','sacrifice','betrayal','alliance','truce','oath',
+    'curse','blessing','miracle','legend','myth','fable','tale','saga','quest','journey','voyage','adventure',
+    // Actions & Verbs as Nouns
+    'punch','dance','climb','swim','sleep','escape','vanish','whistle','juggle','tackle','sprint','dodge',
+    'stumble','tumble','crawl','leap','dive','glide','soar','plunge','strike','block','parry','thrust',
+    'slash','crush','smash','shatter','explode','ignite','melt','freeze','boil','evaporate','dissolve',
+    'absorb','reflect','deflect','bounce','spin','twist','bend','fold','wrap','squeeze','stretch','snap',
+    'crack','split','merge','blend','stir','pour','drip','splash','spray','scatter','gather','stack','pile',
+    // Materials & Substances
+    'steel','diamond','marble','copper','ivory','crystal','gold','silver','bronze','platinum','iron','tin',
+    'lead','mercury','titanium','aluminum','cobalt','nickel','zinc','brass','granite','obsidian','jade',
+    'ruby','emerald','sapphire','pearl','amber','coral','glass','ceramic','porcelain','concrete','cement',
+    'plaster','wax','rubber','plastic','foam','gel','resin','tar','ash','charcoal','gunpowder','dynamite',
+    // Warfare & Combat
+    'sword','shield','arrow','spear','cannon','bomb','grenade','missile','rifle','pistol','shotgun','sniper',
+    'dagger','axe','mace','crossbow','catapult','siege','fortress','bunker','trench','barricade','ambush',
+    'raid','assault','retreat','surrender','victory','defeat','medal','rank','squad','platoon','battalion',
+    // Furniture & Home
+    'sofa','recliner','ottoman','mattress','headboard','nightstand','dresser','wardrobe','bookcase','mantle',
+    'fireplace','chimney','porch','balcony','patio','gazebo','greenhouse','shed','mailbox','doorbell','knocker',
+    'peephole','deadbolt','threshold','hallway','stairway','banister','railing','chandelier','sconce','fixture',
+    // Misc
+    'ticket','stamp','coin','token','badge','medal','ribbon','trophy','banner','flag','sign','poster','label',
+    'tag','sticker','magnet','puzzle','riddle','maze','map','globe','atlas','compass','chart','graph','diagram',
+    'blueprint','model','prototype','sample','specimen','artifact','relic','fossil','antique','vintage','classic',
+    'legend','icon','symbol','emblem','crest','seal','brand','logo','trademark','patent','copyright','license',
+    'permit','warrant','contract','treaty','charter','decree','mandate','verdict','sentence','pardon','ransom',
+    'bounty','reward','prize','jackpot','lottery','gamble','wager','stake','bluff','trick','trap','decoy',
+    'bait','lure','hook','net','cage','leash','collar','muzzle','saddle','harness','bridle','stirrup','spur',
+    'whip','reins','yoke','plow','sickle','scythe','anvil','forge','kiln','furnace','bellows','tongs','chisel',
+    'lathe','clamp','vise','lever','pulley','gear','spring','valve','gasket','piston','crankshaft','flywheel',
+    'pendulum','sundial','hourglass','metronome','thermostat','barometer','gauge','meter','dial','switch','knob',
+    'pedal','throttle','brake','clutch','steering','rudder','propeller','turbine','exhaust','muffler','bumper',
+    'fender','hubcap','windshield','dashboard','console','compartment','cargo','freight','parcel','package',
+    'crate','pallet','container','dumpster','manhole','gutter','drain','sewer','hydrant','sprinkler','nozzle',
+    'valve','faucet','spigot','hose','duct','vent','flue','grate','grille','filter','strainer','funnel',
+    'sieve','colander','mortar','pestle','grinder','blender','mixer','toaster','kettle','thermos','cooler',
+    'freezer','pantry','cupboard','counter','island','backsplash','tile','grout','caulk','putty','spackle',
+    'primer','varnish','lacquer','enamel','glaze','stain','polish','wax','shellac','epoxy','adhesive','tape',
+    'glue','staple','paperclip','thumbtack','pushpin','marker','highlighter','eraser','sharpener','ruler',
+    'protractor','stencil','template','binder','folder','envelope','postcard','letter','journal','diary',
+    'notebook','ledger','scroll','manuscript','pamphlet','brochure','catalog','manual','handbook','almanac',
+    'encyclopedia','dictionary','thesaurus','novel','biography','memoir','anthology','volume','chapter','verse',
+    'paragraph','sentence','phrase','syllable','vowel','consonant','accent','dialect','slang','jargon','cipher',
+    'code','signal','beacon','siren','alarm','whistle','gong','bell','chime','horn','bugle','drum','rattle'
+];
+
+function shuffleClueBank(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
 
 // Socket.IO Connection Handler
 io.on('connection', (socket) => {
@@ -473,6 +613,32 @@ io.on('connection', (socket) => {
             }
         }
 
+        // Handle WordMaster room disconnect
+        if (socket.wmRoom) {
+            const wRoom = wmRooms[socket.wmRoom];
+            if (wRoom) {
+                wRoom.players = wRoom.players.filter(p => p.id !== socket.id);
+                if (wRoom.players.length === 0) {
+                    delete wmRooms[socket.wmRoom];
+                } else {
+                    if (wRoom.host === socket.id) wRoom.host = wRoom.players[0].id;
+                    if (wRoom.state === 'playing') {
+                        wRoom.state = 'gameOver';
+                        io.to('wm:' + socket.wmRoom).emit('wm:gameOver', {
+                            winner: 'disconnect',
+                            safeFound: wRoom.safeFound,
+                            hintsGiven: wRoom.hintsGiven,
+                            board: wRoom.board
+                        });
+                    }
+                    io.to('wm:' + socket.wmRoom).emit('wm:playerLeft', {
+                        playerId: socket.id,
+                        players: wRoom.players
+                    });
+                }
+            }
+        }
+
         // Handle poker room disconnect
         if (socket.roomCode) {
             const room = pokerRooms[socket.roomCode];
@@ -631,6 +797,10 @@ io.on('connection', (socket) => {
 
         room.hostRole = data.hostRole || 'wordmaster';
 
+        // Generate 25 random tokens from the word bank
+        room.tokenPool = shuffleClueBank(CLUE_WORD_BANK).slice(0, 25);
+        room.guessedTokens = [];
+
         // Assign roles
         room.players.forEach(p => {
             if (p.id === room.host) {
@@ -713,7 +883,16 @@ io.on('connection', (socket) => {
         }
 
         const guess = ((data.guess || '') + '').trim().toLowerCase();
-        if (!guess) return;
+        if (!guess || guess.includes(' ')) return;
+
+        // Prevent re-guessing a token already guessed
+        if (room.guessedTokens && room.guessedTokens.includes(guess)) {
+            return socket.emit('clue:error', { msg: 'Already guessed' });
+        }
+
+        // Track guessed word
+        if (!room.guessedTokens) room.guessedTokens = [];
+        room.guessedTokens.push(guess);
 
         // Check against all unguessed words
         let matchedIndex = -1;
@@ -803,6 +982,225 @@ io.on('connection', (socket) => {
             guessesRemaining: room.guessesRemaining,
             wordsFound: room.foundWords.filter(Boolean).length,
             foundWords: room.foundWords
+        });
+    });
+
+    // ── ZECRU'S WORDMASTER ─────────────────────────────────
+    socket.on('wm:createRoom', (data) => {
+        const code = Math.random().toString(36).substr(2, 6).toUpperCase();
+        const player = { id: socket.id, name: (data.name || 'Player 1').substring(0, 16) };
+        wmRooms[code] = {
+            roomCode: code,
+            host: socket.id,
+            players: [player],
+            state: 'lobby',
+            board: [],
+            hostRole: 'wordmaster',
+            currentHint: null,
+            guessesLeft: 0,
+            safeFound: 0,
+            hintsGiven: 0
+        };
+        socket.wmRoom = code;
+        socket.join('wm:' + code);
+        socket.emit('wm:roomCreated', { code, players: [player] });
+        console.log(`WordMaster room ${code} created by ${player.name}`);
+    });
+
+    socket.on('wm:joinRoom', (data) => {
+        const code = ((data.code || '') + '').toUpperCase();
+        const room = wmRooms[code];
+        if (!room) return socket.emit('wm:error', { msg: 'Room not found' });
+        if (room.players.length >= 2) return socket.emit('wm:error', { msg: 'Room is full' });
+        if (room.state !== 'lobby') return socket.emit('wm:error', { msg: 'Game already in progress' });
+
+        const player = { id: socket.id, name: (data.name || 'Player 2').substring(0, 16) };
+        room.players.push(player);
+        socket.wmRoom = code;
+        socket.join('wm:' + code);
+        socket.emit('wm:roomJoined', { code, players: room.players });
+        socket.to('wm:' + code).emit('wm:playerJoined', { players: room.players });
+        console.log(`${player.name} joined WordMaster room ${code}`);
+    });
+
+    socket.on('wm:startGame', (data) => {
+        const room = wmRooms[socket.wmRoom];
+        if (!room || room.host !== socket.id) return;
+        if (room.players.length !== 2) return socket.emit('wm:error', { msg: 'Need exactly 2 players' });
+
+        room.state = 'playing';
+        room.hostRole = data.hostRole || 'wordmaster';
+
+        // Pick 25 random words
+        const shuffled = shuffleClueBank(WORDMASTER_WORDS);
+        const picked = shuffled.slice(0, 25);
+
+        // Assign types: 8 safe, 1 doom, 16 neutral
+        const indices = Array.from({ length: 25 }, (_, i) => i);
+        // Shuffle indices for random assignment
+        for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+        const safeIndices = new Set(indices.slice(0, 8));
+        const doomIndex = indices[8];
+
+        room.board = picked.map((word, i) => ({
+            word,
+            type: safeIndices.has(i) ? 'safe' : (i === doomIndex ? 'doom' : 'neutral'),
+            revealed: false
+        }));
+        room.currentHint = null;
+        room.guessesLeft = 0;
+        room.safeFound = 0;
+        room.hintsGiven = 0;
+
+        // Assign roles
+        room.players.forEach(p => {
+            if (p.id === room.host) {
+                p.role = room.hostRole;
+            } else {
+                p.role = room.hostRole === 'wordmaster' ? 'guesser' : 'wordmaster';
+            }
+        });
+
+        // Send board: WordMaster sees types, Guesser does not
+        room.players.forEach(p => {
+            if (p.role === 'wordmaster') {
+                io.to(p.id).emit('wm:gameStarted', {
+                    role: 'wordmaster',
+                    board: room.board.map(c => ({ word: c.word, type: c.type, revealed: false }))
+                });
+            } else {
+                io.to(p.id).emit('wm:gameStarted', {
+                    role: 'guesser',
+                    board: room.board.map(c => ({ word: c.word, revealed: false }))
+                });
+            }
+        });
+        console.log(`WordMaster game started in room ${socket.wmRoom}`);
+    });
+
+    socket.on('wm:giveHint', (data) => {
+        const room = wmRooms[socket.wmRoom];
+        if (!room || room.state !== 'playing') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'wordmaster') {
+            return socket.emit('wm:error', { msg: 'Only the WordMaster can give hints' });
+        }
+        if (room.currentHint && room.guessesLeft > 0) {
+            return socket.emit('wm:error', { msg: 'Guesser is still guessing' });
+        }
+
+        const hint = ((data.hint || '') + '').trim().toLowerCase();
+        const number = parseInt(data.number);
+        if (!hint || hint.includes(' ')) {
+            return socket.emit('wm:error', { msg: 'Hint must be a single word' });
+        }
+        if (!number || number < 1 || number > 8) {
+            return socket.emit('wm:error', { msg: 'Number must be between 1 and 8' });
+        }
+        // Hint cannot be a word on the board
+        if (room.board.some(c => c.word === hint)) {
+            return socket.emit('wm:error', { msg: 'Hint cannot be a word on the board' });
+        }
+
+        room.currentHint = { word: hint, number };
+        room.guessesLeft = number + 1;
+        room.hintsGiven++;
+
+        io.to('wm:' + socket.wmRoom).emit('wm:hintGiven', {
+            hint: hint,
+            number: number,
+            guessesLeft: room.guessesLeft
+        });
+    });
+
+    socket.on('wm:pickWord', (data) => {
+        const room = wmRooms[socket.wmRoom];
+        if (!room || room.state !== 'playing') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'guesser') {
+            return socket.emit('wm:error', { msg: 'Only the Guesser can pick words' });
+        }
+        if (!room.currentHint || room.guessesLeft <= 0) {
+            return socket.emit('wm:error', { msg: 'Wait for a hint first' });
+        }
+
+        const index = parseInt(data.index);
+        if (isNaN(index) || index < 0 || index >= 25) return;
+        if (room.board[index].revealed) {
+            return socket.emit('wm:error', { msg: 'Word already revealed' });
+        }
+
+        const card = room.board[index];
+        card.revealed = true;
+        room.guessesLeft--;
+
+        let turnEnded = false;
+        let gameOver = false;
+        let winner = null;
+
+        if (card.type === 'doom') {
+            gameOver = true;
+            winner = 'wordmaster';
+            room.state = 'gameOver';
+        } else if (card.type === 'safe') {
+            room.safeFound++;
+            if (room.safeFound >= 8) {
+                gameOver = true;
+                winner = 'guesser';
+                room.state = 'gameOver';
+            } else if (room.guessesLeft <= 0) {
+                turnEnded = true;
+            }
+        } else {
+            // neutral — turn ends
+            turnEnded = true;
+            room.guessesLeft = 0;
+        }
+
+        if (turnEnded) {
+            room.currentHint = null;
+        }
+
+        io.to('wm:' + socket.wmRoom).emit('wm:wordRevealed', {
+            index,
+            word: card.word,
+            type: card.type,
+            safeFound: room.safeFound,
+            guessesLeft: room.guessesLeft,
+            turnEnded,
+            gameOver,
+            winner
+        });
+
+        if (gameOver) {
+            io.to('wm:' + socket.wmRoom).emit('wm:gameOver', {
+                winner,
+                safeFound: room.safeFound,
+                hintsGiven: room.hintsGiven,
+                board: room.board
+            });
+            console.log(`WordMaster game over in room ${socket.wmRoom}: ${winner} wins`);
+        }
+    });
+
+    socket.on('wm:endTurn', () => {
+        const room = wmRooms[socket.wmRoom];
+        if (!room || room.state !== 'playing') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.role !== 'guesser') return;
+        if (!room.currentHint || room.guessesLeft <= 0) return;
+
+        room.guessesLeft = 0;
+        room.currentHint = null;
+
+        io.to('wm:' + socket.wmRoom).emit('wm:turnEnded', {
+            safeFound: room.safeFound
         });
     });
 });
