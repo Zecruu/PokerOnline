@@ -946,15 +946,9 @@ function getAvailableCorruptedSigils(game) {
     const available = [...CORRUPTED_SIGILS.universal];
     const classId = game.selectedClass?.id || game.selectedClass;
 
-    // Add class-specific corrupted sigils
-    if (classId === 'fire_sovereign') {
-        available.push(...CORRUPTED_SIGILS.fire_sovereign);
-    } else if (classId === 'shadow_master') {
-        available.push(...CORRUPTED_SIGILS.shadow_master);
-    } else if (classId === 'necromancer') {
-        available.push(...CORRUPTED_SIGILS.necromancer);
-    } else if (classId === 'shadow_monarch') {
-        available.push(...CORRUPTED_SIGILS.shadow_monarch);
+    // Add all class-specific corrupted sigils (combined character has access to all)
+    for (const key of Object.keys(CORRUPTED_SIGILS)) {
+        if (key !== 'universal') available.push(...CORRUPTED_SIGILS[key]);
     }
 
     // Filter out already bound corrupted sigils
@@ -1657,6 +1651,26 @@ const VOID_BLADE_CLASS = {
 
 // All playable classes for character select
 const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
+
+// Combined sigil pool — curated safe sigils from all classes for the single combined character
+const ALL_CLASS_SIGILS = [
+    // All Fire Sovereign sigils (10)
+    ...FIRE_SOVEREIGN_CLASS.sigils,
+    // Shadow Monarch — void/orb/lance sigils (skip thrall sigils that crash on null thrall)
+    ...SHADOW_MONARCH_CLASS.sigils.filter(s =>
+        ['sm_orb_focus','sm_void_pulse','sm_lance_pierce','sm_dominion_bond_sigil','sm_focused_malice','sm_abyssal_void','sm_void_lance'].includes(s.id)
+    ),
+    // Void Blade — all sigils safe (blood swords + bleed initialized)
+    ...VOID_BLADE_CLASS.sigils,
+    // Necromancer — generic + drain sigils (skip skull/corpse count sigils)
+    ...NECROMANCER_CLASS.sigils.filter(s =>
+        ['nc_gravewalker','nc_bone_plating','nc_necrotic_focus','nc_death_link','nc_crimson_chain','nc_siphon_unlife'].includes(s.id)
+    ),
+    // Shadow Master — generic stat sigils (skip monster/sentinel count sigils)
+    ...SHADOW_MASTER_CLASS.sigils.filter(s =>
+        ['sm_shade_step','sm_umbral_skin','sm_dark_resonance','sm_pact_shadows'].includes(s.id)
+    ),
+];
 
 // ============================================
 // ENHANCEMENT RUNES - Ability upgrade system
@@ -4615,97 +4629,12 @@ class DotsSurvivor {
     }
 
     showCharacterSelect() {
-        // Hide game over menu and show start menu
+        // Single character — skip class select, go straight to starter items
+        this.pendingCharacterClass = FIRE_SOVEREIGN_CLASS;
         document.getElementById('gameover-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.remove('hidden');
-
-        // Play menu music when returning to menu
         this.playMenuMusic();
-
-        const menu = document.getElementById('start-menu');
-        const content = menu.querySelector('.menu-content');
-
-        // Add wide panel class for character select
-        content.classList.add('wide-panel');
-
-        // Trigger fade-in animation
-        content.style.animation = 'none';
-        content.offsetHeight;
-        content.style.animation = '';
-
-        // Disabled classes: shadow_master, necromancer (Coming Soon), void_blade (Coming Soon for non-admin/tester)
-        const isAdminOrTester = (typeof authManager !== 'undefined' && authManager.user) ? (authManager.isAdmin() || authManager.isTester()) : false;
-        const DISABLED_CLASSES = isAdminOrTester
-            ? ['shadow_master', 'necromancer']
-            : ['shadow_master', 'necromancer', 'shadow_monarch', 'void_blade'];
-
-        const characterCardsHTML = PLAYABLE_CLASSES.map((charClass, index) => {
-            const isDisabled = DISABLED_CLASSES.includes(charClass.id);
-            const skillsHTML = Object.values(charClass.skills).map(s =>
-                `<div class="skill-row"><span>${s.icon}</span><span>${s.name}</span></div>`
-            ).join('');
-
-            const passiveHTML = charClass.passive ?
-                `<div class="char-passive">
-                    <span class="passive-icon">${charClass.passive.icon}</span>
-                    <div>
-                        <div class="passive-name">${charClass.passive.name}</div>
-                        <div class="passive-desc">${charClass.passive.desc}</div>
-                    </div>
-                </div>` : '';
-
-            const comingSoonOverlay = isDisabled ? `
-                <div class="coming-soon-overlay">
-                    <div class="lock-icon">🔒</div>
-                    <div class="lock-text">Coming Soon</div>
-                </div>
-            ` : '';
-
-            return `
-                <div class="char-card ${isDisabled ? 'disabled' : ''}" data-class-index="${index}" data-disabled="${isDisabled}"
-                     style="border-color: ${isDisabled ? '#333' : charClass.color};">
-                    ${comingSoonOverlay}
-                    ${charClass.portrait
-                        ? `<img class="char-portrait" src="${getAssetUrl(charClass.portrait)}" crossorigin="anonymous">`
-                        : `<div class="char-icon">${charClass.icon}</div>`
-                    }
-                    <div class="char-name" style="color:${charClass.color};">${charClass.name}</div>
-                    <div class="char-desc">${charClass.description || charClass.desc}</div>
-                    <div class="char-skills">
-                        <div class="char-skills-label">Skills</div>
-                        ${skillsHTML}
-                    </div>
-                    <div class="char-skills">
-                        <div class="char-passive-label">Class Passive</div>
-                        ${passiveHTML}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        content.innerHTML = `
-            <h1 class="game-title">VELTHARA'S<span>DOMINION</span></h1>
-            <p class="game-subtitle">Choose Your Champion</p>
-            <div class="char-select-grid">
-                ${characterCardsHTML}
-            </div>
-            <a href="/" class="menu-btn secondary">EXIT TO HUB</a>
-            <div class="controls-info">
-                <p>WASD/Arrows to move | Auto-attack | ESC to pause</p>
-                <p style="color:rgba(251,191,36,0.7);margin-top:0.2rem;">Q/E for special abilities</p>
-            </div>
-        `;
-
-        // Click handlers only — hover handled by CSS
-        const cards = content.querySelectorAll('.char-card');
-        cards.forEach(card => {
-            card.addEventListener('click', () => {
-                if (card.dataset.disabled === 'true') return;
-                const classIndex = parseInt(card.dataset.classIndex);
-                const selectedClass = PLAYABLE_CLASSES[classIndex];
-                this.showStarterItemSelect(selectedClass);
-            });
-        });
+        this.showStarterItemSelect(FIRE_SOVEREIGN_CLASS);
     }
 
     showStarterItemSelect(characterClass) {
@@ -5213,6 +5142,55 @@ class DotsSurvivor {
             this.characterAbilities.q.maxCooldown = 12;
             this.characterAbilities.e.maxCooldown = 50;
         }
+
+        // ========== COMBINED CHARACTER EXTRAS ==========
+        // Shadow Void aura (from Shadow Monarch) — passive dark AoE damage
+        this.shadowVoid = {
+            radius: 100,
+            baseDPS: 10,
+            atkScaling: 0.08,
+            waveScaling: 1.5,
+            tickTimer: 0,
+            tickInterval: 0.5
+        };
+
+        // Blood Swords (from Void Blade — Blades of the Slain)
+        this.bloodEssence = 0;
+        this.bloodEssencePerKill = 1;
+        this.bloodSwordThreshold = 30;
+        this.bloodSwords = [];
+        this.maxBloodSwords = 5;
+        this.bloodSwordBaseDmg = 20;
+        this.bloodSwordDmgMult = 1;
+        this.bloodSwordAttackRate = 1.2;
+        this.bloodSwordOrbitRadius = 90;
+        this.bloodSwordOrbitSpeed = 1.5;
+        this.bloodSwordDecayTimer = 0;
+        this.bloodSwordDecayRate = 6;
+        this.bloodSwordMomentum = 0;
+        this.bloodSwordSpreadBleed = false;
+        // Bleed system (pairs with Blood Swords)
+        this.voidBleedDPS = 12;
+        this.voidBleedDPSMult = 1;
+        this.maxBleedStacks = 8;
+        this.bleedStackDuration = 3;
+        this.bleedBossReduction = 0.4;
+        // Crimson Sense passive
+        this.crimsonSenseActive = true;
+        this.crimsonSenseDmgBonus = 0.15;
+        // Execute system (Scarlet Verdict)
+        this.executeThreshold = 0.05;
+        this.executeBossBurstDmg = 200;
+        this.executeHealPercent = 0;
+
+        // Death Drain beam (from Necromancer)
+        this.hasDeathDrain = true;
+        this.deathDrainChains = 1;
+        this.deathDrainEvolved = false;
+        this.deathDrainDamage = 75;
+        this.deathDrainRange = 200;
+        this.deathDrainDamageMult = 1;
+
         // Legacy fire mage vars (keep for backward compat with other systems)
         this.fireAmpActive = false;
         this.fireAmpTimer = 0;
@@ -14586,9 +14564,9 @@ class DotsSurvivor {
         }
 
         // Every 10 waves (10, 20, 30...): guarantee 1 class skill upgrade sigil in slot 0
-        if (this.wave > 0 && this.wave % 10 === 0 && this.selectedClass?.sigils) {
+        if (this.wave > 0 && this.wave % 10 === 0) {
             const ownedIds = new Set(this.boundSigils || []);
-            const availableClassSigils = this.selectedClass.sigils.filter(s => {
+            const availableClassSigils = ALL_CLASS_SIGILS.filter(s => {
                 if (ownedIds.has(s.id)) return false;
                 if (usedIds.has(s.id)) return false;
                 // Check prerequisite
@@ -15894,33 +15872,17 @@ class DotsSurvivor {
                 return;
             }
             if (e._lod === 1 && !e.isBoss) {
-                // Tier 1: sprite or circle, no custom canvas effects
-                const spriteType = e.type;
-                const sprite = SPRITE_CACHE[spriteType];
-                if (sprite) {
-                    const size = e.radius * 2;
-                    ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
-                    if (e.hitFlash > 0) {
-                        ctx.save();
-                        ctx.globalCompositeOperation = 'lighter';
-                        ctx.globalAlpha = 0.4;
-                        ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
-                        ctx.globalCompositeOperation = 'source-over';
-                        ctx.globalAlpha = 1;
-                        ctx.restore();
-                    }
-                } else {
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
-                    ctx.fill();
-                }
-                // Simple HP bar for tanks/splitters only
-                if (e.type === 'tank' || e.type === 'splitter') {
-                    const bw = e.radius * 1.5;
-                    ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 4);
-                    ctx.fillStyle = '#ff4444'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 4);
-                }
+                // Tier 1: colored circle + HP bar
+                ctx.beginPath();
+                ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                ctx.fill();
+                // HP bar for all enemies
+                const bw = e.radius * 2;
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(sx - bw / 2, sy - e.radius - 7, bw, 4);
+                ctx.fillStyle = e.color;
+                ctx.fillRect(sx - bw / 2, sy - e.radius - 7, bw * (e.health / e.maxHealth), 4);
                 return;
             }
 
@@ -15928,239 +15890,30 @@ class DotsSurvivor {
 
             // ======== CUSTOM CANVAS-DRAWN MOBS ========
 
-            // WRAITH - Ghostly floating entity with phase effect
-            if (e.isWraith) {
+            // ALL non-boss enemies: colored circle + glow ring + HP bar
+            if (!e.isConsumer && !e.isPlagueWeaver && !e.isRiftLord && !e.isBroodQueen && !e.isArchitect && !e.isLeviathan) {
+                // Wraith alpha when phased
+                const alpha = (e.isWraith && e.wraithPhased) ? 0.3 : 1;
                 ctx.save();
-                ctx.translate(sx, sy);
-                const wraithAlpha = e.wraithPhased ? 0.25 + Math.sin(this.gameTime / 200) * 0.1 : 0.85;
-                ctx.globalAlpha = wraithAlpha;
-                // Outer ghostly glow
-                const wGlow = ctx.createRadialGradient(0, 0, e.radius * 0.3, 0, 0, e.radius * 1.5);
-                wGlow.addColorStop(0, 'rgba(136,102,204,0.4)');
-                wGlow.addColorStop(1, 'rgba(136,102,204,0)');
+                if (alpha < 1) ctx.globalAlpha = alpha;
+                // Glow ring
                 ctx.beginPath();
-                ctx.arc(0, 0, e.radius * 1.5, 0, Math.PI * 2);
-                ctx.fillStyle = wGlow;
-                ctx.fill();
-                // Body: wavering hooded shape
-                const wobble = Math.sin(this.gameTime / 150 + e.id) * 3;
-                ctx.beginPath();
-                ctx.ellipse(0, wobble, e.radius * 0.8, e.radius, 0, 0, Math.PI * 2);
-                ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : '#6644aa';
-                ctx.fill();
-                // Inner darker core
-                ctx.beginPath();
-                ctx.ellipse(0, wobble, e.radius * 0.4, e.radius * 0.5, 0, 0, Math.PI * 2);
-                ctx.fillStyle = '#332255';
-                ctx.fill();
-                // Glowing eyes
-                const eyeY = wobble - e.radius * 0.2;
-                ctx.beginPath();
-                ctx.arc(-e.radius * 0.2, eyeY, 3, 0, Math.PI * 2);
-                ctx.arc(e.radius * 0.2, eyeY, 3, 0, Math.PI * 2);
-                ctx.fillStyle = e.wraithPhased ? '#ff44ff' : '#cc88ff';
-                ctx.shadowColor = '#cc88ff';
-                ctx.shadowBlur = 10;
-                ctx.fill();
-                // Wispy trails below
-                for (let t = 0; t < 4; t++) {
-                    const tAngle = (t / 4) * Math.PI + Math.sin(this.gameTime / 300 + t) * 0.5;
-                    const tLen = e.radius * (0.8 + Math.sin(this.gameTime / 200 + t * 1.5) * 0.3);
-                    ctx.beginPath();
-                    ctx.moveTo(Math.cos(tAngle) * e.radius * 0.3, e.radius * 0.5);
-                    ctx.lineTo(Math.cos(tAngle) * e.radius * 0.5, e.radius * 0.5 + tLen);
-                    ctx.strokeStyle = `rgba(136,102,204,${wraithAlpha * 0.5})`;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-                ctx.shadowBlur = 0;
-                ctx.globalAlpha = 1;
-                ctx.restore();
-            }
-
-            // MAGMA CRAWLER - Segmented lava creature with glowing cracks
-            else if (e.isMagmaCrawler) {
-                ctx.save();
-                ctx.translate(sx, sy);
-                // Lava glow underneath
-                const mGlow = ctx.createRadialGradient(0, 0, e.radius * 0.5, 0, 0, e.radius * 1.8);
-                mGlow.addColorStop(0, 'rgba(255,100,0,0.3)');
-                mGlow.addColorStop(1, 'rgba(255,50,0,0)');
-                ctx.beginPath();
-                ctx.arc(0, 0, e.radius * 1.8, 0, Math.PI * 2);
-                ctx.fillStyle = mGlow;
-                ctx.fill();
-                // Main rocky body
-                ctx.beginPath();
-                const segments = 8;
-                for (let s = 0; s < segments; s++) {
-                    const a = (s / segments) * Math.PI * 2;
-                    const r = e.radius * (0.85 + Math.sin(a * 3 + this.gameTime / 500) * 0.15);
-                    if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-                    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-                }
-                ctx.closePath();
-                ctx.fillStyle = e.hitFlash > 0 ? '#ffcc88' : '#443322';
-                ctx.fill();
-                ctx.strokeStyle = '#221100';
+                ctx.arc(sx, sy, e.radius + 3, 0, Math.PI * 2);
+                ctx.strokeStyle = (e.hitFlash > 0 ? '#fff' : e.color) + '66';
                 ctx.lineWidth = 2;
                 ctx.stroke();
-                // Glowing magma cracks
-                ctx.strokeStyle = `rgba(255,${80 + Math.floor(Math.sin(this.gameTime / 100) * 40)},0,0.9)`;
-                ctx.lineWidth = 3;
-                ctx.shadowColor = '#ff4400';
-                ctx.shadowBlur = 8;
-                for (let c = 0; c < 5; c++) {
-                    const ca = (c / 5) * Math.PI * 2 + this.gameTime / 1000;
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(Math.cos(ca) * e.radius * 0.7, Math.sin(ca) * e.radius * 0.7);
-                    ctx.stroke();
-                }
-                // Central magma core
+                // Main circle
                 ctx.beginPath();
-                ctx.arc(0, 0, e.radius * 0.25, 0, Math.PI * 2);
-                ctx.fillStyle = '#ff6600';
+                ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
                 ctx.fill();
-                ctx.shadowBlur = 0;
+                // HP bar
+                const bw = e.radius * 2.2;
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 5);
+                ctx.fillStyle = e.color;
+                ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 5);
                 ctx.restore();
-            }
-
-            // LEECH - Segmented worm-like creature
-            else if (e.isLeech) {
-                ctx.save();
-                ctx.translate(sx, sy);
-                const leechAlpha = e.leechAttached ? 0.9 : 1;
-                ctx.globalAlpha = leechAlpha;
-                // Body segments (worm)
-                const segCount = 5;
-                const moveAngle = Math.atan2(this.worldY - e.wy, this.worldX - e.wx);
-                for (let s = segCount - 1; s >= 0; s--) {
-                    const segOffset = s * (e.radius * 0.5);
-                    const wobX = Math.sin(this.gameTime / 200 + s * 1.2) * 3;
-                    const segX = -Math.cos(moveAngle) * segOffset + wobX;
-                    const segY = -Math.sin(moveAngle) * segOffset;
-                    const segR = e.radius * (1 - s * 0.12);
-                    ctx.beginPath();
-                    ctx.arc(segX, segY, segR, 0, Math.PI * 2);
-                    const green = s === 0 ? (e.hitFlash > 0 ? '#ffffff' : '#44cc44') : `rgb(${40 + s * 10},${160 - s * 15},${40 + s * 10})`;
-                    ctx.fillStyle = green;
-                    ctx.fill();
-                    ctx.strokeStyle = '#225522';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                }
-                // Head (front segment) - sucker mouth
-                ctx.beginPath();
-                ctx.arc(0, 0, e.radius * 0.4, 0, Math.PI * 2);
-                ctx.fillStyle = '#884444';
-                ctx.fill();
-                // Eyes
-                ctx.beginPath();
-                ctx.arc(-e.radius * 0.15, -e.radius * 0.15, 2, 0, Math.PI * 2);
-                ctx.arc(e.radius * 0.15, -e.radius * 0.15, 2, 0, Math.PI * 2);
-                ctx.fillStyle = '#ff0000';
-                ctx.fill();
-                // Attached indicator - pulsing red
-                if (e.leechAttached) {
-                    ctx.beginPath();
-                    ctx.arc(0, 0, e.radius + 4, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(255,0,0,${0.3 + Math.sin(this.gameTime / 150) * 0.3})`;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-                ctx.globalAlpha = 1;
-                ctx.restore();
-            }
-
-            // PUSHER - Armored brute with charging fists
-            else if (e.isPusher) {
-                ctx.save();
-                ctx.translate(sx, sy);
-                // Charge glow when pushing
-                if (e.pusherGrabbing) {
-                    const chargeGlow = ctx.createRadialGradient(0, 0, e.radius * 0.3, 0, 0, e.radius * 2);
-                    chargeGlow.addColorStop(0, 'rgba(255,153,0,0.5)');
-                    chargeGlow.addColorStop(1, 'rgba(255,80,0,0)');
-                    ctx.beginPath();
-                    ctx.arc(0, 0, e.radius * 2, 0, Math.PI * 2);
-                    ctx.fillStyle = chargeGlow;
-                    ctx.fill();
-                }
-                // Armored body (hexagonal shape)
-                ctx.beginPath();
-                for (let s = 0; s < 6; s++) {
-                    const a = (s / 6) * Math.PI * 2 - Math.PI / 6;
-                    const r = e.radius * (0.95 + Math.sin(this.gameTime / 300 + s) * 0.05);
-                    if (s === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-                    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-                }
-                ctx.closePath();
-                ctx.fillStyle = e.hitFlash > 0 ? '#ffcc88' : '#cc6600';
-                ctx.fill();
-                ctx.strokeStyle = '#884400';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-                // Shoulder plates
-                ctx.beginPath();
-                ctx.arc(-e.radius * 0.6, -e.radius * 0.3, e.radius * 0.35, 0, Math.PI * 2);
-                ctx.arc(e.radius * 0.6, -e.radius * 0.3, e.radius * 0.35, 0, Math.PI * 2);
-                ctx.fillStyle = '#995500';
-                ctx.fill();
-                ctx.strokeStyle = '#663300';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                // Fist icon
-                ctx.font = `${Math.floor(e.radius * 0.8)}px Arial`;
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText('👊', 0, 2);
-                // Angry eyes
-                ctx.beginPath();
-                ctx.arc(-e.radius * 0.2, -e.radius * 0.15, 3, 0, Math.PI * 2);
-                ctx.arc(e.radius * 0.2, -e.radius * 0.15, 3, 0, Math.PI * 2);
-                ctx.fillStyle = e.pusherGrabbing ? '#ff0000' : '#ffaa00';
-                ctx.shadowColor = '#ff6600';
-                ctx.shadowBlur = e.pusherGrabbing ? 12 : 6;
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.restore();
-            }
-
-            // Skip default circle for event bosses - they have custom rendering
-            else if (!e.isConsumer && !e.isPlagueWeaver && !e.isRiftLord && !e.isBroodQueen && !e.isArchitect && !e.isLeviathan) {
-                // Check for custom sprite
-                const spriteType = e.isBoss ? (e.type === 'general' ? 'general' : 'boss') : e.type;
-                const sprite = SPRITE_CACHE[spriteType];
-
-                if (sprite) {
-                    // Draw sprite image (sprite is a canvas, not an Image)
-                    ctx.save();
-                    ctx.translate(sx, sy);
-
-                    // Draw the sprite centered and scaled to enemy radius
-                    const size = e.radius * 2;
-                    ctx.drawImage(sprite, -size/2, -size/2, size, size);
-
-                    // Hit flash effect - draw bright overlay using composite operation
-                    if (e.hitFlash > 0) {
-                        ctx.globalCompositeOperation = 'lighter';
-                        ctx.globalAlpha = 0.6;
-                        ctx.drawImage(sprite, -size/2, -size/2, size, size);
-                        ctx.globalCompositeOperation = 'source-over';
-                        ctx.globalAlpha = 1;
-                    }
-
-                    ctx.restore();
-                } else {
-                    // Default circular enemy rendering
-                    ctx.beginPath(); ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color; ctx.fill();
-                    // Enemy icon
-                    if (e.icon) {
-                        ctx.font = `${e.radius}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        ctx.fillText(e.icon, sx, sy);
-                    }
-                }
             }
 
             if (e.isPlagueWeaver) {
