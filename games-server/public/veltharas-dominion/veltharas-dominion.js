@@ -1654,22 +1654,230 @@ const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, SHADOW_MASTER_CLASS, NECROMANCER
 
 // Combined sigil pool — curated safe sigils from all classes for the single combined character
 const ALL_CLASS_SIGILS = [
-    // All Fire Sovereign sigils (10)
+    // All Fire Sovereign sigils (burn-focused stat sigils)
     ...FIRE_SOVEREIGN_CLASS.sigils,
-    // Shadow Monarch — void/orb/lance sigils (skip thrall sigils that crash on null thrall)
+    // Shadow Monarch — void/dominion stat sigils only (orb sigils replaced by ability sigils)
     ...SHADOW_MONARCH_CLASS.sigils.filter(s =>
-        ['sm_orb_focus','sm_void_pulse','sm_lance_pierce','sm_dominion_bond_sigil','sm_focused_malice','sm_abyssal_void','sm_void_lance'].includes(s.id)
+        ['sm_void_pulse','sm_dominion_bond_sigil','sm_abyssal_void'].includes(s.id)
     ),
-    // Void Blade — all sigils safe (blood swords + bleed initialized)
-    ...VOID_BLADE_CLASS.sigils,
-    // Necromancer — generic + drain sigils (skip skull/corpse count sigils)
+    // Void Blade — bleed stat sigils only (blood sword sigils replaced by ability sigils)
+    ...VOID_BLADE_CLASS.sigils.filter(s =>
+        ['vb_deep_cuts','vb_blood_scent','vb_keen_edge','vb_void_riposte','vb_exsanguinate','vb_hemorrhage'].includes(s.id)
+    ),
+    // Necromancer — generic + drain sigils
     ...NECROMANCER_CLASS.sigils.filter(s =>
-        ['nc_gravewalker','nc_bone_plating','nc_necrotic_focus','nc_death_link','nc_crimson_chain','nc_siphon_unlife'].includes(s.id)
+        ['nc_gravewalker','nc_bone_plating','nc_death_link','nc_crimson_chain','nc_siphon_unlife'].includes(s.id)
     ),
-    // Shadow Master — generic stat sigils (skip monster/sentinel count sigils)
+    // Shadow Master — generic stat sigils
     ...SHADOW_MASTER_CLASS.sigils.filter(s =>
-        ['sm_shade_step','sm_umbral_skin','sm_dark_resonance','sm_pact_shadows'].includes(s.id)
+        ['sm_shade_step','sm_umbral_skin'].includes(s.id)
     ),
+];
+
+// ============================================
+// PASSIVE ABILITY SIGILS
+// Unlock and upgrade passive ability systems via the level-up menu.
+// Base sigils unlock abilities; upgrade sigils chain via req field.
+// ============================================
+const PASSIVE_ABILITY_SIGILS = [
+    // ─── RING OF FIRE ─────────────────────────────────────────────────────────
+    {
+        id: 'ability_ring_of_fire',
+        name: 'Sigil of the Eternal Pyre',
+        icon: '🔥',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        desc: 'UNLOCK: Summons a Ring of Fire around you (100px). Burns nearby enemies for 25 DPS.',
+        effect: (g) => {
+            g.auraFire = { radius: 100, damage: 25, burnDuration: 3, tickTimer: 0, tickInterval: 0.5 };
+            g.hasRingOfFirePassive = true;
+            g.boundSigils.push('ability_ring_of_fire');
+        },
+        getDesc: (g) => g.auraFire ? `Active — ${g.auraFire.radius}px, ${g.auraFire.damage} DPS` : 'Unlock Ring of Fire'
+    },
+    {
+        id: 'ability_ring_inferno',
+        name: 'Inferno Ring',
+        icon: '🌋',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_ring_of_fire',
+        desc: 'UPGRADE: Ring of Fire +40px radius, +25% DPS.',
+        effect: (g) => {
+            if (g.auraFire) { g.auraFire.radius += 40; g.auraFire.damage = Math.floor(g.auraFire.damage * 1.25); }
+            g.boundSigils.push('ability_ring_inferno');
+        },
+        getDesc: (g) => `Ring: ${g.auraFire?.radius || 100}px → ${(g.auraFire?.radius || 100) + 40}px, DPS +25%`
+    },
+    {
+        id: 'ability_ring_scorching',
+        name: 'Scorching Presence',
+        icon: '☄️',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_ring_inferno',
+        desc: 'UPGRADE: Ring +30px radius, +50% DPS, burn duration +2s.',
+        effect: (g) => {
+            if (g.auraFire) { g.auraFire.radius += 30; g.auraFire.damage = Math.floor(g.auraFire.damage * 1.5); g.auraFire.burnDuration += 2; }
+            g.boundSigils.push('ability_ring_scorching');
+        },
+        getDesc: (g) => `Ring +30px, DPS +50%, burn +2s`
+    },
+
+    // ─── UMBRAL ORBS ──────────────────────────────────────────────────────────
+    {
+        id: 'ability_umbral_orbs',
+        name: 'Sigil of the Watching Eye',
+        icon: '🔮',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        desc: 'UNLOCK: Summons 1 Umbral Orb that fires homing laser beams at enemies.',
+        effect: (g) => {
+            g.umbralOrbCount = 1;
+            g.umbralOrbDamageBonus = 1;
+            g.lancePierce = 0;
+            g.doubleBeam = false;
+            g.shadowLances = [];
+            g.monarchOrbKillTracker = 0;
+            g.monarchOrbMaxFromKills = 3;
+            if (!g.umbralOrbs) g.umbralOrbs = [];
+            g.umbralOrbs.push(g.createUmbralOrb());
+            g.hasUmbralOrbsPassive = true;
+            g.boundSigils.push('ability_umbral_orbs');
+        },
+        getDesc: (g) => g.hasUmbralOrbsPassive ? `Active — ${g.umbralOrbs?.length || 1} orb(s)` : 'Unlock Umbral Orb laser'
+    },
+    {
+        id: 'ability_orb_focus',
+        name: 'Orb Focus',
+        icon: '👁️',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_umbral_orbs',
+        desc: 'UPGRADE: +1 Umbral Orb, +20% orb damage.',
+        effect: (g) => {
+            g.umbralOrbCount = (g.umbralOrbCount || 1) + 1;
+            g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.20;
+            if (g.umbralOrbs) g.umbralOrbs.push(g.createUmbralOrb());
+            g.boundSigils.push('ability_orb_focus');
+        },
+        getDesc: (g) => `+1 Orb (${(g.umbralOrbCount || 1) + 1} total), Dmg +20%`
+    },
+    {
+        id: 'ability_lance_pierce',
+        name: 'Piercing Lance',
+        icon: '⚡',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_orb_focus',
+        desc: 'UPGRADE: Beams pierce +1 enemy, +25% orb damage.',
+        effect: (g) => {
+            g.lancePierce = (g.lancePierce || 0) + 1;
+            g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.25;
+            g.boundSigils.push('ability_lance_pierce');
+        },
+        getDesc: (g) => `Pierce: ${(g.lancePierce || 0) + 1}, Dmg +25%`
+    },
+    {
+        id: 'ability_void_lance',
+        name: 'Void Lance',
+        icon: '🌑',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_lance_pierce',
+        desc: 'UPGRADE: Orbs fire double beams, +50% damage.',
+        effect: (g) => {
+            g.doubleBeam = true;
+            g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.50;
+            g.boundSigils.push('ability_void_lance');
+        },
+        getDesc: (g) => `Double beams, Dmg +50%`
+    },
+
+    // ─── BLOOD SWORDS ─────────────────────────────────────────────────────────
+    {
+        id: 'ability_blood_swords',
+        name: 'Sigil of the Slain',
+        icon: '🗡️',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        desc: 'UNLOCK: Kill enemies to gain Blood Essence. At 30 essence, summon an orbiting Blood Sword.',
+        effect: (g) => {
+            g.bloodEssence = 0;
+            g.bloodEssencePerKill = 1;
+            g.bloodSwordThreshold = 30;
+            g.bloodSwords = [];
+            g.maxBloodSwords = 5;
+            g.bloodSwordBaseDmg = 20;
+            g.bloodSwordDmgMult = 1;
+            g.bloodSwordAttackRate = 1.2;
+            g.bloodSwordOrbitRadius = 90;
+            g.bloodSwordOrbitSpeed = 1.5;
+            g.bloodSwordDecayTimer = 0;
+            g.bloodSwordDecayRate = 6;
+            g.bloodSwordMomentum = 0;
+            g.bloodSwordSpreadBleed = false;
+            g.voidBleedDPS = 12;
+            g.voidBleedDPSMult = 1;
+            g.maxBleedStacks = 8;
+            g.bleedStackDuration = 3;
+            g.bleedBossReduction = 0.4;
+            g.crimsonSenseActive = true;
+            g.crimsonSenseDmgBonus = 0.15;
+            g.executeThreshold = 0.05;
+            g.executeBossBurstDmg = 200;
+            g.executeHealPercent = 0;
+            g.hasBloodSwords = true;
+            g.boundSigils.push('ability_blood_swords');
+        },
+        getDesc: (g) => g.hasBloodSwords ? `Active — ${g.bloodSwords?.length || 0}/${g.maxBloodSwords || 5} swords` : 'Unlock Blood Swords'
+    },
+    {
+        id: 'ability_blood_frenzy',
+        name: 'Blood Frenzy',
+        icon: '💢',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_blood_swords',
+        desc: 'UPGRADE: Threshold -5, +1 essence/kill, +1 max sword.',
+        effect: (g) => {
+            g.bloodSwordThreshold = Math.max(10, (g.bloodSwordThreshold || 30) - 5);
+            g.bloodEssencePerKill = (g.bloodEssencePerKill || 1) + 1;
+            g.maxBloodSwords = (g.maxBloodSwords || 5) + 1;
+            g.boundSigils.push('ability_blood_frenzy');
+        },
+        getDesc: (g) => `Threshold: ${g.bloodSwordThreshold || 30} → ${Math.max(10, (g.bloodSwordThreshold || 30) - 5)}, +1 essence, +1 sword`
+    },
+    {
+        id: 'ability_sanguine_flow',
+        name: 'Sanguine Flow',
+        icon: '🩸',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_blood_frenzy',
+        desc: 'UPGRADE: Swords attack 40% faster, swords spread bleed.',
+        effect: (g) => {
+            g.bloodSwordAttackRate = (g.bloodSwordAttackRate || 1.2) * 0.6;
+            g.bloodSwordSpreadBleed = true;
+            g.boundSigils.push('ability_sanguine_flow');
+        },
+        getDesc: (g) => `Swords 40% faster, bleed spreads`
+    },
+    {
+        id: 'ability_blood_arsenal',
+        name: 'Blood Arsenal',
+        icon: '⚔️',
+        rarity: 'ability',
+        tier: 'ABILITY',
+        req: 'ability_sanguine_flow',
+        desc: 'UPGRADE: +2 max Blood Swords, +50% sword damage.',
+        effect: (g) => {
+            g.maxBloodSwords = (g.maxBloodSwords || 5) + 2;
+            g.bloodSwordDmgMult = (g.bloodSwordDmgMult || 1) * 1.5;
+            g.boundSigils.push('ability_blood_arsenal');
+        },
+        getDesc: (g) => `+2 swords (${(g.maxBloodSwords || 5) + 2} total), Dmg +50%`
+    },
 ];
 
 // ============================================
@@ -4984,6 +5192,15 @@ class DotsSurvivor {
         this.monarchDecreeActive = false;
         this.monarchDecreeTimer = 0;
         this.monarchUntargetableTimer = 0;
+        // Passive Ability Sigil flags (abilities unlocked via sigils, default OFF)
+        this.hasBloodSwords = false;
+        this.hasUmbralOrbsPassive = false;
+        this.hasDeathDrain = false;
+        this.deathDrainChains = 0;
+        this.deathDrainDamage = 0;
+        this.deathDrainRange = 0;
+        this.deathDrainDamageMult = 1;
+        this.deathDrainEvolved = false;
 
         // ABILITIES SYSTEM - Active abilities with cooldowns (Item abilities use 1 and 2 keys)
         this.abilities = {
@@ -5130,66 +5347,13 @@ class DotsSurvivor {
             this.homingStrength = 12;
             // Fireball color
             this.weapons.bullet.color = '#ff6600';
-            // Ring of Fire - starts active from game start
-            this.auraFire = {
-                radius: 100,
-                damage: 25,
-                burnDuration: 3,
-                tickTimer: 0,
-                tickInterval: 0.5
-            };
+            // Ring of Fire — now unlocked via Passive Ability Sigil (auraFire stays null)
             // Ability cooldowns
             this.characterAbilities.q.maxCooldown = 12;
             this.characterAbilities.e.maxCooldown = 50;
         }
 
-        // ========== COMBINED CHARACTER EXTRAS ==========
-        // Shadow Void aura (from Shadow Monarch) — passive dark AoE damage
-        this.shadowVoid = {
-            radius: 100,
-            baseDPS: 10,
-            atkScaling: 0.08,
-            waveScaling: 1.5,
-            tickTimer: 0,
-            tickInterval: 0.5
-        };
-
-        // Blood Swords (from Void Blade — Blades of the Slain)
-        this.bloodEssence = 0;
-        this.bloodEssencePerKill = 1;
-        this.bloodSwordThreshold = 30;
-        this.bloodSwords = [];
-        this.maxBloodSwords = 5;
-        this.bloodSwordBaseDmg = 20;
-        this.bloodSwordDmgMult = 1;
-        this.bloodSwordAttackRate = 1.2;
-        this.bloodSwordOrbitRadius = 90;
-        this.bloodSwordOrbitSpeed = 1.5;
-        this.bloodSwordDecayTimer = 0;
-        this.bloodSwordDecayRate = 6;
-        this.bloodSwordMomentum = 0;
-        this.bloodSwordSpreadBleed = false;
-        // Bleed system (pairs with Blood Swords)
-        this.voidBleedDPS = 12;
-        this.voidBleedDPSMult = 1;
-        this.maxBleedStacks = 8;
-        this.bleedStackDuration = 3;
-        this.bleedBossReduction = 0.4;
-        // Crimson Sense passive
-        this.crimsonSenseActive = true;
-        this.crimsonSenseDmgBonus = 0.15;
-        // Execute system (Scarlet Verdict)
-        this.executeThreshold = 0.05;
-        this.executeBossBurstDmg = 200;
-        this.executeHealPercent = 0;
-
-        // Death Drain beam (from Necromancer)
-        this.hasDeathDrain = true;
-        this.deathDrainChains = 1;
-        this.deathDrainEvolved = false;
-        this.deathDrainDamage = 75;
-        this.deathDrainRange = 200;
-        this.deathDrainDamageMult = 1;
+        // (Passive abilities removed — now unlocked via Passive Ability Sigils)
 
         // Legacy fire mage vars (keep for backward compat with other systems)
         this.fireAmpActive = false;
@@ -7735,7 +7899,7 @@ class DotsSurvivor {
 
     // Passive: every 30 kills spawns a new Umbral Orb (max 5 from passive)
     updateMonarchOrbPassive() {
-        if (!this.umbralOrbs || this.selectedClass?.id !== 'shadow_monarch') return;
+        if (!this.umbralOrbs || this.umbralOrbs.length === 0) return;
 
         const kills = this.player.kills || 0;
         const threshold = 150;
@@ -9030,7 +9194,7 @@ class DotsSurvivor {
 
     // ============ SHADOW VOID (SHADOW MONARCH PASSIVE) ============
     updateShadowVoid(dt) {
-        if (!this.shadowVoid || this.selectedClass?.id !== 'shadow_monarch') return;
+        if (!this.shadowVoid) return;
 
         this.shadowVoid.tickTimer += dt;
         if (this.shadowVoid.tickTimer < this.shadowVoid.tickInterval) return;
@@ -12534,7 +12698,7 @@ class DotsSurvivor {
 
     // Blood Swords: Orbit, attack, charge, decay
     updateBloodSwords(dt) {
-        if (this.selectedClass?.id !== 'void_blade') return;
+        if (!this.hasBloodSwords) return;
 
         // Check if we should conjure a new sword
         while (this.bloodEssence >= (this.bloodSwordThreshold || 8) && this.bloodSwords.length < (this.maxBloodSwords || 5)) {
@@ -12819,7 +12983,7 @@ class DotsSurvivor {
 
     // Handle Void Blade kills (called from enemy death)
     onVoidBladeKill(enemy) {
-        if (this.selectedClass?.id !== 'void_blade') return;
+        if (!this.hasBloodSwords) return;
         this.bloodEssence = (this.bloodEssence || 0) + (this.bloodEssencePerKill || 1);
         this.bloodSwordDecayTimer = 0;
         this.bloodSwordMomentum = Math.min((this.bloodSwordMomentum || 0) + 0.1, 2.0);
@@ -14555,11 +14719,32 @@ class DotsSurvivor {
             usedIds.add(rune.id);
             choices.push(rune);
         }
+
+        // ─── PASSIVE ABILITY SIGIL SLOT (guaranteed in slot 1) ─────────────
+        const ownedSigilSet = new Set(this.boundSigils || []);
+        const abilityBases = PASSIVE_ABILITY_SIGILS.filter(s => !s.req);
+        const abilityUpgrades = PASSIVE_ABILITY_SIGILS.filter(s => !!s.req);
+        const availableBases = abilityBases.filter(s => !ownedSigilSet.has(s.id) && !usedIds.has(s.id));
+        const availableUpgrades = abilityUpgrades.filter(s =>
+            !ownedSigilSet.has(s.id) && !usedIds.has(s.id) && s.req && ownedSigilSet.has(s.req)
+        );
+        let abilitySigilToOffer = null;
+        if (availableBases.length > 0) {
+            abilitySigilToOffer = availableBases[Math.floor(Math.random() * availableBases.length)];
+        } else if (availableUpgrades.length > 0) {
+            abilitySigilToOffer = availableUpgrades[Math.floor(Math.random() * availableUpgrades.length)];
+        }
+        if (abilitySigilToOffer) {
+            choices[1] = abilitySigilToOffer;
+            usedIds.add(abilitySigilToOffer.id);
+        }
+
         // Chaos Sigil: 20% chance to replace one slot (wave 5+), or always on guaranteed high roll waves
+        // Protect ability slot (1) — only replace slots 0 or 2
         if (this.wave >= 5 && (Math.random() < 0.20 || isGuaranteedHighRoll)) {
             const chaosTemplate = createChaosSigil(this.wave);
             const chaosRune = rollSigil(chaosTemplate, this.sigilRNG, isGuaranteedHighRoll);
-            const replaceSlot = isGuaranteedHighRoll ? 2 : Math.floor(Math.random() * 3);
+            const replaceSlot = isGuaranteedHighRoll ? 2 : (Math.random() < 0.5 ? 0 : 2);
             choices[replaceSlot] = chaosRune;
         }
 
@@ -14625,6 +14810,8 @@ class DotsSurvivor {
             // Corrupted tier styles - dark red/purple with unstable effects
             corrupted_runed: { border: '#8b0000', bg: 'linear-gradient(135deg, #1a0505, #2d0a0a)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#8b0000,#4a0000)', glow: 'rgba(139,0,0,0.6)', tierKey: 'CORRUPTED_RUNED', isCorrupted: true },
             corrupted_empowered: { border: '#4a0080', bg: 'linear-gradient(135deg, #0a0515, #150a20)', label: '⚠️ CORRUPTED', labelBg: 'linear-gradient(90deg,#4a0080,#2a0050)', glow: 'rgba(74,0,128,0.6)', tierKey: 'CORRUPTED_EMPOWERED', isCorrupted: true },
+            // Passive Ability sigils — teal/cyan treatment
+            ability: { border: '#00e5ff', bg: 'linear-gradient(135deg, #001a1f, #002d35)', label: '✨ ABILITY', labelBg: 'linear-gradient(90deg,#00e5ff,#00b8cc)', glow: 'rgba(0,229,255,0.45)', tierKey: 'ABILITY' },
         };
 
         // Reroll tracking: 1 reroll per card per level-up
@@ -14806,6 +14993,7 @@ class DotsSurvivor {
                         if (r.id === rune.id) return false; // Don't give the same sigil back
                         if (r.classReq && r.classReq !== this.selectedClass?.id) return false;
                         if (r.req && !this.boundSigils?.includes(r.req)) return false;
+                        if (r.rarity === 'ability') return false; // Ability sigils only via guaranteed slot
                         return true;
                     };
 
@@ -17889,7 +18077,7 @@ class DotsSurvivor {
         }
 
         // Void Blade Blood Sword Count + Momentum bar
-        if (this.selectedClass?.id === 'void_blade' && this.bloodSwords) {
+        if (this.hasBloodSwords && this.bloodSwords) {
             ctx.save();
             const barWidth = 50;
             const barHeight = 4;
