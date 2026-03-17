@@ -699,26 +699,153 @@ class RealtyRush {
     setup.removeChild(setup.lastChild);
   }
 
-  // ─── START GAME ───────────────────────────────────────────
+  // ─── START GAME (goes to ready-up screen first) ─────────
   startGame() {
     const setup = $("#playerSetup");
     const inputs = setup.querySelectorAll("input");
-    const cfg = MODE_CFG[this.mode];
 
     if (this.mode === "quick") {
       this.targetNetWorth = Math.max(100000, parseInt($("#targetNetWorth").value) || 500000);
     }
+
+    // Build pending player list for ready-up
+    this._pendingPlayers = [];
+    inputs.forEach((inp, i) => {
+      this._pendingPlayers.push({
+        name: inp.value.trim() || `Player ${i + 1}`,
+        color: COLORS[i],
+        characterKey: null,
+        ready: false,
+      });
+    });
+
+    // Preload character assets then show ready-up
+    preloadCharacterAssets().then(() => {
+      this.showReadyUp();
+    });
+  }
+
+  // ─── READY-UP SCREEN ──────────────────────────────────────
+  showReadyUp() {
+    $("#lobby").classList.remove("active");
+    $("#readyUp").classList.add("active");
+    this.renderReadyUp();
+    $("#launchGameBtn").onclick = () => this.launchFromReadyUp();
+  }
+
+  renderReadyUp() {
+    const container = $("#readyUpPlayers");
+    const charKeys = Object.keys(CHARACTER_ASSETS);
+    const takenChars = new Set(this._pendingPlayers.filter(p => p.characterKey).map(p => p.characterKey));
+
+    let html = '';
+    this._pendingPlayers.forEach((p, idx) => {
+      const selectedChar = p.characterKey ? CHARACTER_ASSETS[p.characterKey] : null;
+
+      html += `<div class="rup-player${p.ready ? ' rup-ready' : ''}">`;
+      html += `<div class="rup-player-header">`;
+      html += `<span class="rup-color" style="background:${p.color}"></span>`;
+      html += `<span class="rup-name">${p.name}</span>`;
+      html += p.ready
+        ? `<span class="rup-badge rup-badge-ready">READY</span>`
+        : `<span class="rup-badge rup-badge-waiting">PICK</span>`;
+      html += `</div>`;
+
+      // Character grid
+      html += `<div class="rup-chars">`;
+      for (const key of charKeys) {
+        const c = CHARACTER_ASSETS[key];
+        const selected = p.characterKey === key;
+        const taken = takenChars.has(key) && !selected;
+        const imgSrc = c.image ? c.image.src : getAssetUrl(c.icon);
+        html += `<div class="rup-char${selected ? ' rup-char-selected' : ''}${taken ? ' rup-char-taken' : ''}" `;
+        if (!taken || selected) {
+          html += `onclick="game.selectCharacter(${idx},'${key}')"`;
+        }
+        html += `>`;
+        html += `<img src="${imgSrc}" alt="${c.name}" crossorigin="anonymous">`;
+        html += `<span class="rup-char-name">${c.name}</span>`;
+        if (taken) {
+          const takenBy = this._pendingPlayers.find(pp => pp.characterKey === key);
+          html += `<span class="rup-char-taken-label">${takenBy ? takenBy.name : 'Taken'}</span>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+
+      // Ready button
+      if (p.characterKey && !p.ready) {
+        html += `<button class="rup-ready-btn" onclick="game.readyPlayer(${idx})">Ready Up</button>`;
+      } else if (p.ready) {
+        html += `<button class="rup-unready-btn" onclick="game.unreadyPlayer(${idx})">Cancel</button>`;
+      }
+
+      html += `</div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Status
+    const readyCount = this._pendingPlayers.filter(p => p.ready).length;
+    const total = this._pendingPlayers.length;
+    $("#readyUpStatus").textContent = `${readyCount}/${total} players ready`;
+
+    // Show/hide launch button
+    const allReady = readyCount === total;
+    const launchBtn = $("#launchGameBtn");
+    if (allReady) {
+      launchBtn.classList.remove("hidden");
+    } else {
+      launchBtn.classList.add("hidden");
+    }
+  }
+
+  selectCharacter(playerIdx, charKey) {
+    const p = this._pendingPlayers[playerIdx];
+    if (p.ready) return; // can't change while ready
+    // Check if taken by someone else
+    const takenBy = this._pendingPlayers.find((pp, i) => i !== playerIdx && pp.characterKey === charKey);
+    if (takenBy) return;
+    p.characterKey = charKey;
+    this.renderReadyUp();
+  }
+
+  readyPlayer(playerIdx) {
+    const p = this._pendingPlayers[playerIdx];
+    if (!p.characterKey) return;
+    p.ready = true;
+    this.renderReadyUp();
+  }
+
+  unreadyPlayer(playerIdx) {
+    const p = this._pendingPlayers[playerIdx];
+    p.ready = false;
+    this.renderReadyUp();
+  }
+
+  launchFromReadyUp() {
+    const allReady = this._pendingPlayers.every(p => p.ready);
+    if (!allReady) return;
+
+    // Transition to actual game
+    $("#readyUp").classList.remove("active");
+    this._launchGame();
+  }
+
+  _launchGame() {
+    const cfg = MODE_CFG[this.mode];
 
     // Build board
     this.board = buildBoard();
 
     // Build players
     this.players = [];
-    inputs.forEach((inp, i) => {
+    this._pendingPlayers.forEach((pp, i) => {
       this.players.push({
         id: i,
-        name: inp.value.trim() || `Player ${i+1}`,
-        color: COLORS[i],
+        name: pp.name,
+        color: pp.color,
+        characterKey: pp.characterKey,
         cash: cfg.cash,
         debt: 0,
         debtRounds: 0,
@@ -770,8 +897,7 @@ class RealtyRush {
     this.phase = "preturn";
     this.auctionTimer = 5; // first auction at round 5
 
-    // Switch screens
-    $("#lobby").classList.remove("active");
+    // Switch to game screen
     $("#game").classList.add("active");
 
     // Setup canvas
@@ -2764,8 +2890,13 @@ class RealtyRush {
       const nw = p.moneyHidden && p.id !== this.cp.id ? "???" : fmt(this.netWorth(p));
       const cashDisplay = p.moneyHidden && p.id !== this.cp.id ? "???" : fmt(p.cash);
 
+      const charData = p.characterKey ? CHARACTER_ASSETS[p.characterKey] : null;
+      const iconHtml = charData && charData.image
+        ? `<img class="hud-icon" src="${charData.image.src}" alt="${charData.name}">`
+        : `<span class="hud-dot" style="background:${p.color}"></span>`;
+
       div.innerHTML = `
-        <span class="hud-dot" style="background:${p.color}"></span>
+        ${iconHtml}
         <span>
           <span class="hud-name">${p.name}</span><br>
           <span class="hud-cash">${cashDisplay}</span>

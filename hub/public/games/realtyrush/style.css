@@ -8,6 +8,38 @@ input{font-family:inherit}
 .screen{display:none;width:100%;height:100%;position:absolute;top:0;left:0}
 .screen.active{display:flex}
 
+/* ========== READY-UP / CHARACTER SELECT ========== */
+#readyUp{justify-content:center;align-items:center;background:linear-gradient(135deg,#0a0a14 0%,#141428 50%,#0a1420 100%);overflow-y:auto;padding:20px 0}
+.readyup-container{max-width:900px;width:95%;margin:0 auto;text-align:center}
+.readyup-title{font-size:2.2rem;font-weight:900;margin-bottom:4px}
+.readyup-title span{color:#00d4aa}
+.readyup-sub{color:#888;margin-bottom:24px;font-size:.95rem}
+.readyup-players{display:flex;flex-direction:column;gap:16px}
+.rup-player{background:rgba(30,30,50,.85);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 20px;text-align:left;transition:all .3s}
+.rup-player.rup-ready{border-color:rgba(74,222,128,.35);background:rgba(30,50,40,.85)}
+.rup-player-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.rup-color{width:16px;height:16px;border-radius:50%;flex-shrink:0}
+.rup-name{font-weight:700;font-size:1rem;flex:1}
+.rup-badge{font-size:.65rem;font-weight:700;padding:3px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:.5px}
+.rup-badge-ready{background:rgba(74,222,128,.2);color:#4ade80}
+.rup-badge-waiting{background:rgba(251,191,36,.15);color:#fbbf24}
+.rup-chars{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.rup-char{width:100px;cursor:pointer;text-align:center;padding:8px 6px;border-radius:12px;border:2px solid transparent;background:rgba(255,255,255,.03);transition:all .2s;position:relative}
+.rup-char:hover{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.06)}
+.rup-char-selected{border-color:#00d4aa !important;background:rgba(0,212,170,.1) !important}
+.rup-char-taken{opacity:.35;cursor:not-allowed}
+.rup-char img{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.1)}
+.rup-char-selected img{border-color:#00d4aa}
+.rup-char-name{display:block;font-size:.7rem;color:#aaa;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rup-char-taken-label{position:absolute;bottom:2px;left:0;right:0;font-size:.55rem;color:#f87171;font-weight:600}
+.rup-ready-btn{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.1);color:#4ade80;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s}
+.rup-ready-btn:hover{background:rgba(74,222,128,.2)}
+.rup-unready-btn{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#888;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s}
+.rup-unready-btn:hover{background:rgba(255,255,255,.08)}
+.readyup-status{text-align:center;margin:16px 0 8px;font-size:.9rem;color:#888;font-weight:600}
+.readyup-launch{margin-top:8px}
+.readyup-launch.hidden{display:none}
+
 /* ========== LOBBY ========== */
 #lobby{justify-content:center;align-items:center;background:linear-gradient(135deg,#0a0a14 0%,#141428 50%,#0a1420 100%);overflow-y:auto}
 .lobby-container{text-align:center;max-width:480px;width:90%}
@@ -84,6 +116,7 @@ input{font-family:inherit}
 .hud-player.eliminated{opacity:.4;text-decoration:line-through}
 .hud-player.jailed{border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.06)}
 .hud-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.hud-icon{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.2);flex-shrink:0}
 .hud-name{font-weight:600;font-size:.85rem;white-space:nowrap}
 .hud-cash{font-size:.8rem;color:#00d4aa}
 .hud-props{font-size:.7rem;color:#888}
