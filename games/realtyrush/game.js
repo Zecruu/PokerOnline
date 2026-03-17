@@ -110,8 +110,8 @@ function buildBoard() {
 // Top:    tiles 28..41 (R to L)
 // Left:   tiles 42..55 (T to B)
 
-const TILE_SIZE = 80;
-const BOARD_PX = 14 * TILE_SIZE; // 1120px
+const TILE_SIZE = 110;
+const BOARD_PX = 14 * TILE_SIZE; // 1540px
 
 function tilePos(idx) {
   if (idx < 14) { // bottom row L→R
@@ -1225,35 +1225,65 @@ class RealtyRush {
   }
 
   // ─── PROPERTY ─────────────────────────────────────────────
+
+  // Build rich property card HTML
+  _propertyCard(tile, tileIdx, status) {
+    const sideColor = SIDE_COLORS[tile.side] || "#888";
+    const distName = this.sideName(tile.side);
+    const ownerCount = tile.ownerId != null
+      ? this.players[tile.ownerId].properties.filter(ti => this.board[ti].side === tile.side).length
+      : 0;
+    const totalInSide = this.board.filter(t => t && t.type === "property" && t.side === tile.side).length;
+    const tierStars = "\u2605".repeat(tile.tier) + "\u2606".repeat(4 - tile.tier);
+    const mult = this.tierFineMultiplier(tile.tier);
+    const fineNow = Math.floor(tile.baseFine * mult);
+    const incomeNow = Math.floor(tile.baseIncome * ([0, 1, 1.8, 3, 5][tile.tier] || 1));
+
+    let html = `<div class="tile-card">`;
+    html += `<div class="tile-card-header" style="border-color:${sideColor}">`;
+    html += `<span class="tile-card-district" style="color:${sideColor}">${distName}</span>`;
+    if (status) html += `<span class="tile-card-status ${status.cls || ''}">${status.label}</span>`;
+    html += `</div>`;
+    html += `<div class="tile-card-name">${tile.name}</div>`;
+    html += `<div class="tile-card-tier"><span class="tier-stars" style="color:#fbbf24">${tierStars}</span> <span class="tier-label">Tier ${tile.tier}</span></div>`;
+    html += `<div class="tile-card-stats">`;
+    html += `<div class="tcs-row"><span class="tcs-label">Price</span><span class="tcs-val" style="color:#fbbf24">${fmt(tile.basePrice)}</span></div>`;
+    html += `<div class="tcs-row"><span class="tcs-label">Income</span><span class="tcs-val" style="color:#4ade80">${fmt(incomeNow)}/rnd</span></div>`;
+    html += `<div class="tcs-row"><span class="tcs-label">Fine</span><span class="tcs-val" style="color:#f87171">${fmt(fineNow)}</span></div>`;
+    html += `<div class="tcs-row"><span class="tcs-label">District</span><span class="tcs-val">${ownerCount}/${totalInSide}</span></div>`;
+    if (ownerCount >= 3) html += `<div class="tcs-bonus">District Bonus: +20% fines</div>`;
+    html += `</div>`;
+
+    if (tile.ownerId != null) {
+      const owner = this.players[tile.ownerId];
+      html += `<div class="tile-card-owner"><span class="tco-dot" style="background:${owner.color}"></span>${owner.name}</div>`;
+    }
+
+    html += `</div>`;
+    return html;
+  }
+
   resolveProperty(p, tile, tileIdx) {
     if (tile.ownerId === null) {
       // Unowned — offer to buy
-      let html = `<p class="prop-name">${tile.name}</p>`;
-      html += `<p>Price: <span class="prop-price">${fmt(tile.basePrice)}</span></p>`;
-      html += `<p>Income: <span class="prop-income">${fmt(tile.baseIncome)}/round</span></p>`;
-      html += `<p>Fine: <span class="prop-fine">${fmt(tile.baseFine)}</span></p>`;
-      html += `<p>District: ${this.sideName(tile.side)}</p>`;
+      let html = this._propertyCard(tile, tileIdx, { label: "FOR SALE", cls: "status-sale" });
 
       if (p.cash >= tile.basePrice) {
         html += `<button class="action-btn" onclick="game.buyProperty(${tileIdx})">Buy for ${fmt(tile.basePrice)}</button>`;
       } else {
-        html += `<p style="color:#f87171">Not enough cash!</p>`;
+        html += `<p style="color:#f87171;text-align:center;margin-top:8px">Not enough cash!</p>`;
       }
       html += `<button class="action-btn" onclick="game.showEndTurnAction()">Pass</button>`;
       this.showActionPanel("Property Available", html);
     } else if (tile.ownerId === p.id) {
       // Own property — offer upgrade
-      let html = `<p class="prop-name">${tile.name} (Tier ${tile.tier})</p>`;
+      let html = this._propertyCard(tile, tileIdx, { label: "YOURS", cls: "status-owned" });
       if (tile.tier < 4) {
         const cost = this.tierUpgradeCost(tile);
-        html += `<p>Upgrade to T${tile.tier + 1}: ${fmt(cost)}</p>`;
-        if (p.cash >= cost) {
-          html += `<button class="action-btn" onclick="game.upgradeProperty(${tileIdx})">Upgrade for ${fmt(cost)}</button>`;
-        } else {
-          html += `<p style="color:#f87171">Not enough cash to upgrade.</p>`;
-        }
+        html += `<button class="action-btn" onclick="game.upgradeProperty(${tileIdx})">Upgrade to Tier ${tile.tier + 1} \u2014 ${fmt(cost)}</button>`;
+        if (p.cash < cost) html += `<p style="color:#f87171;text-align:center;font-size:.8rem">Not enough cash to upgrade.</p>`;
       } else {
-        html += `<p style="color:#4ade80">Max tier reached!</p>`;
+        html += `<p style="color:#4ade80;text-align:center;margin-top:8px">Max tier reached!</p>`;
       }
       html += `<button class="action-btn" onclick="game.showEndTurnAction()">Done</button>`;
       this.showActionPanel("Your Property", html);
@@ -1261,14 +1291,18 @@ class RealtyRush {
       // Opponent's property — pay fine
       const owner = this.players[tile.ownerId];
       if (tile.upgradeInProgress) {
-        this.showActionPanel(tile.name, `Under construction — no fine this round.`);
+        let html = this._propertyCard(tile, tileIdx, { label: "CONSTRUCTION", cls: "status-construction" });
+        html += `<p style="text-align:center;color:#fbbf24;margin-top:8px">Under construction \u2014 no fine this round.</p>`;
+        this.showActionPanel(tile.name, html);
         this.showEndTurn();
         return;
       }
 
       // Check alliance
       if (p.allianceWith === owner.id && p.allianceRounds > 0) {
-        this.showActionPanel(tile.name, `Cartel Alliance active — no fine!`);
+        let html = this._propertyCard(tile, tileIdx, { label: "ALLIED", cls: "status-owned" });
+        html += `<p style="text-align:center;color:#00d4aa;margin-top:8px">Cartel Alliance active \u2014 no fine!</p>`;
+        this.showActionPanel(tile.name, html);
         this.showEndTurn();
         return;
       }
@@ -1284,9 +1318,9 @@ class RealtyRush {
       const payerDistrict = p.properties.filter(ti => this.board[ti].side === tile.side).length;
       if (payerDistrict >= 5) fine = Math.floor(fine * 0.75);
 
-      let html = `<p class="prop-name">${tile.name}</p>`;
-      html += `<p>Owner: <span style="color:${owner.color}">${owner.name}</span></p>`;
-      html += `<p>Tier: ${tile.tier} | Fine: <span class="prop-fine">${fmt(fine)}</span></p>`;
+      let html = this._propertyCard(tile, tileIdx, { label: "TRESPASSING", cls: "status-trespass" });
+
+      html += `<div style="text-align:center;margin:8px 0;font-size:1.1rem;font-weight:700;color:#f87171">Fine: ${fmt(fine)}</div>`;
 
       if (hasBribery) {
         html += `<button class="action-btn" onclick="game.useBribery(${tileIdx})">Play Bribery Card (skip fine)</button>`;
@@ -2309,122 +2343,172 @@ class RealtyRush {
     const { x, y } = tilePx(idx);
     const s = TILE_SIZE;
     const pad = 1;
+    const r = 6; // corner radius
 
     // Background
-    let bg = "#14142a";
+    let bg = "#181830";
+    let borderColor = "rgba(255,255,255,0.08)";
     if (tile.type === "property") {
       bg = tile.ownerId !== null ?
-        this.players[tile.ownerId].color + "22" : "#1a1a35";
+        this.players[tile.ownerId].color + "30" : "#1e1e3a";
+      if (tile.ownerId != null) borderColor = this.players[tile.ownerId].color + "55";
     } else if (tile.type === "corner") {
-      bg = CORNER_COLORS[tile.corner] + "18";
+      bg = CORNER_COLORS[tile.corner] + "22";
+      borderColor = CORNER_COLORS[tile.corner] + "55";
     } else if (tile.type === "taxi") {
-      bg = "#fbbf2418";
+      bg = "#fbbf2420"; borderColor = "#fbbf2444";
     } else if (tile.type === "lucky") {
-      bg = "#4ade8018";
+      bg = "#4ade8020"; borderColor = "#4ade8044";
     } else if (tile.type === "unlucky") {
-      bg = "#f8717118";
+      bg = "#f8717120"; borderColor = "#f8717144";
+    } else if (tile.type === "bank") {
+      bg = "#60a5fa18"; borderColor = "#60a5fa44";
+    } else if (tile.type === "momentum") {
+      bg = "#c084fc18"; borderColor = "#c084fc44";
     }
 
+    // Rounded rect fill
+    this._roundRect(ctx, x + pad, y + pad, s - pad * 2, s - pad * 2, r);
     ctx.fillStyle = bg;
-    ctx.fillRect(x + pad, y + pad, s - pad * 2, s - pad * 2);
+    ctx.fill();
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-    // Border
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + pad, y + pad, s - pad * 2, s - pad * 2);
-
-    // Side color bar for properties
+    // Side color bar for properties (thicker)
     if (tile.type === "property" && tile.side) {
       ctx.fillStyle = SIDE_COLORS[tile.side];
-      ctx.fillRect(x + pad, y + pad, s - pad * 2, 4);
+      ctx.fillRect(x + pad + r, y + pad, s - pad * 2 - r * 2, 5);
     }
     if (tile.type === "taxi") {
       ctx.fillStyle = "#fbbf24";
-      ctx.fillRect(x + pad, y + pad, s - pad * 2, 4);
+      ctx.fillRect(x + pad + r, y + pad, s - pad * 2 - r * 2, 5);
     }
 
-    // Ownership indicator
+    // Ownership dot
     if (tile.ownerId != null) {
       ctx.fillStyle = this.players[tile.ownerId].color;
       ctx.beginPath();
-      ctx.arc(x + s - 10, y + 12, 5, 0, Math.PI * 2);
+      ctx.arc(x + s - 14, y + 16, 6, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     }
 
-    // Tier dots for properties
-    if (tile.type === "property" && tile.ownerId !== null) {
+    // Tier stars for owned properties
+    if (tile.type === "property" && tile.ownerId != null) {
+      const tierW = tile.tier * 13;
+      const startX = x + s / 2 - tierW / 2;
       for (let t = 0; t < tile.tier; t++) {
-        ctx.fillStyle = "#fbbf24";
-        ctx.beginPath();
-        ctx.arc(x + 10 + t * 10, y + s - 10, 3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = t < tile.tier ? "#fbbf24" : "#333";
+        ctx.font = "11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("\u2605", startX + t * 13 + 6, y + s - 10);
       }
     }
 
-    // Under construction
+    // Under construction overlay
     if (tile.upgradeInProgress) {
-      ctx.fillStyle = "rgba(251,191,36,0.3)";
-      ctx.fillRect(x + pad, y + pad, s - pad * 2, s - pad * 2);
+      ctx.fillStyle = "rgba(251,191,36,0.2)";
+      this._roundRect(ctx, x + pad, y + pad, s - pad * 2, s - pad * 2, r);
+      ctx.fill();
       ctx.fillStyle = "#fbbf24";
-      ctx.font = "bold 16px sans-serif";
+      ctx.font = "bold 20px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("🔨", x + s / 2, y + s / 2 + 6);
+      ctx.textBaseline = "middle";
+      ctx.fillText("\uD83D\uDD28", x + s / 2, y + s / 2 + 6);
+      return; // don't draw text over construction
     }
 
-    // Tile name
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = "bold 8px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // Abbreviate name
-    let label = tile.name || "";
-    if (label.length > 12) label = label.substring(0, 11) + "…";
-    ctx.fillText(label, x + s / 2, y + s / 2 - 6);
+    // Type icon (centered, above name)
+    const TILE_ICONS = {
+      corner: { hq:"\uD83C\uDFE0", cityhall:"\uD83C\uDFDB", police:"\uD83D\uDE94", underground:"\uD83D\uDCA0" },
+      taxi: "\uD83D\uDE95",
+      tax: "\uD83D\uDCB8",
+      bank: "\uD83C\uDFE6",
+      lucky: "\uD83C\uDF40",
+      unlucky: "\u26A0",
+      momentum: "\u26A1",
+      underground_card: "\uD83C\uDCCF",
+      free: "\uD83D\uDEB6",
+    };
 
-    // Price or type label
+    let icon = "";
+    if (tile.type === "corner") icon = TILE_ICONS.corner[tile.corner] || "";
+    else if (tile.type === "property") icon = "";
+    else icon = TILE_ICONS[tile.type] || "";
+
+    if (icon) {
+      ctx.font = "22px sans-serif";
+      ctx.fillText(icon, x + s / 2, y + s / 2 - 14);
+    }
+
+    // Tile name (word-wrap into 2 lines max)
+    const name = tile.name || "";
+    ctx.fillStyle = "#e8e8f0";
+    ctx.font = "bold 11px sans-serif";
+    const nameY = icon ? y + s / 2 + 8 : y + s / 2 - 8;
+    this._drawWrappedText(ctx, name, x + s / 2, nameY, s - 14, 13, 2);
+
+    // Sub-label
     if (tile.type === "property") {
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
-      ctx.font = "7px sans-serif";
-      ctx.fillText(fmt(tile.basePrice), x + s / 2, y + s / 2 + 8);
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.font = "10px sans-serif";
+      ctx.fillText(fmt(tile.basePrice), x + s / 2, y + s - 22);
     } else if (tile.type === "corner") {
       ctx.fillStyle = CORNER_COLORS[tile.corner];
-      ctx.font = "bold 9px sans-serif";
-      // Icon
-      const icons = { hq:"HQ", cityhall:"CITY", police:"POLICE", underground:"MARKET" };
-      ctx.fillText(icons[tile.corner], x + s / 2, y + s / 2 + 10);
+      ctx.font = "bold 11px sans-serif";
+      const labels = { hq:"HQ", cityhall:"CITY HALL", police:"POLICE", underground:"MARKET" };
+      ctx.fillText(labels[tile.corner], x + s / 2, y + s - 14);
     } else if (tile.type === "tax") {
       ctx.fillStyle = "#f87171";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("TAX 8%", x + s / 2, y + s / 2 + 8);
-    } else if (tile.type === "lucky") {
-      ctx.fillStyle = "#4ade80";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("LUCKY", x + s / 2, y + s / 2 + 8);
-    } else if (tile.type === "unlucky") {
-      ctx.fillStyle = "#f87171";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("UNLUCKY", x + s / 2, y + s / 2 + 8);
-    } else if (tile.type === "taxi") {
-      ctx.fillStyle = "#fbbf24";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("TAXI", x + s / 2, y + s / 2 + 8);
-    } else if (tile.type === "bank") {
-      ctx.fillStyle = "#60a5fa";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("BANK", x + s / 2, y + s / 2 + 8);
-    } else if (tile.type === "momentum") {
-      ctx.fillStyle = "#c084fc";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("±2", x + s / 2, y + s / 2 + 8);
-    } else if (tile.type === "underground_card") {
-      ctx.fillStyle = "#f59e0b";
-      ctx.font = "bold 7px sans-serif";
-      ctx.fillText("CARTEL", x + s / 2, y + s / 2 + 8);
-    } else if (tile.type === "free") {
-      ctx.fillStyle = "rgba(255,255,255,0.3)";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("FREE", x + s / 2, y + s / 2 + 8);
+      ctx.font = "bold 10px sans-serif";
+      ctx.fillText("TAX 8%", x + s / 2, y + s - 14);
+    }
+  }
+
+  // Helper: rounded rectangle path
+  _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // Helper: word-wrap text into maxLines
+  _drawWrappedText(ctx, text, cx, startY, maxWidth, lineHeight, maxLines) {
+    const words = text.split(" ");
+    let lines = [];
+    let line = "";
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      lines[maxLines - 1] = lines[maxLines - 1].slice(0, -1) + "\u2026";
+    }
+    const totalH = lines.length * lineHeight;
+    const topY = startY - totalH / 2 + lineHeight / 2;
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], cx, topY + i * lineHeight);
     }
   }
 
@@ -2438,34 +2522,34 @@ class RealtyRush {
 
     // Logo
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 36px sans-serif";
+    ctx.font = "bold 48px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("Realty", BOARD_PX / 2, BOARD_PX / 2 - 20);
+    ctx.fillText("Realty", BOARD_PX / 2, BOARD_PX / 2 - 28);
     ctx.fillStyle = "#00d4aa";
-    ctx.fillText("Rush", BOARD_PX / 2, BOARD_PX / 2 + 20);
+    ctx.fillText("Rush", BOARD_PX / 2, BOARD_PX / 2 + 28);
 
     // Round
     ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.font = "14px sans-serif";
-    ctx.fillText(`Round ${this.round} — ${MODE_CFG[this.mode].label}`, BOARD_PX / 2, BOARD_PX / 2 + 60);
+    ctx.font = "16px sans-serif";
+    ctx.fillText(`Round ${this.round} \u2014 ${MODE_CFG[this.mode].label}`, BOARD_PX / 2, BOARD_PX / 2 + 72);
 
     // Side labels
     ctx.save();
-    ctx.font = "bold 12px sans-serif";
+    ctx.font = "bold 14px sans-serif";
     ctx.fillStyle = SIDE_COLORS.A;
-    ctx.fillText("DOWNTOWN CORE", BOARD_PX / 2, BOARD_PX - margin + TILE_SIZE / 2 - 16);
+    ctx.fillText("DOWNTOWN CORE", BOARD_PX / 2, BOARD_PX - margin + TILE_SIZE / 2 - 20);
     ctx.fillStyle = SIDE_COLORS.B;
     ctx.save();
-    ctx.translate(BOARD_PX - margin + TILE_SIZE / 2 - 16, BOARD_PX / 2);
+    ctx.translate(BOARD_PX - margin + TILE_SIZE / 2 - 20, BOARD_PX / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillText("RESORT STRIP", 0, 0);
     ctx.restore();
     ctx.fillStyle = SIDE_COLORS.C;
-    ctx.fillText("MIDTOWN", BOARD_PX / 2, margin - TILE_SIZE / 2 + 20);
+    ctx.fillText("MIDTOWN", BOARD_PX / 2, margin - TILE_SIZE / 2 + 24);
     ctx.fillStyle = SIDE_COLORS.D;
     ctx.save();
-    ctx.translate(margin - TILE_SIZE / 2 + 20, BOARD_PX / 2);
+    ctx.translate(margin - TILE_SIZE / 2 + 24, BOARD_PX / 2);
     ctx.rotate(Math.PI / 2);
     ctx.fillText("SUBURBS", 0, 0);
     ctx.restore();
@@ -2474,9 +2558,9 @@ class RealtyRush {
 
   drawToken(ctx, p) {
     const { x, y } = tilePx(p.pos);
-    const offset = p.id * 8;
-    const tx = x + 20 + (offset % 40);
-    const ty = y + 30 + Math.floor(offset / 40) * 12;
+    const offset = p.id * 12;
+    const tx = x + 22 + (offset % 60);
+    const ty = y + 36 + Math.floor(offset / 60) * 16;
 
     // Shadow
     ctx.beginPath();

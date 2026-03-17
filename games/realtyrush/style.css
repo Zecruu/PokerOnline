@@ -91,7 +91,7 @@ input{font-family:inherit}
 .heat-0{color:#4ade80}.heat-1{color:#a3e635}.heat-2{color:#facc15}.heat-3{color:#fb923c}.heat-4{color:#f87171}.heat-5{color:#dc2626;font-weight:700}
 
 /* ========== ACTION PANEL ========== */
-#actionPanel{position:absolute;top:56px;right:12px;width:320px;max-height:calc(100% - 150px);background:rgba(20,20,40,.94);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px;z-index:80;overflow-y:auto}
+#actionPanel{position:absolute;top:56px;right:12px;width:340px;max-height:calc(100% - 150px);background:rgba(16,16,36,.96);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;z-index:80;overflow-y:auto}
 .panel-title{font-size:1.1rem;font-weight:700;margin-bottom:12px;color:#fff}
 .panel.hidden{display:none}
 #actionBody{font-size:.88rem;color:#ccc;line-height:1.5}
@@ -99,11 +99,33 @@ input{font-family:inherit}
 #actionBody .prop-price{color:#fbbf24;font-weight:600}
 #actionBody .prop-income{color:#4ade80}
 #actionBody .prop-fine{color:#f87171}
-.action-btn{display:block;width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:.9rem;transition:all .2s;text-align:center}
-.action-btn:hover{background:rgba(0,212,170,.15);border-color:rgba(0,212,170,.3)}
+.action-btn{display:block;width:100%;margin-top:8px;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:.9rem;font-weight:600;transition:all .2s;text-align:center}
+.action-btn:hover{background:rgba(0,212,170,.15);border-color:rgba(0,212,170,.3);transform:translateY(-1px)}
 .action-btn.danger{border-color:rgba(231,76,60,.3)}
 .action-btn.danger:hover{background:rgba(231,76,60,.15)}
 .action-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ========== TILE PROPERTY CARD ========== */
+.tile-card{background:rgba(20,20,45,.9);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:0;overflow:hidden;margin-bottom:8px}
+.tile-card-header{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:3px solid #888}
+.tile-card-district{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.tile-card-status{font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.5px}
+.status-sale{background:rgba(0,212,170,.2);color:#00d4aa}
+.status-owned{background:rgba(74,222,128,.2);color:#4ade80}
+.status-trespass{background:rgba(248,113,113,.2);color:#f87171}
+.status-construction{background:rgba(251,191,36,.2);color:#fbbf24}
+.tile-card-name{font-size:1.15rem;font-weight:800;color:#fff;padding:12px 14px 4px;text-align:center}
+.tile-card-tier{text-align:center;padding:2px 14px 10px;font-size:.85rem}
+.tier-stars{font-size:1rem;letter-spacing:2px}
+.tier-label{color:#888;font-size:.75rem;margin-left:6px}
+.tile-card-stats{padding:0 14px 10px}
+.tcs-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.85rem}
+.tcs-row:last-child{border:none}
+.tcs-label{color:#888}
+.tcs-val{font-weight:600}
+.tcs-bonus{text-align:center;color:#00d4aa;font-size:.75rem;font-weight:600;padding:4px 0;background:rgba(0,212,170,.08);border-radius:6px;margin-top:4px}
+.tile-card-owner{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.06);font-size:.85rem;font-weight:600}
+.tco-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 
 /* ========== STOCK TICKER ========== */
 #stockTicker{position:absolute;top:56px;left:12px;width:260px;background:rgba(20,20,40,.94);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:12px;z-index:80;transition:all .3s}
