@@ -2542,22 +2542,22 @@ class RealtyRush {
     ctx.font = "16px sans-serif";
     ctx.fillText(`Round ${this.round} \u2014 ${MODE_CFG[this.mode].label}`, BOARD_PX / 2, BOARD_PX / 2 + 72);
 
-    // Side labels
+    // Side labels (inside center area, not overlapping tiles)
     ctx.save();
     ctx.font = "bold 14px sans-serif";
     ctx.fillStyle = SIDE_COLORS.A;
-    ctx.fillText("DOWNTOWN CORE", BOARD_PX / 2, BOARD_PX - margin + TILE_SIZE / 2 - 20);
+    ctx.fillText("DOWNTOWN CORE", BOARD_PX / 2, BOARD_PX - margin - 14);
     ctx.fillStyle = SIDE_COLORS.B;
     ctx.save();
-    ctx.translate(BOARD_PX - margin + TILE_SIZE / 2 - 20, BOARD_PX / 2);
+    ctx.translate(BOARD_PX - margin - 14, BOARD_PX / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillText("RESORT STRIP", 0, 0);
     ctx.restore();
     ctx.fillStyle = SIDE_COLORS.C;
-    ctx.fillText("MIDTOWN", BOARD_PX / 2, margin - TILE_SIZE / 2 + 24);
+    ctx.fillText("MIDTOWN", BOARD_PX / 2, margin + 22);
     ctx.fillStyle = SIDE_COLORS.D;
     ctx.save();
-    ctx.translate(margin - TILE_SIZE / 2 + 24, BOARD_PX / 2);
+    ctx.translate(margin + 22, BOARD_PX / 2);
     ctx.rotate(Math.PI / 2);
     ctx.fillText("SUBURBS", 0, 0);
     ctx.restore();
