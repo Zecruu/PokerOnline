@@ -3010,15 +3010,35 @@ class RealtyRush {
       ctx.fillRect(x + pad + r, y + pad, s - pad * 2 - r * 2, 5);
     }
 
-    // Ownership dot
+    // Ownership icon
     if (tile.ownerId != null) {
-      ctx.fillStyle = this.players[tile.ownerId].color;
-      ctx.beginPath();
-      ctx.arc(x + s - 14, y + 16, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      const owner = this.players[tile.ownerId];
+      const charData = owner.characterKey ? CHARACTER_ASSETS[owner.characterKey] : null;
+      const iconR = 12;
+      const iconX = x + s - iconR - 4;
+      const iconY = y + iconR + 4;
+      if (charData && charData.image && charData.image.complete) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(charData.image, iconX - iconR, iconY - iconR, iconR * 2, iconR * 2);
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
+        ctx.strokeStyle = owner.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = owner.color;
+        ctx.beginPath();
+        ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
     }
 
     // Tier stars for owned properties
