@@ -146,21 +146,46 @@ input{font-family:inherit}
 .tco-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 
 /* ========== STOCK TICKER ========== */
-#stockTicker{position:absolute;top:56px;left:12px;width:260px;background:rgba(20,20,40,.94);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:12px;z-index:80;transition:all .3s}
+#stockTicker{position:absolute;top:56px;left:12px;width:300px;background:rgba(20,20,40,.94);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:12px;z-index:80;transition:all .3s}
 .stock-header{padding:10px 14px;cursor:pointer;font-size:.85rem;font-weight:600;display:flex;justify-content:space-between;align-items:center;color:#aaa}
 .stock-header:hover{color:#fff}
 .stock-header .arrow{transition:transform .3s}
 #stockTicker.collapsed .stock-body{display:none}
 #stockTicker.collapsed .arrow{transform:rotate(-90deg)}
-.stock-body{padding:0 14px 12px;max-height:360px;overflow-y:auto}
-.stock-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.8rem}
-.stock-name{color:#ddd;flex:1}
-.stock-price{font-weight:600;min-width:60px;text-align:right}
-.stock-change{min-width:50px;text-align:right;font-size:.75rem}
+.stock-body{padding:0 10px 12px;max-height:420px;overflow-y:auto}
+.stock-row{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);border-radius:8px;margin-bottom:2px}
+.stock-row.stock-owned{background:rgba(74,222,128,.04);border:1px solid rgba(74,222,128,.1)}
+.stock-info{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+.stock-name{color:#ddd;font-weight:600;font-size:.85rem}
+.stock-sector{color:#666;font-size:.65rem}
+.stock-pricing{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.stock-price{font-weight:700;font-size:.85rem}
+.stock-change{font-size:.75rem;font-weight:600}
 .stock-up{color:#4ade80}.stock-down{color:#f87171}.stock-flat{color:#888}
-.stock-actions{display:flex;gap:4px;margin-left:8px}
-.stock-btn{padding:2px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#aaa;font-size:.7rem}
-.stock-btn:hover{background:rgba(0,212,170,.12);color:#fff}
+.stock-position{background:rgba(255,255,255,.03);border-radius:6px;padding:6px 8px;margin:4px 0;display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:.72rem}
+.sp-label{color:#888;grid-column:1/3;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:.6rem}
+.sp-shares{color:#ddd;font-weight:600}
+.sp-invested{color:#888;text-align:right}
+.sp-value{color:#fbbf24;font-weight:600}
+.sp-pl{text-align:right;font-weight:700}
+.stock-actions{display:flex;gap:6px;margin-top:4px}
+.stock-btn{flex:1;padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#aaa;font-size:.75rem;font-weight:600;text-align:center;cursor:pointer;transition:all .2s}
+.stock-buy-btn:hover{background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.3);color:#4ade80}
+.stock-sell-btn:hover{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.3);color:#f87171}
+
+/* Stock trade modal */
+.stock-modal-card{text-align:center}
+.smc-name{font-size:1.15rem;font-weight:800;color:#fff}
+.smc-sector{font-size:.75rem;color:#888;margin-bottom:8px}
+.smc-price{font-size:.9rem;color:#ccc;margin-bottom:4px}
+.smc-available{font-size:.85rem;color:#4ade80}
+.smc-preview{margin:6px 0}
+.smc-calc{display:flex;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:.85rem;color:#ccc}
+.smc-calc strong{color:#fff}
+.smc-position-detail{text-align:left}
+.smpd-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.85rem;color:#ccc}
+.smpd-row:last-child{border:none}
+.smpd-pl{padding-top:6px;margin-top:2px;border-top:1px solid rgba(255,255,255,.08)}
 
 /* ========== ROLL ========== */
 .roll-btn{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);padding:16px 48px;font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,#00d4aa,#00b894);color:#000;border:none;border-radius:16px;z-index:95;transition:all .25s;box-shadow:0 4px 20px rgba(0,212,170,.3)}

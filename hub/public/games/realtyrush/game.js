@@ -722,7 +722,7 @@ class RealtyRush {
         properties: [], // tile indices
         taxis: [], // tile indices
         cartelHand: [],
-        stocks: {}, // stockId → shares
+        stocks: {}, // stockId → { shares, invested }
         lawsuitLosses: 0,
         eliminated: false,
         hqPassStreak: 0,
@@ -2201,44 +2201,241 @@ class RealtyRush {
   updateStockUI() {
     const body = $("#stockBody");
     if (!body) return;
+    const p = this.cp;
     body.innerHTML = "";
+
     for (const s of this.stocks) {
       const diff = s.price - s.prevPrice;
+      const pctChange = s.prevPrice > 0 ? ((diff / s.prevPrice) * 100).toFixed(1) : "0.0";
       const cls = diff > 0 ? "stock-up" : diff < 0 ? "stock-down" : "stock-flat";
       const sign = diff > 0 ? "+" : "";
+
+      // Player's position in this stock
+      const pos = p ? (p.stocks[s.id] || null) : null;
+      const hasPosition = pos && pos.shares > 0;
+
       const row = document.createElement("div");
-      row.className = "stock-row";
+      row.className = "stock-row" + (hasPosition ? " stock-owned" : "");
+
+      let posHtml = "";
+      if (hasPosition) {
+        const currentVal = Math.floor(pos.shares * s.price);
+        const pl = currentVal - pos.invested;
+        const plCls = pl >= 0 ? "stock-up" : "stock-down";
+        const plSign = pl >= 0 ? "+" : "";
+        const plPct = pos.invested > 0 ? ((pl / pos.invested) * 100).toFixed(1) : "0.0";
+        posHtml = `
+          <div class="stock-position">
+            <span class="sp-label">You own</span>
+            <span class="sp-shares">${pos.shares.toFixed(2)} shares</span>
+            <span class="sp-invested">Invested: ${fmt(pos.invested)}</span>
+            <span class="sp-value">Value: ${fmt(currentVal)}</span>
+            <span class="sp-pl ${plCls}">${plSign}${fmt(Math.abs(pl))} (${plSign}${plPct}%)</span>
+          </div>
+        `;
+      }
+
       row.innerHTML = `
-        <span class="stock-name">${s.name}</span>
-        <span class="stock-price ${cls}">${fmt(s.price)}</span>
-        <span class="stock-change ${cls}">${sign}${diff}</span>
-        <span class="stock-actions">
-          <button class="stock-btn" onclick="game.buyStock('${s.id}')">B</button>
-          <button class="stock-btn" onclick="game.sellStock('${s.id}')">S</button>
-        </span>
+        <div class="stock-info">
+          <span class="stock-name">${s.name}</span>
+          <span class="stock-sector">${s.sector}</span>
+        </div>
+        <div class="stock-pricing">
+          <span class="stock-price ${cls}">${fmt(s.price)}/share</span>
+          <span class="stock-change ${cls}">${sign}${pctChange}%</span>
+        </div>
+        ${posHtml}
+        <div class="stock-actions">
+          <button class="stock-btn stock-buy-btn" onclick="game.openBuyStock('${s.id}')">Buy</button>
+          ${hasPosition ? `<button class="stock-btn stock-sell-btn" onclick="game.openSellStock('${s.id}')">Sell</button>` : ''}
+        </div>
       `;
       body.appendChild(row);
     }
   }
 
-  buyStock(stockId) {
+  openBuyStock(stockId) {
     const p = this.cp;
     const s = this.stocks.find(x => x.id === stockId);
-    if (!s || p.cash < s.price) return;
-    p.cash -= s.price;
-    p.stocks[stockId] = (p.stocks[stockId] || 0) + 1;
-    this.emit("rr:stockTrade", { action:"buy", stockId });
+    if (!s || !p) return;
+    const maxInvest = p.cash;
+    if (maxInvest <= 0) {
+      this.showModal("No Cash", "You don't have any cash to invest.", [{text:"OK", action:() => this.hideModal()}]);
+      return;
+    }
+    const sharesForMax = (maxInvest / s.price).toFixed(2);
+
+    let html = `<div class="stock-modal-card">`;
+    html += `<div class="smc-name">${s.name}</div>`;
+    html += `<div class="smc-sector">${s.sector}</div>`;
+    html += `<div class="smc-price">Current Price: <strong>${fmt(s.price)}</strong>/share</div>`;
+    html += `<div class="smc-available">Available Cash: <strong>${fmt(p.cash)}</strong></div>`;
+    html += `<hr style="border-color:rgba(255,255,255,.06);margin:10px 0">`;
+    html += `<label style="color:#888;font-size:.8rem">Investment Amount</label>`;
+    html += `<input type="number" id="stockBuyAmount" class="auction-input" min="1" max="${maxInvest}" step="100" value="${Math.min(1000, maxInvest)}" style="margin:6px 0">`;
+    html += `<div class="smc-preview" id="stockBuyPreview"></div>`;
+    html += `<div class="auction-quick-bids" style="margin:8px 0">`;
+    const quicks = [500, 1000, 2500, 5000];
+    for (const q of quicks) {
+      if (q <= maxInvest) {
+        html += `<button class="auction-quick-btn" onclick="document.getElementById('stockBuyAmount').value=${q};game._updateBuyPreview('${stockId}')">${fmt(q)}</button>`;
+      }
+    }
+    if (maxInvest > 5000) {
+      html += `<button class="auction-quick-btn" onclick="document.getElementById('stockBuyAmount').value=${maxInvest};game._updateBuyPreview('${stockId}')">ALL IN</button>`;
+    }
+    html += `</div>`;
+    html += `</div>`;
+
+    this.showModal(`Buy ${s.name}`, html, [
+      {text:"Invest", action:() => this.confirmBuyStock(stockId)},
+      {text:"Cancel", action:() => this.hideModal()},
+    ]);
+
+    // Update preview after modal renders
+    setTimeout(() => {
+      this._updateBuyPreview(stockId);
+      const input = document.getElementById("stockBuyAmount");
+      if (input) input.oninput = () => this._updateBuyPreview(stockId);
+    }, 50);
+  }
+
+  _updateBuyPreview(stockId) {
+    const el = document.getElementById("stockBuyPreview");
+    const input = document.getElementById("stockBuyAmount");
+    if (!el || !input) return;
+    const s = this.stocks.find(x => x.id === stockId);
+    if (!s) return;
+    const amount = parseInt(input.value) || 0;
+    const shares = amount / s.price;
+    el.innerHTML = `
+      <div class="smc-calc">
+        <span>You get: <strong>${shares.toFixed(2)} shares</strong></span>
+        <span>Ownership: <strong>${((shares / 1) * 100).toFixed(0)}%</strong> of 1 share</span>
+      </div>
+    `;
+  }
+
+  confirmBuyStock(stockId) {
+    const p = this.cp;
+    const s = this.stocks.find(x => x.id === stockId);
+    const input = document.getElementById("stockBuyAmount");
+    if (!s || !p || !input) return;
+    const amount = Math.min(Math.max(1, parseInt(input.value) || 0), p.cash);
+    if (amount <= 0) return;
+
+    const shares = amount / s.price;
+
+    if (!p.stocks[s.id]) {
+      p.stocks[s.id] = { shares: 0, invested: 0 };
+    }
+    p.stocks[s.id].shares += shares;
+    p.stocks[s.id].invested += amount;
+    p.cash -= amount;
+
+    this.emit("rr:stockTrade", { action:"buy", stockId, amount });
+    this.hideModal();
     this.updateHUD();
     this.updateStockUI();
   }
 
-  sellStock(stockId) {
+  openSellStock(stockId) {
     const p = this.cp;
     const s = this.stocks.find(x => x.id === stockId);
-    if (!s || !p.stocks[stockId] || p.stocks[stockId] <= 0) return;
-    p.stocks[stockId]--;
-    p.cash += s.price;
-    this.emit("rr:sellTrade", { action:"sell", stockId });
+    if (!s || !p) return;
+    const pos = p.stocks[s.id];
+    if (!pos || pos.shares <= 0) return;
+
+    const currentVal = Math.floor(pos.shares * s.price);
+    const pl = currentVal - pos.invested;
+    const plCls = pl >= 0 ? "stock-up" : "stock-down";
+    const plSign = pl >= 0 ? "+" : "";
+    const plPct = pos.invested > 0 ? ((pl / pos.invested) * 100).toFixed(1) : "0.0";
+
+    let html = `<div class="stock-modal-card">`;
+    html += `<div class="smc-name">${s.name}</div>`;
+    html += `<div class="smc-sector">${s.sector}</div>`;
+    html += `<div class="smc-price">Current Price: <strong>${fmt(s.price)}</strong>/share</div>`;
+    html += `<hr style="border-color:rgba(255,255,255,.06);margin:10px 0">`;
+    html += `<div class="smc-position-detail">`;
+    html += `<div class="smpd-row"><span>Shares Owned</span><span>${pos.shares.toFixed(2)}</span></div>`;
+    html += `<div class="smpd-row"><span>Total Invested</span><span>${fmt(pos.invested)}</span></div>`;
+    html += `<div class="smpd-row"><span>Current Value</span><span style="color:#fbbf24"><strong>${fmt(currentVal)}</strong></span></div>`;
+    html += `<div class="smpd-row smpd-pl"><span>Profit / Loss</span><span class="${plCls}"><strong>${plSign}${fmt(Math.abs(pl))}</strong> (${plSign}${plPct}%)</span></div>`;
+    html += `</div>`;
+
+    // Partial sell
+    html += `<label style="color:#888;font-size:.8rem;margin-top:8px;display:block">Shares to Sell</label>`;
+    html += `<input type="number" id="stockSellShares" class="auction-input" min="0.01" max="${pos.shares.toFixed(2)}" step="0.01" value="${pos.shares.toFixed(2)}" style="margin:6px 0">`;
+    html += `<div id="stockSellPreview" class="smc-preview"></div>`;
+
+    html += `<div class="auction-quick-bids" style="margin:8px 0">`;
+    html += `<button class="auction-quick-btn" onclick="document.getElementById('stockSellShares').value=${(pos.shares*0.25).toFixed(2)};game._updateSellPreview('${s.id}')">25%</button>`;
+    html += `<button class="auction-quick-btn" onclick="document.getElementById('stockSellShares').value=${(pos.shares*0.5).toFixed(2)};game._updateSellPreview('${s.id}')">50%</button>`;
+    html += `<button class="auction-quick-btn" onclick="document.getElementById('stockSellShares').value=${(pos.shares*0.75).toFixed(2)};game._updateSellPreview('${s.id}')">75%</button>`;
+    html += `<button class="auction-quick-btn" onclick="document.getElementById('stockSellShares').value=${pos.shares.toFixed(2)};game._updateSellPreview('${s.id}')">ALL</button>`;
+    html += `</div>`;
+
+    html += `</div>`;
+
+    this.showModal(`Sell ${s.name}`, html, [
+      {text:"Sell", action:() => this.confirmSellStock(stockId)},
+      {text:"Cancel", action:() => this.hideModal()},
+    ]);
+
+    setTimeout(() => {
+      this._updateSellPreview(stockId);
+      const input = document.getElementById("stockSellShares");
+      if (input) input.oninput = () => this._updateSellPreview(stockId);
+    }, 50);
+  }
+
+  _updateSellPreview(stockId) {
+    const el = document.getElementById("stockSellPreview");
+    const input = document.getElementById("stockSellShares");
+    if (!el || !input) return;
+    const s = this.stocks.find(x => x.id === stockId);
+    const pos = this.cp?.stocks[s.id];
+    if (!s || !pos) return;
+    const shares = Math.min(parseFloat(input.value) || 0, pos.shares);
+    const proceeds = Math.floor(shares * s.price);
+    const costBasis = Math.floor((shares / pos.shares) * pos.invested);
+    const pl = proceeds - costBasis;
+    const plCls = pl >= 0 ? "stock-up" : "stock-down";
+    const plSign = pl >= 0 ? "+" : "";
+    el.innerHTML = `
+      <div class="smc-calc">
+        <span>You receive: <strong>${fmt(proceeds)}</strong></span>
+        <span class="${plCls}">${plSign}${fmt(Math.abs(pl))} profit/loss</span>
+      </div>
+    `;
+  }
+
+  confirmSellStock(stockId) {
+    const p = this.cp;
+    const s = this.stocks.find(x => x.id === stockId);
+    const input = document.getElementById("stockSellShares");
+    if (!s || !p || !input) return;
+    const pos = p.stocks[s.id];
+    if (!pos || pos.shares <= 0) return;
+
+    let sharesToSell = Math.min(parseFloat(input.value) || 0, pos.shares);
+    if (sharesToSell <= 0) return;
+
+    const proceeds = Math.floor(sharesToSell * s.price);
+    const costPortion = Math.floor((sharesToSell / pos.shares) * pos.invested);
+
+    pos.shares -= sharesToSell;
+    pos.invested -= costPortion;
+    p.cash += proceeds;
+
+    // Clean up if fully sold
+    if (pos.shares <= 0.001) {
+      delete p.stocks[s.id];
+    }
+
+    this.emit("rr:stockTrade", { action:"sell", stockId, shares: sharesToSell });
+    this.hideModal();
     this.updateHUD();
     this.updateStockUI();
   }
@@ -2252,9 +2449,10 @@ class RealtyRush {
     for (const ti of p.taxis) {
       nw += 22000;
     }
-    for (const [sid, qty] of Object.entries(p.stocks)) {
+    for (const [sid, pos] of Object.entries(p.stocks)) {
       const s = this.stocks.find(x => x.id === sid);
-      if (s) nw += s.price * qty;
+      if (s && pos && typeof pos === "object") nw += Math.floor(s.price * pos.shares);
+      else if (s && typeof pos === "number") nw += s.price * pos; // legacy fallback
     }
     return nw;
   }
