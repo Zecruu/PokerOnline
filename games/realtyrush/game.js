@@ -40,63 +40,63 @@ function buildBoard() {
   board[28] = { type:"corner", name:"Police Precinct", corner:"police" };
   board[42] = { type:"corner", name:"Underground Market", corner:"underground" };
 
-  // ─ Side A: Downtown Core (tiles 1-13, 8 props + 1 taxi + special) ─
-  board[1]  = prop(1, "Capital Tower",    85000,5500,8000,"A");
-  board[2]  = prop(2, "Exchange Plaza",   78000,5000,7500,"A");
-  board[3]  = { type:"taxi", name:"Central Depot", side:"A", ownerId:null };
-  board[4]  = prop(4, "Prestige Centre",  72000,4600,7000,"A");
-  board[5]  = prop(5, "Financial Row",    65000,4200,6500,"A");
+  // ─ Side A: Financial District (A1) + Commerce Row (A2) ─
+  board[1]  = prop(1, "Capital Tower",    85000,5500,8000,"A1");
+  board[2]  = prop(2, "Exchange Plaza",   78000,5000,7500,"A1");
+  board[3]  = { type:"taxi", name:"Central Depot", side:"A1", ownerId:null };
+  board[4]  = prop(4, "Prestige Centre",  72000,4600,7000,"A1");
+  board[5]  = prop(5, "Financial Row",    65000,4200,6500,"A1");
   board[6]  = { type:"tax", name:"Tax Office" };
-  board[7]  = prop(7, "Skyline Drive",    58000,3800,6000,"A");
-  board[8]  = prop(8, "Commerce Street",  52000,3400,5500,"A");
+  board[7]  = prop(7, "Skyline Drive",    58000,3800,6000,"A2");
+  board[8]  = prop(8, "Commerce Street",  52000,3400,5500,"A2");
   board[9]  = { type:"momentum", name:"Momentum" };
-  board[10] = prop(10,"Midrise Avenue",   46000,3000,5000,"A");
+  board[10] = prop(10,"Midrise Avenue",   46000,3000,5000,"A2");
   board[11] = { type:"underground_card", name:"Back Alley Deal" };
-  board[12] = prop(11,"Business Lane",    40000,2600,4500,"A");
+  board[12] = prop(11,"Business Lane",    40000,2600,4500,"A2");
   board[13] = { type:"bank", name:"First National Bank" };
 
-  // ─ Side B: Resort Strip (tiles 15-27) ─
-  board[15] = prop(15,"Grand Marina",     42000,2800,4200,"B");
-  board[16] = prop(16,"Oceanfront Hotel", 38000,2500,3800,"B");
-  board[17] = { type:"taxi", name:"Beachfront Terminal", side:"B", ownerId:null };
-  board[18] = prop(18,"Sunset Boardwalk", 35000,2300,3500,"B");
-  board[19] = prop(19,"Palm Boulevard",   32000,2100,3200,"B");
+  // ─ Side B: Oceanfront (B1) + Coastal (B2) ─
+  board[15] = prop(15,"Grand Marina",     42000,2800,4200,"B1");
+  board[16] = prop(16,"Oceanfront Hotel", 38000,2500,3800,"B1");
+  board[17] = { type:"taxi", name:"Beachfront Terminal", side:"B1", ownerId:null };
+  board[18] = prop(18,"Sunset Boardwalk", 35000,2300,3500,"B1");
+  board[19] = prop(19,"Palm Boulevard",   32000,2100,3200,"B1");
   board[20] = { type:"unlucky", name:"Unlucky Drop" };
-  board[21] = prop(21,"Harbour View",     28000,1900,2900,"B");
-  board[22] = prop(22,"Beachside Retreat",25000,1700,2600,"B");
+  board[21] = prop(21,"Harbour View",     28000,1900,2900,"B2");
+  board[22] = prop(22,"Beachside Retreat",25000,1700,2600,"B2");
   board[23] = { type:"momentum", name:"Momentum" };
-  board[24] = prop(24,"Coastal Commons",  22000,1500,2300,"B");
-  board[25] = prop(25,"Sandy Shores",     18000,1300,2000,"B");
+  board[24] = prop(24,"Coastal Commons",  22000,1500,2300,"B2");
+  board[25] = prop(25,"Sandy Shores",     18000,1300,2000,"B2");
   board[26] = { type:"free", name:"Free Roam" };
   board[27] = { type:"bank", name:"Community Credit Union" };
 
-  // ─ Side C: Midtown (tiles 29-41) ─
-  board[29] = prop(29,"Uptown Flats",     20000,1400,2100,"C");
-  board[30] = prop(30,"Central Market",   18000,1250,1900,"C");
-  board[31] = { type:"taxi", name:"Crosstown Hub", side:"C", ownerId:null };
-  board[32] = prop(32,"Riverside Complex",16000,1100,1700,"C");
-  board[33] = prop(33,"Metro Commons",    14000, 980,1500,"C");
+  // ─ Side C: Uptown (C1) + Greenway (C2) ─
+  board[29] = prop(29,"Uptown Flats",     20000,1400,2100,"C1");
+  board[30] = prop(30,"Central Market",   18000,1250,1900,"C1");
+  board[31] = { type:"taxi", name:"Crosstown Hub", side:"C1", ownerId:null };
+  board[32] = prop(32,"Riverside Complex",16000,1100,1700,"C1");
+  board[33] = prop(33,"Metro Commons",    14000, 980,1500,"C1");
   board[34] = { type:"tax", name:"City Tax Bureau" };
-  board[35] = prop(35,"Greenway Apts",    12000, 860,1300,"C");
-  board[36] = prop(36,"Junction Square",  10500, 750,1150,"C");
+  board[35] = prop(35,"Greenway Apts",    12000, 860,1300,"C2");
+  board[36] = prop(36,"Junction Square",  10500, 750,1150,"C2");
   board[37] = { type:"underground_card", name:"Shady Contact" };
-  board[38] = prop(38,"Park Place",        9000, 650,1000,"C");
-  board[39] = prop(39,"Cross Street",      7500, 560, 850,"C");
+  board[38] = prop(38,"Park Place",        9000, 650,1000,"C2");
+  board[39] = prop(39,"Cross Street",      7500, 560, 850,"C2");
   board[40] = { type:"unlucky", name:"Unlucky Drop" };
   board[41] = { type:"momentum", name:"Momentum" };
 
-  // ─ Side D: Suburbs (tiles 43-55) ─
-  board[43] = prop(43,"Maple Grove",   8000,580,900,"D");
-  board[44] = prop(44,"Elmwood Estate",7000,510,800,"D");
-  board[45] = { type:"taxi", name:"Eastside Station", side:"D", ownerId:null };
-  board[46] = prop(46,"Birchwood Lane",6500,470,720,"D");
-  board[47] = prop(47,"Cedar Heights", 6000,430,660,"D");
+  // ─ Side D: Oakwood (D1) + Pinewood (D2) ─
+  board[43] = prop(43,"Maple Grove",   8000,580,900,"D1");
+  board[44] = prop(44,"Elmwood Estate",7000,510,800,"D1");
+  board[45] = { type:"taxi", name:"Eastside Station", side:"D1", ownerId:null };
+  board[46] = prop(46,"Birchwood Lane",6500,470,720,"D1");
+  board[47] = prop(47,"Cedar Heights", 6000,430,660,"D1");
   board[48] = { type:"lucky", name:"Lucky Drop" };
-  board[49] = prop(49,"Oak Park",      5500,400,610,"D");
-  board[50] = prop(50,"Willow Creek",  5000,370,560,"D");
+  board[49] = prop(49,"Oak Park",      5500,400,610,"D2");
+  board[50] = prop(50,"Willow Creek",  5000,370,560,"D2");
   board[51] = { type:"lucky", name:"Lucky Drop" };
-  board[52] = prop(52,"Pine Ridge",    4500,340,510,"D");
-  board[53] = prop(53,"Meadow View",   4000,310,460,"D");
+  board[52] = prop(52,"Pine Ridge",    4500,340,510,"D2");
+  board[53] = prop(53,"Meadow View",   4000,310,460,"D2");
   board[54] = { type:"lucky", name:"Lucky Drop" };
   board[55] = { type:"free", name:"Free Roam" };
 
@@ -131,7 +131,7 @@ function tilePx(idx) {
 }
 
 // ─── SIDE COLORS ────────────────────────────────────────────
-const SIDE_COLORS = { A:"#e74c3c", B:"#3498db", C:"#2ecc71", D:"#f1c40f" };
+const SIDE_COLORS = { A1:"#e74c3c", A2:"#ff6b6b", B1:"#3498db", B2:"#60a5fa", C1:"#2ecc71", C2:"#6ee7b7", D1:"#f1c40f", D2:"#fbbf24" };
 const CORNER_COLORS = { hq:"#00d4aa", cityhall:"#8b5cf6", police:"#ef4444", underground:"#f59e0b" };
 
 // ─── CARTEL CARDS ───────────────────────────────────────────
@@ -1099,12 +1099,13 @@ class RealtyRush {
 
   districtBonus(player, side) {
     const count = player.properties.filter(ti => this.board[ti].side === side).length;
-    return [0, 0, 0.10, 0.25, 0.40, 0.55, 0.70, 0.85, 1.00][count] || 0;
+    // 4 props per district: 2=15%, 3=35%, 4=60% (monopoly)
+    return [0, 0, 0.15, 0.35, 0.60][count] || 0;
   }
 
   districtFineBonus(player, side) {
     const count = player.properties.filter(ti => this.board[ti].side === side).length;
-    if (count >= 3) return 0.20;
+    if (count >= 3) return 0.25;
     return 0;
   }
 
@@ -1325,11 +1326,9 @@ class RealtyRush {
     html += `<div class="tile-card-section-label">District Bonus <span style="color:${sideColor}">${distName}</span></div>`;
     html += `<div class="tile-card-district-info">`;
     const distLevels = [
-      { count: 2, bonus: "10%", label: "2 props" },
-      { count: 3, bonus: "25%", label: "3 props" },
-      { count: 4, bonus: "40%", label: "4 props" },
-      { count: 5, bonus: "55%", label: "5 props" },
-      { count: 6, bonus: "70%", label: "6 props" },
+      { count: 2, bonus: "15%", label: "2 props" },
+      { count: 3, bonus: "35%", label: "3 props" },
+      { count: 4, bonus: "60%", label: "4 props \u2014 Monopoly!" },
     ];
     const relevantCount = tile.ownerId != null ? ownerCount : cpCountIfBuy;
     for (const dl of distLevels) {
@@ -1342,7 +1341,7 @@ class RealtyRush {
       html += `</div>`;
     }
     if (ownerCount >= 3 || cpCountIfBuy >= 3) {
-      html += `<div class="tcs-bonus">+20% trespassing fines active</div>`;
+      html += `<div class="tcs-bonus">+25% trespassing fines active</div>`;
     }
     html += `<div class="tcd-total">${relevantCount}/${totalInSide} properties in district</div>`;
     html += `</div>`;
@@ -2581,7 +2580,7 @@ class RealtyRush {
     html += `</div>`;
 
     // Properties by district
-    const sides = ["A", "B", "C", "D"];
+    const sides = ["A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2"];
     html += `<div class="pf-section-label">Properties (${p.properties.length})</div>`;
 
     if (p.properties.length === 0) {
@@ -2748,7 +2747,7 @@ class RealtyRush {
   }
 
   sideName(side) {
-    return { A:"Downtown Core", B:"Resort Strip", C:"Midtown", D:"Suburbs" }[side] || side;
+    return { A1:"Financial District", A2:"Commerce Row", B1:"Oceanfront", B2:"Coastal", C1:"Uptown", C2:"Greenway", D1:"Oakwood", D2:"Pinewood" }[side] || side;
   }
 
   updateHUD() {
@@ -3029,24 +3028,44 @@ class RealtyRush {
     ctx.font = "16px sans-serif";
     ctx.fillText(`Round ${this.round} \u2014 ${MODE_CFG[this.mode].label}`, BOARD_PX / 2, BOARD_PX / 2 + 72);
 
-    // Side labels (inside center area, not overlapping tiles)
+    // Side labels (2 districts per side, inside center area)
     ctx.save();
-    ctx.font = "bold 14px sans-serif";
-    ctx.fillStyle = SIDE_COLORS.A;
-    ctx.fillText("DOWNTOWN CORE", BOARD_PX / 2, BOARD_PX - margin - 14);
-    ctx.fillStyle = SIDE_COLORS.B;
+    ctx.font = "bold 12px sans-serif";
+    // Bottom: A1 (left half) + A2 (right half)
+    ctx.fillStyle = SIDE_COLORS.A1;
+    ctx.fillText("FINANCIAL DIST.", BOARD_PX / 2 - inner / 4, BOARD_PX - margin - 14);
+    ctx.fillStyle = SIDE_COLORS.A2;
+    ctx.fillText("COMMERCE ROW", BOARD_PX / 2 + inner / 4, BOARD_PX - margin - 14);
+    // Right: B1 (bottom half) + B2 (top half)
     ctx.save();
-    ctx.translate(BOARD_PX - margin - 14, BOARD_PX / 2);
+    ctx.translate(BOARD_PX - margin - 14, BOARD_PX / 2 + inner / 4);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText("RESORT STRIP", 0, 0);
+    ctx.fillStyle = SIDE_COLORS.B1;
+    ctx.fillText("OCEANFRONT", 0, 0);
     ctx.restore();
-    ctx.fillStyle = SIDE_COLORS.C;
-    ctx.fillText("MIDTOWN", BOARD_PX / 2, margin + 22);
-    ctx.fillStyle = SIDE_COLORS.D;
     ctx.save();
-    ctx.translate(margin + 22, BOARD_PX / 2);
+    ctx.translate(BOARD_PX - margin - 14, BOARD_PX / 2 - inner / 4);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = SIDE_COLORS.B2;
+    ctx.fillText("COASTAL", 0, 0);
+    ctx.restore();
+    // Top: C1 (right half) + C2 (left half)
+    ctx.fillStyle = SIDE_COLORS.C1;
+    ctx.fillText("UPTOWN", BOARD_PX / 2 + inner / 4, margin + 22);
+    ctx.fillStyle = SIDE_COLORS.C2;
+    ctx.fillText("GREENWAY", BOARD_PX / 2 - inner / 4, margin + 22);
+    // Left: D1 (top half) + D2 (bottom half)
+    ctx.save();
+    ctx.translate(margin + 22, BOARD_PX / 2 - inner / 4);
     ctx.rotate(Math.PI / 2);
-    ctx.fillText("SUBURBS", 0, 0);
+    ctx.fillStyle = SIDE_COLORS.D1;
+    ctx.fillText("OAKWOOD", 0, 0);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(margin + 22, BOARD_PX / 2 + inner / 4);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillStyle = SIDE_COLORS.D2;
+    ctx.fillText("PINEWOOD", 0, 0);
     ctx.restore();
     ctx.restore();
   }
