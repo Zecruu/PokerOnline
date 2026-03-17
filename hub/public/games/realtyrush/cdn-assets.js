@@ -26,6 +26,10 @@ const CHARACTER_ASSETS = {
         icon: 'characters/divina-marina.png',
         name: 'Divina Marina',
     },
+    homelessJoe: {
+        icon: 'characters/homeless-joe.png',
+        name: 'Homeless Joe',
+    },
 };
 
 // Preload character images
