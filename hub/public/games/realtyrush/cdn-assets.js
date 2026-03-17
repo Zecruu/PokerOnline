@@ -54,12 +54,57 @@ const TILE_ASSETS = {
     // Corners
     corner_hq: 'tiles/hq.png',
     corner_cityhall: 'tiles/cityhall.png',
-    // corner_police: 'tiles/police.png',
-    // corner_underground: 'tiles/underground.png',
-    // Properties — uncomment as images are added
-    // tile_1: 'tiles/capital-tower.png',
-    // tile_2: 'tiles/exchange-plaza.png',
-    // ... add more as generated
+    corner_police: 'tiles/police.png',
+    corner_underground: 'tiles/underground.png',
+    // Financial District (A1)
+    tile_1: 'tiles/capital-tower.png',
+    tile_2: 'tiles/exchange-plaza.png',
+    tile_4: 'tiles/prestige-centre.png',
+    tile_5: 'tiles/financial-row.png',
+    // Commerce Row (A2)
+    tile_7: 'tiles/skyline-drive.png',
+    tile_8: 'tiles/commerce-street.png',
+    tile_10: 'tiles/midrise-avenue.png',
+    tile_12: 'tiles/business-lane.png',
+    // Oceanfront (B1)
+    tile_15: 'tiles/grand-marina.png',
+    tile_16: 'tiles/oceanfront-hotel.png',
+    tile_18: 'tiles/sunset-boardwalk.png',
+    tile_19: 'tiles/palm-boulevard.png',
+    // Coastal (B2)
+    tile_21: 'tiles/harbour-view.png',
+    tile_22: 'tiles/beachside-retreat.png',
+    tile_24: 'tiles/coastal-commons.png',
+    tile_25: 'tiles/sandy-shores.png',
+    // Uptown (C1)
+    tile_29: 'tiles/uptown-flats.png',
+    tile_30: 'tiles/central-market.png',
+    tile_32: 'tiles/riverside-complex.png',
+    tile_33: 'tiles/metro-commons.png',
+    // Greenway (C2)
+    tile_35: 'tiles/greenway-apts.png',
+    tile_36: 'tiles/junction-square.png',
+    tile_38: 'tiles/park-place.png',
+    tile_39: 'tiles/cross-street.png',
+    // Oakwood (D1)
+    tile_43: 'tiles/maple-grove.png',
+    tile_44: 'tiles/elmwood-estate.png',
+    tile_46: 'tiles/birchwood-lane.png',
+    tile_47: 'tiles/cedar-heights.png',
+    // Pinewood (D2)
+    tile_49: 'tiles/oak-park.png',
+    tile_50: 'tiles/willow-creek.png',
+    tile_52: 'tiles/pine-ridge.png',
+    tile_53: 'tiles/meadow-view.png',
+    // Special tiles
+    special_taxi: 'tiles/taxi.png',
+    special_tax: 'tiles/tax.png',
+    special_bank: 'tiles/bank.png',
+    special_momentum: 'tiles/momentum.png',
+    special_cartel: 'tiles/cartel.png',
+    special_lucky: 'tiles/lucky.png',
+    special_unlucky: 'tiles/unlucky.png',
+    special_free: 'tiles/free-roam.png',
 };
 
 const TILE_IMAGES = {}; // key → Image object
@@ -83,7 +128,14 @@ function preloadTileAssets() {
 // Get tile image key for a given board tile
 function getTileImageKey(tile, idx) {
     if (tile.type === "corner") return "corner_" + tile.corner;
-    return "tile_" + idx;
+    if (tile.type === "property") return "tile_" + idx;
+    // Special tiles share images
+    const specialMap = {
+        taxi: "special_taxi", tax: "special_tax", bank: "special_bank",
+        momentum: "special_momentum", underground_card: "special_cartel",
+        lucky: "special_lucky", unlucky: "special_unlucky", free: "special_free",
+    };
+    return specialMap[tile.type] || "tile_" + idx;
 }
 
 // Preload character images
