@@ -168,6 +168,24 @@ input{font-family:inherit}
 .cartel-card .cc-name{color:#c4b5fd;font-weight:600}
 .cartel-card .cc-heat{color:#f87171;font-size:.7rem}
 
+/* ========== AUCTION ========== */
+.auction-info{margin:8px 0 12px}
+.auction-current-bid{text-align:center;padding:12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:10px;margin-bottom:8px}
+.auction-label{display:block;font-size:.7rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.auction-amount{display:block;font-size:1.6rem;font-weight:900;color:#fbbf24}
+.auction-bidder{display:block;font-size:.85rem;font-weight:600;margin-top:2px}
+.auction-your-turn{display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:.9rem;font-weight:600}
+.auction-turn-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.auction-cash{margin-left:auto;color:#888;font-size:.8rem;font-weight:400}
+.auction-quick-bids{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0 8px}
+.auction-quick-btn{padding:10px;border-radius:8px;border:1px solid rgba(251,191,36,.25);background:rgba(251,191,36,.08);color:#fbbf24;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;text-align:center}
+.auction-quick-btn:hover{background:rgba(251,191,36,.2);border-color:rgba(251,191,36,.5);transform:translateY(-1px)}
+.auction-custom{display:flex;gap:6px;margin:8px 0 4px}
+.auction-input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:10px 12px;color:#fff;font-size:1rem;font-weight:600;text-align:center}
+.auction-input:focus{outline:none;border-color:rgba(251,191,36,.5)}
+.auction-custom .action-btn{flex:0 0 auto;width:auto;padding:10px 20px;margin:0}
+.auction-min-hint{text-align:center;font-size:.7rem;color:#666;margin-top:2px}
+
 /* ========== MODAL ========== */
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:300;display:flex;justify-content:center;align-items:center}
 .modal-overlay.hidden{display:none}

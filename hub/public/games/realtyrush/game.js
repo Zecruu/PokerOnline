@@ -1906,11 +1906,11 @@ class RealtyRush {
     let currentBid = Math.max(1000, Math.floor(tile.basePrice * 0.3));
     let highBidder = null;
     let bidRound = 0;
+    let consecutivePasses = 0;
 
     const nextBid = () => {
-      const bidder = bidders[bidRound % bidders.length];
-      if (bidRound >= bidders.length * 3) {
-        // Auction ends
+      // End if everyone passed in a row, or max rounds reached
+      if (consecutivePasses >= bidders.length || bidRound >= bidders.length * 5) {
         if (highBidder) {
           highBidder.cash -= currentBid;
           tile.ownerId = highBidder.id;
@@ -1925,25 +1925,63 @@ class RealtyRush {
         return;
       }
 
-      // AI-like auto bid for simplicity (pass-and-play: show bid option)
-      const minBid = Math.floor(currentBid * 1.05);
-      let html = `<p class="prop-name">${tile.name}</p>`;
-      html += `<p>Base: ${fmt(tile.basePrice)} | Income: ${fmt(tile.baseIncome)}/round</p>`;
-      html += `<p>Current Bid: <span class="prop-price">${fmt(currentBid)}</span>`;
-      html += highBidder ? ` by <span style="color:${highBidder.color}">${highBidder.name}</span>` : '';
-      html += `</p><p>Bidding: <span style="color:${bidder.color}">${bidder.name}</span> (${fmt(bidder.cash)})</p>`;
+      const bidder = bidders[bidRound % bidders.length];
 
-      if (bidder.cash >= minBid && bidder.id !== (highBidder?.id ?? -1)) {
-        html += `<button class="action-btn" onclick="game._auctionBid(${minBid})">Bid ${fmt(minBid)}</button>`;
-        // Higher bids
-        const mid = Math.floor(minBid * 1.2);
-        const high = Math.floor(minBid * 1.5);
-        if (bidder.cash >= mid) html += `<button class="action-btn" onclick="game._auctionBid(${mid})">Bid ${fmt(mid)}</button>`;
-        if (bidder.cash >= high) html += `<button class="action-btn" onclick="game._auctionBid(${high})">Bid ${fmt(high)}</button>`;
+      // Skip if this bidder is already the high bidder
+      if (highBidder && bidder.id === highBidder.id) {
+        bidRound++;
+        consecutivePasses++;
+        nextBid();
+        return;
       }
-      html += `<button class="action-btn" onclick="game._auctionPass()">Pass</button>`;
 
-      this._auctionState = { tileIdx, bidders, currentBid, highBidder, bidRound, nextBid };
+      const minBid = highBidder ? Math.floor(currentBid * 1.05) : currentBid;
+      const canBid = bidder.cash >= minBid;
+
+      let html = this._propertyCard(tile, tileIdx, { label: "AUCTION", cls: "status-sale" });
+
+      html += `<div class="auction-info">`;
+      html += `<div class="auction-current-bid">`;
+      html += `<span class="auction-label">Current Bid</span>`;
+      html += `<span class="auction-amount">${fmt(currentBid)}</span>`;
+      if (highBidder) {
+        html += `<span class="auction-bidder" style="color:${highBidder.color}">${highBidder.name}</span>`;
+      } else {
+        html += `<span class="auction-bidder" style="color:#888">No bids yet</span>`;
+      }
+      html += `</div>`;
+
+      html += `<div class="auction-your-turn">`;
+      html += `<span class="auction-turn-dot" style="background:${bidder.color}"></span>`;
+      html += `<span>${bidder.name}'s turn</span>`;
+      html += `<span class="auction-cash">${fmt(bidder.cash)} available</span>`;
+      html += `</div>`;
+      html += `</div>`;
+
+      if (canBid) {
+        // Quick bid buttons
+        const quickBids = [minBid, Math.floor(minBid * 1.25), Math.floor(minBid * 1.5), Math.floor(minBid * 2)];
+        html += `<div class="auction-quick-bids">`;
+        for (const qb of quickBids) {
+          if (bidder.cash >= qb) {
+            html += `<button class="auction-quick-btn" onclick="game._auctionBid(${qb})">${fmt(qb)}</button>`;
+          }
+        }
+        html += `</div>`;
+
+        // Custom bid input
+        html += `<div class="auction-custom">`;
+        html += `<input type="number" id="auctionCustomBid" class="auction-input" min="${minBid}" max="${bidder.cash}" step="500" value="${minBid}" placeholder="Custom amount">`;
+        html += `<button class="action-btn" onclick="game._auctionBidCustom()">Place Bid</button>`;
+        html += `</div>`;
+        html += `<p class="auction-min-hint">Minimum bid: ${fmt(minBid)}</p>`;
+      } else {
+        html += `<p style="color:#f87171;text-align:center;margin-top:12px">Not enough cash to bid (min ${fmt(minBid)})</p>`;
+      }
+
+      html += `<button class="action-btn" style="margin-top:4px" onclick="game._auctionPass()">Pass</button>`;
+
+      this._auctionState = { tileIdx, bidders, currentBid, highBidder, bidRound, nextBid, consecutivePasses, minBid };
       this.showModal("Auction", html);
     };
 
@@ -1953,16 +1991,28 @@ class RealtyRush {
   _auctionBid(amount) {
     const s = this._auctionState;
     const bidder = s.bidders[s.bidRound % s.bidders.length];
+    if (amount > bidder.cash) return;
+    if (amount < s.minBid) return;
     s.currentBid = amount;
     s.highBidder = bidder;
     s.bidRound++;
+    s.consecutivePasses = 0;
     this.hideModal();
     s.nextBid();
+  }
+
+  _auctionBidCustom() {
+    const input = document.getElementById("auctionCustomBid");
+    if (!input) return;
+    const amount = parseInt(input.value);
+    if (isNaN(amount)) return;
+    this._auctionBid(amount);
   }
 
   _auctionPass() {
     const s = this._auctionState;
     s.bidRound++;
+    s.consecutivePasses++;
     this.hideModal();
     s.nextBid();
   }
