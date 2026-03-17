@@ -3014,7 +3014,7 @@ class RealtyRush {
     if (tile.ownerId != null) {
       const owner = this.players[tile.ownerId];
       const charData = owner.characterKey ? CHARACTER_ASSETS[owner.characterKey] : null;
-      const iconR = 12;
+      const iconR = 20;
       const iconX = x + s - iconR - 4;
       const iconY = y + iconR + 4;
       if (charData && charData.image && charData.image.complete) {
