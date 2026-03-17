@@ -2946,20 +2946,9 @@ class RealtyRush {
     canvas.height = h * devicePixelRatio;
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-    // Clear / Background
-    const bgImg = TILE_IMAGES['board_bg'];
-    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
-      // Tile the background across the viewport
-      const pat = ctx.createPattern(bgImg, 'repeat');
-      ctx.fillStyle = pat;
-      ctx.fillRect(0, 0, w, h);
-      // Darken slightly
-      ctx.fillStyle = "rgba(0,0,0,0.4)";
-      ctx.fillRect(0, 0, w, h);
-    } else {
-      ctx.fillStyle = "#0d0d1a";
-      ctx.fillRect(0, 0, w, h);
-    }
+    // Clear
+    ctx.fillStyle = "#1a1a22";
+    ctx.fillRect(0, 0, w, h);
 
     // Camera transform
     ctx.save();
