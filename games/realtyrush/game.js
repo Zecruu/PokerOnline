@@ -815,11 +815,15 @@ class RealtyRush {
     this.targetCamZoom = fitZoom;
   }
 
-  focusTile(idx) {
+  focusTile(idx, zoom) {
     const p = tilePx(idx);
     this.targetCamX = p.x + TILE_SIZE / 2;
     this.targetCamY = p.y + TILE_SIZE / 2;
-    this.targetCamZoom = Math.max(this.cameraZoom, 1.0);
+    this.targetCamZoom = zoom != null ? zoom : Math.max(this.cameraZoom, 1.2);
+  }
+
+  focusPlayer(p) {
+    this.focusTile(p.pos, 1.4);
   }
 
   get cp() { return this.players[this.currentPlayerIdx]; }
@@ -881,6 +885,9 @@ class RealtyRush {
     this.phase = "rolling";
     $("#turnPlayerName").textContent = p.name;
     this.updateHUD();
+
+    // Auto-focus camera on current player
+    this.focusPlayer(p);
 
     if (this.isMyTurn()) {
       this.showCartelHand(p);
@@ -950,7 +957,7 @@ class RealtyRush {
         passedPolice = true;
       }
 
-      this.focusTile(p.pos);
+      this.focusTile(p.pos, 1.4);
       this.updateHUD();
 
       if (step >= steps) {
@@ -1811,6 +1818,7 @@ class RealtyRush {
 
   // ─── JAIL TURN ────────────────────────────────────────────
   showJailTurn(p) {
+    this.focusPlayer(p);
     p.jail--;
     const bail = 6000 + 500 * p.properties.length;
 
