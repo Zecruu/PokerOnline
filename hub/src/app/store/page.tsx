@@ -62,6 +62,17 @@ const ALL_GAMES = [
     isFree: true,
     category: "strategy",
   },
+  {
+    id: "realtyrush",
+    title: "RealtyRush",
+    description: "A strategic real estate board game for 2-6 players. Buy properties, collect rent, play cartel cards, and bankrupt your rivals.",
+    thumbnail: "/games/realtyrush/thumbnail.svg",
+    href: "/games/realtyrush/index.html",
+    badge: "NEW",
+    badgeColor: "green" as const,
+    isFree: true,
+    category: "strategy",
+  },
 ];
 
 const CATEGORIES = [
