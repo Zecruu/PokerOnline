@@ -914,11 +914,61 @@ class RealtyRush {
     window.onresize = () => this.onResize();
 
     // Scroll zoom
-    $("#boardWrap").onwheel = (e) => {
+    const wrap = $("#boardWrap");
+    wrap.onwheel = (e) => {
       e.preventDefault();
       const d = e.deltaY > 0 ? -0.1 : 0.1;
       this.targetCamZoom = clamp(this.targetCamZoom + d, 0.4, 2.5);
     };
+
+    // Drag to pan
+    let dragging = false, dragX = 0, dragY = 0;
+    wrap.onmousedown = (e) => {
+      dragging = true;
+      dragX = e.clientX;
+      dragY = e.clientY;
+      wrap.style.cursor = "grabbing";
+    };
+    window.onmousemove = (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - dragX;
+      const dy = e.clientY - dragY;
+      dragX = e.clientX;
+      dragY = e.clientY;
+      this.targetCamX -= dx / this.cameraZoom;
+      this.targetCamY -= dy / this.cameraZoom;
+      this.cameraX = this.targetCamX;
+      this.cameraY = this.targetCamY;
+    };
+    window.onmouseup = () => {
+      dragging = false;
+      wrap.style.cursor = "grab";
+    };
+    wrap.style.cursor = "grab";
+
+    // Touch drag
+    let touchId = null, touchX = 0, touchY = 0;
+    wrap.ontouchstart = (e) => {
+      if (e.touches.length === 1) {
+        touchId = e.touches[0].identifier;
+        touchX = e.touches[0].clientX;
+        touchY = e.touches[0].clientY;
+      }
+    };
+    wrap.ontouchmove = (e) => {
+      const t = [...e.touches].find(t => t.identifier === touchId);
+      if (!t) return;
+      e.preventDefault();
+      const dx = t.clientX - touchX;
+      const dy = t.clientY - touchY;
+      touchX = t.clientX;
+      touchY = t.clientY;
+      this.targetCamX -= dx / this.cameraZoom;
+      this.targetCamY -= dy / this.cameraZoom;
+      this.cameraX = this.targetCamX;
+      this.cameraY = this.targetCamY;
+    };
+    wrap.ontouchend = () => { touchId = null; };
 
     // HUD & render
     this.updateHUD();
@@ -1055,21 +1105,19 @@ class RealtyRush {
     this.phase = "moving";
     $("#rollBtn").classList.add("hidden");
 
-    const die1 = rng(1, 6);
-    const die2 = rng(1, 6);
-    const roll = die1 + die2;
+    const roll = rng(2, 12);
     this.emit("rr:rolled", { roll });
-    this.showRollFlash(die1, die2, roll);
+    this.showRollFlash(roll);
 
     this._lastRoll = roll;
     setTimeout(() => {
       this.movePlayer(this.cp, roll);
-    }, 1600);
+    }, 1200);
   }
 
-  showRollFlash(d1, d2, total) {
+  showRollFlash(n) {
     const el = $("#rollFlash");
-    el.innerHTML = `<span class="roll-dice">${d1}</span><span class="roll-plus">+</span><span class="roll-dice">${d2}</span><span class="roll-eq">=</span><span class="roll-total">${total}</span>`;
+    el.textContent = n;
     el.classList.remove("hidden");
     el.style.animation = "none";
     void el.offsetWidth;
@@ -1078,7 +1126,7 @@ class RealtyRush {
     setTimeout(() => {
       el.style.animation = "flashOut 0.5s ease-in forwards";
       setTimeout(() => el.classList.add("hidden"), 500);
-    }, 1400);
+    }, 800);
   }
 
   movePlayer(p, steps) {
