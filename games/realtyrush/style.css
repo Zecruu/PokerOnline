@@ -140,6 +140,9 @@ input{font-family:inherit}
 
 /* ========== TILE PROPERTY CARD ========== */
 .tile-card{background:rgba(20,20,45,.9);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:0;overflow:hidden;margin-bottom:8px}
+.tile-card-image{width:100%;height:140px;overflow:hidden;position:relative}
+.tile-card-image img{width:100%;height:100%;object-fit:cover}
+.tile-card-image::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,rgba(20,20,45,.95))}
 .tile-card-header{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:3px solid #888}
 .tile-card-district{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px}
 .tile-card-status{font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.5px}

@@ -1416,6 +1416,14 @@ class RealtyRush {
     const cpCountIfBuy = tile.ownerId === null ? cpCount + 1 : cpCount;
 
     let html = `<div class="tile-card">`;
+
+    // Property image banner
+    const tileKey = getTileImageKey(tile, tileIdx);
+    const tileImg = TILE_IMAGES[tileKey];
+    if (tileImg && tileImg.complete && tileImg.naturalWidth > 0) {
+      html += `<div class="tile-card-image"><img src="${tileImg.src}" alt="${tile.name}"></div>`;
+    }
+
     html += `<div class="tile-card-header" style="border-color:${sideColor}">`;
     html += `<span class="tile-card-district" style="color:${sideColor}">${distName}</span>`;
     if (status) html += `<span class="tile-card-status ${status.cls || ''}">${status.label}</span>`;
