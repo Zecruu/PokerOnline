@@ -34,6 +34,10 @@ const CHARACTER_ASSETS = {
         icon: 'characters/mr-richardson.png',
         name: 'Mr Richardson',
     },
+    grannyMildred: {
+        icon: 'characters/granny-mildred.png',
+        name: 'Granny Mildred',
+    },
 };
 
 // Preload character images
