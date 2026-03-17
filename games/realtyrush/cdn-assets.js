@@ -42,6 +42,10 @@ const CHARACTER_ASSETS = {
         icon: 'characters/baroness-vivienne.png',
         name: 'Baroness Vivienne',
     },
+    countMortis: {
+        icon: 'characters/count-mortis.png',
+        name: 'Count Mortis',
+    },
 };
 
 // Preload character images
