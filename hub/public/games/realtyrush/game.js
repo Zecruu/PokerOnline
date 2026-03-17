@@ -3013,13 +3013,13 @@ class RealtyRush {
       ctx.fillRect(x + pad + r, y + pad, s - pad * 2 - r * 2, 5);
     }
 
-    // Ownership icon
+    // Ownership icon (small, top-right corner)
     if (tile.ownerId != null) {
       const owner = this.players[tile.ownerId];
       const charData = owner.characterKey ? CHARACTER_ASSETS[owner.characterKey] : null;
-      const iconR = 20;
-      const iconX = x + s - iconR - 4;
-      const iconY = y + iconR + 4;
+      const iconR = 14;
+      const iconX = x + s - iconR - 3;
+      const iconY = y + iconR + 8;
       if (charData && charData.image && charData.image.complete) {
         ctx.save();
         ctx.beginPath();
@@ -3028,19 +3028,11 @@ class RealtyRush {
         ctx.clip();
         ctx.drawImage(charData.image, iconX - iconR, iconY - iconR, iconR * 2, iconR * 2);
         ctx.restore();
-        ctx.beginPath();
-        ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
-        ctx.strokeStyle = owner.color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
       } else {
         ctx.fillStyle = owner.color;
         ctx.beginPath();
         ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
       }
     }
 
@@ -3226,34 +3218,47 @@ class RealtyRush {
 
   drawToken(ctx, p) {
     const { x, y } = tilePx(p.pos);
-    const offset = p.id * 12;
-    const tx = x + 22 + (offset % 60);
-    const ty = y + 36 + Math.floor(offset / 60) * 16;
+    const tokenR = 16;
+    const offset = p.id * (tokenR * 2 + 4);
+    const tx = x + tokenR + 6 + (offset % (TILE_SIZE - tokenR * 2));
+    const ty = y + TILE_SIZE / 2 + 8 + Math.floor(offset / (TILE_SIZE - tokenR * 2)) * (tokenR * 2 + 4);
+
+    const charData = p.characterKey ? CHARACTER_ASSETS[p.characterKey] : null;
 
     // Shadow
     ctx.beginPath();
-    ctx.arc(tx, ty + 2, 9, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.arc(tx, ty + 3, tokenR, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fill();
 
-    // Token
-    ctx.beginPath();
-    ctx.arc(tx, ty, 8, 0, Math.PI * 2);
-    ctx.fillStyle = p.color;
-    ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // Character icon or colored circle fallback
+    if (charData && charData.image && charData.image.complete) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(tx, ty, tokenR, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(charData.image, tx - tokenR, ty - tokenR, tokenR * 2, tokenR * 2);
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      ctx.arc(tx, ty, tokenR, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
     // Jail indicator
     if (p.jail > 0) {
       ctx.strokeStyle = "#f87171";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(tx - 8, ty - 8);
-      ctx.lineTo(tx + 8, ty + 8);
-      ctx.moveTo(tx + 8, ty - 8);
-      ctx.lineTo(tx - 8, ty + 8);
+      ctx.moveTo(tx - tokenR, ty - tokenR);
+      ctx.lineTo(tx + tokenR, ty + tokenR);
+      ctx.moveTo(tx + tokenR, ty - tokenR);
+      ctx.lineTo(tx - tokenR, ty + tokenR);
       ctx.stroke();
     }
   }
