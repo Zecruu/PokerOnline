@@ -1153,7 +1153,6 @@ class RealtyRush {
   showCityHall(p) {
     let html = '<p>Welcome to City Hall. Choose an action:</p>';
     html += `<button class="action-btn" onclick="game.cityHallBribe()">Pay ${fmt(5000)} to reduce heat by 2</button>`;
-    html += `<button class="action-btn" onclick="game.cityHallContest()">Contest last trespassing fine (50% refund)</button>`;
     html += `<button class="action-btn" onclick="game.cityHallLawsuit()">File a Lawsuit</button>`;
     html += `<button class="action-btn" onclick="game.showEndTurnAction()">Do Nothing</button>`;
     this.showActionPanel("City Hall", html);
@@ -1237,14 +1236,23 @@ class RealtyRush {
   _propertyCard(tile, tileIdx, status) {
     const sideColor = SIDE_COLORS[tile.side] || "#888";
     const distName = this.sideName(tile.side);
+    const totalInSide = this.board.filter(t => t && t.type === "property" && t.side === tile.side).length;
+    const tierStars = "\u2605".repeat(tile.tier) + "\u2606".repeat(4 - tile.tier);
+
+    // Current tier stats
+    const incomeMult = this.tierIncomeMultiplier(tile.tier);
+    const fineMult = this.tierFineMultiplier(tile.tier);
+    const incomeNow = Math.floor(tile.baseIncome * incomeMult);
+    const fineNow = Math.floor(tile.baseFine * fineMult);
+
+    // Owner district count
     const ownerCount = tile.ownerId != null
       ? this.players[tile.ownerId].properties.filter(ti => this.board[ti].side === tile.side).length
       : 0;
-    const totalInSide = this.board.filter(t => t && t.type === "property" && t.side === tile.side).length;
-    const tierStars = "\u2605".repeat(tile.tier) + "\u2606".repeat(4 - tile.tier);
-    const mult = this.tierFineMultiplier(tile.tier);
-    const fineNow = Math.floor(tile.baseFine * mult);
-    const incomeNow = Math.floor(tile.baseIncome * ([0, 1, 1.8, 3, 5][tile.tier] || 1));
+
+    // Current player's district count (for showing what THEY'D get)
+    const cpCount = this.cp ? this.cp.properties.filter(ti => this.board[ti].side === tile.side).length : 0;
+    const cpCountIfBuy = tile.ownerId === null ? cpCount + 1 : cpCount;
 
     let html = `<div class="tile-card">`;
     html += `<div class="tile-card-header" style="border-color:${sideColor}">`;
@@ -1253,14 +1261,68 @@ class RealtyRush {
     html += `</div>`;
     html += `<div class="tile-card-name">${tile.name}</div>`;
     html += `<div class="tile-card-tier"><span class="tier-stars" style="color:#fbbf24">${tierStars}</span> <span class="tier-label">Tier ${tile.tier}</span></div>`;
+
+    // Current stats
     html += `<div class="tile-card-stats">`;
     html += `<div class="tcs-row"><span class="tcs-label">Price</span><span class="tcs-val" style="color:#fbbf24">${fmt(tile.basePrice)}</span></div>`;
     html += `<div class="tcs-row"><span class="tcs-label">Income</span><span class="tcs-val" style="color:#4ade80">${fmt(incomeNow)}/rnd</span></div>`;
     html += `<div class="tcs-row"><span class="tcs-label">Fine</span><span class="tcs-val" style="color:#f87171">${fmt(fineNow)}</span></div>`;
-    html += `<div class="tcs-row"><span class="tcs-label">District</span><span class="tcs-val">${ownerCount}/${totalInSide}</span></div>`;
-    if (ownerCount >= 3) html += `<div class="tcs-bonus">District Bonus: +20% fines</div>`;
     html += `</div>`;
 
+    // Upgrade path
+    html += `<div class="tile-card-section-label">Upgrade Path</div>`;
+    html += `<div class="tile-card-upgrades">`;
+    const tierNames = ["", "Base", "Improved", "Premium", "Elite"];
+    const incomeMults = [0, 1, 2, 3.5, 5.5];
+    const fineMults = [0, 1, 2.2, 3.8, 6];
+    const upgradePcts = [0, 0, 0.4, 0.65, 0.9];
+    for (let t = 1; t <= 4; t++) {
+      const active = t === tile.tier;
+      const locked = t < tile.tier;
+      const inc = Math.floor(tile.baseIncome * incomeMults[t]);
+      const fin = Math.floor(tile.baseFine * fineMults[t]);
+      const cost = t > 1 ? Math.floor(tile.basePrice * upgradePcts[t]) : 0;
+      html += `<div class="tcu-row${active ? ' tcu-active' : ''}${locked ? ' tcu-done' : ''}">`;
+      html += `<div class="tcu-tier">${"\u2605".repeat(t)}</div>`;
+      html += `<div class="tcu-name">${tierNames[t]}</div>`;
+      html += `<div class="tcu-stats">`;
+      html += `<span style="color:#4ade80">${fmt(inc)}</span>`;
+      html += `<span style="color:#f87171">${fmt(fin)}</span>`;
+      if (t > 1) html += `<span style="color:#888">${fmt(cost)}</span>`;
+      else html += `<span></span>`;
+      html += `</div>`;
+      html += `</div>`;
+    }
+    html += `<div class="tcu-legend"><span>Income</span><span>Fine</span><span>Upgrade</span></div>`;
+    html += `</div>`;
+
+    // District bonus breakdown
+    html += `<div class="tile-card-section-label">District Bonus <span style="color:${sideColor}">${distName}</span></div>`;
+    html += `<div class="tile-card-district-info">`;
+    const distLevels = [
+      { count: 2, bonus: "10%", label: "2 props" },
+      { count: 3, bonus: "25%", label: "3 props" },
+      { count: 4, bonus: "40%", label: "4 props" },
+      { count: 5, bonus: "55%", label: "5 props" },
+      { count: 6, bonus: "70%", label: "6 props" },
+    ];
+    const relevantCount = tile.ownerId != null ? ownerCount : cpCountIfBuy;
+    for (const dl of distLevels) {
+      if (dl.count > totalInSide) break;
+      const reached = relevantCount >= dl.count;
+      html += `<div class="tcd-level${reached ? ' tcd-reached' : ''}">`;
+      html += `<span class="tcd-count">${dl.label}</span>`;
+      html += `<span class="tcd-bonus">+${dl.bonus} income</span>`;
+      if (reached) html += `<span class="tcd-check">\u2713</span>`;
+      html += `</div>`;
+    }
+    if (ownerCount >= 3 || cpCountIfBuy >= 3) {
+      html += `<div class="tcs-bonus">+20% trespassing fines active</div>`;
+    }
+    html += `<div class="tcd-total">${relevantCount}/${totalInSide} properties in district</div>`;
+    html += `</div>`;
+
+    // Owner
     if (tile.ownerId != null) {
       const owner = this.players[tile.ownerId];
       html += `<div class="tile-card-owner"><span class="tco-dot" style="background:${owner.color}"></span>${owner.name}</div>`;

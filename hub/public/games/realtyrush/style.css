@@ -124,6 +124,24 @@ input{font-family:inherit}
 .tcs-label{color:#888}
 .tcs-val{font-weight:600}
 .tcs-bonus{text-align:center;color:#00d4aa;font-size:.75rem;font-weight:600;padding:4px 0;background:rgba(0,212,170,.08);border-radius:6px;margin-top:4px}
+.tile-card-section-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;padding:8px 14px 4px}
+.tile-card-upgrades{padding:0 14px 8px}
+.tcu-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;font-size:.8rem;margin-bottom:2px;background:rgba(255,255,255,.02)}
+.tcu-row.tcu-active{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25)}
+.tcu-row.tcu-done{opacity:.4}
+.tcu-tier{color:#fbbf24;font-size:.7rem;min-width:48px}
+.tcu-name{color:#ccc;font-weight:600;flex:1}
+.tcu-stats{display:flex;gap:10px;font-size:.75rem;font-weight:600}
+.tcu-stats span{min-width:48px;text-align:right}
+.tcu-legend{display:flex;gap:10px;justify-content:flex-end;padding:2px 8px 0;font-size:.6rem;color:#555;text-transform:uppercase;letter-spacing:.5px}
+.tcu-legend span{min-width:48px;text-align:right}
+.tile-card-district-info{padding:0 14px 8px}
+.tcd-level{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;font-size:.8rem;margin-bottom:2px;color:#666}
+.tcd-level.tcd-reached{color:#4ade80;background:rgba(74,222,128,.06)}
+.tcd-count{font-weight:600;min-width:52px}
+.tcd-bonus{flex:1}
+.tcd-check{color:#4ade80;font-weight:700}
+.tcd-total{text-align:center;font-size:.75rem;color:#888;padding:4px 0 2px}
 .tile-card-owner{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.06);font-size:.85rem;font-weight:600}
 .tco-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 
