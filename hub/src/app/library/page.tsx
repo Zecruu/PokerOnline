@@ -57,6 +57,16 @@ const ALL_GAMES = [
     badgeColor: "green" as const,
     isFree: true,
   },
+  {
+    id: "realtyrush",
+    title: "RealtyRush",
+    description: "Buy, build, and bankrupt your friends in this real estate board game. Local & online multiplayer with stocks, cartels, and more.",
+    thumbnail: "/games/realtyrush/thumbnail.svg",
+    href: "/games/realtyrush/index.html",
+    badge: "NEW",
+    badgeColor: "green" as const,
+    isFree: true,
+  },
 ];
 
 export default function LibraryPage() {
