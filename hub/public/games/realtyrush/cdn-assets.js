@@ -22,6 +22,10 @@ const CHARACTER_ASSETS = {
         icon: 'characters/mob-boss-jerry.png',
         name: 'Mob Boss Jerry',
     },
+    divinaMarina: {
+        icon: 'characters/divina-marina.png',
+        name: 'Divina Marina',
+    },
 };
 
 // Preload character images
