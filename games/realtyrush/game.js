@@ -1055,18 +1055,21 @@ class RealtyRush {
     this.phase = "moving";
     $("#rollBtn").classList.add("hidden");
 
-    const roll = rng(1, 12);
+    const die1 = rng(1, 6);
+    const die2 = rng(1, 6);
+    const roll = die1 + die2;
     this.emit("rr:rolled", { roll });
-    this.showRollFlash(roll);
+    this.showRollFlash(die1, die2, roll);
 
+    this._lastRoll = roll;
     setTimeout(() => {
       this.movePlayer(this.cp, roll);
     }, 1600);
   }
 
-  showRollFlash(n) {
+  showRollFlash(d1, d2, total) {
     const el = $("#rollFlash");
-    el.textContent = n;
+    el.innerHTML = `<span class="roll-dice">${d1}</span><span class="roll-plus">+</span><span class="roll-dice">${d2}</span><span class="roll-eq">=</span><span class="roll-total">${total}</span>`;
     el.classList.remove("hidden");
     el.style.animation = "none";
     void el.offsetWidth;
@@ -1075,7 +1078,7 @@ class RealtyRush {
     setTimeout(() => {
       el.style.animation = "flashOut 0.5s ease-in forwards";
       setTimeout(() => el.classList.add("hidden"), 500);
-    }, 1200);
+    }, 1400);
   }
 
   movePlayer(p, steps) {
