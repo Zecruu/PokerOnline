@@ -209,6 +209,9 @@ class RealtyRush {
     this.lobbyPlayers = []; // [{socketId, name, color}]
 
     this.initLobby();
+
+    // Start preloading tile images immediately
+    preloadTileAssets();
   }
 
   // ─── LOBBY ────────────────────────────────────────────────
