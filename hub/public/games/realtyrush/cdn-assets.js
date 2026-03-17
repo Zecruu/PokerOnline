@@ -38,6 +38,10 @@ const CHARACTER_ASSETS = {
         icon: 'characters/granny-mildred.png',
         name: 'Granny Mildred',
     },
+    baronessVivienne: {
+        icon: 'characters/baroness-vivienne.png',
+        name: 'Baroness Vivienne',
+    },
 };
 
 // Preload character images
