@@ -2,7 +2,7 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 
-const API_KEY = 'AIzaSyCHP76Beem7DVaydG6n_GJh2y1X-gyZ-bU';
+const API_KEY = 'YOUR_GOOGLE_API_KEY_HERE';
 const MODEL = 'gemini-2.5-flash-image';
 const OUT_DIR = path.join(__dirname, 'images', 'tiles');
 const BASE_STYLE = 'Generate a pixel art image: flat front-facing square card illustration, straight-on view, no angle, dark moody palette, no text, no letters, rich detailed background, board game tile style,';
