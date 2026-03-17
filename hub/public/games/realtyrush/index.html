@@ -148,6 +148,18 @@
       <div class="cartel-hand-title">Cartel Cards</div>
       <div id="cartelCards"></div>
     </div>
+
+    <!-- Portfolio Button -->
+    <button id="portfolioBtn" class="portfolio-btn" onclick="game.togglePortfolio()">Portfolio</button>
+
+    <!-- Portfolio Panel -->
+    <div id="portfolioPanel" class="portfolio-panel hidden">
+      <div class="portfolio-header">
+        <span class="portfolio-title">Business Portfolio</span>
+        <button class="portfolio-close" onclick="game.togglePortfolio()">&times;</button>
+      </div>
+      <div id="portfolioBody" class="portfolio-body"></div>
+    </div>
   </div>
 
   <!-- MODAL OVERLAY -->

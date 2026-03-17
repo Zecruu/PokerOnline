@@ -502,6 +502,13 @@ class RealtyRush {
         legalTeamActive: false,
         playedCardThisTurn: false,
         lastStand: false,
+        totalIncomeEarned: 0,
+        totalFinesPaid: 0,
+        totalFinesCollected: 0,
+        totalTaxesPaid: 0,
+        roundIncome: 0,
+        roundFinesPaid: 0,
+        roundFinesCollected: 0,
       });
     });
 
@@ -735,6 +742,14 @@ class RealtyRush {
         legalTeamActive: false,
         playedCardThisTurn: false,
         lastStand: false,
+        // Portfolio tracking
+        totalIncomeEarned: 0,
+        totalFinesPaid: 0,
+        totalFinesCollected: 0,
+        totalTaxesPaid: 0,
+        roundIncome: 0,
+        roundFinesPaid: 0,
+        roundFinesCollected: 0,
       });
     });
 
@@ -1026,6 +1041,13 @@ class RealtyRush {
 
   // ─── INCOME COLLECTION ────────────────────────────────────
   collectAllIncome() {
+    // Reset round trackers at start of each round
+    for (const p of this.alivePlayers()) {
+      p.roundIncome = 0;
+      p.roundFinesPaid = 0;
+      p.roundFinesCollected = 0;
+    }
+
     for (const p of this.alivePlayers()) {
       if (p.jail > 0) continue;
       let income = 0;
@@ -1039,6 +1061,9 @@ class RealtyRush {
       for (const ti of p.taxis) {
         income += this.taxiIncome(p);
       }
+
+      p.roundIncome = income;
+      p.totalIncomeEarned += income;
 
       if (p.debt > 0) {
         const seized = Math.min(income, p.debt);
@@ -1441,6 +1466,12 @@ class RealtyRush {
     owner.cash += fine;
     p.hqPassStreak = 0;
 
+    // Track stats
+    p.totalFinesPaid += fine;
+    p.roundFinesPaid += fine;
+    owner.totalFinesCollected += fine;
+    owner.roundFinesCollected += fine;
+
     this.emit("rr:action", { type:"payFine", tileIdx, fine });
     this.showActionPanel("Fine Paid", `You paid ${fmt(fine)} to ${owner.name}.`);
     this.showEndTurn();
@@ -1504,6 +1535,7 @@ class RealtyRush {
   resolveTax(p) {
     const tax = Math.floor(p.cash * 0.08);
     p.cash -= tax;
+    p.totalTaxesPaid += tax;
     this.showActionPanel("Tax Time", `You paid ${fmt(tax)} in taxes (8% of cash).`);
     this.showEndTurn();
     this.updateHUD();
@@ -2455,6 +2487,151 @@ class RealtyRush {
       else if (s && typeof pos === "number") nw += s.price * pos; // legacy fallback
     }
     return nw;
+  }
+
+  // ─── PORTFOLIO ──────────────────────────────────────────────
+  togglePortfolio() {
+    const panel = $("#portfolioPanel");
+    if (panel.classList.contains("hidden")) {
+      this.renderPortfolio();
+      panel.classList.remove("hidden");
+    } else {
+      panel.classList.add("hidden");
+    }
+  }
+
+  renderPortfolio() {
+    const body = $("#portfolioBody");
+    if (!body) return;
+    const p = this.cp;
+    if (!p) return;
+
+    // Calculate current round passive income
+    let projectedIncome = 0;
+    for (const ti of p.properties) {
+      const tile = this.board[ti];
+      if (tile.upgradeInProgress) continue;
+      const mult = this.tierIncomeMultiplier(tile.tier);
+      const distBonus = this.districtBonus(p, tile.side);
+      projectedIncome += Math.floor(tile.baseIncome * mult * (1 + distBonus));
+    }
+    for (const ti of p.taxis) {
+      projectedIncome += this.taxiIncome(p);
+    }
+
+    // Property value
+    let totalPropValue = 0;
+    for (const ti of p.properties) {
+      totalPropValue += this.board[ti].basePrice * this.board[ti].tier;
+    }
+
+    // Stock value
+    let totalStockValue = 0;
+    let totalStockInvested = 0;
+    for (const [sid, pos] of Object.entries(p.stocks)) {
+      if (!pos || typeof pos !== "object") continue;
+      const s = this.stocks.find(x => x.id === sid);
+      if (s) {
+        totalStockValue += Math.floor(s.price * pos.shares);
+        totalStockInvested += pos.invested;
+      }
+    }
+    const stockPL = totalStockValue - totalStockInvested;
+
+    const nw = this.netWorth(p);
+    const totalLosses = p.totalFinesPaid + p.totalTaxesPaid;
+    const netProfit = p.totalIncomeEarned + p.totalFinesCollected - totalLosses;
+
+    let html = '';
+
+    // Summary header
+    html += `<div class="pf-summary">`;
+    html += `<div class="pf-player"><span class="pf-dot" style="background:${p.color}"></span>${p.name}</div>`;
+    html += `<div class="pf-nw">Net Worth: <strong>${fmt(nw)}</strong></div>`;
+    html += `<div class="pf-cash">Cash: ${fmt(p.cash)}${p.debt > 0 ? ` | Debt: <span style="color:#f87171">${fmt(p.debt)}</span>` : ''}</div>`;
+    html += `</div>`;
+
+    // Round stats
+    html += `<div class="pf-section-label">This Round</div>`;
+    html += `<div class="pf-stats">`;
+    html += `<div class="pf-stat-row"><span>Passive Income</span><span style="color:#4ade80">+${fmt(p.roundIncome)}</span></div>`;
+    html += `<div class="pf-stat-row"><span>Fines Collected</span><span style="color:#4ade80">+${fmt(p.roundFinesCollected)}</span></div>`;
+    html += `<div class="pf-stat-row"><span>Fines Paid</span><span style="color:#f87171">-${fmt(p.roundFinesPaid)}</span></div>`;
+    html += `<div class="pf-stat-row pf-stat-total"><span>Round Net</span><span style="color:${(p.roundIncome + p.roundFinesCollected - p.roundFinesPaid) >= 0 ? '#4ade80' : '#f87171'}">${(p.roundIncome + p.roundFinesCollected - p.roundFinesPaid) >= 0 ? '+' : ''}${fmt(p.roundIncome + p.roundFinesCollected - p.roundFinesPaid)}</span></div>`;
+    html += `</div>`;
+
+    // Lifetime stats
+    html += `<div class="pf-section-label">Lifetime</div>`;
+    html += `<div class="pf-stats">`;
+    html += `<div class="pf-stat-row"><span>Total Income Earned</span><span style="color:#4ade80">+${fmt(p.totalIncomeEarned)}</span></div>`;
+    html += `<div class="pf-stat-row"><span>Total Fines Collected</span><span style="color:#4ade80">+${fmt(p.totalFinesCollected)}</span></div>`;
+    html += `<div class="pf-stat-row"><span>Total Fines Paid</span><span style="color:#f87171">-${fmt(p.totalFinesPaid)}</span></div>`;
+    html += `<div class="pf-stat-row"><span>Total Taxes Paid</span><span style="color:#f87171">-${fmt(p.totalTaxesPaid)}</span></div>`;
+    if (totalStockInvested > 0) {
+      html += `<div class="pf-stat-row"><span>Stock P/L</span><span style="color:${stockPL >= 0 ? '#4ade80' : '#f87171'}">${stockPL >= 0 ? '+' : ''}${fmt(Math.abs(stockPL))}</span></div>`;
+    }
+    html += `<div class="pf-stat-row pf-stat-total"><span>Net Profit</span><span style="color:${netProfit >= 0 ? '#4ade80' : '#f87171'}">${netProfit >= 0 ? '+' : ''}${fmt(Math.abs(netProfit))}</span></div>`;
+    html += `</div>`;
+
+    // Projected income
+    html += `<div class="pf-section-label">Projected Next Round</div>`;
+    html += `<div class="pf-projected">`;
+    html += `<span class="pf-projected-amount">${fmt(projectedIncome)}</span>`;
+    html += `<span class="pf-projected-label">passive income/round</span>`;
+    html += `</div>`;
+
+    // Properties by district
+    const sides = ["A", "B", "C", "D"];
+    html += `<div class="pf-section-label">Properties (${p.properties.length})</div>`;
+
+    if (p.properties.length === 0) {
+      html += `<div class="pf-empty">No properties owned yet.</div>`;
+    } else {
+      for (const side of sides) {
+        const propsInSide = p.properties.filter(ti => this.board[ti].side === side);
+        if (propsInSide.length === 0) continue;
+        const totalInSide = this.board.filter(t => t && t.type === "property" && t.side === side).length;
+        const distBonusPct = Math.floor(this.districtBonus(p, side) * 100);
+        const sideColor = SIDE_COLORS[side];
+
+        html += `<div class="pf-district-header" style="border-color:${sideColor}">`;
+        html += `<span style="color:${sideColor}">${this.sideName(side)}</span>`;
+        html += `<span class="pf-district-count">${propsInSide.length}/${totalInSide}${distBonusPct > 0 ? ` <span style="color:#4ade80">+${distBonusPct}%</span>` : ''}</span>`;
+        html += `</div>`;
+
+        for (const ti of propsInSide) {
+          const tile = this.board[ti];
+          const mult = this.tierIncomeMultiplier(tile.tier);
+          const distBonus = this.districtBonus(p, side);
+          const inc = Math.floor(tile.baseIncome * mult * (1 + distBonus));
+          const fineMult = this.tierFineMultiplier(tile.tier);
+          const fine = Math.floor(tile.baseFine * fineMult);
+          const tierStars = "\u2605".repeat(tile.tier);
+
+          html += `<div class="pf-prop-row${tile.upgradeInProgress ? ' pf-prop-construction' : ''}">`;
+          html += `<div class="pf-prop-name">${tile.name} <span class="pf-prop-tier" style="color:#fbbf24">${tierStars}</span></div>`;
+          html += `<div class="pf-prop-stats">`;
+          html += `<span style="color:#4ade80">${fmt(inc)}/rnd</span>`;
+          html += `<span style="color:#f87171">${fmt(fine)} fine</span>`;
+          if (tile.upgradeInProgress) html += `<span style="color:#fbbf24">\uD83D\uDD28</span>`;
+          html += `</div>`;
+          html += `</div>`;
+        }
+      }
+    }
+
+    // Taxis
+    if (p.taxis.length > 0) {
+      html += `<div class="pf-section-label">Taxi Hubs (${p.taxis.length}/4)</div>`;
+      const taxiInc = this.taxiIncome(p);
+      const taxiFin = this.taxiFine(p);
+      html += `<div class="pf-stats">`;
+      html += `<div class="pf-stat-row"><span>Income per hub</span><span style="color:#4ade80">${fmt(taxiInc)}/rnd</span></div>`;
+      html += `<div class="pf-stat-row"><span>Fine per trespass</span><span style="color:#f87171">${fmt(taxiFin)}</span></div>`;
+      html += `</div>`;
+    }
+
+    body.innerHTML = html;
   }
 
   // ─── END TURN ─────────────────────────────────────────────
