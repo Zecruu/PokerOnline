@@ -720,7 +720,7 @@ class RealtyRush {
     });
 
     // Preload character assets then show ready-up
-    preloadCharacterAssets().then(() => {
+    Promise.all([preloadCharacterAssets(), preloadTileAssets()]).then(() => {
       this.showReadyUp();
     });
   }
@@ -2982,6 +2982,27 @@ class RealtyRush {
     const pad = 1;
     const r = 6; // corner radius
 
+    // Check for tile image
+    const tileKey = getTileImageKey(tile, idx);
+    const tileImg = TILE_IMAGES[tileKey];
+    if (tileImg && tileImg.complete && tileImg.naturalWidth > 0) {
+      // Draw tile image filling the tile area
+      ctx.save();
+      this._roundRect(ctx, x + pad, y + pad, s - pad * 2, s - pad * 2, r);
+      ctx.clip();
+      ctx.drawImage(tileImg, x + pad, y + pad, s - pad * 2, s - pad * 2);
+      ctx.restore();
+      // Border
+      this._roundRect(ctx, x + pad, y + pad, s - pad * 2, s - pad * 2, r);
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Still draw ownership icon and tier stars on top
+      this._drawTileOverlays(ctx, tile, idx, x, y, s, pad, r);
+      return;
+    }
+
+    // Fallback: canvas-drawn tile
     // Background
     let bg = "#181830";
     let borderColor = "rgba(255,255,255,0.08)";
@@ -3118,6 +3139,63 @@ class RealtyRush {
       ctx.font = "bold 10px sans-serif";
       ctx.fillText("TAX 8%", x + s / 2, y + s - 14);
     }
+  }
+
+  // Overlays drawn on top of tile images (ownership icon, tier stars, construction)
+  _drawTileOverlays(ctx, tile, idx, x, y, s, pad, r) {
+    // Ownership icon
+    if (tile.ownerId != null) {
+      const owner = this.players[tile.ownerId];
+      const charData = owner.characterKey ? CHARACTER_ASSETS[owner.characterKey] : null;
+      const iconR = 14;
+      const iconX = x + s - iconR - 3;
+      const iconY = y + iconR + 8;
+      if (charData && charData.image && charData.image.complete) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(charData.image, iconX - iconR, iconY - iconR, iconR * 2, iconR * 2);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = owner.color;
+        ctx.beginPath();
+        ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // Tier stars
+    if (tile.type === "property" && tile.ownerId != null) {
+      const tierW = tile.tier * 13;
+      const startX = x + s / 2 - tierW / 2;
+      for (let t = 0; t < tile.tier; t++) {
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("\u2605", startX + t * 13 + 6, y + s - 10);
+      }
+    }
+    // Under construction
+    if (tile.upgradeInProgress) {
+      ctx.fillStyle = "rgba(251,191,36,0.25)";
+      this._roundRect(ctx, x + pad, y + pad, s - pad * 2, s - pad * 2, r);
+      ctx.fill();
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 20px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("\uD83D\uDD28", x + s / 2, y + s / 2 + 6);
+    }
+    // Tile name at bottom (semi-transparent bar)
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(x + pad, y + s - 22, s - pad * 2, 21);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const label = tile.name || "";
+    ctx.fillText(label.length > 14 ? label.substring(0, 13) + "\u2026" : label, x + s / 2, y + s - 12);
   }
 
   // Helper: rounded rectangle path

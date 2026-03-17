@@ -48,6 +48,44 @@ const CHARACTER_ASSETS = {
     },
 };
 
+// ─── TILE IMAGES ─────────────────────────────────────────────
+// Map tile index (or corner key) to image path
+const TILE_ASSETS = {
+    // Corners
+    corner_hq: 'tiles/hq.png',
+    corner_cityhall: 'tiles/cityhall.png',
+    // corner_police: 'tiles/police.png',
+    // corner_underground: 'tiles/underground.png',
+    // Properties — uncomment as images are added
+    // tile_1: 'tiles/capital-tower.png',
+    // tile_2: 'tiles/exchange-plaza.png',
+    // ... add more as generated
+};
+
+const TILE_IMAGES = {}; // key → Image object
+
+function preloadTileAssets() {
+    const promises = [];
+    for (const [key, path] of Object.entries(TILE_ASSETS)) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const p = new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve; // don't block on missing tiles
+        });
+        img.src = getAssetUrl(path);
+        TILE_IMAGES[key] = img;
+        promises.push(p);
+    }
+    return Promise.allSettled(promises);
+}
+
+// Get tile image key for a given board tile
+function getTileImageKey(tile, idx) {
+    if (tile.type === "corner") return "corner_" + tile.corner;
+    return "tile_" + idx;
+}
+
 // Preload character images
 function preloadCharacterAssets() {
     const promises = [];
