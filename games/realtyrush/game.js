@@ -581,7 +581,7 @@ class RealtyRush {
       case "buyProperty":
         this.board[data.tileIdx].ownerId = p.id;
         p.properties.push(data.tileIdx);
-        p.cash -= this.board[data.tileIdx].basePrice;
+        p.cash -= this.buyPrice(this.board[data.tileIdx]);
         break;
       case "buyTaxi":
         this.board[data.tileIdx].ownerId = p.id;
@@ -1211,6 +1211,12 @@ class RealtyRush {
     return [0, 1, 2.2, 3.8, 6][tier] || 1;
   }
 
+  // Buy price with mode discount (15% off standard, 35% off quick)
+  buyPrice(tile) {
+    const discount = this.mode === "quick" ? 0.65 : 0.85;
+    return Math.floor(tile.basePrice * discount);
+  }
+
   tierUpgradeCost(tile) {
     const pct = [0, 0, 0.4, 0.65, 0.9][tile.tier + 1] || 0;
     return Math.floor(tile.basePrice * pct);
@@ -1419,7 +1425,8 @@ class RealtyRush {
 
     // Current stats
     html += `<div class="tile-card-stats">`;
-    html += `<div class="tcs-row"><span class="tcs-label">Price</span><span class="tcs-val" style="color:#fbbf24">${fmt(tile.basePrice)}</span></div>`;
+    const buyPr = this.buyPrice(tile);
+    html += `<div class="tcs-row"><span class="tcs-label">Price</span><span class="tcs-val" style="color:#fbbf24">${fmt(buyPr)}</span></div>`;
     html += `<div class="tcs-row"><span class="tcs-label">Income</span><span class="tcs-val" style="color:#4ade80">${fmt(incomeNow)}/rnd</span></div>`;
     html += `<div class="tcs-row"><span class="tcs-label">Fine</span><span class="tcs-val" style="color:#f87171">${fmt(fineNow)}</span></div>`;
     html += `</div>`;
@@ -1490,8 +1497,9 @@ class RealtyRush {
       // Unowned — offer to buy
       let html = this._propertyCard(tile, tileIdx, { label: "FOR SALE", cls: "status-sale" });
 
-      if (p.cash >= tile.basePrice) {
-        html += `<button class="action-btn" onclick="game.buyProperty(${tileIdx})">Buy for ${fmt(tile.basePrice)}</button>`;
+      const price = this.buyPrice(tile);
+      if (p.cash >= price) {
+        html += `<button class="action-btn" onclick="game.buyProperty(${tileIdx})">Buy for ${fmt(price)}</button>`;
       } else {
         html += `<p style="color:#f87171;text-align:center;margin-top:8px">Not enough cash!</p>`;
       }
@@ -1555,9 +1563,10 @@ class RealtyRush {
   buyProperty(tileIdx) {
     const p = this.cp;
     const tile = this.board[tileIdx];
-    if (p.cash < tile.basePrice) return;
+    const price = this.buyPrice(tile);
+    if (p.cash < price) return;
 
-    p.cash -= tile.basePrice;
+    p.cash -= price;
     tile.ownerId = p.id;
     p.properties.push(tileIdx);
     this.emit("rr:action", { type:"buyProperty", tileIdx });
@@ -3098,7 +3107,7 @@ class RealtyRush {
     if (tile.type === "property") {
       ctx.fillStyle = "rgba(255,255,255,0.45)";
       ctx.font = "10px sans-serif";
-      ctx.fillText(fmt(tile.basePrice), x + s / 2, y + s - 22);
+      ctx.fillText(fmt(this.buyPrice(tile)), x + s / 2, y + s - 22);
     } else if (tile.type === "corner") {
       ctx.fillStyle = CORNER_COLORS[tile.corner];
       ctx.font = "bold 11px sans-serif";
