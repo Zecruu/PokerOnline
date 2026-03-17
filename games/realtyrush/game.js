@@ -2946,9 +2946,20 @@ class RealtyRush {
     canvas.height = h * devicePixelRatio;
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-    // Clear
-    ctx.fillStyle = "#0d0d1a";
-    ctx.fillRect(0, 0, w, h);
+    // Clear / Background
+    const bgImg = TILE_IMAGES['board_bg'];
+    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+      // Tile the background across the viewport
+      const pat = ctx.createPattern(bgImg, 'repeat');
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, w, h);
+      // Darken slightly
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillRect(0, 0, w, h);
+    } else {
+      ctx.fillStyle = "#0d0d1a";
+      ctx.fillRect(0, 0, w, h);
+    }
 
     // Camera transform
     ctx.save();
@@ -3243,9 +3254,17 @@ class RealtyRush {
     const margin = TILE_SIZE;
     const inner = BOARD_PX - margin * 2;
 
-    // Subtle bg
-    ctx.fillStyle = "rgba(10,10,26,0.95)";
-    ctx.fillRect(margin, margin, inner, inner);
+    // Center background image or fallback
+    const centerImg = TILE_IMAGES['board_center'];
+    if (centerImg && centerImg.complete && centerImg.naturalWidth > 0) {
+      ctx.drawImage(centerImg, margin, margin, inner, inner);
+      // Darken edges slightly for text readability
+      ctx.fillStyle = "rgba(0,0,0,0.15)";
+      ctx.fillRect(margin, margin, inner, inner);
+    } else {
+      ctx.fillStyle = "rgba(10,10,26,0.95)";
+      ctx.fillRect(margin, margin, inner, inner);
+    }
 
     // Logo
     ctx.fillStyle = "#fff";
@@ -3257,8 +3276,8 @@ class RealtyRush {
     ctx.fillText("Rush", BOARD_PX / 2, BOARD_PX / 2 + 28);
 
     // Round
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.font = "16px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "bold 16px sans-serif";
     ctx.fillText(`Round ${this.round} \u2014 ${MODE_CFG[this.mode].label}`, BOARD_PX / 2, BOARD_PX / 2 + 72);
 
     // Side labels (2 districts per side, inside center area)

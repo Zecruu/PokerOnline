@@ -105,6 +105,9 @@ const TILE_ASSETS = {
     special_lucky: 'tiles/lucky.png',
     special_unlucky: 'tiles/unlucky.png',
     special_free: 'tiles/free-roam.png',
+    // Board areas
+    board_center: 'tiles/board-center.png',
+    board_bg: 'tiles/board-bg.png',
 };
 
 const TILE_IMAGES = {}; // key → Image object
