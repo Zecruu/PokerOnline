@@ -10,6 +10,7 @@ const BUILDING_DEFS = {
     turret:      { name: 'Turret',      cost: { wood: 20, stone: 30, food: 0 },   produces: null,    baseRate: 0,   color: '#607d8b', letter: 'T', size: 1, statKey: null, turret: true, range: 6, damage: 5, fireRate: 1 },
     expander:    { name: 'Expander',    cost: { wood: 40, stone: 40, food: 20 },  produces: null,    baseRate: 0,   color: '#ab47bc', letter: 'E', size: 1, statKey: null, expander: true, expandRadius: 5 },
     research_lab:{ name: 'Research Lab',cost: { wood: 50, stone: 50, food: 30 },  produces: null,    baseRate: 0,   color: '#5c6bc0', letter: 'R', size: 2, statKey: 'INT', isResearch: true },
+    workbench:   { name: 'Workbench',  cost: { wood: 25, stone: 15, food: 0 },   produces: null,    baseRate: 0,   color: '#8d6e63', letter: 'W', size: 2, statKey: 'DEX', isWorkbench: true },
 };
 
 class Buildings {
@@ -86,9 +87,39 @@ class Buildings {
         return speed;
     }
 
-    static update(dt, buildings, critters, resources, resourceCaps) {
+    static update(dt, buildings, critters, resources, resourceCaps, inventory) {
         for (const b of buildings) {
             const def = BUILDING_DEFS[b.type];
+
+            // Workbench: crafts traps and ammo from resources
+            if (def.isWorkbench && b.workers.length > 0) {
+                let dexSum = 0;
+                for (const cid of b.workers) {
+                    const c = critters.find(cr => cr.id === cid);
+                    if (c) dexSum += c.stats.DEX || 0;
+                }
+                const craftRate = 0.03 * b.workers.length * (1 + dexSum * 0.05);
+                b.productionAccum = (b.productionAccum || 0) + craftRate * dt;
+
+                // Craft 1 trap: costs 5 wood + 3 stone
+                if (b.productionAccum >= 1 && inventory) {
+                    if ((resources.wood || 0) >= 5 && (resources.stone || 0) >= 3) {
+                        resources.wood -= 5;
+                        resources.stone -= 3;
+                        inventory.traps = (inventory.traps || 0) + 1;
+                        b.productionAccum -= 1;
+
+                        for (const cid of b.workers) {
+                            const c = critters.find(cr => cr.id === cid);
+                            if (c) Critters.addXp(c, 1);
+                        }
+                    } else {
+                        b.productionAccum = 1; // cap, wait for resources
+                    }
+                }
+                continue;
+            }
+
             if (!def.produces || b.workers.length === 0) continue;
 
             const rate = Buildings.getProductionRate(b, critters);
@@ -156,11 +187,12 @@ class Buildings {
         }
     }
 
-    static getMaxCritters(buildings) {
+    static getMaxCritters(buildings, research) {
         let cap = 4;
         for (const b of buildings) {
             if (b.type === 'nest') cap += (BUILDING_DEFS.nest.capacity || 4);
         }
+        cap += (research?.critterCap || 0) * 4;
         return cap;
     }
 
@@ -236,6 +268,16 @@ class Buildings {
             ctx.font = '9px monospace';
             ctx.textAlign = 'center';
             ctx.fillText('RESEARCHING', sx + size / 2, sy + size - 6);
+        }
+
+        // Workbench indicator
+        if (def.isWorkbench && building.workers.length > 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(sx + 2, sy + size - 14, size - 4, 12);
+            ctx.fillStyle = '#ffab91';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('CRAFTING TRAPS', sx + size / 2, sy + size - 6);
         }
 
         // Assigned critters

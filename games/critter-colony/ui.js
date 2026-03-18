@@ -11,6 +11,7 @@ const RESEARCH_DEFS = {
     turretRange:  { name: 'Turret Optics',      desc: '+1 tile turret range',  maxLevel: 5,  cost: (l) => ({ wood: 30*(l+1), stone: 30*(l+1), food: 0 }),        time: 30 },
     afkCap:       { name: 'Extended AFK',       desc: '+2 hours offline cap',  maxLevel: 4,  cost: (l) => ({ wood: 50*(l+1), stone: 50*(l+1), food: 30*(l+1) }), time: 60 },
     colonyRadius: { name: 'Colony Reach',       desc: 'Bigger expander radius',maxLevel: 3,  cost: (l) => ({ wood: 60*(l+1), stone: 60*(l+1), food: 40*(l+1) }), time: 50 },
+    critterCap:   { name: 'Critter Capacity',   desc: '+4 max critters',       maxLevel: 10, cost: (l) => ({ wood: 25*(l+1), stone: 25*(l+1), food: 15*(l+1) }), time: 20 },
 };
 
 class UI {
@@ -42,7 +43,7 @@ class UI {
         document.getElementById('resStone').textContent = `${Math.floor(g.resources.stone)}/${getCap('stone')}`;
         document.getElementById('resFood').textContent = `${Math.floor(g.resources.food)}/${getCap('food')}`;
         document.getElementById('trapCount').textContent = g.inventory.traps;
-        document.getElementById('critterCount').textContent = `${g.critters.length}/${Buildings.getMaxCritters(g.buildings)}`;
+        document.getElementById('critterCount').textContent = `${g.critters.length}/${Buildings.getMaxCritters(g.buildings, g.research)}`;
 
         this.updatePanel();
     }
@@ -65,6 +66,7 @@ class UI {
                 else if (def.turret) html += `<span class="build-desc">Auto-attacks wild critters</span>`;
                 else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
                 else if (def.isResearch) html += `<span class="build-desc">Assign INT critters to research</span>`;
+                else if (def.isWorkbench) html += `<span class="build-desc">Crafts traps (5 wood + 3 stone each). Assign DEX critters</span>`;
                 html += `</div>`;
             }
 

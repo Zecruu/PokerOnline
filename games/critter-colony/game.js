@@ -84,7 +84,7 @@ class Game {
         this.inventory = { ...gs.inventory };
         this.buildings = gs.buildings.map(b => ({ ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null }));
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0 };
+        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.wildCritters = Critters.spawnWild(this.world);
         if (elapsed > 10) {
@@ -104,7 +104,7 @@ class Game {
         this.resourceCaps = { wood: 200, stone: 200, food: 150 };
         this.inventory = { traps: 5 };
         this.buildings = []; this.critters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0 };
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0 };
         this.researchInProgress = null;
         this.wildCritters = Critters.spawnWild(this.world);
         this._startGame();
@@ -175,7 +175,7 @@ class Game {
             if (dist < CAPTURE_RANGE && dist < closestDist) { closestDist = dist; closest = c; }
         }
         if (closest) {
-            if (this.critters.length >= Buildings.getMaxCritters(this.buildings)) { UI.notify('Roster full! Build a Nest.'); return; }
+            if (this.critters.length >= Buildings.getMaxCritters(this.buildings, this.research)) { UI.notify('Roster full! Build a Nest.'); return; }
             const result = Critters.attemptCapture(closest, this);
             if (result.success) {
                 this.wildCritters = this.wildCritters.filter(c => c.id !== closest.id);
@@ -303,7 +303,7 @@ class Game {
         for (const r of ['wood','stone','food']) caps[r] = (this.resourceCaps[r]||200) + (this.research.storageCap||0)*100;
 
         // Building production
-        Buildings.update(dt, this.buildings, this.critters, this.resources, caps);
+        Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory);
         for (const r of ['wood','stone','food']) this.resources[r] = Math.min(this.resources[r], caps[r]);
 
         // Turrets
@@ -363,7 +363,7 @@ class Game {
             document.getElementById('resStone').textContent = `${Math.floor(this.resources.stone)}/${gc('stone')}`;
             document.getElementById('resFood').textContent = `${Math.floor(this.resources.food)}/${gc('food')}`;
             document.getElementById('trapCount').textContent = this.inventory.traps;
-            document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings)}`;
+            document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
         }
     }
 

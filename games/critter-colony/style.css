@@ -64,8 +64,9 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-stats{display:flex;gap:6px;margin:4px 0;flex-wrap:wrap}
 .cc-stat{font-size:.7rem;color:#aaa;background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px}
 .cc-assign{margin-top:6px}
-.cc-assign select{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;color:#fff;font-size:.8rem;cursor:pointer}
+.cc-assign select{width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 8px;color:#e0e0e0;font-size:.8rem;cursor:pointer}
 .cc-assign select:focus{outline:none;border-color:rgba(102,187,106,.4)}
+.cc-assign select option{background:#1a1a2e;color:#e0e0e0}
 
 /* ========== RESEARCH ========== */
 .research-progress{padding:10px;border-radius:8px;background:rgba(92,107,188,.1);border:1px solid rgba(92,107,188,.3);margin-bottom:8px}
