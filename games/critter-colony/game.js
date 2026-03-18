@@ -8,7 +8,7 @@ class Game {
         this.ctx = this.canvas.getContext('2d');
         this.world = new World();
 
-        this.player = { x: 0, y: 0, speed: 200 };
+        this.player = { x: 0, y: 0, speed: 200, hp: 100, maxHp: 100 };
         this.cam = { x: 0, y: 0 };
 
         this.resources = { wood: 50, stone: 50, food: 30 };
@@ -315,7 +315,19 @@ class Game {
         }
 
         // Wild AI
-        Critters.updateWild(dt, this.wildCritters, this.world);
+        // Wild AI + aggression
+        Critters.updateWild(dt, this.wildCritters, this.world, this.player);
+
+        // Player HP regen (1 hp/sec when not taking damage)
+        if (this.player.hp < this.player.maxHp) {
+            this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1 * dt);
+        }
+        if (this.player.hp <= 0) {
+            // Respawn at colony
+            this.player.hp = this.player.maxHp;
+            this.player.x = 0; this.player.y = 0;
+            UI.notify('You were knocked out! Respawned at colony.', 4000);
+        }
 
         // Resource caps
         const caps = {};
@@ -440,6 +452,15 @@ class Game {
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px, py+12, 10, 5, 0, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = '#4FC3F7'; ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+        // Player HP bar
+        if (this.player.hp < this.player.maxHp) {
+            const hpW = 28, hpH = 4;
+            ctx.fillStyle = '#333'; ctx.fillRect(px - hpW/2, py - 18, hpW, hpH);
+            const pct = this.player.hp / this.player.maxHp;
+            ctx.fillStyle = pct > 0.5 ? '#4ade80' : pct > 0.25 ? '#fbbf24' : '#f87171';
+            ctx.fillRect(px - hpW/2, py - 18, hpW * pct, hpH);
+        }
 
         // Gun aim
         if (this.gunCooldown <= 0) {

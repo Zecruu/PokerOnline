@@ -3,10 +3,10 @@
    ============================================================ */
 
 const SPECIES = {
-    mossbun:   { name: 'Mossbun',   color: '#66bb6a', rarity: 'common',   baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.' },
-    pebblit:   { name: 'Pebblit',   color: '#90a4ae', rarity: 'common',   baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.' },
-    flickwing: { name: 'Flickwing', color: '#ffd54f', rarity: 'common',   baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.' },
-    glowmite:  { name: 'Glowmite', color: '#ce93d8', rarity: 'uncommon', baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.' },
+    mossbun:   { name: 'Mossbun',   color: '#66bb6a', rarity: 'common',   baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false },
+    pebblit:   { name: 'Pebblit',   color: '#90a4ae', rarity: 'common',   baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 4, attackDmg: 3, attackCooldown: 1.5 },
+    flickwing: { name: 'Flickwing', color: '#ffd54f', rarity: 'common',   baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false },
+    glowmite:  { name: 'Glowmite', color: '#ce93d8', rarity: 'uncommon', baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 5, attackDmg: 5, attackCooldown: 2 },
 };
 
 const RARITY_COLORS = { common: '#aaa', uncommon: '#8bc34a', rare: '#ffc107', legendary: '#e040fb' };
@@ -73,7 +73,7 @@ class Critters {
         }
     }
 
-    static updateWild(dt, wildCritters, world) {
+    static updateWild(dt, wildCritters, world, player) {
         for (const c of wildCritters) {
             // Stunned
             if (c.stunned) {
@@ -85,6 +85,39 @@ class Critters {
                     c.wanderTimer = 2;
                 }
                 continue;
+            }
+
+            // Aggression check
+            const sp = SPECIES[c.species];
+            if (sp.aggressive && player && !c.fleeing) {
+                const pdx = player.x - c.x, pdy = player.y - c.y;
+                const pDist = Math.sqrt(pdx*pdx + pdy*pdy) / TILE_SIZE;
+
+                if (pDist < (sp.aggroRange || 4)) {
+                    c.state = 'aggro';
+                    // Chase player
+                    const speed = 50;
+                    const len = Math.sqrt(pdx*pdx + pdy*pdy);
+                    if (len > 15) {
+                        c.x += (pdx / len) * speed * dt;
+                        c.y += (pdy / len) * speed * dt;
+                    }
+                    // Attack when close
+                    if (!c._attackTimer) c._attackTimer = 0;
+                    c._attackTimer -= dt;
+                    if (pDist < 1.2 && c._attackTimer <= 0) {
+                        c._attackTimer = sp.attackCooldown || 1.5;
+                        if (player.hp !== undefined) {
+                            player.hp -= sp.attackDmg || 3;
+                            c._justAttacked = true;
+                            setTimeout(() => { c._justAttacked = false; }, 300);
+                        }
+                    }
+                    continue;
+                } else if (c.state === 'aggro') {
+                    c.state = 'idle';
+                    c.wanderTimer = 1;
+                }
             }
 
             // Fleeing
@@ -252,6 +285,19 @@ class Critters {
             const pct = critter.hp / critter.maxHp;
             ctx.fillStyle = pct > 0.5 ? '#4ade80' : pct > 0.25 ? '#fbbf24' : '#f87171';
             ctx.fillRect(bx, by, barW * pct, barH);
+        }
+
+        // Aggro indicator
+        if (critter.state === 'aggro') {
+            ctx.strokeStyle = 'rgba(248,113,113,0.7)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sx, sy + bob, 11, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = '#f87171';
+            ctx.font = 'bold 8px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('!', sx, sy + bob - 14);
         }
 
         // Rarity glow for uncommon+
