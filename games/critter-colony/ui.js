@@ -79,6 +79,20 @@ class UI {
                     html += `<span class="pb-name">${def.name}</span>`;
                     html += `<span class="pb-workers">${b.workers.length} workers</span>`;
                     if (def.produces) html += `<span class="pb-rate">+${rate.toFixed(2)}/s ${def.produces}</span>`;
+
+                    // Workbench crafting controls
+                    if (def.isWorkbench) {
+                        const ct = Buildings.getCraftTime(b, g.critters);
+                        const canCraft = (g.resources.wood || 0) >= 5 && (g.resources.stone || 0) >= 3;
+                        html += `<div class="wb-controls">`;
+                        html += `<span class="wb-speed">${ct.toFixed(1)}s/trap</span>`;
+                        html += `<button class="wb-btn" onclick="game.manualCraft(${b.id})" ${canCraft ? '' : 'disabled'}>Craft 1</button>`;
+                        html += `<button class="wb-btn" onclick="game.queueCraft(${b.id}, 5)" ${canCraft ? '' : 'disabled'}>+5</button>`;
+                        html += `<button class="wb-btn" onclick="game.queueCraft(${b.id}, 20)" ${canCraft ? '' : 'disabled'}>+20</button>`;
+                        if (b.craftQueue > 0) html += `<span class="wb-queue">${b.craftQueue} queued</span>`;
+                        html += `</div>`;
+                    }
+
                     html += `</div>`;
                 }
             }

@@ -73,6 +73,17 @@ class Buildings {
         return rate;
     }
 
+    // Base 5 seconds per trap. Each DEX point from workers reduces by 2%, min 1 second.
+    // No workers = manual craft at base speed (5s).
+    static getCraftTime(building, critters) {
+        let dexSum = 0;
+        for (const cid of building.workers) {
+            const c = critters.find(cr => cr.id === cid);
+            if (c) dexSum += c.stats.DEX || 0;
+        }
+        return Math.max(1, 5 * (1 - dexSum * 0.02));
+    }
+
     static getResearchSpeed(buildings, critters) {
         let speed = 0;
         for (const b of buildings) {
@@ -93,30 +104,34 @@ class Buildings {
         for (const b of buildings) {
             const def = BUILDING_DEFS[b.type];
 
-            // Workbench: crafts traps and ammo from resources
-            if (def.isWorkbench && b.workers.length > 0) {
-                let dexSum = 0;
-                for (const cid of b.workers) {
-                    const c = critters.find(cr => cr.id === cid);
-                    if (c) dexSum += c.stats.DEX || 0;
-                }
-                const craftRate = 0.03 * b.workers.length * (1 + dexSum * 0.05);
-                b.productionAccum = (b.productionAccum || 0) + craftRate * dt;
+            // Workbench: craft queue system
+            if (def.isWorkbench) {
+                if (!b.craftQueue) b.craftQueue = 0; // how many queued to auto-craft
+                if (!b.craftProgress) b.craftProgress = 0;
 
-                // Craft 1 trap: costs 5 wood + 3 stone
-                if (b.productionAccum >= 1 && inventory) {
-                    if ((resources.wood || 0) >= 5 && (resources.stone || 0) >= 3) {
-                        resources.wood -= 5;
-                        resources.stone -= 3;
-                        inventory.traps = (inventory.traps || 0) + 1;
-                        b.productionAccum -= 1;
+                // Only auto-craft if workers assigned AND queue > 0
+                const hasWork = b.workers.length > 0 && b.craftQueue > 0;
+                // Manual craft also progresses (craftProgress set by game.manualCraft)
+                if (hasWork || b._manualCrafting) {
+                    const craftTime = Buildings.getCraftTime(b, critters);
+                    b.craftProgress += dt;
 
-                        for (const cid of b.workers) {
-                            const c = critters.find(cr => cr.id === cid);
-                            if (c) Critters.addXp(c, 1);
+                    if (b.craftProgress >= craftTime && inventory) {
+                        if ((resources.wood || 0) >= 5 && (resources.stone || 0) >= 3) {
+                            resources.wood -= 5;
+                            resources.stone -= 3;
+                            inventory.traps = (inventory.traps || 0) + 1;
+                            b.craftProgress = 0;
+                            if (b.craftQueue > 0) b.craftQueue--;
+                            if (b._manualCrafting) b._manualCrafting = false;
+
+                            for (const cid of b.workers) {
+                                const c = critters.find(cr => cr.id === cid);
+                                if (c) Critters.addXp(c, 1);
+                            }
+                        } else {
+                            b.craftProgress = craftTime; // wait for resources
                         }
-                    } else {
-                        b.productionAccum = 1; // cap, wait for resources
                     }
                 }
                 continue;
@@ -273,13 +288,26 @@ class Buildings {
         }
 
         // Workbench indicator
-        if (def.isWorkbench && building.workers.length > 0) {
+        if (def.isWorkbench) {
+            const crafting = (building.workers.length > 0 && building.craftQueue > 0) || building._manualCrafting;
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.fillRect(sx + 2, sy + size - 14, size - 4, 12);
-            ctx.fillStyle = '#ffab91';
-            ctx.font = '9px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('CRAFTING TRAPS', sx + size / 2, sy + size - 6);
+            if (crafting) {
+                const ct = Buildings.getCraftTime(building, critters);
+                const pct = Math.min(1, (building.craftProgress || 0) / ct);
+                // Progress bar
+                ctx.fillStyle = 'rgba(255,171,145,0.3)';
+                ctx.fillRect(sx + 3, sy + size - 13, (size - 6) * pct, 10);
+                ctx.fillStyle = '#ffab91';
+                ctx.font = '9px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`CRAFTING (${building.craftQueue || 0} queued)`, sx + size / 2, sy + size - 6);
+            } else {
+                ctx.fillStyle = '#888';
+                ctx.font = '9px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('WORKBENCH', sx + size / 2, sy + size - 6);
+            }
         }
 
         // Assigned critters

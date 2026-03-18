@@ -236,6 +236,25 @@ class Game {
         UI.update();
     }
 
+    manualCraft(buildingId) {
+        const b = this.buildings.find(b => b.id === buildingId);
+        if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
+        if ((this.resources.wood || 0) < 5 || (this.resources.stone || 0) < 3) { UI.notify('Need 5 wood + 3 stone!'); return; }
+        b._manualCrafting = true;
+        b.craftProgress = 0;
+        UI.notify('Crafting trap...');
+    }
+
+    queueCraft(buildingId, amount) {
+        const b = this.buildings.find(b => b.id === buildingId);
+        if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
+        if (!b.craftQueue) b.craftQueue = 0;
+        b.craftQueue += amount;
+        if (b.workers.length === 0) UI.notify(`${amount} traps queued. Assign DEX critters to auto-craft!`);
+        else UI.notify(`${amount} traps queued (${b.craftQueue} total)`);
+        UI.update();
+    }
+
     startResearch(researchId) {
         if (this.researchInProgress) { UI.notify('Already researching!'); return; }
         const rd = RESEARCH_DEFS[researchId];
