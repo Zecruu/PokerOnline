@@ -11,6 +11,7 @@ const SPECIES = {
 
 const RARITY_COLORS = { common: '#aaa', uncommon: '#8bc34a', rare: '#ffc107', legendary: '#e040fb' };
 const CATCH_RATES = { common: 0.70, uncommon: 0.40, rare: 0.20, legendary: 0.05 };
+const RARITY_HP = { common: 30, uncommon: 50, rare: 80, legendary: 150 };
 const WILD_MIN_COUNT = 12;
 const WILD_MAX_COUNT = 16;
 const CAPTURE_RANGE = 2.5; // in tiles
@@ -41,12 +42,17 @@ class Critters {
             if (roll < 0.15) species = 'glowmite';
             else species = speciesKeys[Math.floor(Math.random() * 3)]; // first 3 are common
 
+            const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
             wilds.push({
                 id: _nextCritterId++,
                 species,
                 x: pos.x * TILE_SIZE + TILE_SIZE / 2,
                 y: pos.y * TILE_SIZE + TILE_SIZE / 2,
                 stats: Critters.rollStats(species),
+                hp: maxHp,
+                maxHp,
+                stunned: false,
+                stunTimer: 0,
                 state: 'idle',
                 wanderTarget: null,
                 wanderTimer: Math.random() * 3,
@@ -57,8 +63,30 @@ class Critters {
         return wilds;
     }
 
+    static damageWild(critter, damage) {
+        critter.hp = Math.max(0, critter.hp - damage);
+        if (critter.hp <= 0) {
+            critter.stunned = true;
+            critter.stunTimer = 5;
+            critter.state = 'idle';
+            critter.fleeing = false;
+        }
+    }
+
     static updateWild(dt, wildCritters, world) {
         for (const c of wildCritters) {
+            // Stunned
+            if (c.stunned) {
+                c.stunTimer -= dt;
+                if (c.stunTimer <= 0) {
+                    c.stunned = false;
+                    c.hp = c.maxHp;
+                    c.state = 'idle';
+                    c.wanderTimer = 2;
+                }
+                continue;
+            }
+
             // Fleeing
             if (c.fleeing) {
                 c.fleeTimer -= dt;
@@ -121,7 +149,22 @@ class Critters {
         if (dist > CAPTURE_RANGE) return { success: false, reason: 'Too far away!' };
 
         game.inventory.traps--;
-        const rate = CATCH_RATES[SPECIES[critter.species].rarity] || 0.5;
+
+        // Stunned = guaranteed capture
+        if (critter.stunned) {
+            const captured = {
+                id: critter.id, species: critter.species,
+                nickname: SPECIES[critter.species].name,
+                stats: critter.stats, level: 1, xp: 0, assignment: null,
+            };
+            return { success: true, captured };
+        }
+
+        // HP bonus: lower HP = easier capture
+        const baseRate = CATCH_RATES[SPECIES[critter.species].rarity] || 0.5;
+        const hpBonus = (1 - critter.hp / critter.maxHp) * 0.3;
+        const captureBonus = (game.research?.captureBonus || 0) * 0.1;
+        const rate = Math.min(0.95, baseRate + hpBonus + captureBonus);
         const roll = Math.random();
 
         if (roll < rate) {
@@ -178,6 +221,38 @@ class Critters {
         ctx.arc(sx - 2.5, sy + bob - 2, 1.2, 0, Math.PI * 2);
         ctx.arc(sx + 3.5, sy + bob - 2, 1.2, 0, Math.PI * 2);
         ctx.fill();
+
+        // Stunned visual
+        if (critter.stunned) {
+            ctx.globalAlpha = 0.5 + Math.sin(time * 10) * 0.3;
+            ctx.strokeStyle = '#ffd54f';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.arc(sx, sy + bob, 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+            // Stars above head
+            ctx.fillStyle = '#ffd54f';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u2605', sx - 6, sy + bob - 14);
+            ctx.fillText('\u2605', sx + 6, sy + bob - 14);
+        }
+
+        // HP bar (show when damaged)
+        if (critter.hp < critter.maxHp && !critter.stunned) {
+            const barW = 20;
+            const barH = 3;
+            const bx = sx - barW / 2;
+            const by = sy + bob - 16;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(bx, by, barW, barH);
+            const pct = critter.hp / critter.maxHp;
+            ctx.fillStyle = pct > 0.5 ? '#4ade80' : pct > 0.25 ? '#fbbf24' : '#f87171';
+            ctx.fillRect(bx, by, barW * pct, barH);
+        }
 
         // Rarity glow for uncommon+
         if (sp.rarity !== 'common') {

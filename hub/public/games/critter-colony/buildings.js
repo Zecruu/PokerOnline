@@ -3,10 +3,13 @@
    ============================================================ */
 
 const BUILDING_DEFS = {
-    mine:        { name: 'Mine',        cost: { wood: 30, stone: 0, food: 0 },  produces: 'stone', baseRate: 0.1, color: '#78909c', letter: 'M', size: 2, statKey: 'STR' },
-    lumber_mill: { name: 'Lumber Mill', cost: { wood: 0, stone: 30, food: 0 },  produces: 'wood',  baseRate: 0.1, color: '#6d4c41', letter: 'L', size: 2, statKey: 'STR' },
-    farm:        { name: 'Farm',        cost: { wood: 20, stone: 10, food: 0 },  produces: 'food',  baseRate: 0.1, color: '#7cb342', letter: 'F', size: 2, statKey: 'VIT' },
-    nest:        { name: 'Nest',        cost: { wood: 15, stone: 5, food: 0 },   produces: null,    baseRate: 0,   color: '#ffb74d', letter: 'N', size: 2, statKey: null, capacity: 4 },
+    mine:        { name: 'Mine',        cost: { wood: 30, stone: 0, food: 0 },   produces: 'stone', baseRate: 0.1, color: '#78909c', letter: 'M', size: 2, statKey: 'STR' },
+    lumber_mill: { name: 'Lumber Mill', cost: { wood: 0, stone: 30, food: 0 },   produces: 'wood',  baseRate: 0.1, color: '#6d4c41', letter: 'L', size: 2, statKey: 'STR' },
+    farm:        { name: 'Farm',        cost: { wood: 20, stone: 10, food: 0 },   produces: 'food',  baseRate: 0.1, color: '#7cb342', letter: 'F', size: 2, statKey: 'VIT' },
+    nest:        { name: 'Nest',        cost: { wood: 15, stone: 5, food: 0 },    produces: null,    baseRate: 0,   color: '#ffb74d', letter: 'N', size: 2, statKey: null, capacity: 4 },
+    turret:      { name: 'Turret',      cost: { wood: 20, stone: 30, food: 0 },   produces: null,    baseRate: 0,   color: '#607d8b', letter: 'T', size: 1, statKey: null, turret: true, range: 6, damage: 5, fireRate: 1 },
+    expander:    { name: 'Expander',    cost: { wood: 40, stone: 40, food: 20 },  produces: null,    baseRate: 0,   color: '#ab47bc', letter: 'E', size: 1, statKey: null, expander: true, expandRadius: 5 },
+    research_lab:{ name: 'Research Lab',cost: { wood: 50, stone: 50, food: 30 },  produces: null,    baseRate: 0,   color: '#5c6bc0', letter: 'R', size: 2, statKey: 'INT', isResearch: true },
 };
 
 class Buildings {
@@ -19,13 +22,11 @@ class Buildings {
     }
 
     static canPlace(gridX, gridY, size, buildings, world) {
-        // Must be in colony zone
         for (let dx = 0; dx < size; dx++) {
             for (let dy = 0; dy < size; dy++) {
                 if (!world.isColony(gridX + dx, gridY + dy)) return false;
             }
         }
-        // No overlap with existing buildings
         for (const b of buildings) {
             const def = BUILDING_DEFS[b.type];
             if (gridX < b.gridX + def.size && gridX + size > b.gridX &&
@@ -38,7 +39,6 @@ class Buildings {
 
     static place(type, gridX, gridY, resources) {
         const def = BUILDING_DEFS[type];
-        // Deduct cost
         for (const [res, cost] of Object.entries(def.cost)) {
             resources[res] -= cost;
         }
@@ -47,8 +47,12 @@ class Buildings {
             type,
             gridX,
             gridY,
-            workers: [], // critter IDs
+            workers: [],
             productionAccum: 0,
+            // Turret state
+            turretTarget: null,
+            turretCooldown: 0,
+            turretAngle: 0,
         };
     }
 
@@ -63,11 +67,26 @@ class Buildings {
                 totalStat += c.stats[def.statKey] || 0;
             }
         }
-        // base rate * workers * (1 + stat bonus)
         return def.baseRate * building.workers.length * (1 + totalStat * 0.05);
     }
 
-    static update(dt, buildings, critters, resources) {
+    static getResearchSpeed(buildings, critters) {
+        let speed = 0;
+        for (const b of buildings) {
+            if (b.type !== 'research_lab') continue;
+            let intSum = 0;
+            for (const cid of b.workers) {
+                const c = critters.find(cr => cr.id === cid);
+                if (c) intSum += c.stats.INT || 0;
+            }
+            if (b.workers.length > 0) {
+                speed += 0.05 * b.workers.length * (1 + intSum * 0.08);
+            }
+        }
+        return speed;
+    }
+
+    static update(dt, buildings, critters, resources, resourceCaps) {
         for (const b of buildings) {
             const def = BUILDING_DEFS[b.type];
             if (!def.produces || b.workers.length === 0) continue;
@@ -77,10 +96,11 @@ class Buildings {
 
             if (b.productionAccum >= 1) {
                 const gained = Math.floor(b.productionAccum);
-                resources[def.produces] = (resources[def.produces] || 0) + gained;
+                const res = def.produces;
+                const cap = resourceCaps ? (resourceCaps[res] || 9999) : 9999;
+                resources[res] = Math.min((resources[res] || 0) + gained, cap);
                 b.productionAccum -= gained;
 
-                // XP for workers
                 for (const cid of b.workers) {
                     const c = critters.find(cr => cr.id === cid);
                     if (c) Critters.addXp(c, gained);
@@ -89,8 +109,55 @@ class Buildings {
         }
     }
 
+    static updateTurrets(dt, buildings, wildCritters, projectiles, research) {
+        for (const b of buildings) {
+            const def = BUILDING_DEFS[b.type];
+            if (!def.turret) continue;
+
+            b.turretCooldown = Math.max(0, (b.turretCooldown || 0) - dt);
+            const range = (def.range + (research?.turretRange || 0)) * TILE_SIZE;
+            const damage = def.damage + (research?.turretDamage || 0) * 3;
+            const cx = (b.gridX + 0.5) * TILE_SIZE;
+            const cy = (b.gridY + 0.5) * TILE_SIZE;
+
+            // Find closest wild critter in range
+            let closest = null;
+            let closestDist = Infinity;
+            for (const wc of wildCritters) {
+                const dx = wc.x - cx;
+                const dy = wc.y - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < range && dist < closestDist) {
+                    closestDist = dist;
+                    closest = wc;
+                }
+            }
+
+            if (closest) {
+                b.turretAngle = Math.atan2(closest.y - cy, closest.x - cx);
+                b.turretTarget = { x: closest.x, y: closest.y };
+
+                if (b.turretCooldown <= 0) {
+                    b.turretCooldown = 1 / def.fireRate;
+                    const angle = b.turretAngle;
+                    const speed = 350;
+                    projectiles.push({
+                        x: cx, y: cy,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        damage,
+                        lifetime: 2,
+                        fromTurret: true,
+                    });
+                }
+            } else {
+                b.turretTarget = null;
+            }
+        }
+    }
+
     static getMaxCritters(buildings) {
-        let cap = 4; // base capacity
+        let cap = 4;
         for (const b of buildings) {
             if (b.type === 'nest') cap += (BUILDING_DEFS.nest.capacity || 4);
         }
@@ -109,28 +176,48 @@ class Buildings {
         ctx.fillStyle = def.color;
         ctx.fillRect(sx + 2, sy + 2, size - 4, size - 4);
 
-        // Border
         ctx.strokeStyle = 'rgba(255,255,255,0.2)';
         ctx.lineWidth = 1;
         ctx.strokeRect(sx + 2, sy + 2, size - 4, size - 4);
 
         // Letter label
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 18px monospace';
+        ctx.font = `bold ${def.size === 1 ? 14 : 18}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(def.letter, sx + size / 2, sy + 18);
+        ctx.fillText(def.letter, sx + size / 2, sy + (def.size === 1 ? size / 2 : 18));
+
+        // Turret barrel
+        if (def.turret) {
+            const angle = building.turretAngle || 0;
+            const tcx = sx + size / 2;
+            const tcy = sy + size / 2;
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(tcx, tcy);
+            ctx.lineTo(tcx + Math.cos(angle) * 18, tcy + Math.sin(angle) * 18);
+            ctx.stroke();
+            // Range circle (faint)
+            const range = (def.range) * TILE_SIZE;
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(tcx, tcy, range, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         // Worker count
-        if (building.workers.length > 0) {
+        if (building.workers.length > 0 && !def.turret && !def.expander) {
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.fillRect(sx + size - 20, sy + 2, 18, 14);
             ctx.fillStyle = '#4ade80';
             ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
             ctx.fillText(building.workers.length.toString(), sx + size - 11, sy + 10);
         }
 
-        // Production rate indicator
+        // Production rate
         if (def.produces && building.workers.length > 0) {
             const rate = Buildings.getProductionRate(building, critters);
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -141,7 +228,17 @@ class Buildings {
             ctx.fillText(`+${rate.toFixed(1)}/s ${def.produces}`, sx + size / 2, sy + size - 6);
         }
 
-        // Render assigned critters
+        // Research lab indicator
+        if (def.isResearch && building.workers.length > 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(sx + 2, sy + size - 14, size - 4, 12);
+            ctx.fillStyle = '#818cf8';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('RESEARCHING', sx + size / 2, sy + size - 6);
+        }
+
+        // Assigned critters
         for (let i = 0; i < building.workers.length; i++) {
             const c = critters.find(cr => cr.id === building.workers[i]);
             if (c) Critters.renderAssigned(ctx, c, wx, wy, i, camX, camY, time);

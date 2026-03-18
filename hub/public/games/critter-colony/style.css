@@ -67,6 +67,24 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-assign select{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;color:#fff;font-size:.8rem;cursor:pointer}
 .cc-assign select:focus{outline:none;border-color:rgba(102,187,106,.4)}
 
+/* ========== RESEARCH ========== */
+.research-progress{padding:10px;border-radius:8px;background:rgba(92,107,188,.1);border:1px solid rgba(92,107,188,.3);margin-bottom:8px}
+.rp-name{font-weight:700;font-size:.85rem;color:#818cf8;display:block;margin-bottom:4px}
+.rp-bar{height:6px;background:#222;border-radius:3px;overflow:hidden}
+.rp-fill{height:100%;background:linear-gradient(90deg,#818cf8,#a78bfa);border-radius:3px;transition:width .3s}
+.rp-pct{font-size:.7rem;color:#888;margin-top:2px;display:block}
+.research-item{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);margin-bottom:6px}
+.research-item.disabled{opacity:.4}
+.research-item.active{border-color:rgba(129,140,248,.3);background:rgba(129,140,248,.06)}
+.research-item.done{opacity:.5}
+.ri-name{display:block;font-weight:700;font-size:.85rem;color:#ddd}
+.ri-desc{display:block;font-size:.7rem;color:#888;margin:2px 0}
+.ri-cost{display:block;font-size:.7rem;color:#fbbf24;margin-bottom:4px}
+.ri-max{color:#4ade80;font-size:.75rem;font-weight:600}
+.ri-btn{padding:4px 12px;border-radius:6px;border:1px solid rgba(129,140,248,.3);background:rgba(129,140,248,.1);color:#818cf8;font-size:.8rem;font-weight:600;cursor:pointer;float:right;margin-top:-20px}
+.ri-btn:hover{background:rgba(129,140,248,.2)}
+.ri-btn:disabled{opacity:.3;cursor:not-allowed}
+
 /* ========== CONTROLS HINT ========== */
 #controlsHint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:.75rem;z-index:10;pointer-events:none}
 

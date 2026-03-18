@@ -2,31 +2,45 @@
    Critter Colony — UI System
    ============================================================ */
 
+// Research definitions
+const RESEARCH_DEFS = {
+    gunDamage:    { name: 'Tamer Gun Power',   desc: '+5 gun damage',         maxLevel: 10, cost: (l) => ({ wood: 30*(l+1), stone: 20*(l+1), food: 10*(l+1) }), time: 30 },
+    storageCap:   { name: 'Storage Expansion',  desc: '+100 resource cap',     maxLevel: 10, cost: (l) => ({ wood: 40*(l+1), stone: 40*(l+1), food: 0 }),        time: 25 },
+    captureBonus: { name: 'Capture Mastery',    desc: '+10% capture rate',     maxLevel: 5,  cost: (l) => ({ wood: 20*(l+1), stone: 20*(l+1), food: 20*(l+1) }), time: 40 },
+    turretDamage: { name: 'Turret Calibration', desc: '+3 turret damage',      maxLevel: 8,  cost: (l) => ({ wood: 25*(l+1), stone: 35*(l+1), food: 0 }),        time: 35 },
+    turretRange:  { name: 'Turret Optics',      desc: '+1 tile turret range',  maxLevel: 5,  cost: (l) => ({ wood: 30*(l+1), stone: 30*(l+1), food: 0 }),        time: 30 },
+    afkCap:       { name: 'Extended AFK',       desc: '+2 hours offline cap',  maxLevel: 4,  cost: (l) => ({ wood: 50*(l+1), stone: 50*(l+1), food: 30*(l+1) }), time: 60 },
+    colonyRadius: { name: 'Colony Reach',       desc: 'Bigger expander radius',maxLevel: 3,  cost: (l) => ({ wood: 60*(l+1), stone: 60*(l+1), food: 40*(l+1) }), time: 50 },
+};
+
 class UI {
     static init(game) {
         this.game = game;
         this.activeTab = 'buildings';
         this.notifications = [];
+        this.showWaypointMenu = false;
+        this.showResearchMenu = false;
 
-        // Tab buttons
         document.getElementById('tabBuildings').onclick = () => this.switchTab('buildings');
         document.getElementById('tabCritters').onclick = () => this.switchTab('critters');
+        document.getElementById('tabResearch').onclick = () => this.switchTab('research');
     }
 
     static switchTab(tab) {
         this.activeTab = tab;
         document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+        const el = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+        if (el) el.classList.add('active');
         this.updatePanel();
     }
 
     static update() {
         const g = this.game;
+        const getCap = (r) => (g.resourceCaps[r] || 200) + (g.research.storageCap || 0) * 100;
 
-        // Resource bar
-        document.getElementById('resWood').textContent = Math.floor(g.resources.wood);
-        document.getElementById('resStone').textContent = Math.floor(g.resources.stone);
-        document.getElementById('resFood').textContent = Math.floor(g.resources.food);
+        document.getElementById('resWood').textContent = `${Math.floor(g.resources.wood)}/${getCap('wood')}`;
+        document.getElementById('resStone').textContent = `${Math.floor(g.resources.stone)}/${getCap('stone')}`;
+        document.getElementById('resFood').textContent = `${Math.floor(g.resources.food)}/${getCap('food')}`;
         document.getElementById('trapCount').textContent = g.inventory.traps;
         document.getElementById('critterCount').textContent = `${g.critters.length}/${Buildings.getMaxCritters(g.buildings)}`;
 
@@ -48,10 +62,12 @@ class UI {
                 html += `<span class="build-cost">${costStr || 'Free'}</span>`;
                 if (def.produces) html += `<span class="build-desc">Produces ${def.produces}</span>`;
                 else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
+                else if (def.turret) html += `<span class="build-desc">Auto-attacks wild critters</span>`;
+                else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
+                else if (def.isResearch) html += `<span class="build-desc">Assign INT critters to research</span>`;
                 html += `</div>`;
             }
 
-            // Placed buildings
             if (g.buildings.length > 0) {
                 html += '<div class="panel-section-label" style="margin-top:12px">Your Buildings</div>';
                 for (const b of g.buildings) {
@@ -69,13 +85,10 @@ class UI {
         } else if (this.activeTab === 'critters') {
             let html = '';
             if (g.critters.length === 0) {
-                html = '<div class="panel-empty">No critters captured yet.<br>Explore and click wild critters to capture!</div>';
+                html = '<div class="panel-empty">No critters captured yet.<br>Explore and press E near wild critters!</div>';
             } else {
                 for (const c of g.critters) {
                     const sp = SPECIES[c.species];
-                    const assignedBuilding = c.assignment ? g.buildings.find(b => b.id === c.assignment) : null;
-                    const assignedName = assignedBuilding ? BUILDING_DEFS[assignedBuilding.type].name : 'Idle';
-
                     html += `<div class="critter-card">`;
                     html += `<div class="cc-header">`;
                     html += `<span class="cc-dot" style="background:${sp.color}"></span>`;
@@ -89,13 +102,13 @@ class UI {
                     }
                     html += `</div>`;
 
-                    // Assignment dropdown
                     html += `<div class="cc-assign">`;
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
                     html += `<option value="">Idle</option>`;
+                    html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
                     for (const b of g.buildings) {
                         const def = BUILDING_DEFS[b.type];
-                        if (!def.produces) continue; // skip nests
+                        if (!def.produces && !def.isResearch) continue;
                         const selected = c.assignment === b.id ? 'selected' : '';
                         html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length})</option>`;
                     }
@@ -105,6 +118,99 @@ class UI {
                 }
             }
             body.innerHTML = html;
+
+        } else if (this.activeTab === 'research') {
+            let html = '';
+            const researchSpeed = Buildings.getResearchSpeed(g.buildings, g.critters);
+            if (researchSpeed <= 0) {
+                html = '<div class="panel-empty">Build a Research Lab and assign INT critters to start researching!</div>';
+            } else {
+                html += `<div class="panel-section-label">Research Speed: ${researchSpeed.toFixed(2)}/s</div>`;
+
+                // In-progress research
+                if (g.researchInProgress) {
+                    const rd = RESEARCH_DEFS[g.researchInProgress.id];
+                    const pct = Math.min(100, (g.researchInProgress.progress / rd.time) * 100);
+                    html += `<div class="research-progress">`;
+                    html += `<span class="rp-name">${rd.name}</span>`;
+                    html += `<div class="rp-bar"><div class="rp-fill" style="width:${pct}%"></div></div>`;
+                    html += `<span class="rp-pct">${Math.floor(pct)}%</span>`;
+                    html += `</div>`;
+                }
+
+                html += '<div class="panel-section-label" style="margin-top:8px">Available Research</div>';
+                for (const [id, rd] of Object.entries(RESEARCH_DEFS)) {
+                    const level = g.research[id] || 0;
+                    if (level >= rd.maxLevel) {
+                        html += `<div class="research-item done"><span class="ri-name">${rd.name}</span><span class="ri-max">MAX</span></div>`;
+                        continue;
+                    }
+                    const cost = rd.cost(level);
+                    const costStr = Object.entries(cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
+                    const canAfford = Object.entries(cost).every(([k,v]) => (g.resources[k]||0) >= v);
+                    const inProgress = g.researchInProgress?.id === id;
+                    html += `<div class="research-item ${!canAfford && !inProgress ? 'disabled' : ''} ${inProgress ? 'active' : ''}">`;
+                    html += `<span class="ri-name">${rd.name} (${level}/${rd.maxLevel})</span>`;
+                    html += `<span class="ri-desc">${rd.desc}</span>`;
+                    html += `<span class="ri-cost">${costStr}</span>`;
+                    if (!inProgress && !g.researchInProgress) {
+                        html += `<button class="ri-btn" onclick="game.startResearch('${id}')" ${!canAfford ? 'disabled' : ''}>Research</button>`;
+                    }
+                    html += `</div>`;
+                }
+            }
+            body.innerHTML = html;
+        }
+    }
+
+    static renderWaypointMenu(ctx, game, canvasW, canvasH) {
+        if (!this.showWaypointMenu) return;
+        const waypoints = game.world.waypoints.filter(w => w.claimed);
+
+        const menuW = 260;
+        const menuH = Math.min(40 + waypoints.length * 36, canvasH - 80);
+        const mx = (canvasW - menuW) / 2;
+        const my = (canvasH - menuH) / 2;
+
+        ctx.fillStyle = 'rgba(10,10,30,0.92)';
+        ctx.fillRect(mx, my, menuW, menuH);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(mx, my, menuW, menuH);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Waypoints (T to close)', mx + menuW / 2, my + 22);
+
+        // Store clickable areas for game.js to handle
+        game._waypointButtons = [];
+        for (let i = 0; i < waypoints.length; i++) {
+            const wp = waypoints[i];
+            const by = my + 36 + i * 36;
+            const bx = mx + 10;
+
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.fillRect(bx, by, menuW - 20, 30);
+
+            ctx.fillStyle = '#66bb6a';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(wp.name, bx + 8, by + 14);
+
+            ctx.fillStyle = '#888';
+            ctx.font = '9px monospace';
+            ctx.fillText(`(${wp.x}, ${wp.y})`, bx + 8, by + 24);
+
+            // Teleport button
+            ctx.fillStyle = 'rgba(102,187,106,0.2)';
+            ctx.fillRect(bx + menuW - 80, by + 4, 52, 22);
+            ctx.fillStyle = '#66bb6a';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('GO', bx + menuW - 54, by + 18);
+
+            game._waypointButtons.push({ x: bx + menuW - 80, y: by + 4, w: 52, h: 22, wp });
         }
     }
 
@@ -129,10 +235,10 @@ class UI {
             const y = 80 + i * 30;
             ctx.globalAlpha = n.opacity;
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.font = 'bold 13px monospace';
             const tw = ctx.measureText(n.text).width;
             ctx.fillRect(canvasW / 2 - tw / 2 - 12, y - 12, tw + 24, 24);
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 13px monospace';
             ctx.fillText(n.text, canvasW / 2, y + 4);
         }
         ctx.globalAlpha = 1;
