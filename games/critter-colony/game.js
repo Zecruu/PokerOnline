@@ -303,7 +303,7 @@ class Game {
         for (const r of ['wood','stone','food']) caps[r] = (this.resourceCaps[r]||200) + (this.research.storageCap||0)*100;
 
         // Building production
-        Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory);
+        Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
         for (const r of ['wood','stone','food']) this.resources[r] = Math.min(this.resources[r], caps[r]);
 
         // Turrets
@@ -338,6 +338,27 @@ class Game {
             }
         }
 
+        // Critter food consumption — each owned critter eats 0.02 food/sec (1.2/min)
+        // Only critters with an assignment (working or patrolling) consume food
+        // No food = critters work 50% slower (hungry debuff, not death)
+        if (!this._foodTimer) this._foodTimer = 0;
+        this._foodTimer += dt;
+        if (this._foodTimer >= 5) { // check every 5 seconds
+            this._foodTimer = 0;
+            let activeCount = this.critters.filter(c => c.assignment).length;
+            const consumption = activeCount * 0.1; // 0.1 food per active critter per 5s
+            if (this.resources.food >= consumption) {
+                this.resources.food -= consumption;
+                this.hungry = false;
+            } else {
+                this.resources.food = Math.max(0, this.resources.food - consumption);
+                if (!this.hungry) {
+                    this.hungry = true;
+                    UI.notify('Critters are hungry! Build more Farms.', 4000);
+                }
+            }
+        }
+
         // Respawn
         this.respawnTimer -= dt;
         if (this.respawnTimer <= 0) {
@@ -361,7 +382,9 @@ class Game {
             const gc = (r) => caps[r]||200;
             document.getElementById('resWood').textContent = `${Math.floor(this.resources.wood)}/${gc('wood')}`;
             document.getElementById('resStone').textContent = `${Math.floor(this.resources.stone)}/${gc('stone')}`;
-            document.getElementById('resFood').textContent = `${Math.floor(this.resources.food)}/${gc('food')}`;
+            const foodEl = document.getElementById('resFood');
+            foodEl.textContent = `${Math.floor(this.resources.food)}/${gc('food')}`;
+            foodEl.style.color = this.hungry ? '#f87171' : '#9ccc65';
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
         }

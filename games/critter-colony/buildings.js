@@ -57,7 +57,7 @@ class Buildings {
         };
     }
 
-    static getProductionRate(building, critters) {
+    static getProductionRate(building, critters, hungry) {
         const def = BUILDING_DEFS[building.type];
         if (!def.produces || building.workers.length === 0) return 0;
 
@@ -68,7 +68,9 @@ class Buildings {
                 totalStat += c.stats[def.statKey] || 0;
             }
         }
-        return def.baseRate * building.workers.length * (1 + totalStat * 0.05);
+        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05);
+        if (hungry) rate *= 0.5; // hungry debuff
+        return rate;
     }
 
     static getResearchSpeed(buildings, critters) {
@@ -87,7 +89,7 @@ class Buildings {
         return speed;
     }
 
-    static update(dt, buildings, critters, resources, resourceCaps, inventory) {
+    static update(dt, buildings, critters, resources, resourceCaps, inventory, hungry) {
         for (const b of buildings) {
             const def = BUILDING_DEFS[b.type];
 
@@ -122,7 +124,7 @@ class Buildings {
 
             if (!def.produces || b.workers.length === 0) continue;
 
-            const rate = Buildings.getProductionRate(b, critters);
+            const rate = Buildings.getProductionRate(b, critters, hungry);
             b.productionAccum += rate * dt;
 
             if (b.productionAccum >= 1) {
