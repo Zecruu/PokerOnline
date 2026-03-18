@@ -387,6 +387,7 @@ class Game {
             foodEl.style.color = this.hungry ? '#f87171' : '#9ccc65';
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
+            UI.updatePanel();
         }
     }
 
