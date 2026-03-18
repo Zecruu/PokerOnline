@@ -161,6 +161,9 @@ class Game {
     }
 
     newGame() {
+        // Cleanup old sprites
+        for (const c of this.wildCritters) this._cleanupCritterSprite(c);
+        for (const b of this.buildings) { if (b._pixiSprite) { b._pixiSprite.destroy({ children: true }); b._pixiSprite = null; } }
         this.world.generate();
         this.player.x = 0; this.player.y = 0;
         this.resources = { wood: 50, stone: 50, food: 30 };
@@ -251,10 +254,24 @@ class Game {
             if (this.critters.length >= Buildings.getMaxCritters(this.buildings, this.research)) { UI.notify('Roster full! Build a Nest.'); return; }
             const result = Critters.attemptCapture(closest, this);
             if (result.success) {
+                this._cleanupCritterSprite(closest);
                 this.wildCritters = this.wildCritters.filter(c => c.id !== closest.id);
                 this.critters.push(result.captured);
                 UI.notify(`Captured ${SPECIES[result.captured.species].name}!`); UI.update();
             } else UI.notify(result.reason);
+        }
+    }
+
+    _cleanupCritterSprite(critter) {
+        if (critter._pixiSprite) {
+            if (critter._pixiSprite.parent) critter._pixiSprite.parent.removeChild(critter._pixiSprite);
+            critter._pixiSprite.destroy({ children: true });
+            critter._pixiSprite = null;
+        }
+        if (critter._patrolSprite) {
+            if (critter._patrolSprite.parent) critter._patrolSprite.parent.removeChild(critter._patrolSprite);
+            critter._patrolSprite.destroy({ children: true });
+            critter._patrolSprite = null;
         }
     }
 
@@ -550,9 +567,27 @@ class Game {
             if (c.assignment !== 'patrol') continue;
             const sp = SPECIES[c.species];
             const sx = c._patrolX || 0, sy = (c._patrolY || 0) + Math.sin(this.time*3 + c.id)*2;
-            gfx.beginFill(PIXI.utils.string2hex(sp.color));
-            gfx.drawCircle(sx, sy, 7);
-            gfx.endFill();
+            const tex = typeof PIXI_CRITTER_TEXTURES !== 'undefined' ? PIXI_CRITTER_TEXTURES[c.species] : null;
+            if (tex) {
+                if (!c._patrolSprite) {
+                    c._patrolSprite = new PIXI.Sprite(tex);
+                    c._patrolSprite.anchor.set(0.5, 0.5);
+                    c._patrolSprite.width = 14; c._patrolSprite.height = 14;
+                    const mask = new PIXI.Graphics();
+                    mask.beginFill(0xffffff);
+                    mask.drawCircle(0, 0, 7);
+                    mask.endFill();
+                    c._patrolSprite.addChild(mask);
+                    c._patrolSprite.mask = mask;
+                    this.entityContainer.addChild(c._patrolSprite);
+                }
+                c._patrolSprite.x = sx; c._patrolSprite.y = sy;
+                c._patrolSprite.visible = true;
+            } else {
+                gfx.beginFill(PIXI.utils.string2hex(sp.color));
+                gfx.drawCircle(sx, sy, 7);
+                gfx.endFill();
+            }
         }
 
         // Wild critters
@@ -785,15 +820,23 @@ class Game {
         const wy = building.gridY * TILE_SIZE;
         const size = def.size * TILE_SIZE;
 
-        // Building body
-        const sprite = typeof BUILDING_SPRITES !== 'undefined' ? BUILDING_SPRITES[building.type] : null;
-        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-            // For image sprites, we'd use PIXI.Sprite — for now use color fallback
-            // (Image sprites loaded as HTML Image objects need conversion to PIXI.Texture)
+        // Building body — use Pixi sprite if available
+        const tex = typeof PIXI_BUILDING_TEXTURES !== 'undefined' ? PIXI_BUILDING_TEXTURES[building.type] : null;
+        if (tex) {
+            // Manage persistent sprite
+            if (!building._pixiSprite) {
+                building._pixiSprite = new PIXI.Sprite(tex);
+                this.buildingContainer.addChild(building._pixiSprite);
+            }
+            const sp = building._pixiSprite;
+            sp.x = wx + 1; sp.y = wy + 1;
+            sp.width = size - 2; sp.height = size - 2;
+            sp.visible = true;
+        } else {
+            gfx.beginFill(PIXI.utils.string2hex(def.color));
+            gfx.drawRect(wx + 2, wy + 2, size - 4, size - 4);
+            gfx.endFill();
         }
-        gfx.beginFill(PIXI.utils.string2hex(def.color));
-        gfx.drawRect(wx + 2, wy + 2, size - 4, size - 4);
-        gfx.endFill();
         gfx.lineStyle(1, 0xffffff, 0.2);
         gfx.drawRect(wx + 2, wy + 2, size - 4, size - 4);
         gfx.lineStyle(0);
@@ -838,27 +881,49 @@ class Game {
         const sp = SPECIES[critter.species];
         const sx = critter.x, sy = critter.y;
         const bob = Math.sin(this.time * 3 + critter.id) * 2;
+        const r = 12;
 
         // Shadow
         gfx.beginFill(0x000000, 0.2);
         gfx.drawEllipse(sx, sy + 12, 10, 4);
         gfx.endFill();
 
-        // Body
-        const color = PIXI.utils.string2hex(sp.color);
-        gfx.beginFill(color);
-        gfx.drawCircle(sx, sy + bob, 8);
-        gfx.endFill();
-
-        // Eyes
-        gfx.beginFill(0xffffff);
-        gfx.drawCircle(sx - 3, sy + bob - 2, 2.5);
-        gfx.drawCircle(sx + 3, sy + bob - 2, 2.5);
-        gfx.endFill();
-        gfx.beginFill(0x222222);
-        gfx.drawCircle(sx - 2.5, sy + bob - 2, 1.2);
-        gfx.drawCircle(sx + 3.5, sy + bob - 2, 1.2);
-        gfx.endFill();
+        // Body — use sprite if available
+        const tex = typeof PIXI_CRITTER_TEXTURES !== 'undefined' ? PIXI_CRITTER_TEXTURES[critter.species] : null;
+        if (tex) {
+            if (!critter._pixiSprite) {
+                critter._pixiSprite = new PIXI.Sprite(tex);
+                critter._pixiSprite.anchor.set(0.5, 0.5);
+                critter._pixiSprite.width = r * 2;
+                critter._pixiSprite.height = r * 2;
+                // Circular mask
+                const mask = new PIXI.Graphics();
+                mask.beginFill(0xffffff);
+                mask.drawCircle(0, 0, r);
+                mask.endFill();
+                critter._pixiSprite.addChild(mask);
+                critter._pixiSprite.mask = mask;
+                this.entityContainer.addChild(critter._pixiSprite);
+            }
+            critter._pixiSprite.x = sx;
+            critter._pixiSprite.y = sy + bob;
+            critter._pixiSprite.visible = true;
+            critter._pixiSprite.alpha = critter.stunned ? 0.5 + Math.sin(this.time * 10) * 0.3 : 1;
+        } else {
+            const color = PIXI.utils.string2hex(sp.color);
+            gfx.beginFill(color);
+            gfx.drawCircle(sx, sy + bob, 8);
+            gfx.endFill();
+            // Eyes
+            gfx.beginFill(0xffffff);
+            gfx.drawCircle(sx - 3, sy + bob - 2, 2.5);
+            gfx.drawCircle(sx + 3, sy + bob - 2, 2.5);
+            gfx.endFill();
+            gfx.beginFill(0x222222);
+            gfx.drawCircle(sx - 2.5, sy + bob - 2, 1.2);
+            gfx.drawCircle(sx + 3.5, sy + bob - 2, 1.2);
+            gfx.endFill();
+        }
 
         // Stunned
         if (critter.stunned) {

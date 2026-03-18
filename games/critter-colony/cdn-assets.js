@@ -81,7 +81,27 @@ function preloadStatIcons() {
     return Promise.allSettled(promises);
 }
 
+// ─── PIXI TEXTURE CACHE ─────────────────────────────────────
+// Converts loaded HTML Image objects to PIXI.Texture after preload
+const PIXI_BUILDING_TEXTURES = {};
+const PIXI_CRITTER_TEXTURES = {};
+
+function buildPixiTextures() {
+    for (const [key, img] of Object.entries(BUILDING_SPRITES)) {
+        if (img && img.complete && img.naturalWidth > 0) {
+            try { PIXI_BUILDING_TEXTURES[key] = PIXI.Texture.from(img); } catch(e) {}
+        }
+    }
+    for (const [key, img] of Object.entries(CRITTER_SPRITES)) {
+        if (img && img.complete && img.naturalWidth > 0) {
+            try { PIXI_CRITTER_TEXTURES[key] = PIXI.Texture.from(img); } catch(e) {}
+        }
+    }
+}
+
 // Preload everything
 function preloadAllAssets() {
-    return Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]);
+    return Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]).then(() => {
+        buildPixiTextures();
+    });
 }
