@@ -84,7 +84,7 @@ class Game {
         this.inventory = { ...gs.inventory };
         this.buildings = gs.buildings.map(b => ({ ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null }));
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0 };
+        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.wildCritters = Critters.spawnWild(this.world);
         if (elapsed > 10) {
@@ -104,7 +104,7 @@ class Game {
         this.resourceCaps = { wood: 200, stone: 200, food: 150 };
         this.inventory = { traps: 5 };
         this.buildings = []; this.critters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0 };
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = null;
         this.wildCritters = Critters.spawnWild(this.world);
         this._startGame();
@@ -231,8 +231,25 @@ class Game {
         } else if (valueStr) {
             const bid = parseInt(valueStr);
             const newB = this.buildings.find(b => b.id === bid);
-            if (newB) { newB.workers.push(critterId); critter.assignment = bid; UI.notify(`${critter.nickname} assigned to ${BUILDING_DEFS[newB.type].name}`); }
+            if (newB) {
+                const maxW = Buildings.getMaxWorkersPerBuilding(this.research);
+                if (newB.workers.length >= maxW) { UI.notify(`Building full! (${maxW}/${maxW}) Research Workforce Training.`); return; }
+                newB.workers.push(critterId); critter.assignment = bid;
+                UI.notify(`${critter.nickname} assigned to ${BUILDING_DEFS[newB.type].name} (${newB.workers.length}/${maxW})`);
+            }
         } else { critter.assignment = null; }
+        UI.update();
+    }
+
+    unassignFromManage(critterId) {
+        const critter = this.critters.find(c => c.id === critterId);
+        if (!critter) return;
+        if (critter.assignment && critter.assignment !== 'patrol') {
+            const oldB = this.buildings.find(b => b.id === critter.assignment);
+            if (oldB) oldB.workers = oldB.workers.filter(w => w !== critterId);
+        }
+        critter.assignment = null;
+        UI.notify(`${critter.nickname} unassigned.`);
         UI.update();
     }
 

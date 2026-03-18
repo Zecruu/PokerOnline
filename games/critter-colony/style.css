@@ -68,6 +68,26 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-assign select:focus{outline:none;border-color:rgba(102,187,106,.4)}
 .cc-assign select option{background:#1a1a2e;color:#e0e0e0}
 
+/* ========== MANAGE TAB ========== */
+.manage-building{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:10px;margin-bottom:8px}
+.mb-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.mb-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:#fff;flex-shrink:0}
+.mb-name{font-weight:700;font-size:.85rem;flex:1}
+.mb-cap{font-size:.7rem;color:#888}
+.mb-workers{display:flex;flex-direction:column;gap:4px}
+.mb-worker{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:rgba(255,255,255,.03);cursor:pointer;transition:all .2s}
+.mb-worker:hover{background:rgba(248,113,113,.08)}
+.mb-worker.mb-empty{opacity:.3;cursor:default}
+.mb-worker.mb-empty:hover{background:rgba(255,255,255,.03)}
+.mb-worker-icon{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:#fff}
+.mb-empty-icon{background:rgba(255,255,255,.1) !important;font-size:1rem;color:#555}
+.mb-worker-name{font-size:.8rem;flex:1;color:#ddd}
+.mb-worker-lv{font-size:.65rem;color:#fbbf24;font-weight:600}
+.mb-worker-stat{font-size:.65rem;color:#4ade80;font-weight:600}
+.mb-prod{font-size:.7rem;color:#4ade80;text-align:center;margin-top:6px;padding:4px;background:rgba(74,222,128,.06);border-radius:4px}
+.mb-idle-list{display:flex;flex-direction:column;gap:3px}
+.mb-idle-critter{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,.02);font-size:.8rem;color:#888}
+
 /* ========== WORKBENCH ========== */
 .wb-controls{display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:wrap}
 .wb-speed{font-size:.7rem;color:#ffab91;font-weight:600;margin-right:auto}

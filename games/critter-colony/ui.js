@@ -12,6 +12,7 @@ const RESEARCH_DEFS = {
     afkCap:       { name: 'Extended AFK',       desc: '+2 hours offline cap',  maxLevel: 4,  cost: (l) => ({ wood: 50*(l+1), stone: 50*(l+1), food: 30*(l+1) }), time: 60 },
     colonyRadius: { name: 'Colony Reach',       desc: 'Bigger expander radius',maxLevel: 3,  cost: (l) => ({ wood: 60*(l+1), stone: 60*(l+1), food: 40*(l+1) }), time: 50 },
     critterCap:   { name: 'Critter Capacity',   desc: '+4 max critters',       maxLevel: 10, cost: (l) => ({ wood: 25*(l+1), stone: 25*(l+1), food: 15*(l+1) }), time: 20 },
+    workersPerB:  { name: 'Workforce Training', desc: '+1 worker per building', maxLevel: 4,  cost: (l) => ({ wood: 35*(l+1), stone: 35*(l+1), food: 20*(l+1) }), time: 35 },
 };
 
 class UI {
@@ -24,6 +25,7 @@ class UI {
 
         document.getElementById('tabBuildings').onclick = () => this.switchTab('buildings');
         document.getElementById('tabCritters').onclick = () => this.switchTab('critters');
+        document.getElementById('tabManage').onclick = () => this.switchTab('manage');
         document.getElementById('tabResearch').onclick = () => this.switchTab('research');
     }
 
@@ -171,6 +173,96 @@ class UI {
                     html += `<span class="ri-cost">${costStr}</span>`;
                     if (!inProgress && !g.researchInProgress) {
                         html += `<button class="ri-btn" onclick="game.startResearch('${id}')" ${!canAfford ? 'disabled' : ''}>Research</button>`;
+                    }
+                    html += `</div>`;
+                }
+            }
+            body.innerHTML = html;
+
+        } else if (this.activeTab === 'manage') {
+            let html = '';
+            const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
+
+            if (g.buildings.length === 0) {
+                html = '<div class="panel-empty">No buildings yet. Build some first!</div>';
+            } else {
+                for (const b of g.buildings) {
+                    const def = BUILDING_DEFS[b.type];
+                    if (def.turret || def.expander) continue; // skip non-assignable
+
+                    html += `<div class="manage-building">`;
+                    html += `<div class="mb-header">`;
+                    html += `<span class="mb-icon" style="background:${def.color}">${def.letter}</span>`;
+                    html += `<span class="mb-name">${def.name}</span>`;
+                    html += `<span class="mb-cap">${b.workers.length}/${maxW}</span>`;
+                    html += `</div>`;
+
+                    // Worker slots
+                    html += `<div class="mb-workers">`;
+                    for (let i = 0; i < maxW; i++) {
+                        if (i < b.workers.length) {
+                            const c = g.critters.find(cr => cr.id === b.workers[i]);
+                            if (c) {
+                                const sp = SPECIES[c.species];
+                                html += `<div class="mb-worker" onclick="game.unassignFromManage(${c.id})">`;
+                                html += `<div class="mb-worker-icon" style="background:${sp.color}"></div>`;
+                                html += `<span class="mb-worker-name">${c.nickname}</span>`;
+                                html += `<span class="mb-worker-lv">Lv${c.level}</span>`;
+                                if (def.statKey) html += `<span class="mb-worker-stat">${def.statKey}:${c.stats[def.statKey]||0}</span>`;
+                                html += `</div>`;
+                            }
+                        } else {
+                            html += `<div class="mb-worker mb-empty">`;
+                            html += `<div class="mb-worker-icon mb-empty-icon">+</div>`;
+                            html += `<span class="mb-worker-name">Empty slot</span>`;
+                            html += `</div>`;
+                        }
+                    }
+                    html += `</div>`;
+
+                    // Production info
+                    if (def.produces && b.workers.length > 0) {
+                        const rate = Buildings.getProductionRate(b, g.critters, g.hungry);
+                        html += `<div class="mb-prod">+${rate.toFixed(2)}/s ${def.produces}${g.hungry ? ' (hungry -50%)' : ''}</div>`;
+                    }
+                    if (def.isWorkbench && b.workers.length > 0) {
+                        const ct = Buildings.getCraftTime(b, g.critters);
+                        html += `<div class="mb-prod">${ct.toFixed(1)}s/trap${b.craftQueue > 0 ? ` | ${b.craftQueue} queued` : ''}</div>`;
+                    }
+                    if (def.isResearch && b.workers.length > 0) {
+                        const speed = Buildings.getResearchSpeed([b], g.critters);
+                        html += `<div class="mb-prod">Research: ${speed.toFixed(2)}/s</div>`;
+                    }
+
+                    html += `</div>`;
+                }
+
+                // Unassigned critters
+                const idle = g.critters.filter(c => !c.assignment);
+                const patrolling = g.critters.filter(c => c.assignment === 'patrol');
+
+                if (patrolling.length > 0) {
+                    html += `<div class="panel-section-label" style="margin-top:10px">On Patrol (${patrolling.length})</div>`;
+                    html += `<div class="mb-idle-list">`;
+                    for (const c of patrolling) {
+                        const sp = SPECIES[c.species];
+                        html += `<div class="mb-idle-critter">`;
+                        html += `<div class="mb-worker-icon" style="background:${sp.color}"></div>`;
+                        html += `<span>${c.nickname} Lv${c.level}</span>`;
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                if (idle.length > 0) {
+                    html += `<div class="panel-section-label" style="margin-top:10px">Idle (${idle.length})</div>`;
+                    html += `<div class="mb-idle-list">`;
+                    for (const c of idle) {
+                        const sp = SPECIES[c.species];
+                        html += `<div class="mb-idle-critter">`;
+                        html += `<div class="mb-worker-icon" style="background:${sp.color}"></div>`;
+                        html += `<span>${c.nickname} Lv${c.level}</span>`;
+                        html += `</div>`;
                     }
                     html += `</div>`;
                 }

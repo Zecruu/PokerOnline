@@ -204,6 +204,10 @@ class Buildings {
         }
     }
 
+    static getMaxWorkersPerBuilding(research) {
+        return 1 + (research?.workersPerB || 0); // base 1, max 5
+    }
+
     static getMaxCritters(buildings, research) {
         let cap = 4;
         for (const b of buildings) {
