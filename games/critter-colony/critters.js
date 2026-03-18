@@ -101,7 +101,7 @@ class Critters {
                 if (pDist < aggroRange) {
                     c.state = 'aggro';
                     // Chase player
-                    const speed = 50;
+                    const speed = 70;
                     const len = Math.sqrt(pdx*pdx + pdy*pdy);
                     if (len > 15) {
                         c.x += (pdx / len) * speed * dt;
@@ -138,8 +138,8 @@ class Critters {
                     const dy = c.wanderTarget.y - c.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist > 2) {
-                        c.x += (dx / dist) * 120 * dt;
-                        c.y += (dy / dist) * 120 * dt;
+                        c.x += (dx / dist) * 150 * dt;
+                        c.y += (dy / dist) * 150 * dt;
                     }
                 }
                 continue;
@@ -167,7 +167,7 @@ class Critters {
                     c.state = 'idle';
                     c.wanderTimer = 2 + Math.random() * 4;
                 } else {
-                    const speed = 30;
+                    const speed = 45;
                     c.x += (dx / dist) * speed * dt;
                     c.y += (dy / dist) * speed * dt;
                 }

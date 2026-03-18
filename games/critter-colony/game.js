@@ -1,11 +1,10 @@
 /* ============================================================
-   Critter Colony — Main Game Engine
+   Critter Colony — Main Game Engine (PixiJS Renderer)
    ============================================================ */
 
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
         this.world = new World();
 
         this.player = { x: 0, y: 0, speed: 200, hp: 100, maxHp: 100 };
@@ -22,6 +21,7 @@ class Game {
         // Combat
         this.gunCooldown = 0;
         this.gunDamage = 10;
+        this.mouseDown = false;
 
         // Research
         this.research = {
@@ -47,11 +47,72 @@ class Game {
         this.started = false;
         this.titleScreen = true;
 
+        // ─── PIXI SETUP ─────────────────────────────────────
+        this.pixiApp = new PIXI.Application({
+            view: this.canvas,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            backgroundColor: 0x1a1a2e,
+            antialias: false,
+            resolution: window.devicePixelRatio || 1,
+            autoDensity: true,
+        });
+
+        // Containers
+        this.worldContainer = new PIXI.Container();
+        this.chunkContainer = new PIXI.Container();
+        this.buildingContainer = new PIXI.Container();
+        this.entityContainer = new PIXI.Container();
+        this.overlayContainer = new PIXI.Container();
+
+        this.worldContainer.addChild(this.chunkContainer);
+        this.worldContainer.addChild(this.buildingContainer);
+        this.worldContainer.addChild(this.entityContainer);
+        this.pixiApp.stage.addChild(this.worldContainer);
+        this.pixiApp.stage.addChild(this.overlayContainer);
+
+        // Chunk texture cache: "cx,cy" → { sprite, dirty }
+        this._chunkSprites = new Map();
+        // Entity display object pools
+        this._entityGfx = new PIXI.Graphics();
+        this.entityContainer.addChild(this._entityGfx);
+        // Overlay graphics (minimap, indicators, etc.)
+        this._overlayGfx = new PIXI.Graphics();
+        this.overlayContainer.addChild(this._overlayGfx);
+        // Text pool for labels
+        this._textPool = [];
+        this._textIdx = 0;
+
         this._setupInput();
         this._resize();
         window.onresize = () => this._resize();
         preloadAllAssets();
         this._initTitle();
+    }
+
+    // ─── TEXT POOL ───────────────────────────────────────────
+    _getText(str, style) {
+        if (this._textIdx < this._textPool.length) {
+            const t = this._textPool[this._textIdx];
+            t.text = str;
+            t.style = style;
+            t.visible = true;
+            this._textIdx++;
+            return t;
+        }
+        const t = new PIXI.Text(str, style);
+        t.anchor.set(0.5, 0.5);
+        this.overlayContainer.addChild(t);
+        this._textPool.push(t);
+        this._textIdx++;
+        return t;
+    }
+
+    _resetTextPool() {
+        for (let i = this._textIdx; i < this._textPool.length; i++) {
+            this._textPool[i].visible = false;
+        }
+        this._textIdx = 0;
     }
 
     // ─── TITLE SCREEN ───────────────────────────────────────
@@ -116,9 +177,19 @@ class Game {
         document.getElementById('titleScreen').classList.add('hidden');
         document.getElementById('gameUI').classList.remove('hidden');
         this.titleScreen = false; this.started = true;
+        // Clear old chunk sprites
+        this._chunkSprites.forEach(cs => { if (cs.sprite.parent) cs.sprite.parent.removeChild(cs.sprite); cs.sprite.destroy(true); });
+        this._chunkSprites.clear();
         UI.init(this); UI.update();
         this.lastTimestamp = performance.now();
-        requestAnimationFrame((t) => this.gameLoop(t));
+        this.pixiApp.ticker.add(() => {
+            const now = performance.now();
+            const dt = Math.min((now - this.lastTimestamp) / 1000, 0.1);
+            this.lastTimestamp = now;
+            this.time = now / 1000;
+            this.update(dt);
+            this._pixiRender();
+        });
     }
 
     // ─── INPUT ──────────────────────────────────────────────
@@ -143,7 +214,6 @@ class Game {
             const r = this.canvas.getBoundingClientRect();
             const mx = e.clientX - r.left, my = e.clientY - r.top;
             const wx = mx + this.cam.x, wy = my + this.cam.y;
-            // Waypoint menu
             if (UI.showWaypointMenu && this._waypointButtons) {
                 for (const btn of this._waypointButtons) {
                     if (mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h) {
@@ -154,12 +224,13 @@ class Game {
                 }
             }
             if (this.placementMode) { this._handlePlacement(wx, wy); return; }
-            this._shoot(wx, wy);
+            this.mouseDown = true;
         };
+        this.canvas.onmouseup = () => { this.mouseDown = false; };
+        this.canvas.onmouseleave = () => { this.mouseDown = false; };
     }
 
     _handleEKey() {
-        // Claim waypoint
         for (const wp of this.world.waypoints) {
             if (wp.claimed) continue;
             const dx = this.player.x - (wp.x * TILE_SIZE + TILE_SIZE / 2);
@@ -170,7 +241,6 @@ class Game {
                 UI.notify(`Claimed ${wp.name}! Press T to teleport.`); return;
             }
         }
-        // Capture critter
         let closest = null, closestDist = Infinity;
         for (const c of this.wildCritters) {
             const dx = c.x - this.player.x, dy = c.y - this.player.y;
@@ -190,7 +260,7 @@ class Game {
 
     _shoot(wx, wy) {
         if (this.gunCooldown > 0) return;
-        this.gunCooldown = 0.3;
+        this.gunCooldown = 0.5;
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
         const speed = 400, damage = this.gunDamage + (this.research.gunDamage || 0) * 5;
         this.projectiles.push({ x: this.player.x, y: this.player.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, damage, lifetime: 2, fromTurret: false });
@@ -205,12 +275,31 @@ class Game {
             for (const [r,c] of Object.entries(def.cost)) this.resources[r] -= c;
             const radius = def.expandRadius + (this.research.colonyRadius || 0) * 2;
             this.world.expandColony(tx, ty, radius);
+            // Invalidate affected chunk caches
+            this._invalidateChunksNear(tx, ty, radius);
             UI.notify(`Colony expanded! (+${radius} tile radius)`);
             this.placementMode = null; UI.update(); return;
         }
         const b = Buildings.place(type, tx, ty, this.resources);
         this.buildings.push(b);
         UI.notify(`Built ${def.name}!`); this.placementMode = null; UI.update();
+    }
+
+    _invalidateChunksNear(tx, ty, radius) {
+        const r = Math.ceil(radius);
+        const seen = new Set();
+        for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+                const cx = Math.floor((tx + dx) / CHUNK_SIZE);
+                const cy = Math.floor((ty + dy) / CHUNK_SIZE);
+                const key = cx + ',' + cy;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    const cs = this._chunkSprites.get(key);
+                    if (cs) cs.dirty = true;
+                }
+            }
+        }
     }
 
     startPlacement(type) {
@@ -287,16 +376,8 @@ class Game {
         UI.notify(`Researching ${rd.name}...`); UI.update();
     }
 
-    // ─── GAME LOOP ──────────────────────────────────────────
-    gameLoop(timestamp) {
-        const dt = Math.min((timestamp - this.lastTimestamp) / 1000, 0.1);
-        this.lastTimestamp = timestamp; this.time = timestamp / 1000;
-        this.update(dt); this.render();
-        requestAnimationFrame((t) => this.gameLoop(t));
-    }
-
+    // ─── UPDATE (100% identical game logic) ─────────────────
     update(dt) {
-        // Player movement
         let dx = 0, dy = 0;
         if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
         if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
@@ -313,17 +394,17 @@ class Game {
             }
         }
 
-        // Camera
-        this.cam.x += (this.player.x - this.canvas.width/2 - this.cam.x) * 0.1;
-        this.cam.y += (this.player.y - this.canvas.height/2 - this.cam.y) * 0.1;
+        const w = this.pixiApp.screen.width, h = this.pixiApp.screen.height;
+        this.cam.x += (this.player.x - w/2 - this.cam.x) * 0.1;
+        this.cam.y += (this.player.y - h/2 - this.cam.y) * 0.1;
 
-        // Chunks
         this.world.updateLoadedChunks(this.player.x, this.player.y);
 
-        // Gun cooldown
         this.gunCooldown = Math.max(0, this.gunCooldown - dt);
+        if (this.mouseDown && this.gunCooldown <= 0 && !this.placementMode) {
+            this._shoot(this.mouse.worldX, this.mouse.worldY);
+        }
 
-        // Projectiles
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt;
@@ -334,51 +415,37 @@ class Game {
             }
         }
 
-        // Wild AI
-        // Wild AI + aggression
         Critters.updateWild(dt, this.wildCritters, this.world, this.player);
 
-        // Player HP regen (1 hp/sec when not taking damage)
         if (this.player.hp < this.player.maxHp) {
             this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1 * dt);
         }
         if (this.player.hp <= 0) {
-            // Respawn at colony
             this.player.hp = this.player.maxHp;
             this.player.x = 0; this.player.y = 0;
             UI.notify('You were knocked out! Respawned at colony.', 4000);
         }
 
-        // Resource caps
         const caps = {};
         for (const r of ['wood','stone','food']) caps[r] = (this.resourceCaps[r]||200) + (this.research.storageCap||0)*100;
 
-        // Building production
         Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
         for (const r of ['wood','stone','food']) this.resources[r] = Math.min(this.resources[r], caps[r]);
 
-        // Turrets
         Buildings.updateTurrets(dt, this.buildings, this.wildCritters, this.projectiles, this.research);
 
-        // Patrol critters — walk around colony, attack nearby wilds
         for (const c of this.critters) {
             if (c.assignment !== 'patrol') continue;
-
-            // Init patrol state
             if (!c._patrolAngle) c._patrolAngle = Math.random() * Math.PI * 2;
             if (!c._patrolX) c._patrolX = 0;
             if (!c._patrolY) c._patrolY = 0;
             if (!c._patrolTargetX) { c._patrolTargetX = c._patrolX; c._patrolTargetY = c._patrolY; }
             if (!c._attackTimer) c._attackTimer = 0;
             c._attackTimer -= dt;
-
-            // Walk along colony perimeter in a circle
-            c._patrolAngle += dt * 0.3; // orbit speed
-            const orbitR = CHUNK_SIZE * TILE_SIZE * 1.2; // just outside colony
+            c._patrolAngle += dt * 0.3;
+            const orbitR = CHUNK_SIZE * TILE_SIZE * 1.2;
             c._patrolTargetX = Math.cos(c._patrolAngle + c.id * 1.5) * orbitR;
             c._patrolTargetY = Math.sin(c._patrolAngle + c.id * 1.5) * orbitR;
-
-            // Move toward target
             const pdx = c._patrolTargetX - c._patrolX;
             const pdy = c._patrolTargetY - c._patrolY;
             const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
@@ -387,8 +454,6 @@ class Game {
                 c._patrolX += (pdx / pDist) * speed * dt;
                 c._patrolY += (pdy / pDist) * speed * dt;
             }
-
-            // Attack nearby wild critters
             if (c._attackTimer <= 0) {
                 for (const wc of this.wildCritters) {
                     const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
@@ -401,7 +466,6 @@ class Game {
             }
         }
 
-        // Research
         if (this.researchInProgress) {
             const speed = Buildings.getResearchSpeed(this.buildings, this.critters);
             if (speed > 0) {
@@ -415,15 +479,12 @@ class Game {
             }
         }
 
-        // Critter food consumption — each owned critter eats 0.02 food/sec (1.2/min)
-        // Only critters with an assignment (working or patrolling) consume food
-        // No food = critters work 50% slower (hungry debuff, not death)
         if (!this._foodTimer) this._foodTimer = 0;
         this._foodTimer += dt;
-        if (this._foodTimer >= 5) { // check every 5 seconds
+        if (this._foodTimer >= 5) {
             this._foodTimer = 0;
             let activeCount = this.critters.filter(c => c.assignment).length;
-            const consumption = activeCount * 0.1; // 0.1 food per active critter per 5s
+            const consumption = activeCount * 0.1;
             if (this.resources.food >= consumption) {
                 this.resources.food -= consumption;
                 this.hungry = false;
@@ -436,7 +497,6 @@ class Game {
             }
         }
 
-        // Respawn
         this.respawnTimer -= dt;
         if (this.respawnTimer <= 0) {
             this.respawnTimer = 30;
@@ -446,13 +506,11 @@ class Game {
             }
         }
 
-        // Auto-save
         this.autoSaveTimer -= dt;
         if (this.autoSaveTimer <= 0) { this.autoSaveTimer = 60; Save.save(this); }
 
         UI.updateNotifications(dt);
 
-        // Resource bar
         this.panelUpdateTimer -= dt;
         if (this.panelUpdateTimer <= 0) {
             this.panelUpdateTimer = 0.5;
@@ -468,50 +526,81 @@ class Game {
         }
     }
 
-    render() {
-        const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height;
-        ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, w, h);
+    // ─── PIXI RENDER ────────────────────────────────────────
+    _pixiRender() {
+        const w = this.pixiApp.screen.width, h = this.pixiApp.screen.height;
+        const camX = this.cam.x, camY = this.cam.y;
 
-        this.world.render(ctx, this.cam.x, this.cam.y, w, h);
-        for (const b of this.buildings) Buildings.render(ctx, b, this.cam.x, this.cam.y, this.critters, this.time);
+        // Move world container (camera)
+        this.worldContainer.x = -camX;
+        this.worldContainer.y = -camY;
+
+        // ── Chunk tile rendering (cached textures) ──
+        this._updateChunks(camX, camY, w, h);
+
+        // ── Entity graphics (redrawn each frame via single Graphics) ──
+        const gfx = this._entityGfx;
+        gfx.clear();
+
+        // Buildings
+        for (const b of this.buildings) this._drawBuilding(gfx, b);
 
         // Patrol critters
         for (const c of this.critters) {
             if (c.assignment !== 'patrol') continue;
-            const sp = SPECIES[c.species], sx = (c._patrolX||0) - this.cam.x, sy = (c._patrolY||0) - this.cam.y;
-            const bob = Math.sin(this.time*3 + c.id)*2;
-            ctx.fillStyle = sp.color; ctx.beginPath(); ctx.arc(sx, sy+bob, 7, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
-            ctx.fillText('\uD83D\uDEE1', sx, sy+bob-10);
+            const sp = SPECIES[c.species];
+            const sx = c._patrolX || 0, sy = (c._patrolY || 0) + Math.sin(this.time*3 + c.id)*2;
+            gfx.beginFill(PIXI.utils.string2hex(sp.color));
+            gfx.drawCircle(sx, sy, 7);
+            gfx.endFill();
         }
 
-        for (const c of this.wildCritters) Critters.renderWild(ctx, c, this.cam.x, this.cam.y, this.time);
+        // Wild critters
+        for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
 
         // Projectiles
         for (const p of this.projectiles) {
-            ctx.fillStyle = p.fromTurret ? '#90a4ae' : '#ffd54f';
-            ctx.beginPath(); ctx.arc(p.x-this.cam.x, p.y-this.cam.y, 3, 0, Math.PI*2); ctx.fill();
+            gfx.beginFill(p.fromTurret ? 0x90a4ae : 0xffd54f);
+            gfx.drawCircle(p.x, p.y, 3);
+            gfx.endFill();
         }
 
         // Player
-        const px = this.player.x - this.cam.x, py = this.player.y - this.cam.y;
-        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px, py+12, 10, 5, 0, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#4FC3F7'; ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        const px = this.player.x, py = this.player.y;
+        gfx.beginFill(0x000000, 0.3);
+        gfx.drawEllipse(px, py + 12, 10, 5);
+        gfx.endFill();
+        gfx.beginFill(0x4FC3F7);
+        gfx.lineStyle(2, 0xffffff);
+        gfx.drawCircle(px, py, 10);
+        gfx.endFill();
+        gfx.lineStyle(0);
 
         // Player HP bar
         if (this.player.hp < this.player.maxHp) {
             const hpW = 28, hpH = 4;
-            ctx.fillStyle = '#333'; ctx.fillRect(px - hpW/2, py - 18, hpW, hpH);
+            gfx.beginFill(0x333333);
+            gfx.drawRect(px - hpW/2, py - 18, hpW, hpH);
+            gfx.endFill();
             const pct = this.player.hp / this.player.maxHp;
-            ctx.fillStyle = pct > 0.5 ? '#4ade80' : pct > 0.25 ? '#fbbf24' : '#f87171';
-            ctx.fillRect(px - hpW/2, py - 18, hpW * pct, hpH);
+            const hpColor = pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171;
+            gfx.beginFill(hpColor);
+            gfx.drawRect(px - hpW/2, py - 18, hpW * pct, hpH);
+            gfx.endFill();
         }
 
-        // Gun aim
-        if (this.gunCooldown <= 0) {
-            ctx.strokeStyle = 'rgba(255,213,79,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
-            ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(this.mouse.x, this.mouse.y); ctx.stroke(); ctx.setLineDash([]);
+        // ── Overlay (screen-space) ──
+        const ovr = this._overlayGfx;
+        ovr.clear();
+        this._resetTextPool();
+
+        // Gun aim line
+        if (this.gunCooldown <= 0 && !this.placementMode) {
+            ovr.lineStyle(1, 0xffd54f, 0.2);
+            const ppx = px - camX, ppy = py - camY;
+            ovr.moveTo(ppx, ppy);
+            ovr.lineTo(this.mouse.x, this.mouse.y);
+            ovr.lineStyle(0);
         }
 
         // Placement preview
@@ -519,67 +608,406 @@ class Game {
             const tx = Math.floor(this.mouse.worldX/TILE_SIZE), ty = Math.floor(this.mouse.worldY/TILE_SIZE);
             const def = BUILDING_DEFS[this.placementMode.type];
             const cp = Buildings.canPlace(tx, ty, def.size, this.buildings, this.world);
-            const sx = tx*TILE_SIZE-this.cam.x, sy = ty*TILE_SIZE-this.cam.y, sz = def.size*TILE_SIZE;
-            ctx.fillStyle = cp ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'; ctx.fillRect(sx,sy,sz,sz);
-            ctx.strokeStyle = cp ? '#4ade80' : '#f87171'; ctx.lineWidth = 2; ctx.strokeRect(sx,sy,sz,sz);
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(def.letter, sx+sz/2, sy+sz/2);
+            const sx = tx*TILE_SIZE-camX, sy = ty*TILE_SIZE-camY, sz = def.size*TILE_SIZE;
+            ovr.beginFill(cp ? 0x4ade80 : 0xf87171, 0.3);
+            ovr.lineStyle(2, cp ? 0x4ade80 : 0xf87171);
+            ovr.drawRect(sx, sy, sz, sz);
+            ovr.endFill();
+            ovr.lineStyle(0);
+            const t = this._getText(def.letter, { fontFamily: 'monospace', fontSize: 16, fontWeight: 'bold', fill: 0xffffff });
+            t.x = sx + sz/2; t.y = sy + sz/2;
         }
 
-        // Capture/waypoint indicators
+        // Capture indicators
         for (const c of this.wildCritters) {
             const cd = Math.sqrt((c.x-this.player.x)**2+(c.y-this.player.y)**2)/TILE_SIZE;
             if (cd < CAPTURE_RANGE) {
-                const sx = c.x-this.cam.x, sy = c.y-this.cam.y;
-                ctx.strokeStyle = c.stunned ? 'rgba(255,213,79,0.7)' : 'rgba(74,222,128,0.5)';
-                ctx.lineWidth = 1.5; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.arc(sx,sy,16,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
-                ctx.fillStyle = c.stunned ? '#ffd54f' : '#4ade80'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-                ctx.fillText(c.stunned ? 'E: FREE!' : 'E: CAPTURE', sx, sy-22);
+                const sx = c.x - camX, sy = c.y - camY;
+                const col = c.stunned ? 0xffd54f : 0x4ade80;
+                ovr.lineStyle(1.5, col, c.stunned ? 0.7 : 0.5);
+                ovr.drawCircle(sx, sy, 16);
+                ovr.lineStyle(0);
+                const t = this._getText(c.stunned ? 'E: FREE!' : 'E: CAPTURE', { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold', fill: col });
+                t.x = sx; t.y = sy - 22;
             }
         }
+
+        // Waypoint claim indicators
         for (const wp of this.world.waypoints) {
             if (wp.claimed) continue;
             const wd = Math.sqrt((this.player.x-(wp.x*TILE_SIZE+16))**2+(this.player.y-(wp.y*TILE_SIZE+16))**2);
             if (wd < TILE_SIZE*3) {
-                const sx = wp.x*TILE_SIZE+16-this.cam.x, sy = wp.y*TILE_SIZE+16-this.cam.y;
-                ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('E: CLAIM WAYPOINT', sx, sy-50);
+                const sx = wp.x*TILE_SIZE+16-camX, sy = wp.y*TILE_SIZE+16-camY;
+                const t = this._getText('E: CLAIM WAYPOINT', { fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', fill: 0xfbbf24 });
+                t.x = sx; t.y = sy - 50;
             }
         }
 
-        UI.renderWaypointMenu(ctx, this, w, h);
-        UI.renderNotifications(ctx, w);
+        // Notifications
+        this._renderNotifications(ovr, w);
 
+        // Waypoint menu
+        if (UI.showWaypointMenu) this._renderWaypointMenu(ovr, w, h);
+
+        // Minimap / Full Map
         if (this.showFullMap) {
-            this._renderFullMap(ctx, w, h);
+            this._renderFullMap(ovr, w, h);
         } else {
-            this._renderMinimap(ctx, w, h);
+            this._renderMinimap(ovr, w, h);
         }
     }
 
-    _renderFullMap(ctx, cw, ch) {
-        // Dark overlay
-        ctx.fillStyle = 'rgba(0,0,0,0.85)';
-        ctx.fillRect(0, 0, cw, ch);
+    // ─── CHUNK MANAGEMENT ───────────────────────────────────
+    _updateChunks(camX, camY, screenW, screenH) {
+        const startTX = Math.floor(camX / TILE_SIZE);
+        const startTY = Math.floor(camY / TILE_SIZE);
+        const endTX = Math.floor((camX + screenW) / TILE_SIZE) + 1;
+        const endTY = Math.floor((camY + screenH) / TILE_SIZE) + 1;
+        const startCX = Math.floor(startTX / CHUNK_SIZE);
+        const startCY = Math.floor(startTY / CHUNK_SIZE);
+        const endCX = Math.floor(endTX / CHUNK_SIZE);
+        const endCY = Math.floor(endTY / CHUNK_SIZE);
 
-        // Map area with padding
+        const visibleKeys = new Set();
+
+        for (let cx = startCX; cx <= endCX; cx++) {
+            for (let cy = startCY; cy <= endCY; cy++) {
+                const key = cx + ',' + cy;
+                visibleKeys.add(key);
+                let cs = this._chunkSprites.get(key);
+
+                if (!cs || cs.dirty) {
+                    const chunk = this.world.getOrGenerateChunk(cx, cy);
+                    const tex = this._renderChunkToTexture(chunk);
+                    if (cs) {
+                        cs.sprite.texture.destroy(true);
+                        cs.sprite.texture = tex;
+                        cs.dirty = false;
+                    } else {
+                        const sprite = new PIXI.Sprite(tex);
+                        sprite.x = cx * CHUNK_SIZE * TILE_SIZE;
+                        sprite.y = cy * CHUNK_SIZE * TILE_SIZE;
+                        this.chunkContainer.addChild(sprite);
+                        cs = { sprite, dirty: false };
+                        this._chunkSprites.set(key, cs);
+                    }
+                }
+
+                cs.sprite.visible = true;
+            }
+        }
+
+        // Hide non-visible chunks (don't destroy — they'll likely be reused)
+        for (const [key, cs] of this._chunkSprites) {
+            if (!visibleKeys.has(key)) {
+                cs.sprite.visible = false;
+            }
+        }
+
+        // Cleanup chunks far from player (memory management)
+        if (this._chunkSprites.size > 200) {
+            const playerCX = Math.floor(this.player.x / TILE_SIZE / CHUNK_SIZE);
+            const playerCY = Math.floor(this.player.y / TILE_SIZE / CHUNK_SIZE);
+            for (const [key, cs] of this._chunkSprites) {
+                const [cxs, cys] = key.split(',').map(Number);
+                if (Math.abs(cxs - playerCX) > RENDER_DISTANCE * 3 || Math.abs(cys - playerCY) > RENDER_DISTANCE * 3) {
+                    if (cs.sprite.parent) cs.sprite.parent.removeChild(cs.sprite);
+                    cs.sprite.texture.destroy(true);
+                    cs.sprite.destroy();
+                    this._chunkSprites.delete(key);
+                }
+            }
+        }
+    }
+
+    _renderChunkToTexture(chunk) {
+        const size = CHUNK_SIZE * TILE_SIZE;
+        const gfx = new PIXI.Graphics();
+
+        const TILE_HEX = {
+            [TILE.GRASS]:  [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647],
+            [TILE.TREE]:   [0x2d5a1e],
+            [TILE.ROCK]:   [0x6b6b6b],
+            [TILE.WATER]:  [0x2a6faa, 0x2d74b0, 0x2768a2],
+            [TILE.COLONY]: [0x8a7a52, 0x8e7e56, 0x867650],
+            [TILE.PATH]:   [0xa89060, 0xa48a5c, 0xac9464],
+        };
+
+        for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+            for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                const t = chunk.tiles[ly * CHUNK_SIZE + lx];
+                const wx = chunk.cx * CHUNK_SIZE + lx;
+                const wy = chunk.cy * CHUNK_SIZE + ly;
+                const colors = TILE_HEX[t];
+                if (!colors) continue;
+                const ci = ((wx & 0x7FFFFFFF) * 7 + (wy & 0x7FFFFFFF) * 13) % colors.length;
+
+                const sx = lx * TILE_SIZE;
+                const sy = ly * TILE_SIZE;
+
+                gfx.beginFill(colors[ci]);
+                gfx.drawRect(sx, sy, TILE_SIZE, TILE_SIZE);
+                gfx.endFill();
+
+                if (t === TILE.TREE) {
+                    gfx.beginFill(0x5c3d1e);
+                    gfx.drawRect(sx + 12, sy + 12, 8, 8);
+                    gfx.endFill();
+                    gfx.beginFill(0x3a7a28);
+                    gfx.drawCircle(sx + 16, sy + 12, 10);
+                    gfx.endFill();
+                } else if (t === TILE.ROCK) {
+                    gfx.beginFill(0x888888);
+                    gfx.drawCircle(sx + 16, sy + 18, 9);
+                    gfx.endFill();
+                    gfx.beginFill(0x999999);
+                    gfx.drawCircle(sx + 14, sy + 15, 5);
+                    gfx.endFill();
+                } else if (t === TILE.COLONY) {
+                    gfx.lineStyle(0.5, 0xffffff, 0.06);
+                    gfx.drawRect(sx, sy, TILE_SIZE, TILE_SIZE);
+                    gfx.lineStyle(0);
+                }
+            }
+        }
+
+        const rt = this.pixiApp.renderer.generateTexture(gfx, {
+            region: new PIXI.Rectangle(0, 0, size, size),
+        });
+        gfx.destroy();
+        return rt;
+    }
+
+    // ─── BUILDING DRAWING ───────────────────────────────────
+    _drawBuilding(gfx, building) {
+        const def = BUILDING_DEFS[building.type];
+        const wx = building.gridX * TILE_SIZE;
+        const wy = building.gridY * TILE_SIZE;
+        const size = def.size * TILE_SIZE;
+
+        // Building body
+        const sprite = typeof BUILDING_SPRITES !== 'undefined' ? BUILDING_SPRITES[building.type] : null;
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+            // For image sprites, we'd use PIXI.Sprite — for now use color fallback
+            // (Image sprites loaded as HTML Image objects need conversion to PIXI.Texture)
+        }
+        gfx.beginFill(PIXI.utils.string2hex(def.color));
+        gfx.drawRect(wx + 2, wy + 2, size - 4, size - 4);
+        gfx.endFill();
+        gfx.lineStyle(1, 0xffffff, 0.2);
+        gfx.drawRect(wx + 2, wy + 2, size - 4, size - 4);
+        gfx.lineStyle(0);
+
+        // Turret barrel
+        if (def.turret) {
+            const angle = building.turretAngle || 0;
+            const tcx = wx + size / 2, tcy = wy + size / 2;
+            gfx.lineStyle(3, 0xcccccc);
+            gfx.moveTo(tcx, tcy);
+            gfx.lineTo(tcx + Math.cos(angle) * 18, tcy + Math.sin(angle) * 18);
+            gfx.lineStyle(0);
+            gfx.lineStyle(1, 0xffffff, 0.05);
+            gfx.drawCircle(tcx, tcy, def.range * TILE_SIZE);
+            gfx.lineStyle(0);
+        }
+
+        // Worker count badge
+        if (building.workers.length > 0 && !def.turret && !def.expander) {
+            gfx.beginFill(0x000000, 0.5);
+            gfx.drawRect(wx + size - 20, wy + 2, 18, 14);
+            gfx.endFill();
+        }
+
+        // Assigned critters
+        for (let i = 0; i < building.workers.length; i++) {
+            const c = this.critters.find(cr => cr.id === building.workers[i]);
+            if (c) {
+                const sp = SPECIES[c.species];
+                const ox = (i % 2) * 18 + 8;
+                const oy = Math.floor(i / 2) * 18 + 40;
+                const bob = Math.sin(this.time * 4 + c.id) * 1.5;
+                gfx.beginFill(PIXI.utils.string2hex(sp.color));
+                gfx.drawCircle(wx + ox, wy + oy + bob, 6);
+                gfx.endFill();
+            }
+        }
+    }
+
+    // ─── WILD CRITTER DRAWING ───────────────────────────────
+    _drawWildCritter(gfx, critter) {
+        const sp = SPECIES[critter.species];
+        const sx = critter.x, sy = critter.y;
+        const bob = Math.sin(this.time * 3 + critter.id) * 2;
+
+        // Shadow
+        gfx.beginFill(0x000000, 0.2);
+        gfx.drawEllipse(sx, sy + 12, 10, 4);
+        gfx.endFill();
+
+        // Body
+        const color = PIXI.utils.string2hex(sp.color);
+        gfx.beginFill(color);
+        gfx.drawCircle(sx, sy + bob, 8);
+        gfx.endFill();
+
+        // Eyes
+        gfx.beginFill(0xffffff);
+        gfx.drawCircle(sx - 3, sy + bob - 2, 2.5);
+        gfx.drawCircle(sx + 3, sy + bob - 2, 2.5);
+        gfx.endFill();
+        gfx.beginFill(0x222222);
+        gfx.drawCircle(sx - 2.5, sy + bob - 2, 1.2);
+        gfx.drawCircle(sx + 3.5, sy + bob - 2, 1.2);
+        gfx.endFill();
+
+        // Stunned
+        if (critter.stunned) {
+            gfx.lineStyle(2, 0xffd54f, 0.5 + Math.sin(this.time * 10) * 0.3);
+            gfx.drawCircle(sx, sy + bob, 12);
+            gfx.lineStyle(0);
+        }
+
+        // HP bar
+        if (critter.hp < critter.maxHp && !critter.stunned) {
+            const barW = 20, barH = 3;
+            gfx.beginFill(0x333333);
+            gfx.drawRect(sx - barW/2, sy + bob - 16, barW, barH);
+            gfx.endFill();
+            const pct = critter.hp / critter.maxHp;
+            const hpColor = pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171;
+            gfx.beginFill(hpColor);
+            gfx.drawRect(sx - barW/2, sy + bob - 16, barW * pct, barH);
+            gfx.endFill();
+        }
+
+        // Aggro indicator
+        if (critter.state === 'aggro') {
+            gfx.lineStyle(2, 0xf87171, 0.7);
+            gfx.drawCircle(sx, sy + bob, 11);
+            gfx.lineStyle(0);
+        }
+
+        // Rarity glow
+        if (sp.rarity !== 'common') {
+            const rc = PIXI.utils.string2hex(RARITY_COLORS[sp.rarity].replace(/[^0-9a-fA-F#]/g, ''));
+            gfx.lineStyle(2, rc, 0.4);
+            gfx.drawCircle(sx, sy + bob, 11);
+            gfx.lineStyle(0);
+        }
+    }
+
+    // ─── NOTIFICATIONS ──────────────────────────────────────
+    _renderNotifications(gfx, canvasW) {
+        for (let i = 0; i < UI.notifications.length; i++) {
+            const n = UI.notifications[i];
+            const y = 80 + i * 30;
+            const t = this._getText(n.text, { fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold', fill: 0xffffff });
+            t.x = canvasW / 2; t.y = y;
+            t.alpha = n.opacity;
+
+            const tw = t.width;
+            gfx.beginFill(0x000000, 0.6 * n.opacity);
+            gfx.drawRect(canvasW / 2 - tw / 2 - 12, y - 12, tw + 24, 24);
+            gfx.endFill();
+        }
+    }
+
+    // ─── WAYPOINT MENU ──────────────────────────────────────
+    _renderWaypointMenu(gfx, canvasW, canvasH) {
+        const waypoints = this.world.waypoints.filter(w => w.claimed);
+        const menuW = 260;
+        const menuH = Math.min(40 + waypoints.length * 36, canvasH - 80);
+        const mx = (canvasW - menuW) / 2;
+        const my = (canvasH - menuH) / 2;
+
+        gfx.beginFill(0x0a0a1e, 0.92);
+        gfx.lineStyle(1, 0xffffff, 0.15);
+        gfx.drawRect(mx, my, menuW, menuH);
+        gfx.endFill();
+        gfx.lineStyle(0);
+
+        const title = this._getText('Waypoints (T to close)', { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xffffff });
+        title.x = mx + menuW / 2; title.y = my + 16;
+
+        this._waypointButtons = [];
+        for (let i = 0; i < waypoints.length; i++) {
+            const wp = waypoints[i];
+            const by = my + 36 + i * 36;
+            const bx = mx + 10;
+
+            gfx.beginFill(0xffffff, 0.05);
+            gfx.drawRect(bx, by, menuW - 20, 30);
+            gfx.endFill();
+
+            const nameText = this._getText(wp.name, { fontFamily: 'monospace', fontSize: 12, fill: 0x66bb6a });
+            nameText.anchor.set(0, 0.5);
+            nameText.x = bx + 8; nameText.y = by + 10;
+
+            const coordText = this._getText(`(${wp.x}, ${wp.y})`, { fontFamily: 'monospace', fontSize: 9, fill: 0x888888 });
+            coordText.anchor.set(0, 0.5);
+            coordText.x = bx + 8; coordText.y = by + 22;
+
+            gfx.beginFill(0x66bb6a, 0.2);
+            gfx.drawRect(bx + menuW - 80, by + 4, 52, 22);
+            gfx.endFill();
+
+            const goText = this._getText('GO', { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold', fill: 0x66bb6a });
+            goText.x = bx + menuW - 54; goText.y = by + 15;
+
+            this._waypointButtons.push({ x: bx + menuW - 80, y: by + 4, w: 52, h: 22, wp });
+        }
+    }
+
+    // ─── MINIMAP ────────────────────────────────────────────
+    _renderMinimap(gfx, cw, ch) {
+        const ms = 120, mx = 10, my = ch - ms - 10, scale = 0.15;
+        gfx.beginFill(0x0a0a1e, 0.8);
+        gfx.lineStyle(1, 0xffffff, 0.15);
+        gfx.drawRect(mx, my, ms, ms);
+        gfx.endFill();
+        gfx.lineStyle(0);
+
+        const cx = mx + ms / 2, cy = my + ms / 2;
+        for (const b of this.buildings) {
+            const bx = cx + (b.gridX * TILE_SIZE - this.player.x) * scale / TILE_SIZE;
+            const by = cy + (b.gridY * TILE_SIZE - this.player.y) * scale / TILE_SIZE;
+            if (bx > mx && bx < mx + ms && by > my && by < my + ms) {
+                gfx.beginFill(PIXI.utils.string2hex(BUILDING_DEFS[b.type].color));
+                gfx.drawRect(bx - 1, by - 1, 3, 3);
+                gfx.endFill();
+            }
+        }
+        for (const wp of this.world.waypoints) {
+            const wpx = cx + (wp.x * TILE_SIZE - this.player.x) * scale / TILE_SIZE;
+            const wpy = cy + (wp.y * TILE_SIZE - this.player.y) * scale / TILE_SIZE;
+            if (wpx > mx && wpx < mx + ms && wpy > my && wpy < my + ms) {
+                gfx.beginFill(wp.claimed ? 0x4ade80 : 0x888888);
+                gfx.drawCircle(wpx, wpy, 2);
+                gfx.endFill();
+            }
+        }
+        gfx.beginFill(0x4FC3F7);
+        gfx.drawCircle(cx, cy, 3);
+        gfx.endFill();
+    }
+
+    // ─── FULL MAP ───────────────────────────────────────────
+    _renderFullMap(gfx, cw, ch) {
+        gfx.beginFill(0x000000, 0.85);
+        gfx.drawRect(0, 0, cw, ch);
+        gfx.endFill();
+
         const pad = 40;
-        const mapW = cw - pad * 2;
-        const mapH = ch - pad * 2;
+        const mapW = cw - pad * 2, mapH = ch - pad * 2;
+        gfx.beginFill(0x0a0a1e, 0.95);
+        gfx.lineStyle(1, 0xffffff, 0.15);
+        gfx.drawRect(pad, pad, mapW, mapH);
+        gfx.endFill();
+        gfx.lineStyle(0);
 
-        ctx.fillStyle = 'rgba(10,10,30,0.95)';
-        ctx.fillRect(pad, pad, mapW, mapH);
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(pad, pad, mapW, mapH);
+        const title = this._getText('WORLD MAP (M to close)', { fontFamily: 'monospace', fontSize: 16, fontWeight: 'bold', fill: 0xffffff });
+        title.x = cw / 2; title.y = pad - 12;
 
-        // Title
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('WORLD MAP (M to close)', cw / 2, pad - 12);
-
-        // Find bounds of all generated chunks
         let minCX = Infinity, maxCX = -Infinity, minCY = Infinity, maxCY = -Infinity;
         for (const [, chunk] of this.world.chunks) {
             if (chunk.cx < minCX) minCX = chunk.cx;
@@ -587,8 +1015,7 @@ class Game {
             if (chunk.cy < minCY) minCY = chunk.cy;
             if (chunk.cy > maxCY) maxCY = chunk.cy;
         }
-
-        if (minCX > maxCX) return; // no chunks
+        if (minCX > maxCX) return;
 
         const chunkSpanX = maxCX - minCX + 1;
         const chunkSpanY = maxCY - minCY + 1;
@@ -596,114 +1023,54 @@ class Game {
         const offsetX = pad + 10 + (mapW - 20 - chunkSpanX * CHUNK_SIZE * tileScale) / 2;
         const offsetY = pad + 10 + (mapH - 20 - chunkSpanY * CHUNK_SIZE * tileScale) / 2;
 
-        // Tile colors for map
-        const mapColors = {
-            [TILE.GRASS]: '#3a6832',
-            [TILE.TREE]: '#2a5020',
-            [TILE.ROCK]: '#555',
-            [TILE.WATER]: '#2266aa',
-            [TILE.COLONY]: '#8a7a52',
-            [TILE.PATH]: '#9a8a60',
-        };
+        const mapColors = { [TILE.GRASS]:0x3a6832, [TILE.TREE]:0x2a5020, [TILE.ROCK]:0x555555, [TILE.WATER]:0x2266aa, [TILE.COLONY]:0x8a7a52, [TILE.PATH]:0x9a8a60 };
 
-        // Draw each chunk's tiles
         for (const [, chunk] of this.world.chunks) {
             const cBaseX = (chunk.cx - minCX) * CHUNK_SIZE;
             const cBaseY = (chunk.cy - minCY) * CHUNK_SIZE;
-
             for (let ly = 0; ly < CHUNK_SIZE; ly++) {
                 for (let lx = 0; lx < CHUNK_SIZE; lx++) {
                     const t = chunk.tiles[ly * CHUNK_SIZE + lx];
                     const sx = offsetX + (cBaseX + lx) * tileScale;
                     const sy = offsetY + (cBaseY + ly) * tileScale;
-                    ctx.fillStyle = mapColors[t] || '#222';
-                    ctx.fillRect(sx, sy, Math.ceil(tileScale), Math.ceil(tileScale));
+                    gfx.beginFill(mapColors[t] || 0x222222);
+                    gfx.drawRect(sx, sy, Math.ceil(tileScale), Math.ceil(tileScale));
+                    gfx.endFill();
                 }
             }
         }
 
-        // Draw buildings
         for (const b of this.buildings) {
             const def = BUILDING_DEFS[b.type];
             const bx = offsetX + (b.gridX - minCX * CHUNK_SIZE) * tileScale;
             const by = offsetY + (b.gridY - minCY * CHUNK_SIZE) * tileScale;
-            const bs = def.size * tileScale;
-            ctx.fillStyle = def.color;
-            ctx.fillRect(bx, by, Math.max(bs, 3), Math.max(bs, 3));
+            gfx.beginFill(PIXI.utils.string2hex(def.color));
+            gfx.drawRect(bx, by, Math.max(def.size * tileScale, 3), Math.max(def.size * tileScale, 3));
+            gfx.endFill();
         }
 
-        // Draw waypoints
         for (const wp of this.world.waypoints) {
             const wx = offsetX + (wp.x - minCX * CHUNK_SIZE) * tileScale;
             const wy = offsetY + (wp.y - minCY * CHUNK_SIZE) * tileScale;
-            ctx.fillStyle = wp.claimed ? '#4ade80' : '#888';
-            ctx.beginPath();
-            ctx.arc(wx, wy, Math.max(3, tileScale * 2), 0, Math.PI * 2);
-            ctx.fill();
-            if (wp.claimed) {
-                ctx.fillStyle = '#fff';
-                ctx.font = '9px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText(wp.name, wx, wy - Math.max(5, tileScale * 3));
-            }
+            gfx.beginFill(wp.claimed ? 0x4ade80 : 0x888888);
+            gfx.drawCircle(wx, wy, Math.max(3, tileScale * 2));
+            gfx.endFill();
         }
 
-        // Draw player
         const playerTX = Math.floor(this.player.x / TILE_SIZE);
         const playerTY = Math.floor(this.player.y / TILE_SIZE);
         const ppx = offsetX + (playerTX - minCX * CHUNK_SIZE) * tileScale;
         const ppy = offsetY + (playerTY - minCY * CHUNK_SIZE) * tileScale;
-        ctx.fillStyle = '#4FC3F7';
-        ctx.beginPath();
-        ctx.arc(ppx, ppy, Math.max(4, tileScale * 2), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Legend
-        ctx.textAlign = 'left';
-        ctx.font = '10px monospace';
-        const legendY = ch - pad - 8;
-        const legends = [
-            ['#3a6832', 'Grass'], ['#2a5020', 'Forest'], ['#555', 'Rock'],
-            ['#2266aa', 'Water'], ['#8a7a52', 'Colony'], ['#4FC3F7', 'You'],
-            ['#4ade80', 'Waypoint'],
-        ];
-        let lx = pad + 10;
-        for (const [color, label] of legends) {
-            ctx.fillStyle = color;
-            ctx.fillRect(lx, legendY - 6, 8, 8);
-            ctx.fillStyle = '#aaa';
-            ctx.fillText(label, lx + 12, legendY);
-            lx += ctx.measureText(label).width + 24;
-        }
-
-        // Chunk count
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${this.world.chunks.size} chunks explored`, cw - pad - 10, legendY);
+        gfx.beginFill(0x4FC3F7);
+        gfx.lineStyle(1.5, 0xffffff);
+        gfx.drawCircle(ppx, ppy, Math.max(4, tileScale * 2));
+        gfx.endFill();
+        gfx.lineStyle(0);
     }
 
-    _renderMinimap(ctx, cw, ch) {
-        const ms = 120, mx = 10, my = ch-ms-10, scale = 0.15;
-        ctx.fillStyle = 'rgba(10,10,30,0.8)'; ctx.fillRect(mx,my,ms,ms);
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.strokeRect(mx,my,ms,ms);
-        const cx = mx+ms/2, cy = my+ms/2;
-        for (const b of this.buildings) {
-            const bx = cx+(b.gridX*TILE_SIZE-this.player.x)*scale/TILE_SIZE;
-            const by = cy+(b.gridY*TILE_SIZE-this.player.y)*scale/TILE_SIZE;
-            if (bx>mx&&bx<mx+ms&&by>my&&by<my+ms) { ctx.fillStyle = BUILDING_DEFS[b.type].color; ctx.fillRect(bx-1,by-1,3,3); }
-        }
-        for (const wp of this.world.waypoints) {
-            const wpx = cx+(wp.x*TILE_SIZE-this.player.x)*scale/TILE_SIZE;
-            const wpy = cy+(wp.y*TILE_SIZE-this.player.y)*scale/TILE_SIZE;
-            if (wpx>mx&&wpx<mx+ms&&wpy>my&&wpy<my+ms) { ctx.fillStyle = wp.claimed?'#4ade80':'#888'; ctx.beginPath(); ctx.arc(wpx,wpy,2,0,Math.PI*2); ctx.fill(); }
-        }
-        ctx.fillStyle = '#4FC3F7'; ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fill();
+    _resize() {
+        this.pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
     }
-
-    _resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
 }
 
 const game = new Game();
