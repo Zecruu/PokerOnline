@@ -2030,6 +2030,72 @@ app.delete('/api/dots-survivor/save', authenticateToken, async (req, res) => {
     }
 });
 
+// ─── CRITTER COLONY ENDPOINTS ────────────────────────────────
+
+app.post('/api/colony/save', authenticateToken, async (req, res) => {
+    try {
+        const { gameState } = req.body;
+        if (!gameState) return res.status(400).json({ error: 'No game state provided' });
+
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.colonyData = {
+            exists: true,
+            lastActive: new Date(),
+            savedAt: new Date(),
+            gameState
+        };
+        await user.save();
+
+        res.json({ success: true, savedAt: user.colonyData.savedAt });
+    } catch (error) {
+        console.error('Colony save error:', error);
+        res.status(500).json({ error: 'Failed to save colony' });
+    }
+});
+
+app.get('/api/colony/load', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (!user.colonyData?.exists) {
+            return res.status(404).json({ error: 'No saved colony found' });
+        }
+
+        const elapsed = Math.min(
+            (Date.now() - new Date(user.colonyData.lastActive).getTime()) / 1000,
+            8 * 3600
+        );
+
+        res.json({
+            success: true,
+            savedAt: user.colonyData.savedAt,
+            lastActive: user.colonyData.lastActive,
+            elapsed: Math.floor(elapsed),
+            gameState: user.colonyData.gameState
+        });
+    } catch (error) {
+        console.error('Colony load error:', error);
+        res.status(500).json({ error: 'Failed to load colony' });
+    }
+});
+
+app.delete('/api/colony/save', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.colonyData = { exists: false };
+        await user.save();
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete colony save' });
+    }
+});
+
 // Submit score (end of game)
 app.post('/api/dots-survivor/submit-score', authenticateToken, async (req, res) => {
     try {

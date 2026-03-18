@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Critter Colony</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- TITLE SCREEN -->
+  <div id="titleScreen" class="title-screen"></div>
+
+  <!-- GAME UI (hidden until game starts) -->
+  <div id="gameUI" class="hidden">
+    <!-- Resource Bar -->
+    <div id="resourceBar">
+      <div class="res-item"><span class="res-icon" style="background:#6d4c41"></span><span id="resWood">0</span> Wood</div>
+      <div class="res-item"><span class="res-icon" style="background:#78909c"></span><span id="resStone">0</span> Stone</div>
+      <div class="res-item"><span class="res-icon" style="background:#7cb342"></span><span id="resFood">0</span> Food</div>
+      <div class="res-divider"></div>
+      <div class="res-item"><span class="res-icon trap-icon"></span><span id="trapCount">0</span> Traps</div>
+      <div class="res-item critter-counter"><span id="critterCount">0/4</span> Critters</div>
+    </div>
+
+    <!-- Side Panel -->
+    <div id="sidePanel">
+      <div class="panel-tabs">
+        <button class="panel-tab active" id="tabBuildings">Buildings</button>
+        <button class="panel-tab" id="tabCritters">Critters</button>
+      </div>
+      <div id="panelBody" class="panel-body"></div>
+    </div>
+
+    <!-- Controls hint -->
+    <div id="controlsHint">WASD to move | Click critters to capture | ESC to cancel</div>
+  </div>
+
+  <!-- CANVAS -->
+  <canvas id="gameCanvas"></canvas>
+
+  <script src="cdn-assets.js"></script>
+  <script src="world.js"></script>
+  <script src="critters.js"></script>
+  <script src="buildings.js"></script>
+  <script src="ui.js"></script>
+  <script src="save.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

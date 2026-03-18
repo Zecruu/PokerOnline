@@ -52,6 +52,14 @@ const UserSchema = new mongoose.Schema({
         gameState: { type: Object }
     },
 
+    // Critter Colony saved game state
+    colonyData: {
+        exists: { type: Boolean, default: false },
+        lastActive: { type: Date },
+        savedAt: { type: Date },
+        gameState: { type: Object }
+    },
+
     // Dots Survivor stats (best scores)
     dotsSurvivorStats: {
         highestScore: { type: Number, default: 0 },
