@@ -35,6 +35,7 @@ class Game {
         this.mouse = { x: 0, y: 0, worldX: 0, worldY: 0 };
         this.placementMode = null;
         this._waypointButtons = [];
+        this.showFullMap = false;
 
         // Timers
         this.autoSaveTimer = 60;
@@ -126,8 +127,9 @@ class Game {
             if (!this.started) return;
             if (e.key.toLowerCase() === 'e') this._handleEKey();
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
+            if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
             if (e.key.toLowerCase() === 'b') UI.switchTab('buildings');
-            if (e.key === 'Escape') { this.placementMode = null; UI.showWaypointMenu = false; }
+            if (e.key === 'Escape') { this.placementMode = null; UI.showWaypointMenu = false; this.showFullMap = false; }
         };
         window.onkeyup = (e) => { this.keys[e.key.toLowerCase()] = false; };
         this.canvas.onmousemove = (e) => {
@@ -520,7 +522,140 @@ class Game {
 
         UI.renderWaypointMenu(ctx, this, w, h);
         UI.renderNotifications(ctx, w);
-        this._renderMinimap(ctx, w, h);
+
+        if (this.showFullMap) {
+            this._renderFullMap(ctx, w, h);
+        } else {
+            this._renderMinimap(ctx, w, h);
+        }
+    }
+
+    _renderFullMap(ctx, cw, ch) {
+        // Dark overlay
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.fillRect(0, 0, cw, ch);
+
+        // Map area with padding
+        const pad = 40;
+        const mapW = cw - pad * 2;
+        const mapH = ch - pad * 2;
+
+        ctx.fillStyle = 'rgba(10,10,30,0.95)';
+        ctx.fillRect(pad, pad, mapW, mapH);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(pad, pad, mapW, mapH);
+
+        // Title
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('WORLD MAP (M to close)', cw / 2, pad - 12);
+
+        // Find bounds of all generated chunks
+        let minCX = Infinity, maxCX = -Infinity, minCY = Infinity, maxCY = -Infinity;
+        for (const [, chunk] of this.world.chunks) {
+            if (chunk.cx < minCX) minCX = chunk.cx;
+            if (chunk.cx > maxCX) maxCX = chunk.cx;
+            if (chunk.cy < minCY) minCY = chunk.cy;
+            if (chunk.cy > maxCY) maxCY = chunk.cy;
+        }
+
+        if (minCX > maxCX) return; // no chunks
+
+        const chunkSpanX = maxCX - minCX + 1;
+        const chunkSpanY = maxCY - minCY + 1;
+        const tileScale = Math.min((mapW - 20) / (chunkSpanX * CHUNK_SIZE), (mapH - 20) / (chunkSpanY * CHUNK_SIZE));
+        const offsetX = pad + 10 + (mapW - 20 - chunkSpanX * CHUNK_SIZE * tileScale) / 2;
+        const offsetY = pad + 10 + (mapH - 20 - chunkSpanY * CHUNK_SIZE * tileScale) / 2;
+
+        // Tile colors for map
+        const mapColors = {
+            [TILE.GRASS]: '#3a6832',
+            [TILE.TREE]: '#2a5020',
+            [TILE.ROCK]: '#555',
+            [TILE.WATER]: '#2266aa',
+            [TILE.COLONY]: '#8a7a52',
+            [TILE.PATH]: '#9a8a60',
+        };
+
+        // Draw each chunk's tiles
+        for (const [, chunk] of this.world.chunks) {
+            const cBaseX = (chunk.cx - minCX) * CHUNK_SIZE;
+            const cBaseY = (chunk.cy - minCY) * CHUNK_SIZE;
+
+            for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+                for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+                    const t = chunk.tiles[ly * CHUNK_SIZE + lx];
+                    const sx = offsetX + (cBaseX + lx) * tileScale;
+                    const sy = offsetY + (cBaseY + ly) * tileScale;
+                    ctx.fillStyle = mapColors[t] || '#222';
+                    ctx.fillRect(sx, sy, Math.ceil(tileScale), Math.ceil(tileScale));
+                }
+            }
+        }
+
+        // Draw buildings
+        for (const b of this.buildings) {
+            const def = BUILDING_DEFS[b.type];
+            const bx = offsetX + (b.gridX - minCX * CHUNK_SIZE) * tileScale;
+            const by = offsetY + (b.gridY - minCY * CHUNK_SIZE) * tileScale;
+            const bs = def.size * tileScale;
+            ctx.fillStyle = def.color;
+            ctx.fillRect(bx, by, Math.max(bs, 3), Math.max(bs, 3));
+        }
+
+        // Draw waypoints
+        for (const wp of this.world.waypoints) {
+            const wx = offsetX + (wp.x - minCX * CHUNK_SIZE) * tileScale;
+            const wy = offsetY + (wp.y - minCY * CHUNK_SIZE) * tileScale;
+            ctx.fillStyle = wp.claimed ? '#4ade80' : '#888';
+            ctx.beginPath();
+            ctx.arc(wx, wy, Math.max(3, tileScale * 2), 0, Math.PI * 2);
+            ctx.fill();
+            if (wp.claimed) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '9px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(wp.name, wx, wy - Math.max(5, tileScale * 3));
+            }
+        }
+
+        // Draw player
+        const playerTX = Math.floor(this.player.x / TILE_SIZE);
+        const playerTY = Math.floor(this.player.y / TILE_SIZE);
+        const ppx = offsetX + (playerTX - minCX * CHUNK_SIZE) * tileScale;
+        const ppy = offsetY + (playerTY - minCY * CHUNK_SIZE) * tileScale;
+        ctx.fillStyle = '#4FC3F7';
+        ctx.beginPath();
+        ctx.arc(ppx, ppy, Math.max(4, tileScale * 2), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Legend
+        ctx.textAlign = 'left';
+        ctx.font = '10px monospace';
+        const legendY = ch - pad - 8;
+        const legends = [
+            ['#3a6832', 'Grass'], ['#2a5020', 'Forest'], ['#555', 'Rock'],
+            ['#2266aa', 'Water'], ['#8a7a52', 'Colony'], ['#4FC3F7', 'You'],
+            ['#4ade80', 'Waypoint'],
+        ];
+        let lx = pad + 10;
+        for (const [color, label] of legends) {
+            ctx.fillStyle = color;
+            ctx.fillRect(lx, legendY - 6, 8, 8);
+            ctx.fillStyle = '#aaa';
+            ctx.fillText(label, lx + 12, legendY);
+            lx += ctx.measureText(label).width + 24;
+        }
+
+        // Chunk count
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${this.world.chunks.size} chunks explored`, cw - pad - 10, legendY);
     }
 
     _renderMinimap(ctx, cw, ch) {
