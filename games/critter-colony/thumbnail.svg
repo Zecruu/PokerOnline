@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="16" fill="#1a2332"/>
+  <rect x="60" y="110" width="80" height="50" rx="4" fill="#8a7a52" opacity="0.5"/>
+  <rect x="70" y="120" width="24" height="24" rx="2" fill="#78909c"/>
+  <text x="82" y="137" font-size="14" font-weight="bold" fill="#fff" text-anchor="middle" font-family="monospace">M</text>
+  <rect x="106" y="120" width="24" height="24" rx="2" fill="#7cb342"/>
+  <text x="118" y="137" font-size="14" font-weight="bold" fill="#fff" text-anchor="middle" font-family="monospace">F</text>
+  <circle cx="70" cy="70" r="10" fill="#66bb6a"/>
+  <circle cx="67" cy="68" r="2.5" fill="#fff"/>
+  <circle cx="73" cy="68" r="2.5" fill="#fff"/>
+  <circle cx="130" cy="55" r="8" fill="#ffd54f"/>
+  <circle cx="128" cy="53" r="2" fill="#fff"/>
+  <circle cx="132" cy="53" r="2" fill="#fff"/>
+  <circle cx="100" cy="80" r="8" fill="#ce93d8"/>
+  <circle cx="98" cy="78" r="2" fill="#fff"/>
+  <circle cx="102" cy="78" r="2" fill="#fff"/>
+  <circle cx="100" cy="80" r="11" fill="none" stroke="#ce93d8" stroke-width="1" opacity="0.4"/>
+  <circle cx="100" cy="170" r="12" fill="#4FC3F7" stroke="#fff" stroke-width="2"/>
+  <text x="100" y="30" font-size="18" font-weight="900" fill="#fff" text-anchor="middle" font-family="sans-serif">Critter</text>
+  <text x="100" y="48" font-size="18" font-weight="900" fill="#66bb6a" text-anchor="middle" font-family="sans-serif">Colony</text>
+</svg>

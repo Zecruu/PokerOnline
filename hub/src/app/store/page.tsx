@@ -73,6 +73,17 @@ const ALL_GAMES = [
     isFree: true,
     category: "strategy",
   },
+  {
+    id: "critter-colony",
+    title: "Critter Colony",
+    description: "Capture critters, build workstations, and automate your colony! AFK gains keep your critters working while you're away.",
+    thumbnail: "/games/critter-colony/thumbnail.svg",
+    href: "/games/critter-colony/index.html",
+    badge: "NEW",
+    badgeColor: "green" as const,
+    isFree: true,
+    category: "strategy",
+  },
 ];
 
 const CATEGORIES = [
