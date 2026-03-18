@@ -3,10 +3,10 @@
    ============================================================ */
 
 const SPECIES = {
-    mossbun:   { name: 'Mossbun',   color: '#66bb6a', rarity: 'common',   baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false },
-    pebblit:   { name: 'Pebblit',   color: '#90a4ae', rarity: 'common',   baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 4, attackDmg: 3, attackCooldown: 1.5 },
-    flickwing: { name: 'Flickwing', color: '#ffd54f', rarity: 'common',   baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false },
-    glowmite:  { name: 'Glowmite', color: '#ce93d8', rarity: 'uncommon', baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 5, attackDmg: 5, attackCooldown: 2 },
+    mossbun:   { name: 'Mossbun',   color: '#66bb6a', rarity: 'common',   baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false, attackDmg: 2, attackCooldown: 2 },
+    pebblit:   { name: 'Pebblit',   color: '#90a4ae', rarity: 'common',   baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 8, attackDmg: 4, attackCooldown: 1.2 },
+    flickwing: { name: 'Flickwing', color: '#ffd54f', rarity: 'common',   baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false, attackDmg: 2, attackCooldown: 1.5 },
+    glowmite:  { name: 'Glowmite', color: '#ce93d8', rarity: 'uncommon', baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8 },
 };
 
 const RARITY_COLORS = { common: '#aaa', uncommon: '#8bc34a', rare: '#ffc107', legendary: '#e040fb' };
@@ -70,6 +70,10 @@ class Critters {
             critter.stunTimer = 5;
             critter.state = 'idle';
             critter.fleeing = false;
+        } else {
+            // All critters fight back when hit
+            critter._aggroed = true;
+            critter.state = 'aggro';
         }
     }
 
@@ -87,13 +91,14 @@ class Critters {
                 continue;
             }
 
-            // Aggression check
+            // Aggression check — naturally aggressive OR was hit
             const sp = SPECIES[c.species];
-            if (sp.aggressive && player && !c.fleeing) {
+            if ((sp.aggressive || c._aggroed) && player && !c.fleeing) {
                 const pdx = player.x - c.x, pdy = player.y - c.y;
                 const pDist = Math.sqrt(pdx*pdx + pdy*pdy) / TILE_SIZE;
 
-                if (pDist < (sp.aggroRange || 4)) {
+                const aggroRange = c._aggroed ? Math.max(sp.aggroRange || 6, 12) : (sp.aggroRange || 6);
+                if (pDist < aggroRange) {
                     c.state = 'aggro';
                     // Chase player
                     const speed = 50;

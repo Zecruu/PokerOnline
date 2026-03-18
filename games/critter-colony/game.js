@@ -360,16 +360,42 @@ class Game {
         // Turrets
         Buildings.updateTurrets(dt, this.buildings, this.wildCritters, this.projectiles, this.research);
 
-        // Patrol critters
+        // Patrol critters — walk around colony, attack nearby wilds
         for (const c of this.critters) {
             if (c.assignment !== 'patrol') continue;
-            if (!c._patrolTimer) c._patrolTimer = 0;
-            c._patrolTimer -= dt;
-            if (c._patrolTimer <= 0) {
+
+            // Init patrol state
+            if (!c._patrolAngle) c._patrolAngle = Math.random() * Math.PI * 2;
+            if (!c._patrolX) c._patrolX = 0;
+            if (!c._patrolY) c._patrolY = 0;
+            if (!c._patrolTargetX) { c._patrolTargetX = c._patrolX; c._patrolTargetY = c._patrolY; }
+            if (!c._attackTimer) c._attackTimer = 0;
+            c._attackTimer -= dt;
+
+            // Walk along colony perimeter in a circle
+            c._patrolAngle += dt * 0.3; // orbit speed
+            const orbitR = CHUNK_SIZE * TILE_SIZE * 1.2; // just outside colony
+            c._patrolTargetX = Math.cos(c._patrolAngle + c.id * 1.5) * orbitR;
+            c._patrolTargetY = Math.sin(c._patrolAngle + c.id * 1.5) * orbitR;
+
+            // Move toward target
+            const pdx = c._patrolTargetX - c._patrolX;
+            const pdy = c._patrolTargetY - c._patrolY;
+            const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+            if (pDist > 3) {
+                const speed = 60;
+                c._patrolX += (pdx / pDist) * speed * dt;
+                c._patrolY += (pdy / pDist) * speed * dt;
+            }
+
+            // Attack nearby wild critters
+            if (c._attackTimer <= 0) {
                 for (const wc of this.wildCritters) {
-                    const pdx = wc.x - (c._patrolX||0), pdy = wc.y - (c._patrolY||0);
-                    if (Math.sqrt(pdx*pdx+pdy*pdy) < TILE_SIZE*3) {
-                        Critters.damageWild(wc, (c.stats.STR||1)*2); c._patrolTimer = 1.5; break;
+                    const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
+                    if (Math.sqrt(ax*ax + ay*ay) < TILE_SIZE * 4) {
+                        Critters.damageWild(wc, (c.stats.STR || 1) * 2);
+                        c._attackTimer = 1.5;
+                        break;
                     }
                 }
             }

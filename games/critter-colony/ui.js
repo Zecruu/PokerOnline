@@ -50,6 +50,14 @@ class UI {
         this.updatePanel();
     }
 
+    static _critterIconHtml(species, cssClass) {
+        const cls = cssClass || 'mb-worker-icon';
+        const sprite = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[species] && CRITTER_SPRITES[species].complete
+            ? CRITTER_SPRITES[species] : null;
+        if (sprite) return `<img class="${cls}" src="${sprite.src}">`;
+        return `<div class="${cls}" style="background:${SPECIES[species].color}"></div>`;
+    }
+
     static updatePanel() {
         const g = this.game;
         const body = document.getElementById('panelBody');
@@ -110,9 +118,11 @@ class UI {
             } else {
                 for (const c of g.critters) {
                     const sp = SPECIES[c.species];
+                    const critterImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[c.species] && CRITTER_SPRITES[c.species].complete
+                        ? `<img class="cc-icon" src="${CRITTER_SPRITES[c.species].src}">` : `<span class="cc-dot" style="background:${sp.color}"></span>`;
                     html += `<div class="critter-card">`;
                     html += `<div class="cc-header">`;
-                    html += `<span class="cc-dot" style="background:${sp.color}"></span>`;
+                    html += critterImg;
                     html += `<span class="cc-name">${c.nickname}</span>`;
                     html += `<span class="cc-level">Lv.${c.level}</span>`;
                     html += `</div>`;
@@ -210,7 +220,7 @@ class UI {
                             if (c) {
                                 const sp = SPECIES[c.species];
                                 html += `<div class="mb-worker" onclick="game.unassignFromManage(${c.id})">`;
-                                html += `<div class="mb-worker-icon" style="background:${sp.color}"></div>`;
+                                html += UI._critterIconHtml(c.species);
                                 html += `<span class="mb-worker-name">${c.nickname}</span>`;
                                 html += `<span class="mb-worker-lv">Lv${c.level}</span>`;
                                 if (def.statKey) html += `<span class="mb-worker-stat">${def.statKey}:${c.stats[def.statKey]||0}</span>`;
@@ -252,7 +262,7 @@ class UI {
                     for (const c of patrolling) {
                         const sp = SPECIES[c.species];
                         html += `<div class="mb-idle-critter">`;
-                        html += `<div class="mb-worker-icon" style="background:${sp.color}"></div>`;
+                        html += UI._critterIconHtml(c.species);
                         html += `<span>${c.nickname} Lv${c.level}</span>`;
                         html += `</div>`;
                     }
@@ -265,7 +275,7 @@ class UI {
                     for (const c of idle) {
                         const sp = SPECIES[c.species];
                         html += `<div class="mb-idle-critter">`;
-                        html += `<div class="mb-worker-icon" style="background:${sp.color}"></div>`;
+                        html += UI._critterIconHtml(c.species);
                         html += `<span>${c.nickname} Lv${c.level}</span>`;
                         html += `</div>`;
                     }
