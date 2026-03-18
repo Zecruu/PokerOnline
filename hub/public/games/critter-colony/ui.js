@@ -55,6 +55,9 @@ class UI {
         const body = document.getElementById('panelBody');
         if (!body) return;
 
+        // Don't rebuild critters/manage tab if a select is focused (prevents dropdown closing)
+        if ((this.activeTab === 'critters' || this.activeTab === 'manage') && body.querySelector('select:focus')) return;
+
         if (this.activeTab === 'buildings') {
             let html = '<div class="panel-section-label">Build</div>';
             for (const [type, def] of Object.entries(BUILDING_DEFS)) {
@@ -116,7 +119,9 @@ class UI {
                     html += `<div class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</div>`;
                     html += `<div class="cc-stats">`;
                     for (const [key, val] of Object.entries(c.stats)) {
-                        html += `<span class="cc-stat">${key}:${val}</span>`;
+                        const iconImg = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[key.toLowerCase()] && STAT_ICONS[key.toLowerCase()].complete
+                            ? `<img class="cc-stat-icon" src="${STAT_ICONS[key.toLowerCase()].src}">` : '';
+                        html += `<span class="cc-stat">${iconImg}${key}:${val}</span>`;
                     }
                     html += `</div>`;
 

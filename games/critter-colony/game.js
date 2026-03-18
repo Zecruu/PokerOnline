@@ -50,6 +50,7 @@ class Game {
         this._setupInput();
         this._resize();
         window.onresize = () => this._resize();
+        preloadAllAssets();
         this._initTitle();
     }
 

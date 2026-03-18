@@ -225,20 +225,23 @@ class Buildings {
         const sy = wy - camY;
         const size = def.size * TILE_SIZE;
 
-        // Building body
-        ctx.fillStyle = def.color;
-        ctx.fillRect(sx + 2, sy + 2, size - 4, size - 4);
+        // Building body — use sprite if available
+        const sprite = typeof BUILDING_SPRITES !== 'undefined' ? BUILDING_SPRITES[building.type] : null;
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+            ctx.drawImage(sprite, sx + 1, sy + 1, size - 2, size - 2);
+        } else {
+            ctx.fillStyle = def.color;
+            ctx.fillRect(sx + 2, sy + 2, size - 4, size - 4);
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${def.size === 1 ? 14 : 18}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(def.letter, sx + size / 2, sy + (def.size === 1 ? size / 2 : 18));
+        }
 
         ctx.strokeStyle = 'rgba(255,255,255,0.2)';
         ctx.lineWidth = 1;
         ctx.strokeRect(sx + 2, sy + 2, size - 4, size - 4);
-
-        // Letter label
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${def.size === 1 ? 14 : 18}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(def.letter, sx + size / 2, sy + (def.size === 1 ? size / 2 : 18));
 
         // Turret barrel
         if (def.turret) {

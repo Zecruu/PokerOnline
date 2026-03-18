@@ -1,7 +1,7 @@
 /* Critter Colony — CDN Asset Configuration */
 
 const CDN_CONFIG = {
-    enabled: false, // Enable when sprites are uploaded to S3
+    enabled: true,
     baseUrl: 'https://d2f5lfipdzhi8t.cloudfront.net/critter-colony',
     localBasePath: 'images/'
 };
@@ -9,4 +9,79 @@ const CDN_CONFIG = {
 function getAssetUrl(path) {
     if (CDN_CONFIG.enabled) return `${CDN_CONFIG.baseUrl}/${path}`;
     return CDN_CONFIG.localBasePath + path;
+}
+
+// ─── BUILDING SPRITES ────────────────────────────────────────
+const BUILDING_SPRITES = {};
+
+function preloadBuildingSprites() {
+    const defs = {
+        mine: 'buildings/mine.png',
+        lumber_mill: 'buildings/lumber-mill.png',
+        farm: 'buildings/farm.png',
+        nest: 'buildings/nest.png',
+        turret: 'buildings/turret.png',
+        research_lab: 'buildings/research-lab.png',
+        workbench: 'buildings/workbench.png',
+    };
+    const promises = [];
+    for (const [key, path] of Object.entries(defs)) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const p = new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+        });
+        img.src = getAssetUrl(path);
+        BUILDING_SPRITES[key] = img;
+        promises.push(p);
+    }
+    return Promise.allSettled(promises);
+}
+
+// ─── CRITTER SPRITES ─────────────────────────────────────────
+const CRITTER_SPRITES = {};
+
+function preloadCritterSprites() {
+    const defs = {
+        mossbun: 'critters/mossbun.png',
+        pebblit: 'critters/pebblit.png',
+        flickwing: 'critters/flickwing.png',
+        glowmite: 'critters/glowmite.png',
+    };
+    const promises = [];
+    for (const [key, path] of Object.entries(defs)) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const p = new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+        });
+        img.src = getAssetUrl(path);
+        CRITTER_SPRITES[key] = img;
+        promises.push(p);
+    }
+    return Promise.allSettled(promises);
+}
+
+// ─── STAT ICONS ──────────────────────────────────────────────
+const STAT_ICONS = {};
+
+function preloadStatIcons() {
+    const defs = { str: 'icons/str.png', dex: 'icons/dex.png', int: 'icons/int.png', vit: 'icons/vit.png', lck: 'icons/lck.png' };
+    const promises = [];
+    for (const [key, path] of Object.entries(defs)) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const p = new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+        img.src = getAssetUrl(path);
+        STAT_ICONS[key] = img;
+        promises.push(p);
+    }
+    return Promise.allSettled(promises);
+}
+
+// Preload everything
+function preloadAllAssets() {
+    return Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]);
 }

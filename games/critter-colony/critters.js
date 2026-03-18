@@ -234,26 +234,37 @@ class Critters {
         // Shadow
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath();
-        ctx.ellipse(sx, sy + 10, 8, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(sx, sy + 12, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Body
-        ctx.fillStyle = sp.color;
-        ctx.beginPath();
-        ctx.arc(sx, sy + bob, 8, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Eyes
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(sx - 3, sy + bob - 2, 2.5, 0, Math.PI * 2);
-        ctx.arc(sx + 3, sy + bob - 2, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#222';
-        ctx.beginPath();
-        ctx.arc(sx - 2.5, sy + bob - 2, 1.2, 0, Math.PI * 2);
-        ctx.arc(sx + 3.5, sy + bob - 2, 1.2, 0, Math.PI * 2);
-        ctx.fill();
+        // Body — use sprite if available
+        const sprite = typeof CRITTER_SPRITES !== 'undefined' ? CRITTER_SPRITES[critter.species] : null;
+        const r = 12;
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(sx, sy + bob, r, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(sprite, sx - r, sy + bob - r, r * 2, r * 2);
+            ctx.restore();
+        } else {
+            ctx.fillStyle = sp.color;
+            ctx.beginPath();
+            ctx.arc(sx, sy + bob, 8, 0, Math.PI * 2);
+            ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(sx - 3, sy + bob - 2, 2.5, 0, Math.PI * 2);
+            ctx.arc(sx + 3, sy + bob - 2, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.arc(sx - 2.5, sy + bob - 2, 1.2, 0, Math.PI * 2);
+            ctx.arc(sx + 3.5, sy + bob - 2, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         // Stunned visual
         if (critter.stunned) {
