@@ -11,27 +11,38 @@ class Save {
         return !!Save.getToken();
     }
 
-    static async save(game) {
-        const token = Save.getToken();
-        if (!token) return { success: false, reason: 'Not logged in' };
+    // ─── LOCAL SAVE (always available) ────────────────────────
+    static saveLocal(game) {
+        try {
+            const gs = Save._buildGameState(game);
+            localStorage.setItem('critter_colony_save', JSON.stringify(gs));
+        } catch(e) { console.error('Local save failed:', e); }
+    }
 
-        // Serialize colony chunks (only colony-modified chunks)
+    static loadLocal() {
+        try {
+            const raw = localStorage.getItem('critter_colony_save');
+            if (!raw) return null;
+            const gs = JSON.parse(raw);
+            const elapsed = gs.lastActive ? Math.floor((Date.now() - gs.lastActive) / 1000) : 0;
+            return { gameState: gs, elapsed };
+        } catch(e) { return null; }
+    }
+
+    static deleteLocal() {
+        localStorage.removeItem('critter_colony_save');
+    }
+
+    static _buildGameState(game) {
         const modifiedChunks = {};
         for (const [key, chunk] of game.world.chunks) {
-            // Only save chunks that have colony/path tiles (player-modified)
             let hasModified = false;
             for (let i = 0; i < chunk.tiles.length; i++) {
-                if (chunk.tiles[i] === TILE.COLONY || chunk.tiles[i] === TILE.PATH) {
-                    hasModified = true;
-                    break;
-                }
+                if (chunk.tiles[i] === TILE.COLONY || chunk.tiles[i] === TILE.PATH) { hasModified = true; break; }
             }
-            if (hasModified) {
-                modifiedChunks[key] = Array.from(chunk.tiles);
-            }
+            if (hasModified) modifiedChunks[key] = Array.from(chunk.tiles);
         }
-
-        const gameState = {
+        return {
             worldSeed: game.world.seed,
             modifiedChunks,
             waypoints: game.world.waypoints,
@@ -43,16 +54,31 @@ class Save {
                 id: b.id, type: b.type, gridX: b.gridX, gridY: b.gridY,
                 workers: [...b.workers], productionAccum: b.productionAccum,
                 turretAngle: b.turretAngle || 0,
+                hp: b.hp, maxHp: b.maxHp,
             })),
             critters: game.critters.map(c => ({
                 id: c.id, species: c.species, nickname: c.nickname,
                 stats: { ...c.stats }, level: c.level, xp: c.xp,
                 assignment: c.assignment,
+                injured: c.injured || false, injuredTimer: c.injuredTimer || 0,
+                passives: c.passives || [],
+                patrolHp: c.patrolHp, patrolMaxHp: c.patrolMaxHp,
             })),
+            deadCritters: (game.deadCritters || []).slice(-20),
             research: { ...game.research },
             researchInProgress: game.researchInProgress ? { ...game.researchInProgress } : null,
             lastActive: Date.now(),
         };
+    }
+
+    static async save(game) {
+        // Always save locally
+        Save.saveLocal(game);
+
+        const token = Save.getToken();
+        if (!token) return { success: false, reason: 'Not logged in' };
+
+        const gameState = Save._buildGameState(game);
 
         try {
             const res = await fetch('/api/colony/save', {
@@ -72,20 +98,24 @@ class Save {
 
     static async load() {
         const token = Save.getToken();
-        if (!token) return null;
 
-        try {
-            const res = await fetch('/api/colony/load', {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-            if (res.status === 404) return null;
-            const data = await res.json();
-            if (!data.success) return null;
-            return data;
-        } catch (e) {
-            console.error('Load failed:', e);
-            return null;
+        // Try server first if logged in
+        if (token) {
+            try {
+                const res = await fetch('/api/colony/load', {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                if (res.status !== 404) {
+                    const data = await res.json();
+                    if (data.success) return data;
+                }
+            } catch (e) {
+                console.error('Server load failed, trying local:', e);
+            }
         }
+
+        // Fallback to local save
+        return Save.loadLocal();
     }
 
     static async deleteSave() {

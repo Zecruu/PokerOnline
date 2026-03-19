@@ -66,20 +66,114 @@ class UI {
         // Don't rebuild critters/manage tab if a select is focused (prevents dropdown closing)
         if ((this.activeTab === 'critters' || this.activeTab === 'manage') && body.querySelector('select:focus')) return;
 
+        // ── WORKBENCH UI (overrides other tabs when open) ──
+        if (g._activeWorkbench) {
+            const wb = g.buildings.find(b => b.id === g._activeWorkbench);
+            if (!wb || !g._isNearWorkbench(g._activeWorkbench)) {
+                g._activeWorkbench = null; // auto-close if walked away
+            } else {
+                const ct = Buildings.getCraftTime(wb, g.critters);
+                const canCraft = (g.resources.wood || 0) >= 5 && (g.resources.stone || 0) >= 3;
+                const crafting = (wb.workers.length > 0 && wb.craftQueue > 0) || wb._manualCrafting;
+                const pct = crafting ? Math.min(100, ((wb.craftProgress || 0) / ct) * 100) : 0;
+
+                const canTrap = (g.resources.wood||0) >= 5 && (g.resources.stone||0) >= 3;
+                const canAmmo = (g.resources.iron||0) >= 2 && (g.resources.stone||0) >= 1;
+                const activeR = wb.activeRecipe || 'trap';
+
+                let html = `<div class="wb-panel">`;
+                html += `<div class="wb-panel-header"><span>⚒ Workbench</span><button class="wb-close" onclick="game.closeWorkbench()">✕</button></div>`;
+
+                // Progress bar (if crafting anything)
+                if (crafting) {
+                    const label = activeR === 'ammo' ? 'Bullets' : 'Trap';
+                    html += `<div class="wb-progress">`;
+                    html += `<div class="wb-prog-bar"><div class="wb-prog-fill" style="width:${pct}%"></div></div>`;
+                    html += `<span class="wb-prog-text">Crafting ${label}... ${Math.floor(pct)}% (${ct.toFixed(1)}s)</span>`;
+                    html += `</div>`;
+                }
+
+                // ── Recipe: Trap ──
+                html += `<div class="wb-recipe">`;
+                html += `<div class="wb-recipe-icon">🪤</div>`;
+                html += `<div class="wb-recipe-info">`;
+                html += `<div class="wb-recipe-name">Trap</div>`;
+                html += `<div class="wb-recipe-desc">Captures stunned critters</div>`;
+                html += `<div class="wb-recipe-cost"><span class="wb-res ${(g.resources.wood||0)>=5?'':'wb-res-lack'}">🪵5</span><span class="wb-res ${(g.resources.stone||0)>=3?'':'wb-res-lack'}">🪨3</span> → 🪤1</div>`;
+                html += `</div>`;
+                html += `<div class="wb-recipe-btns">`;
+                html += `<button class="wb-craft-sm" onclick="game.manualCraft(${wb.id},'trap')" ${canTrap?'':'disabled'}>×1</button>`;
+                html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},5,'trap')" ${canTrap?'':'disabled'}>+5</button>`;
+                html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},20,'trap')" ${canTrap?'':'disabled'}>+20</button>`;
+                html += `</div></div>`;
+                if (wb.craftQueue > 0) html += `<div class="wb-queue-sm">${wb.craftQueue} traps queued</div>`;
+
+                // ── Recipe: Bullets ──
+                html += `<div class="wb-recipe">`;
+                html += `<div class="wb-recipe-icon">🔫</div>`;
+                html += `<div class="wb-recipe-info">`;
+                html += `<div class="wb-recipe-name">Bullets ×5</div>`;
+                html += `<div class="wb-recipe-desc">Ammo for your tamer gun</div>`;
+                html += `<div class="wb-recipe-cost"><span class="wb-res ${(g.resources.iron||0)>=2?'':'wb-res-lack'}">⛓2 Iron</span><span class="wb-res ${(g.resources.stone||0)>=1?'':'wb-res-lack'}">🪨1</span> → 💥5</div>`;
+                html += `</div>`;
+                html += `<div class="wb-recipe-btns">`;
+                html += `<button class="wb-craft-sm" onclick="game.manualCraft(${wb.id},'ammo')" ${canAmmo?'':'disabled'}>×1</button>`;
+                html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},5,'ammo')" ${canAmmo?'':'disabled'}>+5</button>`;
+                html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},20,'ammo')" ${canAmmo?'':'disabled'}>+20</button>`;
+                html += `</div></div>`;
+                if (wb.ammoQueue > 0) html += `<div class="wb-queue-sm">${wb.ammoQueue} ammo batches queued</div>`;
+
+                // Workers
+                html += `<div class="wb-workers-label">Workers (${wb.workers.length}) — DEX = speed</div>`;
+                if (wb.workers.length > 0) {
+                    for (const cid of wb.workers) {
+                        const c = g.critters.find(cr => cr.id === cid);
+                        if (c) html += `<div class="wb-worker-item">${UI._critterIconHtml(c.species,'wb-worker-icon')} ${c.nickname} <span style="color:#ffd54f">DEX:${c.stats.DEX||0}</span></div>`;
+                    }
+                } else html += `<div class="wb-no-workers">No workers — assign DEX critters for auto-craft</div>`;
+
+                // Inventory
+                html += `<div class="wb-inv-row"><span>🪤 Traps: <b>${g.inventory.traps}</b></span><span>💥 Ammo: <b>${g.inventory.ammo||0}</b></span></div>`;
+                html += `</div>`;
+                body.innerHTML = html;
+                return;
+            }
+        }
+
         if (this.activeTab === 'buildings') {
             let html = '<div class="panel-section-label">Build</div>';
             for (const [type, def] of Object.entries(BUILDING_DEFS)) {
+                if (def.unbuildable) continue;
                 const canAfford = Buildings.canAfford(type, g.resources);
                 const costStr = Object.entries(def.cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
+                // Building sprite image
+                const bSprite = typeof BUILDING_SPRITES !== 'undefined' && BUILDING_SPRITES[type] && BUILDING_SPRITES[type].complete && BUILDING_SPRITES[type].naturalWidth > 0
+                    ? BUILDING_SPRITES[type] : null;
                 html += `<div class="build-item ${canAfford ? '' : 'disabled'}" onclick="game.startPlacement('${type}')">`;
+                html += `<div class="build-header">`;
+                if (bSprite) {
+                    html += `<img class="build-icon" src="${bSprite.src}">`;
+                } else {
+                    html += `<div class="build-icon build-icon-fallback" style="background:${def.color}">${def.letter}</div>`;
+                }
+                html += `<div class="build-header-text">`;
                 html += `<span class="build-name">${def.name}</span>`;
                 html += `<span class="build-cost">${costStr || 'Free'}</span>`;
-                if (def.produces) html += `<span class="build-desc">Produces ${def.produces}</span>`;
+                html += `</div>`;
+                html += `</div>`;
+                // Stat yield info with icon
+                if (def.statKey) {
+                    const statIcon = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[def.statKey.toLowerCase()] && STAT_ICONS[def.statKey.toLowerCase()].complete
+                        ? `<img class="build-stat-icon" src="${STAT_ICONS[def.statKey.toLowerCase()].src}">` : '';
+                    html += `<div class="build-stat">${statIcon}<b>${def.statKey}</b> increases yield</div>`;
+                }
+                if (def.produces) html += `<span class="build-desc">Produces ${def.produces} — assign critters with high ${def.statKey || 'stats'}</span>`;
                 else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
                 else if (def.turret) html += `<span class="build-desc">Auto-attacks wild critters</span>`;
                 else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
-                else if (def.isResearch) html += `<span class="build-desc">Assign INT critters to research</span>`;
-                else if (def.isWorkbench) html += `<span class="build-desc">Crafts traps (5 wood + 3 stone each). Assign DEX critters</span>`;
+                else if (def.isResearch) html += `<span class="build-desc">Assign high INT critters to research faster</span>`;
+                else if (def.isWorkbench) html += `<span class="build-desc">Crafts traps (5 wood + 3 stone). High DEX = faster</span>`;
+                if (def.hp) html += `<span class="build-hp">HP: ${def.hp}</span>`;
                 html += `</div>`;
             }
 
@@ -93,17 +187,15 @@ class UI {
                     html += `<span class="pb-workers">${b.workers.length} workers</span>`;
                     if (def.produces) html += `<span class="pb-rate">+${rate.toFixed(2)}/s ${def.produces}</span>`;
 
-                    // Workbench crafting controls
+                    // Workbench — open button
                     if (def.isWorkbench) {
-                        const ct = Buildings.getCraftTime(b, g.critters);
-                        const canCraft = (g.resources.wood || 0) >= 5 && (g.resources.stone || 0) >= 3;
-                        html += `<div class="wb-controls">`;
-                        html += `<span class="wb-speed">${ct.toFixed(1)}s/trap</span>`;
-                        html += `<button class="wb-btn" onclick="game.manualCraft(${b.id})" ${canCraft ? '' : 'disabled'}>Craft 1</button>`;
-                        html += `<button class="wb-btn" onclick="game.queueCraft(${b.id}, 5)" ${canCraft ? '' : 'disabled'}>+5</button>`;
-                        html += `<button class="wb-btn" onclick="game.queueCraft(${b.id}, 20)" ${canCraft ? '' : 'disabled'}>+20</button>`;
-                        if (b.craftQueue > 0) html += `<span class="wb-queue">${b.craftQueue} queued</span>`;
-                        html += `</div>`;
+                        html += `<button class="wb-open-btn" onclick="game.openWorkbench(${b.id})">Open Workbench</button>`;
+                        if (b.craftQueue > 0 || b._manualCrafting) {
+                            const ct = Buildings.getCraftTime(b, g.critters);
+                            const pct = Math.min(100, ((b.craftProgress || 0) / ct) * 100);
+                            html += `<div class="wb-inline-prog"><div class="wb-inline-bar" style="width:${pct}%"></div></div>`;
+                            if (b.craftQueue > 0) html += `<span class="wb-queue">${b.craftQueue} queued</span>`;
+                        }
                     }
 
                     html += `</div>`;
@@ -123,10 +215,39 @@ class UI {
                     html += `<div class="critter-card">`;
                     html += `<div class="cc-header">`;
                     html += critterImg;
-                    html += `<span class="cc-name">${c.nickname}</span>`;
-                    html += `<span class="cc-level">Lv.${c.level}</span>`;
+                    html += `<span class="cc-name" onclick="game.renameCritter(${c.id})" title="Click to rename">${c.nickname}</span>`;
+                    const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
+                    html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
                     html += `<div class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</div>`;
+                    if (c.injured) {
+                        const mins = Math.ceil((c.injuredTimer || 0) / 60);
+                        html += `<div class="cc-injured">🩹 Injured — ${mins}m recovery</div>`;
+                    }
+                    // Passives
+                    if (c.passives && c.passives.length > 0) {
+                        html += `<div class="cc-passives">`;
+                        for (const pid of c.passives) {
+                            const p = typeof PASSIVES !== 'undefined' ? PASSIVES[pid] : null;
+                            if (!p) continue;
+                            const pColor = RARITY_COLORS[p.rarity] || '#aaa';
+                            html += `<span class="cc-passive ${p.negative ? 'cc-passive-neg' : ''}" style="border-color:${pColor}40;color:${pColor}" title="${p.desc}">${p.icon} ${p.name}</span>`;
+                        }
+                        html += `</div>`;
+                    }
+                    // Patrol HP
+                    if (c.assignment === 'patrol' && c.patrolHp !== undefined) {
+                        const php = Math.floor(c.patrolHp), pmhp = c.patrolMaxHp || 50;
+                        html += `<div class="cc-patrol-hp">❤️ ${php}/${pmhp} HP</div>`;
+                    }
+                    // XP bar
+                    if (c.level < maxLv) {
+                        const xpNeeded = typeof Critters !== 'undefined' ? Critters.getXpForLevel(c.level) : 50;
+                        const xpPct = Math.min(100, (c.xp / xpNeeded) * 100);
+                        html += `<div class="cc-xp"><div class="cc-xp-bar" style="width:${xpPct}%"></div><span class="cc-xp-text">${c.xp}/${xpNeeded} XP</span></div>`;
+                    } else {
+                        html += `<div class="cc-xp cc-xp-max"><span class="cc-xp-text">MAX LEVEL</span></div>`;
+                    }
                     html += `<div class="cc-stats">`;
                     for (const [key, val] of Object.entries(c.stats)) {
                         const iconImg = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[key.toLowerCase()] && STAT_ICONS[key.toLowerCase()].complete
@@ -134,6 +255,24 @@ class UI {
                         html += `<span class="cc-stat">${iconImg}${key}:${val}</span>`;
                     }
                     html += `</div>`;
+                    // Show bonus yield if assigned to a building
+                    if (c.assignment && c.assignment !== 'patrol') {
+                        const bld = g.buildings.find(b => b.id === c.assignment);
+                        if (bld) {
+                            const def = BUILDING_DEFS[bld.type];
+                            if (def.produces && def.statKey) {
+                                const statVal = c.stats[def.statKey] || 0;
+                                const bonus = (statVal * 0.05 * 100).toFixed(0);
+                                html += `<div class="cc-bonus">+${bonus}% ${def.produces} yield (${def.statKey}: ${statVal})</div>`;
+                            } else if (def.isResearch) {
+                                const intVal = c.stats.INT || 0;
+                                html += `<div class="cc-bonus">+${(intVal * 8).toFixed(0)}% research speed (INT: ${intVal})</div>`;
+                            } else if (def.isWorkbench) {
+                                const dexVal = c.stats.DEX || 0;
+                                html += `<div class="cc-bonus">-${(dexVal * 2).toFixed(0)}% craft time (DEX: ${dexVal})</div>`;
+                            }
+                        }
+                    }
 
                     html += `<div class="cc-assign">`;
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
@@ -141,7 +280,7 @@ class UI {
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
                     for (const b of g.buildings) {
                         const def = BUILDING_DEFS[b.type];
-                        if (!def.produces && !def.isResearch) continue;
+                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue; // skips nests, turrets, expanders
                         const selected = c.assignment === b.id ? 'selected' : '';
                         html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length})</option>`;
                     }
@@ -203,7 +342,7 @@ class UI {
             } else {
                 for (const b of g.buildings) {
                     const def = BUILDING_DEFS[b.type];
-                    if (def.turret || def.expander) continue; // skip non-assignable
+                    if (def.turret || def.expander || def.capacity) continue; // skip turrets, expanders, nests
 
                     html += `<div class="manage-building">`;
                     html += `<div class="mb-header">`;
@@ -227,10 +366,25 @@ class UI {
                                 html += `</div>`;
                             }
                         } else {
-                            html += `<div class="mb-worker mb-empty">`;
-                            html += `<div class="mb-worker-icon mb-empty-icon">+</div>`;
-                            html += `<span class="mb-worker-name">Empty slot</span>`;
-                            html += `</div>`;
+                            // Empty slot — show dropdown to assign idle critter
+                            const idle = g.critters.filter(cr => !cr.assignment && !cr.injured);
+                            if (idle.length > 0) {
+                                html += `<div class="mb-worker mb-empty-assign">`;
+                                html += `<select class="mb-assign-select" onchange="game.assignCritter(parseInt(this.value), '${b.id}')">`;
+                                html += `<option value="">+ Assign critter...</option>`;
+                                for (const ic of idle) {
+                                    const isp = SPECIES[ic.species];
+                                    const statVal = def.statKey ? ` (${def.statKey}:${ic.stats[def.statKey]||0})` : '';
+                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level}${statVal}</option>`;
+                                }
+                                html += `</select>`;
+                                html += `</div>`;
+                            } else {
+                                html += `<div class="mb-worker mb-empty">`;
+                                html += `<div class="mb-worker-icon mb-empty-icon">+</div>`;
+                                html += `<span class="mb-worker-name">No idle critters</span>`;
+                                html += `</div>`;
+                            }
                         }
                     }
                     html += `</div>`;
@@ -252,8 +406,9 @@ class UI {
                     html += `</div>`;
                 }
 
-                // Unassigned critters
-                const idle = g.critters.filter(c => !c.assignment);
+                // Critter lists
+                const injured = g.critters.filter(c => c.injured);
+                const idle = g.critters.filter(c => !c.assignment && !c.injured);
                 const patrolling = g.critters.filter(c => c.assignment === 'patrol');
 
                 if (patrolling.length > 0) {
@@ -273,10 +428,23 @@ class UI {
                     html += `<div class="panel-section-label" style="margin-top:10px">Idle (${idle.length})</div>`;
                     html += `<div class="mb-idle-list">`;
                     for (const c of idle) {
-                        const sp = SPECIES[c.species];
                         html += `<div class="mb-idle-critter">`;
                         html += UI._critterIconHtml(c.species);
                         html += `<span>${c.nickname} Lv${c.level}</span>`;
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                if (injured.length > 0) {
+                    html += `<div class="panel-section-label" style="margin-top:10px;color:#f87171">Injured (${injured.length})</div>`;
+                    html += `<div class="mb-idle-list">`;
+                    for (const c of injured) {
+                        const mins = Math.ceil((c.injuredTimer || 0) / 60);
+                        html += `<div class="mb-idle-critter mb-injured">`;
+                        html += UI._critterIconHtml(c.species);
+                        html += `<span>${c.nickname} Lv${c.level}</span>`;
+                        html += `<span class="mb-injury-time">🩹 ${mins}m</span>`;
                         html += `</div>`;
                     }
                     html += `</div>`;

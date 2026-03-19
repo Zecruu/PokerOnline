@@ -3,17 +3,95 @@
    ============================================================ */
 
 const SPECIES = {
-    mossbun:   { name: 'Mossbun',   color: '#66bb6a', rarity: 'common',   baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false, attackDmg: 2, attackCooldown: 2 },
-    pebblit:   { name: 'Pebblit',   color: '#90a4ae', rarity: 'common',   baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 8, attackDmg: 4, attackCooldown: 1.2 },
-    flickwing: { name: 'Flickwing', color: '#ffd54f', rarity: 'common',   baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false, attackDmg: 2, attackCooldown: 1.5 },
-    glowmite:  { name: 'Glowmite', color: '#ce93d8', rarity: 'uncommon', baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8 },
+    // ── COMMON (8) ──────────────────────────────────────────
+    mossbun:     { name: 'Mossbun',     color: '#66bb6a', rarity: 'common',    baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false, attackDmg: 2, attackCooldown: 2, size: 1 },
+    pebblit:     { name: 'Pebblit',     color: '#90a4ae', rarity: 'common',    baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 8, attackDmg: 4, attackCooldown: 1.2, size: 1 },
+    flickwing:   { name: 'Flickwing',   color: '#ffd54f', rarity: 'common',    baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false, attackDmg: 2, attackCooldown: 1.5, size: 1 },
+    thornback:   { name: 'Thornback',   color: '#558b2f', rarity: 'common',    baseStats: { STR:5, DEX:3, INT:2, VIT:6, LCK:4 }, desc: 'Spiky hedgehog critter. Tough and reliable.', aggressive: true, aggroRange: 6, attackDmg: 5, attackCooldown: 1.4, size: 1 },
+    mudgrub:     { name: 'Mudgrub',     color: '#795548', rarity: 'common',    baseStats: { STR:4, DEX:2, INT:1, VIT:8, LCK:2 }, desc: 'Ugly worm thing. Useless but very tanky.', aggressive: false, attackDmg: 1, attackCooldown: 3, size: 0.8 },
+    dustmite:    { name: 'Dustmite',    color: '#bcaaa4', rarity: 'common',    baseStats: { STR:2, DEX:5, INT:2, VIT:4, LCK:6 }, desc: 'Tiny dust bug. Annoyingly fast and lucky.', aggressive: true, aggroRange: 5, attackDmg: 1, attackCooldown: 0.8, size: 0.6 },
+    puffshroom:  { name: 'Puffshroom',  color: '#ef9a9a', rarity: 'common',    baseStats: { STR:1, DEX:1, INT:6, VIT:9, LCK:3 }, desc: 'Adorable mushroom blob. Great HP, terrible at everything else.', aggressive: false, attackDmg: 1, attackCooldown: 3, size: 1.1 },
+    scraprat:    { name: 'Scraprat',    color: '#8d6e63', rarity: 'common',    baseStats: { STR:3, DEX:6, INT:3, VIT:3, LCK:5 }, desc: 'Ugly sewer rat. Scrappy crafter with luck.', aggressive: true, aggroRange: 6, attackDmg: 3, attackCooldown: 1.0, size: 0.9 },
+
+    // ── UNCOMMON (6) ────────────────────────────────────────
+    glowmite:    { name: 'Glowmite',    color: '#ce93d8', rarity: 'uncommon',  baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8, size: 1 },
+    emberfox:    { name: 'Emberfox',    color: '#ff7043', rarity: 'uncommon',  baseStats: { STR:5, DEX:7, INT:3, VIT:4, LCK:5 }, desc: 'A fiery fox. Fast attacker and decent crafter.', aggressive: true, aggroRange: 10, attackDmg: 7, attackCooldown: 1.0, size: 1.2 },
+    crystalhorn: { name: 'Crystalhorn', color: '#7e57c2', rarity: 'uncommon',  baseStats: { STR:6, DEX:2, INT:4, VIT:7, LCK:5 }, desc: 'Crystalline beetle. Incredibly sturdy miner.', aggressive: true, aggroRange: 8, attackDmg: 8, attackCooldown: 1.6, size: 1.3 },
+    bogwalker:   { name: 'Bogwalker',   color: '#4e342e', rarity: 'uncommon',  baseStats: { STR:8, DEX:1, INT:2, VIT:9, LCK:2 }, desc: 'Massive swamp toad. Slow but hits like a truck.', aggressive: true, aggroRange: 5, attackDmg: 12, attackCooldown: 2.5, size: 1.6 },
+    sparkfly:    { name: 'Sparkfly',    color: '#80deea', rarity: 'uncommon',  baseStats: { STR:1, DEX:10, INT:5, VIT:2, LCK:6 }, desc: 'Tiny electric firefly. Lightning fast but fragile.', aggressive: false, attackDmg: 3, attackCooldown: 0.6, size: 0.7 },
+    rotjaw:      { name: 'Rotjaw',      color: '#6d4c41', rarity: 'uncommon',  baseStats: { STR:7, DEX:4, INT:1, VIT:6, LCK:3 }, desc: 'Decaying lizard. Ugly and mean. Good fighter.', aggressive: true, aggroRange: 10, attackDmg: 9, attackCooldown: 1.3, size: 1.3 },
+
+    // ── RARE (5) ────────────────────────────────────────────
+    stormwing:   { name: 'Stormwing',   color: '#42a5f5', rarity: 'rare',      baseStats: { STR:4, DEX:10, INT:7, VIT:4, LCK:6 }, desc: 'Electric bird. Lightning fast, great at everything.', aggressive: true, aggroRange: 14, attackDmg: 10, attackCooldown: 0.8, size: 1.3 },
+    ironshell:   { name: 'Ironshell',   color: '#78909c', rarity: 'rare',      baseStats: { STR:9, DEX:2, INT:3, VIT:12, LCK:5 }, desc: 'Armored turtle. Nearly indestructible tank.', aggressive: true, aggroRange: 6, attackDmg: 12, attackCooldown: 2.0, size: 1.5 },
+    venomaw:     { name: 'Venomaw',     color: '#ab47bc', rarity: 'rare',      baseStats: { STR:7, DEX:6, INT:5, VIT:5, LCK:8 }, desc: 'Toxic frog. Poisons enemies and boosts luck.', aggressive: true, aggroRange: 12, attackDmg: 9, attackCooldown: 1.2, size: 1.2 },
+    goretusk:    { name: 'Goretusk',    color: '#b71c1c', rarity: 'rare',      baseStats: { STR:12, DEX:4, INT:1, VIT:8, LCK:3 }, desc: 'Blood-red boar. Pure aggression. Terrible worker.', aggressive: true, aggroRange: 16, attackDmg: 16, attackCooldown: 1.0, size: 1.7 },
+    faewisp:     { name: 'Faewisp',     color: '#b2ff59', rarity: 'rare',      baseStats: { STR:1, DEX:6, INT:12, VIT:3, LCK:10 }, desc: 'Ethereal fairy. Incredible researcher and lucky.', aggressive: false, attackDmg: 2, attackCooldown: 2, size: 0.8 },
+
+    // ── LEGENDARY (4) ───────────────────────────────────────
+    shadowfang:  { name: 'Shadowfang',  color: '#5c2d91', rarity: 'legendary', baseStats: { STR:12, DEX:10, INT:6, VIT:8, LCK:8 }, desc: 'Dark wolf of shadow. Devastating in combat.', aggressive: true, aggroRange: 18, attackDmg: 18, attackCooldown: 0.7, size: 1.8 },
+    celestine:   { name: 'Celestine',   color: '#e0f7fa', rarity: 'legendary', baseStats: { STR:6, DEX:8, INT:14, VIT:10, LCK:10 }, desc: 'Celestial deer. Divine researcher and healer.', aggressive: true, aggroRange: 16, attackDmg: 14, attackCooldown: 1.0, size: 1.8 },
+    dreadmaw:    { name: 'Dreadmaw',    color: '#1a1a1a', rarity: 'legendary', baseStats: { STR:15, DEX:6, INT:2, VIT:14, LCK:5 }, desc: 'Abyssal horror. Giant mouth. Eats everything.', aggressive: true, aggroRange: 20, attackDmg: 25, attackCooldown: 0.8, size: 2.2 },
+    tinkerbell:  { name: 'Tinkerbell',  color: '#fff176', rarity: 'legendary', baseStats: { STR:2, DEX:14, INT:12, VIT:4, LCK:14 }, desc: 'Adorable golden pixie. Absurdly lucky crafter.', aggressive: false, attackDmg: 5, attackCooldown: 1.5, size: 0.6 },
+};
+
+// ─── PASSIVE ABILITIES ──────────────────────────────────────
+const PASSIVES = {
+    // COMMON passives (high roll chance)
+    hard_worker:    { name: 'Hard Worker',    rarity: 'common',    desc: 'Building produces 15% more resources', icon: '⚒️', effect: { prodBonus: 0.15 } },
+    thick_skin:     { name: 'Thick Skin',     rarity: 'common',    desc: '+20% patrol HP',           icon: '🛡️', effect: { hpBonus: 0.20 } },
+    quick_feet:     { name: 'Quick Feet',     rarity: 'common',    desc: '+25% move speed on patrol', icon: '👟', effect: { speedBonus: 0.25 } },
+    keen_eye:       { name: 'Keen Eye',       rarity: 'common',    desc: '+10% capture rate bonus',  icon: '👁️', effect: { captureBonus: 0.10 } },
+    glutton:        { name: 'Glutton',        rarity: 'common',    desc: '+30% food consumption',    icon: '🍖', effect: { foodPenalty: 0.30 }, negative: true },
+    lazy:           { name: 'Lazy',           rarity: 'common',    desc: '-20% production speed',    icon: '😴', effect: { prodBonus: -0.20 }, negative: true },
+    clumsy:         { name: 'Clumsy',         rarity: 'common',    desc: '-15% crafting speed',      icon: '🤕', effect: { craftBonus: -0.15 }, negative: true },
+    cowardly:       { name: 'Cowardly',       rarity: 'common',    desc: 'Runs away 50% faster on patrol (less fighting)', icon: '🏃', effect: { fleeBonus: 0.50 }, negative: true },
+    scrapper:       { name: 'Scrapper',       rarity: 'common',    desc: '+20% attack damage',       icon: '🔪', effect: { dmgBonus: 0.20 } },
+    stubborn:       { name: 'Stubborn',       rarity: 'common',    desc: '+15% HP but -10% speed',   icon: '🐢', effect: { hpBonus: 0.15, speedBonus: -0.10 } },
+
+    // UNCOMMON passives
+    lumberjack:     { name: 'Lumberjack',     rarity: 'uncommon',  desc: '+50% wood yield when assigned', icon: '🪓', effect: { resourceBonus: { wood: 0.50 } } },
+    quarry_master:  { name: 'Quarry Master',  rarity: 'uncommon',  desc: '+50% stone yield when assigned', icon: '⛏️', effect: { resourceBonus: { stone: 0.50 } } },
+    green_thumb:    { name: 'Green Thumb',    rarity: 'uncommon',  desc: '+50% food yield when assigned', icon: '🌱', effect: { resourceBonus: { food: 0.50 } } },
+    nimble_hands:   { name: 'Nimble Hands',   rarity: 'uncommon',  desc: '+30% crafting speed',      icon: '✋', effect: { craftBonus: 0.30 } },
+    researcher:     { name: 'Researcher',     rarity: 'uncommon',  desc: '+30% research speed',      icon: '🔬', effect: { researchBonus: 0.30 } },
+    brawler:        { name: 'Brawler',        rarity: 'uncommon',  desc: '+40% attack damage',       icon: '👊', effect: { dmgBonus: 0.40 } },
+    tank:           { name: 'Tank',           rarity: 'uncommon',  desc: '+50% patrol HP, +25% aggro range', icon: '🛡️', effect: { hpBonus: 0.50, aggroBonus: 0.25 } },
+    berserker:      { name: 'Berserker',      rarity: 'uncommon',  desc: '+60% dmg but takes +30% more damage', icon: '🔥', effect: { dmgBonus: 0.60, dmgTaken: 0.30 } },
+    lifesteal:      { name: 'Lifesteal',      rarity: 'uncommon',  desc: 'Heals 20% of damage dealt on patrol', icon: '🩸', effect: { lifesteal: 0.20 } },
+    fragile:        { name: 'Fragile',        rarity: 'uncommon',  desc: '-40% HP but +30% production', icon: '🥚', effect: { hpBonus: -0.40, prodBonus: 0.30 } },
+
+    // RARE passives
+    overachiever:   { name: 'Overachiever',   rarity: 'rare',      desc: 'Building produces 80% more resources (1.8x)', icon: '⭐', effect: { prodBonus: 0.80 } },
+    iron_will:      { name: 'Iron Will',      rarity: 'rare',      desc: 'Survives lethal damage once per patrol', icon: '💪', effect: { deathSave: true } },
+    lucky_star:     { name: 'Lucky Star',     rarity: 'rare',      desc: '+25% capture rate + double XP', icon: '🍀', effect: { captureBonus: 0.25, xpMulti: 2 } },
+    double_harvest: { name: 'Double Harvest', rarity: 'rare',      desc: '20% chance to double resource yield', icon: '🎰', effect: { doubleChance: 0.20 } },
+    mentor:         { name: 'Mentor',         rarity: 'rare',      desc: 'Nearby workers gain +50% XP',  icon: '📚', effect: { xpAura: 0.50 } },
+    warlord:        { name: 'Warlord',        rarity: 'rare',      desc: '+100% dmg, +50% HP, attacks 30% faster', icon: '⚔️', effect: { dmgBonus: 1.00, hpBonus: 0.50, attackSpeedBonus: 0.30 } },
+    thorns:         { name: 'Thorns',         rarity: 'rare',      desc: 'Reflects 40% damage back to attackers', icon: '🌵', effect: { thornsDmg: 0.40 } },
+    vampiric:       { name: 'Vampiric',       rarity: 'rare',      desc: 'Heals 40% of damage dealt, +30% dmg at night', icon: '🧛', effect: { lifesteal: 0.40, nightDmg: 0.30 } },
+
+    // LEGENDARY passives
+    golden_touch:   { name: 'Golden Touch',   rarity: 'legendary', desc: 'Building produces 2.5x resources (ALL types)', icon: '👑', effect: { prodBonus: 1.50 } },
+    undying:        { name: 'Undying',        rarity: 'legendary', desc: 'Cannot die on patrol. Respawns at 1 HP.', icon: '♾️', effect: { immortal: true } },
+    architect:      { name: 'Architect',      rarity: 'legendary', desc: 'Buildings this critter works at have +100% HP', icon: '🏛️', effect: { bldgHpBonus: 1.00 } },
+    prodigy:        { name: 'Prodigy',        rarity: 'legendary', desc: '+100% to ALL stat scaling', icon: '🧬', effect: { statMulti: 1.00 } },
+    juggernaut:     { name: 'Juggernaut',     rarity: 'legendary', desc: '+200% HP, +150% dmg, immune to knockback', icon: '🏔️', effect: { hpBonus: 2.00, dmgBonus: 1.50, knockbackImmune: true } },
+    reaper:         { name: 'Reaper',         rarity: 'legendary', desc: '10% chance to instantly kill wild critters', icon: '💀', effect: { executeChance: 0.10 } },
+};
+
+const PASSIVE_POOL = {
+    common: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'common'),
+    uncommon: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'uncommon'),
+    rare: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'rare'),
+    legendary: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'legendary'),
 };
 
 const RARITY_COLORS = { common: '#aaa', uncommon: '#8bc34a', rare: '#ffc107', legendary: '#e040fb' };
 const CATCH_RATES = { common: 0.70, uncommon: 0.40, rare: 0.20, legendary: 0.05 };
 const RARITY_HP = { common: 30, uncommon: 50, rare: 80, legendary: 150 };
-const WILD_MIN_COUNT = 12;
-const WILD_MAX_COUNT = 16;
+const WILD_MIN_COUNT = 16;
+const WILD_MAX_COUNT = 24;
 const CAPTURE_RANGE = 2.5; // in tiles
 
 let _nextCritterId = 1;
@@ -28,19 +106,68 @@ class Critters {
         return stats;
     }
 
+    static rollPassives(speciesRarity) {
+        const passives = [];
+        // Each critter gets 1-3 passives based on rarity
+        const count = speciesRarity === 'legendary' ? 3 : speciesRarity === 'rare' ? 2 : speciesRarity === 'uncommon' ? 2 : 1;
+        // Extra roll chance for a bonus passive
+        const bonusChance = speciesRarity === 'legendary' ? 0.5 : speciesRarity === 'rare' ? 0.3 : 0.15;
+        const totalSlots = count + (Math.random() < bonusChance ? 1 : 0);
+
+        for (let i = 0; i < totalSlots; i++) {
+            // Roll rarity of this passive slot
+            const roll = Math.random();
+            let pool;
+            if (roll < 0.03) pool = PASSIVE_POOL.legendary;
+            else if (roll < 0.12) pool = PASSIVE_POOL.rare;
+            else if (roll < 0.35) pool = PASSIVE_POOL.uncommon;
+            else pool = PASSIVE_POOL.common;
+
+            const id = pool[Math.floor(Math.random() * pool.length)];
+            if (!passives.includes(id)) passives.push(id);
+        }
+        return passives;
+    }
+
+    // Get total passive effect value for a critter
+    static getPassiveEffect(critter, effectKey) {
+        if (!critter.passives) return 0;
+        let total = 0;
+        for (const pid of critter.passives) {
+            const p = PASSIVES[pid];
+            if (!p || !p.effect) continue;
+            if (p.effect[effectKey] !== undefined) total += p.effect[effectKey];
+        }
+        return total;
+    }
+
+    static hasPassive(critter, effectKey) {
+        if (!critter.passives) return false;
+        return critter.passives.some(pid => {
+            const p = PASSIVES[pid];
+            return p && p.effect && p.effect[effectKey];
+        });
+    }
+
     static spawnWild(world) {
         const wilds = [];
         const rng = world._seededRng(world.seed + 7777);
         const count = WILD_MIN_COUNT + Math.floor(Math.random() * (WILD_MAX_COUNT - WILD_MIN_COUNT + 1));
-        const speciesKeys = Object.keys(SPECIES);
+
+        const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
+        const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
+        const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
+        const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
 
         for (let i = 0; i < count; i++) {
             const pos = world.randomGrassTile(rng);
-            // Weight by rarity
+            // Weight by rarity: 50% common, 25% uncommon, 18% rare, 7% legendary
             let species;
             const roll = Math.random();
-            if (roll < 0.15) species = 'glowmite';
-            else species = speciesKeys[Math.floor(Math.random() * 3)]; // first 3 are common
+            if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
+            else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
+            else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
+            else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
 
             const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
             wilds.push({
@@ -64,50 +191,48 @@ class Critters {
     }
 
     static damageWild(critter, damage) {
+        if (critter.stunned) return; // Already downed — don't reset timer
         critter.hp = Math.max(0, critter.hp - damage);
         if (critter.hp <= 0) {
             critter.stunned = true;
-            critter.stunTimer = 5;
+            critter.stunTimer = 15; // 15 seconds to capture before despawn
             critter.state = 'idle';
             critter.fleeing = false;
+            critter._aggroed = false;
         } else {
-            // All critters fight back when hit
             critter._aggroed = true;
             critter.state = 'aggro';
         }
     }
 
-    static updateWild(dt, wildCritters, world, player) {
-        for (const c of wildCritters) {
-            // Stunned
+    static updateWild(dt, wildCritters, world, player, buildings) {
+        for (let ci = wildCritters.length - 1; ci >= 0; ci--) {
+            const c = wildCritters[ci];
+            // Stunned — 15s capture window then despawn
             if (c.stunned) {
                 c.stunTimer -= dt;
                 if (c.stunTimer <= 0) {
-                    c.stunned = false;
-                    c.hp = c.maxHp;
-                    c.state = 'idle';
-                    c.wanderTimer = 2;
+                    c._despawned = true; // flag for game.js to cleanup sprite & recycle
                 }
                 continue;
             }
 
-            // Aggression check — naturally aggressive OR was hit
             const sp = SPECIES[c.species];
+
+            // Aggression — player takes priority over buildings
             if ((sp.aggressive || c._aggroed) && player && !c.fleeing) {
                 const pdx = player.x - c.x, pdy = player.y - c.y;
                 const pDist = Math.sqrt(pdx*pdx + pdy*pdy) / TILE_SIZE;
-
                 const aggroRange = c._aggroed ? Math.max(sp.aggroRange || 6, 12) : (sp.aggroRange || 6);
+
                 if (pDist < aggroRange) {
                     c.state = 'aggro';
-                    // Chase player
-                    const speed = 50;
+                    const speed = 70;
                     const len = Math.sqrt(pdx*pdx + pdy*pdy);
                     if (len > 15) {
                         c.x += (pdx / len) * speed * dt;
                         c.y += (pdy / len) * speed * dt;
                     }
-                    // Attack when close
                     if (!c._attackTimer) c._attackTimer = 0;
                     c._attackTimer -= dt;
                     if (pDist < 1.2 && c._attackTimer <= 0) {
@@ -125,6 +250,43 @@ class Critters {
                 }
             }
 
+            // Attack buildings — all aggressive critters, wider detection range
+            if (sp.aggressive && buildings && buildings.length > 0 && c.state !== 'aggro' && !c.fleeing) {
+                if (!c._bldgTimer) c._bldgTimer = 0;
+                c._bldgTimer -= dt;
+                let closestB = null, closestBDist = Infinity;
+                for (const b of buildings) {
+                    const def = BUILDING_DEFS[b.type];
+                    if (def.expander) continue; // don't target expanders
+                    const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
+                    const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
+                    const bdx = bcx - c.x, bdy = bcy - c.y;
+                    const bd = Math.sqrt(bdx*bdx + bdy*bdy) / TILE_SIZE;
+                    if (bd < 20 && bd < closestBDist) { closestBDist = bd; closestB = b; }
+                }
+                if (closestB) {
+                    const def = BUILDING_DEFS[closestB.type];
+                    const bcx = (closestB.gridX + def.size / 2) * TILE_SIZE;
+                    const bcy = (closestB.gridY + def.size / 2) * TILE_SIZE;
+                    const bdx = bcx - c.x, bdy = bcy - c.y;
+                    const bd = Math.sqrt(bdx*bdx + bdy*bdy);
+                    c.state = 'attacking_building';
+                    if (bd > TILE_SIZE * 1.5) {
+                        c.x += (bdx / bd) * 60 * dt;
+                        c.y += (bdy / bd) * 60 * dt;
+                    } else if (c._bldgTimer <= 0) {
+                        c._bldgTimer = sp.attackCooldown || 1.5;
+                        const dmg = sp.attackDmg || 3;
+                        if (closestB.hp !== undefined) closestB.hp -= dmg;
+                        c._justAttacked = true;
+                        setTimeout(() => { c._justAttacked = false; }, 300);
+                    }
+                    continue;
+                } else if (c.state === 'attacking_building') {
+                    c.state = 'idle'; c.wanderTimer = 1;
+                }
+            }
+
             // Fleeing
             if (c.fleeing) {
                 c.fleeTimer -= dt;
@@ -138,8 +300,8 @@ class Critters {
                     const dy = c.wanderTarget.y - c.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist > 2) {
-                        c.x += (dx / dist) * 120 * dt;
-                        c.y += (dy / dist) * 120 * dt;
+                        c.x += (dx / dist) * 150 * dt;
+                        c.y += (dy / dist) * 150 * dt;
                     }
                 }
                 continue;
@@ -167,7 +329,7 @@ class Critters {
                     c.state = 'idle';
                     c.wanderTimer = 2 + Math.random() * 4;
                 } else {
-                    const speed = 30;
+                    const speed = 45;
                     c.x += (dx / dist) * speed * dt;
                     c.y += (dy / dist) * speed * dt;
                 }
@@ -194,6 +356,8 @@ class Critters {
                 id: critter.id, species: critter.species,
                 nickname: SPECIES[critter.species].name,
                 stats: critter.stats, level: 1, xp: 0, assignment: null,
+                passives: Critters.rollPassives(SPECIES[critter.species].rarity),
+                patrolHp: 50, patrolMaxHp: 50,
             };
             return { success: true, captured };
         }
@@ -215,6 +379,8 @@ class Critters {
                 level: 1,
                 xp: 0,
                 assignment: null,
+                passives: Critters.rollPassives(SPECIES[critter.species].rarity),
+                patrolHp: 50, patrolMaxHp: 50,
             };
             return { success: true, captured };
         } else {
@@ -340,21 +506,78 @@ class Critters {
         ctx.fill();
     }
 
+    static MAX_LEVEL = 20;
+
+    // Recycle a dead critter — reset it and teleport to a new spawn location
+    static recycle(critter, world) {
+        const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
+        const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
+        const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
+        const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
+
+        const roll = Math.random();
+        let species;
+        if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
+        else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
+        else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
+        else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
+
+        const rng = world._seededRng(Date.now() + critter.id);
+        const pos = world.randomGrassTile(rng);
+        const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
+
+        critter.species = species;
+        critter.x = pos.x * TILE_SIZE + TILE_SIZE / 2;
+        critter.y = pos.y * TILE_SIZE + TILE_SIZE / 2;
+        critter.stats = Critters.rollStats(species);
+        critter.hp = maxHp;
+        critter.maxHp = maxHp;
+        critter.stunned = false;
+        critter.stunTimer = 0;
+        critter.state = 'idle';
+        critter.wanderTarget = null;
+        critter.wanderTimer = Math.random() * 3;
+        critter.fleeing = false;
+        critter.fleeTimer = 0;
+        critter._aggroed = false;
+        critter._attackTimer = 0;
+        critter._bldgTimer = 0;
+        critter._despawned = false;
+        critter._justAttacked = false;
+    }
+
     static getXpForLevel(level) {
         return Math.floor(50 * Math.pow(level, 1.5));
     }
 
     static addXp(critter, amount) {
+        if (critter.level >= Critters.MAX_LEVEL) return false;
         critter.xp += amount;
         const needed = Critters.getXpForLevel(critter.level);
         if (critter.xp >= needed) {
             critter.xp -= needed;
             critter.level++;
-            // Random stat boost on level up
+
+            // Level up: boost 2 stats — primary stat + random stat
+            const sp = SPECIES[critter.species];
             const statKeys = Object.keys(critter.stats);
-            const key = statKeys[Math.floor(Math.random() * statKeys.length)];
-            critter.stats[key]++;
-            return true; // leveled up
+            // Find the species' best base stat
+            let primaryStat = statKeys[0];
+            let bestVal = 0;
+            for (const k of statKeys) {
+                if (sp.baseStats[k] > bestVal) { bestVal = sp.baseStats[k]; primaryStat = k; }
+            }
+            // Always boost primary
+            critter.stats[primaryStat]++;
+            // 50% chance to also boost a random stat
+            if (Math.random() < 0.5) {
+                const other = statKeys[Math.floor(Math.random() * statKeys.length)];
+                critter.stats[other]++;
+            }
+
+            // Track what leveled for UI notification
+            critter._lastLevelUp = { level: critter.level, stat: primaryStat };
+            return true;
         }
         return false;
     }

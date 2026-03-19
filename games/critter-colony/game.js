@@ -43,6 +43,13 @@ class Game {
         this._waypointButtons = [];
         this.showFullMap = false;
 
+        // Horde system
+        this.hordeTimer = 15 * 60; // 15 minutes default
+        this.hordeInterval = 15 * 60;
+        this.hordeWave = 0;
+        this.hordeActive = false;
+        this.hordeCreatures = [];
+
         // Timers
         this.autoSaveTimer = 60;
         this.respawnTimer = 30;
@@ -960,6 +967,15 @@ class Game {
             }
         }
 
+        // ─── HORDE SYSTEM ────────────────────────────────────
+        this.hordeTimer -= dt;
+        if (this.hordeTimer <= 0 && !this.hordeActive) {
+            this._startHorde();
+        }
+        if (this.hordeActive) {
+            this._updateHorde(dt);
+        }
+
         this.autoSaveTimer -= dt;
         if (this.autoSaveTimer <= 0) { this.autoSaveTimer = 60; Save.save(this); }
 
@@ -995,6 +1011,21 @@ class Game {
             const secs = Math.floor(this.gameTimeSec % 60);
             const hrs = Math.floor(mins / 60);
             document.getElementById('gameTime').textContent = hrs > 0 ? `${hrs}:${(mins%60).toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}` : `${mins}:${secs.toString().padStart(2,'0')}`;
+
+            // Horde timer
+            const hordeEl = document.getElementById('hordeTimer');
+            if (hordeEl) {
+                if (this.hordeActive) {
+                    hordeEl.textContent = `⚔️ HORDE! (${this.hordeCreatures.length})`;
+                    hordeEl.style.color = '#ff4444';
+                } else {
+                    const hm = Math.floor(this.hordeTimer / 60);
+                    const hs = Math.floor(this.hordeTimer % 60);
+                    hordeEl.textContent = `⚔️ ${hm}:${hs.toString().padStart(2, '0')}`;
+                    hordeEl.style.color = this.hordeTimer < 60 ? '#ff4444' : '#f87171';
+                }
+            }
+
             UI.updatePanel();
         }
     }
@@ -1048,6 +1079,36 @@ class Game {
 
         // Wild critters
         for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
+
+        // Horde critters (red-tinted)
+        for (const h of this.hordeCreatures) {
+            if (h.stunned) continue;
+            const sp = SPECIES[h.species];
+            const colorNum = parseInt(sp.color.replace('#', ''), 16);
+            const r = h.isHorde ? 10 * (sp.size || 1) : 8;
+
+            // Red glow ring
+            gfx.lineStyle(2, 0xff0000, 0.6);
+            gfx.drawCircle(h.x, h.y, r + 4);
+            gfx.lineStyle(0);
+
+            // Body
+            gfx.beginFill(colorNum);
+            gfx.drawCircle(h.x, h.y, r);
+            gfx.endFill();
+
+            // HP bar
+            if (h.hp < h.maxHp) {
+                const bw = r * 2.5;
+                gfx.beginFill(0x333333);
+                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw, 3);
+                gfx.endFill();
+                const pct = h.hp / h.maxHp;
+                gfx.beginFill(pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171);
+                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw * pct, 3);
+                gfx.endFill();
+            }
+        }
 
         // Projectiles
         for (const p of this.projectiles) {
@@ -1732,6 +1793,158 @@ class Game {
 
     _resize() {
         this.pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
+    }
+
+    // ─── HORDE SYSTEM ──────────────────────────────────────
+    _startHorde() {
+        this.hordeWave++;
+        this.hordeActive = true;
+        this.hordeCreatures = [];
+
+        // Scale difficulty with wave
+        const baseCount = 6 + this.hordeWave * 3;
+        const count = Math.min(baseCount, 40);
+        const hpMult = 1 + this.hordeWave * 0.3;
+        const dmgMult = 1 + this.hordeWave * 0.2;
+
+        // Pick species weighted toward aggressive ones
+        const aggroSpecies = Object.keys(SPECIES).filter(k => SPECIES[k].aggressive);
+        const allSpecies = Object.keys(SPECIES);
+
+        for (let i = 0; i < count; i++) {
+            // Spawn in a ring around colony (8-14 tiles out)
+            const angle = (Math.PI * 2 / count) * i + Math.random() * 0.3;
+            const dist = (8 + Math.random() * 6) * CHUNK_SIZE;
+            const sx = Math.cos(angle) * dist * TILE_SIZE;
+            const sy = Math.sin(angle) * dist * TILE_SIZE;
+
+            // Higher waves spawn rarer critters
+            let species;
+            const roll = Math.random();
+            if (this.hordeWave >= 5 && roll < 0.05) species = 'dreadmaw';
+            else if (this.hordeWave >= 3 && roll < 0.15) species = aggroSpecies[Math.floor(Math.random() * aggroSpecies.length)];
+            else species = aggroSpecies[Math.floor(Math.random() * aggroSpecies.length)];
+
+            const sp = SPECIES[species];
+            const baseHp = (RARITY_HP[sp.rarity] || 30) * hpMult;
+
+            this.hordeCreatures.push({
+                id: _nextCritterId++,
+                species,
+                x: sx, y: sy,
+                hp: Math.floor(baseHp),
+                maxHp: Math.floor(baseHp),
+                stats: Critters.rollStats(species),
+                dmgMult,
+                state: 'charging', // always charge toward HQ
+                _attackTimer: 0,
+                stunned: false, stunTimer: 0,
+                fleeing: false, fleeTimer: 0,
+                _aggroed: true,
+                isHorde: true,
+            });
+        }
+
+        UI.notify(`⚠️ HORDE WAVE ${this.hordeWave}! ${count} creatures attacking!`, 6000);
+        if (this.sounds) this.sounds.alert?.();
+    }
+
+    _updateHorde(dt) {
+        if (this.hordeCreatures.length === 0) {
+            this.hordeActive = false;
+            this.hordeTimer = this.hordeInterval;
+            UI.notify(`✅ Horde wave ${this.hordeWave} defeated!`, 4000);
+            return;
+        }
+
+        for (let i = this.hordeCreatures.length - 1; i >= 0; i--) {
+            const h = this.hordeCreatures[i];
+
+            // Stunned — remove from horde (defeated)
+            if (h.stunned) {
+                h.stunTimer -= dt;
+                if (h.stunTimer <= 0) {
+                    this.hordeCreatures.splice(i, 1);
+                }
+                continue;
+            }
+
+            // Charge toward HQ (0,0)
+            const dx = -h.x, dy = -h.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const speed = 80;
+            if (dist > TILE_SIZE * 2) {
+                h.x += (dx / dist) * speed * dt;
+                h.y += (dy / dist) * speed * dt;
+            }
+
+            // Attack buildings near them
+            if (!h._attackTimer) h._attackTimer = 0;
+            h._attackTimer -= dt;
+            if (h._attackTimer <= 0) {
+                const sp = SPECIES[h.species];
+                for (const b of this.buildings) {
+                    const def = BUILDING_DEFS[b.type];
+                    const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
+                    const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
+                    const bdist = Math.sqrt((h.x - bcx) ** 2 + (h.y - bcy) ** 2);
+                    if (bdist < TILE_SIZE * 2) {
+                        const dmg = Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
+                        if (b.hp !== undefined) b.hp -= dmg;
+                        h._attackTimer = sp.attackCooldown || 1.5;
+                        break;
+                    }
+                }
+
+                // Also attack player if close
+                const pdist = Math.sqrt((h.x - this.player.x) ** 2 + (h.y - this.player.y) ** 2);
+                if (pdist < TILE_SIZE * 1.5 && h._attackTimer <= 0) {
+                    const sp = SPECIES[h.species];
+                    this.player.hp -= Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
+                    h._attackTimer = sp.attackCooldown || 1.5;
+                }
+            }
+        }
+
+        // Projectiles hit horde creatures
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            for (const h of this.hordeCreatures) {
+                if (h.stunned) continue;
+                const hx = h.x - p.x, hy = h.y - p.y;
+                if (Math.sqrt(hx * hx + hy * hy) < 14) {
+                    h.hp -= p.damage;
+                    if (h.hp <= 0) {
+                        h.stunned = true;
+                        h.stunTimer = 3; // shorter stun, just for death animation
+                    }
+                    this.projectiles.splice(i, 1);
+                    break;
+                }
+            }
+        }
+
+        // Turrets also target horde creatures
+        Buildings.updateTurrets(dt, this.buildings, this.hordeCreatures, this.projectiles, this.research);
+
+        // Patrol critters attack horde
+        for (const c of this.critters) {
+            if (c.assignment !== 'patrol') continue;
+            if (!c._attackTimer) c._attackTimer = 0;
+            c._attackTimer -= dt;
+            if (c._attackTimer <= 0) {
+                for (const h of this.hordeCreatures) {
+                    if (h.stunned) continue;
+                    const ax = h.x - (c._patrolX || 0), ay = h.y - (c._patrolY || 0);
+                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
+                        h.hp -= (c.stats.STR || 1) * 2;
+                        if (h.hp <= 0) { h.stunned = true; h.stunTimer = 3; }
+                        c._attackTimer = 1.5;
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -54,6 +54,12 @@ function preloadCritterSprites() {
         crystalhorn: 'critters/crystalhorn.png', stormwing: 'critters/stormwing.png',
         ironshell: 'critters/ironshell.png', venomaw: 'critters/venomaw.png',
         shadowfang: 'critters/shadowfang.png', celestine: 'critters/celestine.png',
+        mudgrub: 'critters/mudgrub.png', dustmite: 'critters/dustmite.png',
+        puffshroom: 'critters/puffshroom.png', scraprat: 'critters/scraprat.png',
+        bogwalker: 'critters/bogwalker.png', sparkfly: 'critters/sparkfly.png',
+        rotjaw: 'critters/rotjaw.png', goretusk: 'critters/goretusk.png',
+        faewisp: 'critters/faewisp.png', dreadmaw: 'critters/dreadmaw.png',
+        tinkerbell: 'critters/tinkerbell.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
@@ -129,6 +135,12 @@ function buildPixiTextures() {
         crystalhorn: 'critters/crystalhorn.png', stormwing: 'critters/stormwing.png',
         ironshell: 'critters/ironshell.png', venomaw: 'critters/venomaw.png',
         shadowfang: 'critters/shadowfang.png', celestine: 'critters/celestine.png',
+        mudgrub: 'critters/mudgrub.png', dustmite: 'critters/dustmite.png',
+        puffshroom: 'critters/puffshroom.png', scraprat: 'critters/scraprat.png',
+        bogwalker: 'critters/bogwalker.png', sparkfly: 'critters/sparkfly.png',
+        rotjaw: 'critters/rotjaw.png', goretusk: 'critters/goretusk.png',
+        faewisp: 'critters/faewisp.png', dreadmaw: 'critters/dreadmaw.png',
+        tinkerbell: 'critters/tinkerbell.png',
     };
     for (const [key, path] of Object.entries(buildingDefs)) {
         const t = _loadPixiTex(path);
