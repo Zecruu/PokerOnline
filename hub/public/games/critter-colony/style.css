@@ -114,6 +114,8 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-passive-neg{opacity:.7}
 .cc-patrol-hp{font-size:.72rem;color:#f87171;margin:2px 0}
 .cc-name{cursor:pointer}.cc-name:hover{text-decoration:underline;text-decoration-style:dotted}
+.cc-sacrifice{width:100%;padding:6px;margin-top:4px;border-radius:6px;border:1px solid rgba(248,113,113,.25);background:rgba(248,113,113,.06);color:#f87171;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s}
+.cc-sacrifice:hover{background:rgba(248,113,113,.15);border-color:rgba(248,113,113,.4)}
 .res-dead{color:#f87171;font-weight:600;cursor:help}
 .mb-injured{opacity:.5;border:1px solid rgba(248,113,113,.2) !important}
 .mb-injury-time{margin-left:auto;color:#f87171;font-size:.7rem;font-weight:600}

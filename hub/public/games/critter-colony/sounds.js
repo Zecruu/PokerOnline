@@ -337,6 +337,78 @@ class GameSounds {
         }
     }
 
+    /** Sacrifice squeal — distressing animal cry */
+    sacrifice() {
+        if (!this._ensureContext()) return;
+        const t = this.ctx.currentTime;
+
+        // High-pitched squeal descending
+        for (let i = 0; i < 3; i++) {
+            const start = t + i * 0.15;
+            const g = this._createGain(0);
+            g.gain.setValueAtTime(0.5 - i * 0.12, start);
+            g.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+
+            const osc = this._createOsc('sawtooth', 1200 - i * 200, g);
+            osc.frequency.setValueAtTime(1200 - i * 200, start);
+            osc.frequency.exponentialRampToValueAtTime(400 - i * 100, start + 0.2);
+            osc.start(start);
+            osc.stop(start + 0.2);
+        }
+
+        // Low thud at end
+        const thudG = this._createGain(0);
+        thudG.gain.setValueAtTime(0.4, t + 0.4);
+        thudG.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+        const thud = this._createOsc('sine', 60, thudG);
+        thud.start(t + 0.4);
+        thud.stop(t + 0.7);
+
+        // Wet splatter noise
+        const splat = this._createGain(0);
+        splat.gain.setValueAtTime(0.3, t + 0.45);
+        splat.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+        const splatF = this._createFilter('lowpass', 800);
+        splatF.connect(splat);
+        const splatN = this._createNoise(0.15);
+        splatN.connect(splatF);
+        splatN.start(t + 0.45);
+        splatN.stop(t + 0.6);
+    }
+
+    /** Horde alert — war horn */
+    alert() {
+        if (!this._ensureContext()) return;
+        const t = this.ctx.currentTime;
+
+        // Deep war horn
+        const g1 = this._createGain(0);
+        g1.gain.setValueAtTime(0, t);
+        g1.gain.linearRampToValueAtTime(0.5, t + 0.3);
+        g1.gain.setValueAtTime(0.5, t + 1.0);
+        g1.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+
+        const horn = this._createOsc('sawtooth', 120, g1);
+        horn.frequency.setValueAtTime(120, t);
+        horn.frequency.linearRampToValueAtTime(160, t + 0.5);
+        horn.frequency.setValueAtTime(160, t + 1.0);
+        horn.frequency.linearRampToValueAtTime(100, t + 1.5);
+        horn.start(t);
+        horn.stop(t + 1.5);
+
+        // Second horn slightly delayed + higher
+        const g2 = this._createGain(0);
+        g2.gain.setValueAtTime(0, t + 0.2);
+        g2.gain.linearRampToValueAtTime(0.3, t + 0.5);
+        g2.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+
+        const horn2 = this._createOsc('sawtooth', 180, g2);
+        horn2.frequency.setValueAtTime(180, t + 0.2);
+        horn2.frequency.linearRampToValueAtTime(220, t + 0.7);
+        horn2.start(t + 0.2);
+        horn2.stop(t + 1.3);
+    }
+
     /** Soft footstep sound */
     walk() {
         if (!this._ensureContext()) return;

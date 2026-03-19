@@ -278,14 +278,19 @@ class UI {
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
                     html += `<option value="">Idle</option>`;
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
+                    const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
                     for (const b of g.buildings) {
                         const def = BUILDING_DEFS[b.type];
-                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue; // skips nests, turrets, expanders
+                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue;
+                        const isFull = b.workers.length >= maxW && c.assignment !== b.id;
+                        if (isFull) continue; // hide full buildings unless critter is already there
                         const selected = c.assignment === b.id ? 'selected' : '';
-                        html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length})</option>`;
+                        html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length}/${maxW})</option>`;
                     }
                     html += `</select>`;
                     html += `</div>`;
+                    // Sacrifice button
+                    html += `<button class="cc-sacrifice" onclick="game.sacrificeCritter(${c.id})">🩸 Sacrifice</button>`;
                     html += `</div>`;
                 }
             }

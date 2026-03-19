@@ -495,6 +495,33 @@ class Game {
         UI.update();
     }
 
+    sacrificeCritter(critterId) {
+        const critter = this.critters.find(c => c.id === critterId);
+        if (!critter) return;
+        const sp = SPECIES[critter.species];
+
+        if (!confirm(`Sacrifice ${critter.nickname} (Lv.${critter.level} ${sp.name}) for food? This is permanent.`)) return;
+
+        // Remove from building
+        if (critter.assignment && critter.assignment !== 'patrol') {
+            const bld = this.buildings.find(b => b.id === critter.assignment);
+            if (bld) bld.workers = bld.workers.filter(w => w !== critterId);
+        }
+
+        // Food gained: base 10 + level * 5 + VIT * 2
+        const foodGained = 10 + critter.level * 5 + (critter.stats.VIT || 0) * 2;
+        const cap = (this.resourceCaps.food || 150) + (this.research.storageCap || 0) * 100;
+        this.resources.food = Math.min(this.resources.food + foodGained, cap);
+
+        this.critters = this.critters.filter(c => c.id !== critterId);
+        if (!this.deadCritters) this.deadCritters = [];
+        this.deadCritters.push({ ...critter, causeOfDeath: 'sacrificed' });
+
+        UI.notify(`🩸 Sacrificed ${critter.nickname} for ${foodGained} food...`, 4000);
+        if (this.sounds) this.sounds.sacrifice?.();
+        UI.update();
+    }
+
     _isNearWorkbench(buildingId) {
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b) return false;
@@ -920,7 +947,25 @@ class Game {
             }
         }
 
+        // ─── BUILDING PASSIVE HEAL ─────────────────────────
+        for (const b of this.buildings) {
+            const def = BUILDING_DEFS[b.type];
+            if (!def.hp || b.hp >= (b.maxHp || def.hp)) continue;
+            if (!b._lastDamageTime) b._lastDamageTime = 0;
+            // Track when last damaged
+            if (b.hp < (b._lastHp || b.hp)) {
+                b._lastDamageTime = this.gameTimeSec;
+            }
+            b._lastHp = b.hp;
+            // Heal 2 HP/sec after 2 minutes of no damage
+            if (this.gameTimeSec - b._lastDamageTime > 120) {
+                b.hp = Math.min((b.maxHp || def.hp), b.hp + 2 * dt);
+            }
+        }
+
+        // ─── FOOD CONSUMPTION + STARVATION ────────────────
         if (!this._foodTimer) this._foodTimer = 0;
+        if (!this._starveTimer) this._starveTimer = 0;
         this._foodTimer += dt;
         if (this._foodTimer >= 5) {
             this._foodTimer = 0;
@@ -929,11 +974,34 @@ class Game {
             if (this.resources.food >= consumption) {
                 this.resources.food -= consumption;
                 this.hungry = false;
+                this._starveTimer = 0;
             } else {
                 this.resources.food = Math.max(0, this.resources.food - consumption);
                 if (!this.hungry) {
                     this.hungry = true;
-                    UI.notify('Critters are hungry! Build more Farms.', 4000);
+                    UI.notify('⚠️ Critters are hungry! Build more Farms.', 4000);
+                }
+                // Starvation — after 60s of no food, critters start dying
+                this._starveTimer += 5;
+                if (this._starveTimer >= 60 && this.resources.food <= 0) {
+                    // Kill the weakest assigned critter
+                    const assigned = this.critters.filter(c => c.assignment);
+                    if (assigned.length > 0) {
+                        assigned.sort((a, b) => a.level - b.level);
+                        const victim = assigned[0];
+                        // Remove from building
+                        if (victim.assignment && victim.assignment !== 'patrol') {
+                            const bld = this.buildings.find(b => b.id === victim.assignment);
+                            if (bld) bld.workers = bld.workers.filter(w => w !== victim.id);
+                        }
+                        this.critters = this.critters.filter(c => c.id !== victim.id);
+                        if (!this.deadCritters) this.deadCritters = [];
+                        this.deadCritters.push({ ...victim, causeOfDeath: 'starvation' });
+                        UI.notify(`💀 ${victim.nickname} starved to death!`, 5000);
+                        if (this.sounds) this.sounds.destroy?.();
+                        this._starveTimer = 30; // next death in 30s if still starving
+                        UI.update();
+                    }
                 }
             }
         }
