@@ -2069,9 +2069,12 @@ class Game {
         // Single static sprites per direction
         // Left sprite is the base — right = left flipped horizontally
         const dir = this.player._dir;
-        const spriteKey = dir === 'right' ? 'left' : dir;
+        // The 'left' sprite file actually faces right, so:
+        // Moving right = use 'left' image as-is (no flip)
+        // Moving left = use 'left' image flipped
+        const spriteKey = (dir === 'right' || dir === 'left') ? 'left' : dir;
         const sprite = typeof PLAYER_SPRITES !== 'undefined' ? PLAYER_SPRITES[spriteKey] : null;
-        const flipX = dir === 'right';
+        const flipX = dir === 'left';
 
         if (sprite && sprite.complete && sprite.naturalWidth > 0) {
             const drawSize = 48; // render size in world pixels
