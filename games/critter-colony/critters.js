@@ -9,6 +9,7 @@ const CRITTER_TYPES = {
     muscle: { name: 'Muscle', icon: '💪', color: '#90a4ae', desc: 'Mining, lumber & combat',    buildings: ['mine','lumber_mill','iron_mine','oil_pump','gold_mine','diamond_drill'] },
     arcane: { name: 'Arcane', icon: '🔮', color: '#ce93d8', desc: 'Research, crafting & extractors', buildings: ['research_lab','workbench','crystal_extractor','refinery'] },
     beast:  { name: 'Beast',  icon: '🐾', color: '#8d6e63', desc: 'Patrol & bodyguard specialist', buildings: [] },
+    water:  { name: 'Water',  icon: '💧', color: '#42a5f5', desc: 'Can swim. Companion grants water walk', buildings: ['greenhouse'], canSwim: true },
     fairy:  { name: 'Fairy',  icon: '✨', color: '#fff176', desc: 'Lucky crafter & healer',    buildings: ['workbench','healer'] },
 };
 
@@ -32,7 +33,7 @@ const SPECIES = {
     glowmite:    { name: 'Glowmite',    type: 'arcane', color: '#ce93d8', rarity: 'uncommon',  baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8, size: 1 },
     emberfox:    { name: 'Emberfox',    type: 'fire',   color: '#ff7043', rarity: 'uncommon',  baseStats: { STR:5, DEX:7, INT:3, VIT:4, LCK:5 }, desc: 'A fiery fox. Fast attacker and decent crafter.', aggressive: true, aggroRange: 10, attackDmg: 7, attackCooldown: 1.0, size: 1.2 },
     crystalhorn: { name: 'Crystalhorn', type: 'muscle', color: '#7e57c2', rarity: 'uncommon',  baseStats: { STR:6, DEX:2, INT:4, VIT:7, LCK:5 }, desc: 'Crystalline beetle. Incredibly sturdy miner.', aggressive: true, aggroRange: 8, attackDmg: 8, attackCooldown: 1.6, size: 1.3 },
-    bogwalker:   { name: 'Bogwalker',   type: 'beast',  color: '#4e342e', rarity: 'uncommon',  baseStats: { STR:8, DEX:1, INT:2, VIT:9, LCK:2 }, desc: 'Massive swamp toad. Slow but hits like a truck.', aggressive: true, aggroRange: 5, attackDmg: 12, attackCooldown: 2.5, size: 1.6 },
+    bogwalker:   { name: 'Bogwalker',   type: 'water',  color: '#4e342e', rarity: 'uncommon',  baseStats: { STR:8, DEX:1, INT:2, VIT:9, LCK:2 }, desc: 'Massive swamp toad. Slow but hits like a truck. Swims.', aggressive: true, aggroRange: 5, attackDmg: 12, attackCooldown: 2.5, size: 1.6 },
     sparkfly:    { name: 'Sparkfly',    type: 'arcane', color: '#80deea', rarity: 'uncommon',  baseStats: { STR:1, DEX:10, INT:5, VIT:2, LCK:6 }, desc: 'Tiny electric firefly. Lightning fast but fragile.', aggressive: false, attackDmg: 3, attackCooldown: 0.6, size: 0.7 },
     rotjaw:      { name: 'Rotjaw',      type: 'muscle', color: '#6d4c41', rarity: 'uncommon',  baseStats: { STR:7, DEX:4, INT:1, VIT:6, LCK:3 }, desc: 'Decaying lizard. Ugly and mean. Good fighter.', aggressive: true, aggroRange: 10, attackDmg: 9, attackCooldown: 1.3, size: 1.3 },
 
@@ -93,6 +94,16 @@ const PASSIVES = {
     prodigy:        { name: 'Prodigy',        rarity: 'legendary', desc: '+100% to ALL stat scaling', icon: '🧬', effect: { statMulti: 1.00 } },
     juggernaut:     { name: 'Juggernaut',     rarity: 'legendary', desc: '+200% HP, +150% dmg, immune to knockback', icon: '🏔️', effect: { hpBonus: 2.00, dmgBonus: 1.50, knockbackImmune: true } },
     reaper:         { name: 'Reaper',         rarity: 'legendary', desc: '10% chance to instantly kill wild critters', icon: '💀', effect: { executeChance: 0.10 } },
+
+    // ── COMPANION PASSIVES (only activate when assigned as companion) ──
+    waterwalker:    { name: 'Waterwalker',    rarity: 'uncommon',  desc: 'COMPANION: Player can walk on water',   icon: '🌊', effect: { companionWaterWalk: true }, companionOnly: true },
+    swiftrunner:    { name: 'Swift Runner',   rarity: 'uncommon',  desc: 'COMPANION: +30% player move speed',     icon: '🏃', effect: { companionSpeed: 0.30 }, companionOnly: true },
+    strongback:     { name: 'Strong Back',    rarity: 'uncommon',  desc: 'COMPANION: +50% mining/chopping speed', icon: '⛏️', effect: { companionMine: 0.50 }, companionOnly: true },
+    sharpshooter:   { name: 'Sharpshooter',   rarity: 'rare',      desc: 'COMPANION: +40% gun damage',            icon: '🎯', effect: { companionGunDmg: 0.40 }, companionOnly: true },
+    treasure_sense: { name: 'Treasure Sense', rarity: 'rare',      desc: 'COMPANION: Reveals nearby resource nodes on minimap', icon: '🗺️', effect: { companionReveal: true }, companionOnly: true },
+    iron_stomach:   { name: 'Iron Stomach',   rarity: 'uncommon',  desc: 'COMPANION: -50% player food consumption', icon: '🍽️', effect: { companionFoodSave: 0.50 }, companionOnly: true },
+    magnetism:      { name: 'Magnetism',      rarity: 'rare',      desc: 'COMPANION: Auto-pickup resources in 3 tile range', icon: '🧲', effect: { companionMagnet: 3 }, companionOnly: true },
+    lucky_charm:    { name: 'Lucky Charm',    rarity: 'legendary', desc: 'COMPANION: +30% capture rate for ALL snares', icon: '🎰', effect: { companionCapture: 0.30 }, companionOnly: true },
 };
 
 const PASSIVE_POOL = {
@@ -349,7 +360,8 @@ class Critters {
                     // Pick random nearby tile
                     const tx = Math.floor(c.x / TILE_SIZE) + Math.floor(Math.random() * 7) - 3;
                     const ty = Math.floor(c.y / TILE_SIZE) + Math.floor(Math.random() * 7) - 3;
-                    if (world.isWalkable(tx, ty) && !world.isColony(tx, ty)) {
+                    const canWalkTile = world.isWalkable(tx, ty) || (world.getTile(tx, ty) === TILE.WATER && CRITTER_TYPES[sp.type]?.canSwim);
+                    if (canWalkTile && !world.isColony(tx, ty)) {
                         c.wanderTarget = { x: tx * TILE_SIZE + TILE_SIZE / 2, y: ty * TILE_SIZE + TILE_SIZE / 2 };
                         c.state = 'walking';
                     }

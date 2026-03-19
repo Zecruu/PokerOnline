@@ -29,6 +29,7 @@ const BUILDING_DEFS = {
     // Power chain: Oil → Gasoline Refinery → Generator → powers extractors
     gas_refinery:{ name: 'Gas Refinery', cost: { wood: 30, stone: 50, iron: 20 }, produces: 'gasoline', baseRate: 0.04, color: '#ff6f00', letter: '⚗', size: 2, statKey: 'STR', hp: 100, consumesResource: 'oil', consumeRate: 0.02, researchReq: 'gasRefining' },
     generator:   { name: 'Generator',    cost: { wood: 20, stone: 40, iron: 30 }, produces: null,       baseRate: 0,    color: '#ffc107', letter: '⚡', size: 1, statKey: null, hp: 120, isGenerator: true, powerRadius: 8, consumesResource: 'gasoline', consumeRate: 0.01, researchReq: 'generators' },
+    passive_lab: { name: 'Passive Lab',  cost: { wood: 60, stone: 60, gold: 5 },  produces: null,       baseRate: 0,    color: '#e040fb', letter: '🧬', size: 2, statKey: null, hp: 80, isPassiveLab: true, researchReq: 'passiveLab' },
 };
 
 class Buildings {

@@ -32,6 +32,9 @@ const RESEARCH_DEFS = {
     // Power chain
     gasRefining:  { name: 'Gas Refining',      desc: 'Unlocks Gas Refinery (oil → gasoline)',  maxLevel: 1, cost: (l) => ({ wood: 50, stone: 60, iron: 15 }),      time: 40 },
     generators:   { name: 'Power Generators',  desc: 'Unlocks Generator (powers extractors)',  maxLevel: 1, cost: (l) => ({ wood: 60, stone: 70, iron: 25 }),      time: 50 },
+    // Companion & passive
+    companionSlots:{ name: 'Companion Bond',   desc: '+1 companion slot (max 4)',       maxLevel: 3, cost: (l) => ({ wood: 40*(l+1), stone: 30*(l+1), food: 30*(l+1) }), time: 40 },
+    passiveLab:   { name: 'Passive Lab',       desc: 'Unlocks Passive Lab (transfer passives)', maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, gold: 5 }), time: 50 },
     // Snare tiers
     ironSnare:    { name: 'Iron Snares',       desc: 'Craft Iron Snares (catches uncommon)',    maxLevel: 1, cost: (l) => ({ wood: 40, stone: 40, iron: 10 }),      time: 30 },
     goldSnare:    { name: 'Gold Snares',       desc: 'Craft Gold Snares (catches rare)',        maxLevel: 1, cost: (l) => ({ wood: 50, stone: 50, gold: 5 }),       time: 45 },
@@ -309,6 +312,11 @@ class UI {
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
                     html += `<option value="">Idle</option>`;
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
+                    const companionCount = g.critters.filter(cr => cr.assignment === 'companion').length;
+                    const maxCompanions = 1 + (g.research.companionSlots || 0);
+                    if (c.assignment === 'companion' || companionCount < maxCompanions) {
+                        html += `<option value="companion" ${c.assignment === 'companion' ? 'selected' : ''}>Companion (${companionCount}/${maxCompanions})</option>`;
+                    }
                     const bodyguardCount = g.critters.filter(cr => cr.assignment === 'bodyguard').length;
                     const maxBodyguards = 1 + (g.research.bodyguardSlots || 0);
                     if (c.assignment === 'bodyguard' || bodyguardCount < maxBodyguards) {

@@ -192,7 +192,7 @@ class Game {
             return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
         });
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
+        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.deadCritters = gs.deadCritters || [];
         this.wildCritters = Critters.spawnWild(this.world);
@@ -216,7 +216,7 @@ class Game {
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
         this.inventory = { traps: 5, ammo: 120 };
         this.critters = []; this.deadCritters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = null;
         // Place HQ at colony center
         this.buildings = [Buildings.place('hq', -1, -1, { wood:0, stone:0, food:0, iron:0 })];
@@ -494,6 +494,14 @@ class Game {
             critter._patrolX = this.player.x + (Math.random() - 0.5) * 200;
             critter._patrolY = this.player.y + (Math.random() - 0.5) * 200;
             UI.notify(`${critter.nickname} is now on patrol!`);
+        } else if (valueStr === 'companion') {
+            const maxComp = 1 + (this.research.companionSlots || 0);
+            const currentComp = this.critters.filter(c => c.assignment === 'companion').length;
+            if (currentComp >= maxComp) { UI.notify(`Max ${maxComp} companions! Research Companion Bond.`); return; }
+            critter.assignment = 'companion';
+            const sp = SPECIES[critter.species];
+            const typeInfo = CRITTER_TYPES[sp.type];
+            UI.notify(`${critter.nickname} is now your companion! ${typeInfo?.icon || ''}`);
         } else if (valueStr === 'bodyguard') {
             const maxBG = 1 + (this.research.bodyguardSlots || 0);
             const currentBG = this.critters.filter(c => c.assignment === 'bodyguard').length;
@@ -522,6 +530,52 @@ class Game {
         }
         critter.assignment = null;
         UI.notify(`${critter.nickname} unassigned.`);
+        UI.update();
+    }
+
+    // Get combined companion effects
+    getCompanionEffect(effectKey) {
+        let total = 0;
+        for (const c of this.critters) {
+            if (c.assignment !== 'companion') continue;
+            total += Critters.getPassiveEffect(c, effectKey);
+            // Type-based companion bonuses
+            const sp = SPECIES[c.species];
+            const typeInfo = sp ? CRITTER_TYPES[sp.type] : null;
+            if (typeInfo?.canSwim && effectKey === 'companionWaterWalk') total = 1; // any water type grants water walk
+        }
+        return total;
+    }
+
+    hasCompanionEffect(effectKey) {
+        for (const c of this.critters) {
+            if (c.assignment !== 'companion') continue;
+            if (Critters.hasPassive(c, effectKey)) return true;
+            const sp = SPECIES[c.species];
+            const typeInfo = sp ? CRITTER_TYPES[sp.type] : null;
+            if (typeInfo?.canSwim && effectKey === 'companionWaterWalk') return true;
+        }
+        return false;
+    }
+
+    // Transfer passive from one critter to another (costs gold)
+    transferPassive(fromId, passiveId, toId) {
+        const from = this.critters.find(c => c.id === fromId);
+        const to = this.critters.find(c => c.id === toId);
+        if (!from || !to) return;
+        if (!from.passives || !from.passives.includes(passiveId)) { UI.notify('Critter doesn\'t have that passive!'); return; }
+        if (to.passives && to.passives.includes(passiveId)) { UI.notify('Target already has that passive!'); return; }
+
+        const goldCost = 10;
+        if ((this.resources.gold || 0) < goldCost) { UI.notify(`Need ${goldCost} gold to transfer!`); return; }
+
+        this.resources.gold -= goldCost;
+        from.passives = from.passives.filter(p => p !== passiveId);
+        if (!to.passives) to.passives = [];
+        to.passives.push(passiveId);
+        const p = PASSIVES[passiveId];
+        UI.notify(`Transferred ${p?.name || passiveId} from ${from.nickname} to ${to.nickname}! (-${goldCost} gold)`);
+        if (this.sounds) this.sounds.levelup?.();
         UI.update();
     }
 
@@ -709,14 +763,27 @@ class Game {
         if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
         if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
         if (this.keys['d'] || this.keys['arrowright']) dx += 1; }
+        // Companion speed bonus
+        const compSpeed = this.getCompanionEffect('companionSpeed');
+        const canWaterWalk = this.hasCompanionEffect('companionWaterWalk');
+        const moveSpeed = this.player.speed * (1 + compSpeed);
+
+        // Companion mining speed bonus cached
+        this.player._compMineBonus = this.getCompanionEffect('companionMine');
+
         if (dx || dy) {
             const len = Math.sqrt(dx*dx + dy*dy); dx /= len; dy /= len;
-            const nx = this.player.x + dx * this.player.speed * dt;
-            const ny = this.player.y + dy * this.player.speed * dt;
-            if (this.world.isWalkable(Math.floor(nx/TILE_SIZE), Math.floor(ny/TILE_SIZE))) { this.player.x = nx; this.player.y = ny; }
+            const nx = this.player.x + dx * moveSpeed * dt;
+            const ny = this.player.y + dy * moveSpeed * dt;
+            const canWalk = (tx, ty) => {
+                if (this.world.isWalkable(tx, ty)) return true;
+                if (canWaterWalk && this.world.getTile(tx, ty) === TILE.WATER) return true;
+                return false;
+            };
+            if (canWalk(Math.floor(nx/TILE_SIZE), Math.floor(ny/TILE_SIZE))) { this.player.x = nx; this.player.y = ny; }
             else {
-                if (this.world.isWalkable(Math.floor(nx/TILE_SIZE), Math.floor(this.player.y/TILE_SIZE))) this.player.x = nx;
-                if (this.world.isWalkable(Math.floor(this.player.x/TILE_SIZE), Math.floor(ny/TILE_SIZE))) this.player.y = ny;
+                if (canWalk(Math.floor(nx/TILE_SIZE), Math.floor(this.player.y/TILE_SIZE))) this.player.x = nx;
+                if (canWalk(Math.floor(this.player.x/TILE_SIZE), Math.floor(ny/TILE_SIZE))) this.player.y = ny;
             }
         }
 
@@ -755,7 +822,8 @@ class Game {
                 if (Math.abs(mdx) > 2 || Math.abs(mdy) > 2) {
                     this.miningTarget = null; this.miningProgress = 0;
                 } else {
-                    const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : this.miningTarget.type === TILE.NODE_OIL ? 2.0 : 1.2;
+                    const baseMineTime = this.miningTarget.type === TILE.TREE ? 0.8 : this.miningTarget.type === TILE.NODE_OIL ? 2.0 : 1.2;
+                    const mineTime = baseMineTime / (1 + (this.player._compMineBonus || 0));
                     this.miningProgress += dt;
                     if (this.miningProgress >= mineTime) {
                         const t = this.miningTarget.type;
