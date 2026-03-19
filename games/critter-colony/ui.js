@@ -187,7 +187,7 @@ class UI {
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
                     for (const b of g.buildings) {
                         const def = BUILDING_DEFS[b.type];
-                        if (!def.produces && !def.isResearch) continue;
+                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue;
                         const selected = c.assignment === b.id ? 'selected' : '';
                         html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length})</option>`;
                     }
@@ -273,10 +273,25 @@ class UI {
                                 html += `</div>`;
                             }
                         } else {
-                            html += `<div class="mb-worker mb-empty">`;
-                            html += `<div class="mb-worker-icon mb-empty-icon">+</div>`;
-                            html += `<span class="mb-worker-name">Empty slot</span>`;
-                            html += `</div>`;
+                            // Empty slot — show dropdown to assign idle critter
+                            const idle = g.critters.filter(cr => !cr.assignment);
+                            if (idle.length > 0) {
+                                html += `<div class="mb-worker mb-empty-assign">`;
+                                html += `<select class="mb-assign-select" onchange="game.assignCritter(parseInt(this.value), '${b.id}')">`;
+                                html += `<option value="">+ Assign critter...</option>`;
+                                for (const ic of idle) {
+                                    const isp = SPECIES[ic.species];
+                                    const statVal = def.statKey ? ` (${def.statKey}:${ic.stats[def.statKey]||0})` : '';
+                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level}${statVal}</option>`;
+                                }
+                                html += `</select>`;
+                                html += `</div>`;
+                            } else {
+                                html += `<div class="mb-worker mb-empty">`;
+                                html += `<div class="mb-worker-icon mb-empty-icon">+</div>`;
+                                html += `<span class="mb-worker-name">No idle critters</span>`;
+                                html += `</div>`;
+                            }
                         }
                     }
                     html += `</div>`;

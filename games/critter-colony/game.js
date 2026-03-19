@@ -322,13 +322,11 @@ class Game {
             critter._patrolSprite.destroy({ children: true });
             critter._patrolSprite = null;
         }
-        // Clean up building worker sprites
-        for (const key of Object.keys(critter)) {
-            if (key.startsWith('_bldgWorker') && critter[key] instanceof PIXI.Sprite) {
-                critter[key].parent?.removeChild(critter[key]);
-                critter[key].destroy();
-                delete critter[key];
-            }
+        // Clean up building worker sprite
+        if (critter._workerSprite) {
+            critter._workerSprite.parent?.removeChild(critter._workerSprite);
+            critter._workerSprite.destroy();
+            critter._workerSprite = null;
         }
     }
 
@@ -493,11 +491,13 @@ class Game {
 
         Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings);
 
-        // Cleanup despawned critter sprites
+        // Handle despawned critters — recycle them instead of destroying
         for (const c of this.wildCritters) {
-            if (c._despawned) this._cleanupCritterSprite(c);
+            if (c._despawned) {
+                this._cleanupCritterSprite(c);
+                Critters.recycle(c, this.world);
+            }
         }
-        this.wildCritters = this.wildCritters.filter(c => !c._despawned);
 
         // Check building HP — destroy if 0
         for (let i = this.buildings.length - 1; i >= 0; i--) {
@@ -598,9 +598,29 @@ class Game {
         this.respawnTimer -= dt;
         if (this.respawnTimer <= 0) {
             this.respawnTimer = 30;
-            if (this.wildCritters.length < WILD_MIN_COUNT) {
-                const nw = Critters.spawnWild(this.world);
-                this.wildCritters.push(...nw.slice(0, WILD_MIN_COUNT - this.wildCritters.length));
+            // Top up wild critters if below min (reuse pool, don't regenerate)
+            while (this.wildCritters.length < WILD_MIN_COUNT) {
+                const rng = this.world._seededRng(Date.now() + this.wildCritters.length);
+                const pos = this.world.randomGrassTile(rng);
+                const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
+                const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
+                const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
+                const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
+                const roll = Math.random();
+                let species;
+                if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
+                else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
+                else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
+                else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
+                const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
+                this.wildCritters.push({
+                    id: _nextCritterId++, species,
+                    x: pos.x * TILE_SIZE + TILE_SIZE / 2, y: pos.y * TILE_SIZE + TILE_SIZE / 2,
+                    stats: Critters.rollStats(species), hp: maxHp, maxHp,
+                    stunned: false, stunTimer: 0, state: 'idle',
+                    wanderTarget: null, wanderTimer: Math.random() * 3,
+                    fleeing: false, fleeTimer: 0,
+                });
             }
         }
 
@@ -968,18 +988,16 @@ class Game {
 
             const tex = this._getCritterTex(c.species);
             if (tex) {
-                // Use a persistent sprite keyed to worker slot
-                const spriteKey = '_bldgWorker' + building.id + '_' + i;
-                if (!c[spriteKey]) {
-                    c[spriteKey] = new PIXI.Sprite(tex);
-                    c[spriteKey].anchor.set(0.5, 0.5);
-                    this.entityContainer.addChild(c[spriteKey]);
-                } else if (c[spriteKey].texture !== tex) {
-                    c[spriteKey].texture = tex;
+                if (!c._workerSprite) {
+                    c._workerSprite = new PIXI.Sprite(tex);
+                    c._workerSprite.anchor.set(0.5, 0.5);
+                    this.entityContainer.addChild(c._workerSprite);
+                } else if (c._workerSprite.texture !== tex) {
+                    c._workerSprite.texture = tex;
                 }
-                c[spriteKey].width = 16; c[spriteKey].height = 16;
-                c[spriteKey].x = workerX; c[spriteKey].y = workerY;
-                c[spriteKey].visible = true;
+                c._workerSprite.width = 16; c._workerSprite.height = 16;
+                c._workerSprite.x = workerX; c._workerSprite.y = workerY;
+                c._workerSprite.visible = true;
             } else {
                 gfx.beginFill(PIXI.utils.string2hex(sp.color));
                 gfx.drawCircle(workerX, workerY, 6);

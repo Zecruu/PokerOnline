@@ -106,30 +106,27 @@ class Critters {
             if (c.stunned) {
                 c.stunTimer -= dt;
                 if (c.stunTimer <= 0) {
-                    // Despawn — not captured in time
-                    c._despawned = true;
-                    wildCritters.splice(ci, 1);
+                    c._despawned = true; // flag for game.js to cleanup sprite & recycle
                 }
                 continue;
             }
 
-            // Aggression check — naturally aggressive OR was hit
             const sp = SPECIES[c.species];
+
+            // Aggression — player takes priority over buildings
             if ((sp.aggressive || c._aggroed) && player && !c.fleeing) {
                 const pdx = player.x - c.x, pdy = player.y - c.y;
                 const pDist = Math.sqrt(pdx*pdx + pdy*pdy) / TILE_SIZE;
-
                 const aggroRange = c._aggroed ? Math.max(sp.aggroRange || 6, 12) : (sp.aggroRange || 6);
+
                 if (pDist < aggroRange) {
                     c.state = 'aggro';
-                    // Chase player
                     const speed = 70;
                     const len = Math.sqrt(pdx*pdx + pdy*pdy);
                     if (len > 15) {
                         c.x += (pdx / len) * speed * dt;
                         c.y += (pdy / len) * speed * dt;
                     }
-                    // Attack when close
                     if (!c._attackTimer) c._attackTimer = 0;
                     c._attackTimer -= dt;
                     if (pDist < 1.2 && c._attackTimer <= 0) {
@@ -147,18 +144,19 @@ class Critters {
                 }
             }
 
-            // Attack buildings when aggressive and no player nearby
-            if ((sp.aggressive || c._aggroed) && buildings && c.state !== 'aggro') {
+            // Attack buildings — all aggressive critters, wider detection range
+            if (sp.aggressive && buildings && buildings.length > 0 && c.state !== 'aggro' && !c.fleeing) {
                 if (!c._bldgTimer) c._bldgTimer = 0;
                 c._bldgTimer -= dt;
                 let closestB = null, closestBDist = Infinity;
                 for (const b of buildings) {
                     const def = BUILDING_DEFS[b.type];
+                    if (def.expander) continue; // don't target expanders
                     const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
                     const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
                     const bdx = bcx - c.x, bdy = bcy - c.y;
                     const bd = Math.sqrt(bdx*bdx + bdy*bdy) / TILE_SIZE;
-                    if (bd < 8 && bd < closestBDist) { closestBDist = bd; closestB = b; }
+                    if (bd < 20 && bd < closestBDist) { closestBDist = bd; closestB = b; }
                 }
                 if (closestB) {
                     const def = BUILDING_DEFS[closestB.type];
@@ -168,8 +166,8 @@ class Critters {
                     const bd = Math.sqrt(bdx*bdx + bdy*bdy);
                     c.state = 'attacking_building';
                     if (bd > TILE_SIZE * 1.5) {
-                        c.x += (bdx / bd) * 50 * dt;
-                        c.y += (bdy / bd) * 50 * dt;
+                        c.x += (bdx / bd) * 60 * dt;
+                        c.y += (bdy / bd) * 60 * dt;
                     } else if (c._bldgTimer <= 0) {
                         c._bldgTimer = sp.attackCooldown || 1.5;
                         const dmg = sp.attackDmg || 3;
@@ -399,6 +397,44 @@ class Critters {
     }
 
     static MAX_LEVEL = 20;
+
+    // Recycle a dead critter — reset it and teleport to a new spawn location
+    static recycle(critter, world) {
+        const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
+        const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
+        const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
+        const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
+
+        const roll = Math.random();
+        let species;
+        if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
+        else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
+        else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
+        else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
+
+        const rng = world._seededRng(Date.now() + critter.id);
+        const pos = world.randomGrassTile(rng);
+        const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
+
+        critter.species = species;
+        critter.x = pos.x * TILE_SIZE + TILE_SIZE / 2;
+        critter.y = pos.y * TILE_SIZE + TILE_SIZE / 2;
+        critter.stats = Critters.rollStats(species);
+        critter.hp = maxHp;
+        critter.maxHp = maxHp;
+        critter.stunned = false;
+        critter.stunTimer = 0;
+        critter.state = 'idle';
+        critter.wanderTarget = null;
+        critter.wanderTimer = Math.random() * 3;
+        critter.fleeing = false;
+        critter.fleeTimer = 0;
+        critter._aggroed = false;
+        critter._attackTimer = 0;
+        critter._bldgTimer = 0;
+        critter._despawned = false;
+        critter._justAttacked = false;
+    }
 
     static getXpForLevel(level) {
         return Math.floor(50 * Math.pow(level, 1.5));
