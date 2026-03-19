@@ -29,6 +29,9 @@ const RESEARCH_DEFS = {
     goldMining:   { name: 'Gold Mining',       desc: 'Unlocks Gold Mine (place on gold nodes)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 100, iron: 20 }),     time: 60 },
     diamondDrill: { name: 'Diamond Drilling',  desc: 'Unlocks Diamond Drill (diamond nodes)',   maxLevel: 1, cost: (l) => ({ wood: 100, stone: 120, iron: 40 }),    time: 80 },
     crystalExtract:{ name: 'Crystal Extraction',desc: 'Unlocks Crystal Extractor',              maxLevel: 1, cost: (l) => ({ wood: 70, stone: 90, iron: 15 }),      time: 55 },
+    // Power chain
+    gasRefining:  { name: 'Gas Refining',      desc: 'Unlocks Gas Refinery (oil → gasoline)',  maxLevel: 1, cost: (l) => ({ wood: 50, stone: 60, iron: 15 }),      time: 40 },
+    generators:   { name: 'Power Generators',  desc: 'Unlocks Generator (powers extractors)',  maxLevel: 1, cost: (l) => ({ wood: 60, stone: 70, iron: 25 }),      time: 50 },
     // Snare tiers
     ironSnare:    { name: 'Iron Snares',       desc: 'Craft Iron Snares (catches uncommon)',    maxLevel: 1, cost: (l) => ({ wood: 40, stone: 40, iron: 10 }),      time: 30 },
     goldSnare:    { name: 'Gold Snares',       desc: 'Craft Gold Snares (catches rare)',        maxLevel: 1, cost: (l) => ({ wood: 50, stone: 50, gold: 5 }),       time: 45 },

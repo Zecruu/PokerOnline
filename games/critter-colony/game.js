@@ -192,7 +192,7 @@ class Game {
             return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
         });
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
+        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.deadCritters = gs.deadCritters || [];
         this.wildCritters = Critters.spawnWild(this.world);
@@ -216,7 +216,7 @@ class Game {
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
         this.inventory = { traps: 5, ammo: 120 };
         this.critters = []; this.deadCritters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = null;
         // Place HQ at colony center
         this.buildings = [Buildings.place('hq', -1, -1, { wood:0, stone:0, food:0, iron:0 })];
@@ -420,7 +420,16 @@ class Game {
             const b = Buildings.place(type, tx, ty, this.resources);
             this.buildings.push(b);
             this.sounds.build();
-            UI.notify(`Built ${def.name} on ${NODE_INFO[def.nodeType]?.name || 'node'}!`);
+
+            // Create outpost waypoint for this extractor
+            const info = NODE_INFO[def.nodeType];
+            const outpostName = `${info?.name || 'Outpost'} #${this.buildings.filter(bb => BUILDING_DEFS[bb.type].isExtractor).length}`;
+            const existingWP = this.world.waypoints.find(w => Math.abs(w.x - tx) < 3 && Math.abs(w.y - ty) < 3);
+            if (!existingWP) {
+                this.world.waypoints.push({ name: outpostName, x: tx, y: ty, claimed: true, isOutpost: true });
+            }
+
+            UI.notify(`Built ${def.name}! Outpost waypoint created.`);
             this.placementMode = null; UI.update(); return;
         }
 
@@ -733,7 +742,7 @@ class Game {
                     for (let dx = -2; dx <= 2; dx++) {
                         const tx = ptx + dx, ty = pty + dy;
                         const t = this.world.getTile(tx, ty);
-                        if (t === TILE.TREE || t === TILE.ROCK) {
+                        if (t === TILE.TREE || t === TILE.ROCK || t === TILE.NODE_OIL) {
                             const d = Math.abs(dx) + Math.abs(dy);
                             if (d < bestDist) { bestDist = d; this.miningTarget = { tx, ty, type: t }; }
                         }
@@ -746,19 +755,23 @@ class Game {
                 if (Math.abs(mdx) > 2 || Math.abs(mdy) > 2) {
                     this.miningTarget = null; this.miningProgress = 0;
                 } else {
-                    const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : 1.2; // seconds
+                    const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : this.miningTarget.type === TILE.NODE_OIL ? 2.0 : 1.2;
                     this.miningProgress += dt;
                     if (this.miningProgress >= mineTime) {
                         const t = this.miningTarget.type;
                         const tx = this.miningTarget.tx, ty = this.miningTarget.ty;
                         // Harvest
+                        const cap = (r) => (this.resourceCaps[r] || 50) + (this.research.storageCap || 0) * 100;
                         if (t === TILE.TREE) {
-                            this.resources.wood = Math.min(this.resources.wood + 3, (this.resourceCaps.wood || 200) + (this.research.storageCap || 0) * 100);
+                            this.resources.wood = Math.min(this.resources.wood + 3, cap('wood'));
                         } else if (t === TILE.ROCK) {
-                            this.resources.stone = Math.min(this.resources.stone + 3, (this.resourceCaps.stone || 200) + (this.research.storageCap || 0) * 100);
+                            this.resources.stone = Math.min(this.resources.stone + 3, cap('stone'));
+                        } else if (t === TILE.NODE_OIL) {
+                            this.resources.oil = Math.min((this.resources.oil || 0) + 1, cap('oil'));
+                            UI.notify('+1 Oil', 1500);
                         }
-                        // Clear tile to grass
-                        this.world.setTile(tx, ty, TILE.GRASS);
+                        // Clear tile to grass (except oil — oil nodes persist, just give resource)
+                        if (t !== TILE.NODE_OIL) this.world.setTile(tx, ty, TILE.GRASS);
                         // Invalidate chunk cache
                         const cx = Math.floor(tx / CHUNK_SIZE), cy = Math.floor(ty / CHUNK_SIZE);
                         const cs = this._chunkSprites.get(cx + ',' + cy);

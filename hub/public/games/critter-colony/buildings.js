@@ -22,10 +22,13 @@ const BUILDING_DEFS = {
     refinery:    { name: 'Refinery',    cost: { wood: 30, stone: 50, iron: 20 },  produces: 'crystal', baseRate: 0.03, color: '#7b1fa2', letter: '♦', size: 2, statKey: 'INT', hp: 120, researchReq: 'refinery' },
     healer:      { name: 'Healing Hut', cost: { wood: 25, stone: 20, food: 15 },  produces: null,    baseRate: 0,   color: '#e91e63', letter: '+', size: 2, statKey: 'VIT', hp: 60, isHealer: true, researchReq: 'healingHut' },
     // Extractors — must be placed ON resource nodes
-    oil_pump:    { name: 'Oil Pump',    cost: { wood: 30, stone: 40, iron: 10 }, produces: 'oil',     baseRate: 0.05, color: '#37474f', letter: '⛽', size: 1, statKey: 'STR', hp: 100, isExtractor: true, nodeType: TILE.NODE_OIL, researchReq: 'oilDrilling' },
-    gold_mine:   { name: 'Gold Mine',   cost: { wood: 40, stone: 60, iron: 20 }, produces: 'gold',    baseRate: 0.03, color: '#f9a825', letter: 'G', size: 1, statKey: 'STR', hp: 120, isExtractor: true, nodeType: TILE.NODE_GOLD, researchReq: 'goldMining' },
-    diamond_drill:{ name: 'Diamond Drill',cost: { wood: 50, stone: 80, iron: 30 },produces: 'diamond', baseRate: 0.02, color: '#4fc3f7', letter: '♦', size: 1, statKey: 'STR', hp: 150, isExtractor: true, nodeType: TILE.NODE_DIAMOND, researchReq: 'diamondDrill' },
-    crystal_extractor:{ name: 'Crystal Extractor',cost: { wood: 40, stone: 50, iron: 15 },produces: 'crystal', baseRate: 0.04, color: '#ab47bc', letter: '◆', size: 1, statKey: 'INT', hp: 100, isExtractor: true, nodeType: TILE.NODE_CRYSTAL, researchReq: 'crystalExtract' },
+    oil_pump:    { name: 'Oil Pump',    cost: { wood: 30, stone: 40, iron: 10 }, produces: 'oil',     baseRate: 0.05, color: '#37474f', letter: '⛽', size: 1, statKey: 'STR', hp: 100, isExtractor: true, nodeType: TILE.NODE_OIL, researchReq: 'oilDrilling', selfPowered: true },
+    gold_mine:   { name: 'Gold Mine',   cost: { wood: 40, stone: 60, iron: 20 }, produces: 'gold',    baseRate: 0.03, color: '#f9a825', letter: 'G', size: 1, statKey: 'STR', hp: 120, isExtractor: true, nodeType: TILE.NODE_GOLD, researchReq: 'goldMining', needsPower: true },
+    diamond_drill:{ name: 'Diamond Drill',cost: { wood: 50, stone: 80, iron: 30 },produces: 'diamond', baseRate: 0.02, color: '#4fc3f7', letter: '♦', size: 1, statKey: 'STR', hp: 150, isExtractor: true, nodeType: TILE.NODE_DIAMOND, researchReq: 'diamondDrill', needsPower: true },
+    crystal_extractor:{ name: 'Crystal Extractor',cost: { wood: 40, stone: 50, iron: 15 },produces: 'crystal', baseRate: 0.04, color: '#ab47bc', letter: '◆', size: 1, statKey: 'INT', hp: 100, isExtractor: true, nodeType: TILE.NODE_CRYSTAL, researchReq: 'crystalExtract', needsPower: true },
+    // Power chain: Oil → Gasoline Refinery → Generator → powers extractors
+    gas_refinery:{ name: 'Gas Refinery', cost: { wood: 30, stone: 50, iron: 20 }, produces: 'gasoline', baseRate: 0.04, color: '#ff6f00', letter: '⚗', size: 2, statKey: 'STR', hp: 100, consumesResource: 'oil', consumeRate: 0.02, researchReq: 'gasRefining' },
+    generator:   { name: 'Generator',    cost: { wood: 20, stone: 40, iron: 30 }, produces: null,       baseRate: 0,    color: '#ffc107', letter: '⚡', size: 1, statKey: null, hp: 120, isGenerator: true, powerRadius: 8, consumesResource: 'gasoline', consumeRate: 0.01, researchReq: 'generators' },
 };
 
 class Buildings {
@@ -197,7 +200,50 @@ class Buildings {
                 continue;
             }
 
+            // Generator: consume gasoline to stay powered
+            if (def.isGenerator) {
+                if (!b._fuelTimer) b._fuelTimer = 0;
+                b._fuelTimer += dt;
+                if (b._fuelTimer >= 10) { // check every 10s
+                    b._fuelTimer = 0;
+                    const fuelNeeded = def.consumeRate * 10;
+                    if ((resources[def.consumesResource] || 0) >= fuelNeeded) {
+                        resources[def.consumesResource] -= fuelNeeded;
+                        b.powered = true;
+                    } else {
+                        b.powered = false;
+                    }
+                }
+                continue;
+            }
+
+            // Gas Refinery: consume oil → produce gasoline
+            if (def.consumesResource && def.produces && !def.isGenerator) {
+                if (b.workers.length === 0) continue;
+                b.productionAccum = (b.productionAccum || 0) + def.baseRate * dt;
+                if (b.productionAccum >= 1) {
+                    const consumeAmt = def.consumeRate * 10;
+                    if ((resources[def.consumesResource] || 0) >= consumeAmt) {
+                        resources[def.consumesResource] -= consumeAmt;
+                        const gained = Math.floor(b.productionAccum);
+                        const cap = resourceCaps ? (resourceCaps[def.produces] || 9999) : 9999;
+                        resources[def.produces] = Math.min((resources[def.produces] || 0) + gained, cap);
+                        b.productionAccum -= gained;
+                    } else {
+                        b.productionAccum = 1; // wait
+                    }
+                }
+                continue;
+            }
+
             if (!def.produces || b.workers.length === 0) continue;
+
+            // Power check — extractors (except oil pump) need a powered generator nearby
+            if (def.needsPower) {
+                const powered = Buildings._isPowered(b, buildings);
+                b.powered = powered;
+                if (!powered) continue; // no power = no production
+            }
 
             const rate = Buildings.getProductionRate(b, critters, hungry);
             b.productionAccum += rate * dt;
@@ -268,6 +314,21 @@ class Buildings {
                 b.turretTarget = null;
             }
         }
+    }
+
+    // Check if a building is within range of a powered generator
+    static _isPowered(building, allBuildings) {
+        const bx = (building.gridX + 0.5) * TILE_SIZE;
+        const by = (building.gridY + 0.5) * TILE_SIZE;
+        for (const gen of allBuildings) {
+            const gDef = BUILDING_DEFS[gen.type];
+            if (!gDef.isGenerator || !gen.powered) continue;
+            const gx = (gen.gridX + 0.5) * TILE_SIZE;
+            const gy = (gen.gridY + 0.5) * TILE_SIZE;
+            const dist = Math.sqrt((bx - gx) ** 2 + (by - gy) ** 2) / TILE_SIZE;
+            if (dist <= (gDef.powerRadius || 8)) return true;
+        }
+        return false;
     }
 
     static getMaxWorkersPerBuilding(research) {
@@ -381,6 +442,31 @@ class Buildings {
                 ctx.textAlign = 'center';
                 ctx.fillText('WORKBENCH', sx + size / 2, sy + size - 6);
             }
+        }
+
+        // Power status for extractors
+        if (def.needsPower) {
+            ctx.fillStyle = building.powered ? 'rgba(0,200,0,0.6)' : 'rgba(200,0,0,0.6)';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(building.powered ? '⚡' : '❌', sx + size / 2, sy - 4);
+        }
+
+        // Generator power radius
+        if (def.isGenerator) {
+            if (building.powered) {
+                ctx.strokeStyle = 'rgba(255,193,7,0.15)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.arc(sx + size / 2, sy + size / 2, (def.powerRadius || 8) * TILE_SIZE, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            ctx.fillStyle = building.powered ? '#4ade80' : '#f87171';
+            ctx.font = '8px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(building.powered ? 'POWERED' : 'NO FUEL', sx + size / 2, sy + size + 8);
         }
 
         // Assigned critters
