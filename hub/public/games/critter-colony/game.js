@@ -660,15 +660,15 @@ class Game {
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
         if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
-        if (recipe === 'ammo') {
-            if (!b.ammoQueue) b.ammoQueue = 0;
-            b.ammoQueue += amount;
-            UI.notify(`${amount} ammo batches queued (${b.ammoQueue} total)`);
-        } else {
-            if (!b.craftQueue) b.craftQueue = 0;
-            b.craftQueue += amount;
-            UI.notify(`${amount} traps queued (${b.craftQueue} total)`);
-        }
+        const queueMap = {
+            trap: 'craftQueue', ammo: 'ammoQueue',
+            iron_snare: 'ironSnareQueue', gold_snare: 'goldSnareQueue', diamond_snare: 'diamondSnareQueue',
+        };
+        const qKey = queueMap[recipe] || 'craftQueue';
+        if (!b[qKey]) b[qKey] = 0;
+        b[qKey] += amount;
+        const names = { trap:'traps', ammo:'ammo batches', iron_snare:'Iron Snares', gold_snare:'Gold Snares', diamond_snare:'Diamond Snares' };
+        UI.notify(`${amount} ${names[recipe]||recipe} queued (${b[qKey]} total)`);
         UI.update();
     }
 
@@ -879,6 +879,7 @@ class Game {
             p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt;
             if (p.lifetime <= 0) { this.projectiles.splice(i, 1); continue; }
             for (const wc of this.wildCritters) {
+                if (wc.stunned) continue;
                 const hx = wc.x - p.x, hy = wc.y - p.y;
                 if (Math.sqrt(hx*hx + hy*hy) < 12) { Critters.damageWild(wc, p.damage); this.sounds.hit(); this.projectiles.splice(i, 1); break; }
             }

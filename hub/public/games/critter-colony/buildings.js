@@ -159,31 +159,40 @@ class Buildings {
                 if (!b.ammoQueue) b.ammoQueue = 0;
                 if (!b.craftProgress) b.craftProgress = 0;
 
+                // Recipe definitions with costs
+                const CRAFT_RECIPES = {
+                    trap:          { cost: {wood:5, stone:3},   result: 'traps',         qty: 1, queue: 'craftQueue' },
+                    ammo:          { cost: {iron:2, stone:1},   result: 'ammo',          qty: 5, queue: 'ammoQueue' },
+                    iron_snare:    { cost: {wood:5, iron:3},    result: 'iron_snare',    qty: 1, queue: 'ironSnareQueue' },
+                    gold_snare:    { cost: {iron:3, gold:2},    result: 'gold_snare',    qty: 1, queue: 'goldSnareQueue' },
+                    diamond_snare: { cost: {gold:2, diamond:1}, result: 'diamond_snare', qty: 1, queue: 'diamondSnareQueue' },
+                };
+
+                // Init queues
+                for (const r of Object.values(CRAFT_RECIPES)) { if (!b[r.queue]) b[r.queue] = 0; }
+
                 let recipe = null;
                 if (b._manualCrafting) recipe = b._manualRecipe || 'trap';
                 else if (b.workers.length > 0) {
-                    if (b.craftQueue > 0) recipe = 'trap';
-                    else if (b.ammoQueue > 0) recipe = 'ammo';
+                    // Find first queued recipe
+                    for (const [rid, rd] of Object.entries(CRAFT_RECIPES)) {
+                        if ((b[rd.queue] || 0) > 0) { recipe = rid; break; }
+                    }
                 }
 
-                if (recipe) {
+                if (recipe && CRAFT_RECIPES[recipe]) {
                     b.activeRecipe = recipe;
                     const craftTime = Buildings.getCraftTime(b, critters);
                     b.craftProgress += dt;
 
                     if (b.craftProgress >= craftTime && inventory) {
-                        let ok = false;
-                        if (recipe === 'trap' && (resources.wood||0) >= 5 && (resources.stone||0) >= 3) {
-                            resources.wood -= 5; resources.stone -= 3;
-                            inventory.traps = (inventory.traps||0) + 1;
-                            ok = true; if (b.craftQueue > 0) b.craftQueue--;
-                        } else if (recipe === 'ammo' && (resources.iron||0) >= 2 && (resources.stone||0) >= 1) {
-                            resources.iron -= 2; resources.stone -= 1;
-                            inventory.ammo = (inventory.ammo||0) + 5;
-                            ok = true; if (b.ammoQueue > 0) b.ammoQueue--;
-                        }
-                        if (ok) {
+                        const rd = CRAFT_RECIPES[recipe];
+                        const canAfford = Object.entries(rd.cost).every(([k,v]) => (resources[k]||0) >= v);
+                        if (canAfford) {
+                            for (const [k,v] of Object.entries(rd.cost)) resources[k] -= v;
+                            inventory[rd.result] = (inventory[rd.result]||0) + rd.qty;
                             b.craftProgress = 0;
+                            if (b[rd.queue] > 0) b[rd.queue]--;
                             if (b._manualCrafting) { b._manualCrafting = false; b._manualRecipe = null; }
                             for (const cid of b.workers) {
                                 const c = critters.find(cr => cr.id === cid);
@@ -281,10 +290,11 @@ class Buildings {
             const cx = (b.gridX + 0.5) * TILE_SIZE;
             const cy = (b.gridY + 0.5) * TILE_SIZE;
 
-            // Find closest wild critter in range
+            // Find closest wild critter in range (skip stunned)
             let closest = null;
             let closestDist = Infinity;
             for (const wc of wildCritters) {
+                if (wc.stunned) continue;
                 const dx = wc.x - cx;
                 const dy = wc.y - cy;
                 const dist = Math.sqrt(dx * dx + dy * dy);

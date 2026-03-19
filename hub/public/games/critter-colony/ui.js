@@ -388,6 +388,68 @@ class UI {
             }
             body.innerHTML = html;
 
+        } else if (this.activeTab === 'workbench') {
+            let html = '';
+            // Find nearest workbench
+            const wb = g.buildings.find(b => BUILDING_DEFS[b.type].isWorkbench);
+            const isNear = wb && g._isNearWorkbench ? g._isNearWorkbench(wb.id) : false;
+
+            if (!wb) {
+                html = '<div class="panel-empty">No Workbench built yet!<br>Build one from the Buildings tab.</div>';
+            } else if (!isNear) {
+                html = '<div class="panel-empty">⚠️ Walk near your Workbench to craft!<br><br>Workbench must be within range to use.</div>';
+            } else {
+                const ct = Buildings.getCraftTime(wb, g.critters);
+                const crafting = (wb.workers.length > 0 && (wb.craftQueue > 0 || wb.ammoQueue > 0)) || wb._manualCrafting;
+                const pct = crafting ? Math.min(100, ((wb.craftProgress || 0) / ct) * 100) : 0;
+
+                html += `<div class="wb-panel">`;
+                html += `<div class="wb-speed-info">Craft speed: ${ct.toFixed(1)}s per item (${wb.workers.length} workers)</div>`;
+
+                if (crafting) {
+                    const label = wb.activeRecipe === 'ammo' ? 'Bullets' : wb.activeRecipe === 'iron_snare' ? 'Iron Snare' : wb.activeRecipe === 'gold_snare' ? 'Gold Snare' : wb.activeRecipe === 'diamond_snare' ? 'Diamond Snare' : 'Trap';
+                    html += `<div class="wb-progress"><div class="wb-prog-bar"><div class="wb-prog-fill" style="width:${pct}%"></div></div>`;
+                    html += `<span class="wb-prog-text">Crafting ${label}... ${Math.floor(pct)}%</span></div>`;
+                }
+
+                // Recipes
+                const recipes = [
+                    { id: 'trap', name: 'Rope Snare', desc: 'Catches common critters', cost: {wood:5,stone:3}, icon: '🪤', result: 'traps', qty: 1 },
+                    { id: 'ammo', name: 'Bullets x5', desc: 'Ammo for tamer gun', cost: {iron:2,stone:1}, icon: '💥', result: 'ammo', qty: 5 },
+                    { id: 'iron_snare', name: 'Iron Snare', desc: 'Catches uncommon critters', cost: {wood:5,iron:3}, icon: '⛓️', result: 'iron_snare', qty: 1, req: 'ironSnare' },
+                    { id: 'gold_snare', name: 'Gold Snare', desc: 'Catches rare critters', cost: {iron:3,gold:2}, icon: '✨', result: 'gold_snare', qty: 1, req: 'goldSnare' },
+                    { id: 'diamond_snare', name: 'Diamond Snare', desc: 'Catches legendary critters', cost: {gold:2,diamond:1}, icon: '💎', result: 'diamond_snare', qty: 1, req: 'diamondSnare' },
+                ];
+
+                for (const r of recipes) {
+                    if (r.req && !(g.research[r.req] > 0)) {
+                        html += `<div class="wb-recipe wb-recipe-locked">`;
+                        html += `<div class="wb-recipe-icon">${r.icon}</div>`;
+                        html += `<div class="wb-recipe-info"><div class="wb-recipe-name">${r.name} 🔒</div>`;
+                        html += `<div class="wb-recipe-desc">Requires: ${RESEARCH_DEFS[r.req]?.name || r.req}</div></div></div>`;
+                        continue;
+                    }
+                    const canCraft = Object.entries(r.cost).every(([k,v]) => (g.resources[k]||0) >= v);
+                    const costStr = Object.entries(r.cost).map(([k,v]) => `${v} ${k}`).join(' + ');
+                    const owned = g.inventory[r.result] || 0;
+
+                    html += `<div class="wb-recipe">`;
+                    html += `<div class="wb-recipe-icon">${r.icon}</div>`;
+                    html += `<div class="wb-recipe-info">`;
+                    html += `<div class="wb-recipe-name">${r.name} <span style="color:#888;font-size:.7rem">(owned: ${owned})</span></div>`;
+                    html += `<div class="wb-recipe-desc">${r.desc}</div>`;
+                    html += `<div class="wb-recipe-cost">${costStr} → ${r.icon}x${r.qty}</div>`;
+                    html += `</div>`;
+                    html += `<div class="wb-recipe-btns">`;
+                    html += `<button class="wb-craft-sm" onclick="game.manualCraft(${wb.id},'${r.id}')" ${canCraft?'':'disabled'}>x1</button>`;
+                    html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},5,'${r.id}')" ${canCraft?'':'disabled'}>+5</button>`;
+                    html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},20,'${r.id}')" ${canCraft?'':'disabled'}>+20</button>`;
+                    html += `</div></div>`;
+                }
+                html += `</div>`;
+            }
+            body.innerHTML = html;
+
         } else if (this.activeTab === 'manage') {
             let html = '';
             const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
