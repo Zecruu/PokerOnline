@@ -55,9 +55,10 @@ function preloadCritterSprites() {
     for (const [key, path] of Object.entries(defs)) {
         const img = new Image();
         img.crossOrigin = "anonymous";
+        const localPath = CDN_CONFIG.localBasePath + path;
         const p = new Promise((resolve) => {
             img.onload = resolve;
-            img.onerror = resolve;
+            img.onerror = () => { img.src = localPath; img.onload = resolve; img.onerror = resolve; };
         });
         img.src = getAssetUrl(path);
         CRITTER_SPRITES[key] = img;
@@ -89,6 +90,24 @@ const PIXI_BUILDING_TEXTURES = {};
 const PIXI_CRITTER_TEXTURES = {};
 let _pixiTexturesReady = false;
 
+function _loadPixiTex(path) {
+    // Try CDN first, fall back to local
+    const cdnUrl = CDN_CONFIG.enabled ? `${CDN_CONFIG.baseUrl}/${path}` : null;
+    const localUrl = CDN_CONFIG.localBasePath + path;
+    try {
+        const tex = PIXI.Texture.from(cdnUrl || localUrl);
+        // If CDN fails, the baseTexture error handler will switch to local
+        if (cdnUrl) {
+            tex.baseTexture.resource?.source?.addEventListener?.('error', () => {
+                try { tex.baseTexture.resource.source.src = localUrl; } catch(e) {}
+            });
+        }
+        return tex;
+    } catch(e) {
+        try { return PIXI.Texture.from(localUrl); } catch(e2) { return null; }
+    }
+}
+
 function buildPixiTextures() {
     if (typeof PIXI === 'undefined') return;
     const buildingDefs = {
@@ -106,14 +125,12 @@ function buildPixiTextures() {
         shadowfang: 'critters/shadowfang.png', celestine: 'critters/celestine.png',
     };
     for (const [key, path] of Object.entries(buildingDefs)) {
-        try {
-            PIXI_BUILDING_TEXTURES[key] = PIXI.Texture.from(getAssetUrl(path));
-        } catch(e) { console.warn('Failed to load building texture:', key, e); }
+        const t = _loadPixiTex(path);
+        if (t) PIXI_BUILDING_TEXTURES[key] = t;
     }
     for (const [key, path] of Object.entries(critterDefs)) {
-        try {
-            PIXI_CRITTER_TEXTURES[key] = PIXI.Texture.from(getAssetUrl(path));
-        } catch(e) { console.warn('Failed to load critter texture:', key, e); }
+        const t = _loadPixiTex(path);
+        if (t) PIXI_CRITTER_TEXTURES[key] = t;
     }
     _pixiTexturesReady = true;
 }

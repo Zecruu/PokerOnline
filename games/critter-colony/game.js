@@ -903,7 +903,6 @@ class Game {
             foodEl.textContent = `${Math.floor(this.resources.food)}/${gc('food')}`;
             foodEl.style.color = this.hungry ? '#f87171' : '#9ccc65';
             document.getElementById('resIron').textContent = `${Math.floor(this.resources.iron||0)}/${gc('iron')}`;
-            document.getElementById('rateIron').textContent = fmtRate('iron');
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('ammoCount').textContent = this.inventory.ammo || 0;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
@@ -918,6 +917,7 @@ class Game {
             document.getElementById('rateWood').textContent = fmtRate('wood');
             document.getElementById('rateStone').textContent = fmtRate('stone');
             document.getElementById('rateFood').textContent = fmtRate('food');
+            document.getElementById('rateIron').textContent = fmtRate('iron');
             // Game time
             const mins = Math.floor(this.gameTimeSec / 60);
             const secs = Math.floor(this.gameTimeSec % 60);
