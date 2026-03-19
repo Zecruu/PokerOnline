@@ -117,7 +117,12 @@ class Game {
 
     // ─── TITLE SCREEN ───────────────────────────────────────
     async _initTitle() {
-        const saveData = await Save.load();
+        let saveData = null;
+        try { saveData = await Save.load(); } catch(e) {}
+        // Also check local
+        if (!saveData || !saveData.gameState) {
+            saveData = Save.loadLocal();
+        }
         const titleEl = document.getElementById('titleScreen');
         const hasData = saveData && saveData.gameState;
         let html = '<div class="title-content">';
@@ -127,7 +132,7 @@ class Game {
         if (hasData) html += '<button class="title-btn title-continue" onclick="game.loadAndStart()">Continue</button>';
         html += '<button class="title-btn title-new" onclick="game.newGame()">New Game</button>';
         html += '</div>';
-        if (!Save.isLoggedIn()) html += '<p class="title-warn">Log in to save your progress!</p>';
+        if (!Save.isLoggedIn()) html += '<p class="title-hint">Progress saves locally. Log in for cloud saves!</p>';
         html += '</div>';
         titleEl.innerHTML = html;
         this._saveData = saveData;
@@ -145,7 +150,11 @@ class Game {
         this.resources = { ...gs.resources };
         this.resourceCaps = gs.resourceCaps || { wood: 200, stone: 200, food: 150 };
         this.inventory = { ...gs.inventory };
-        this.buildings = gs.buildings.map(b => ({ ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null }));
+        this.buildings = gs.buildings.map(b => {
+            const def = BUILDING_DEFS[b.type];
+            const maxHp = def ? (def.hp || 100) : 100;
+            return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
+        });
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
         this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = gs.researchInProgress || null;
@@ -260,6 +269,41 @@ class Game {
                 UI.notify(`Captured ${SPECIES[result.captured.species].name}!`); UI.update();
             } else UI.notify(result.reason);
         }
+    }
+
+    _getCritterTex(species) {
+        if (typeof PIXI_CRITTER_TEXTURES === 'undefined' || !_pixiTexturesReady) return null;
+        const tex = PIXI_CRITTER_TEXTURES[species];
+        if (!tex) return null;
+        // Check if base texture has loaded (width > 0 means image data is available)
+        if (tex.baseTexture && tex.baseTexture.width > 1) return tex;
+        // Fallback: check the HTML Image directly
+        const img = typeof CRITTER_SPRITES !== 'undefined' ? CRITTER_SPRITES[species] : null;
+        if (img && img.complete && img.naturalWidth > 0) {
+            // Re-create texture from loaded image
+            try {
+                const newTex = PIXI.Texture.from(img);
+                PIXI_CRITTER_TEXTURES[species] = newTex;
+                return newTex;
+            } catch(e) {}
+        }
+        return null;
+    }
+
+    _getBuildingTex(type) {
+        if (typeof PIXI_BUILDING_TEXTURES === 'undefined' || !_pixiTexturesReady) return null;
+        const tex = PIXI_BUILDING_TEXTURES[type];
+        if (!tex) return null;
+        if (tex.baseTexture && tex.baseTexture.width > 1) return tex;
+        const img = typeof BUILDING_SPRITES !== 'undefined' ? BUILDING_SPRITES[type] : null;
+        if (img && img.complete && img.naturalWidth > 0) {
+            try {
+                const newTex = PIXI.Texture.from(img);
+                PIXI_BUILDING_TEXTURES[type] = newTex;
+                return newTex;
+            } catch(e) {}
+        }
+        return null;
     }
 
     _cleanupCritterSprite(critter) {
@@ -432,7 +476,28 @@ class Game {
             }
         }
 
-        Critters.updateWild(dt, this.wildCritters, this.world, this.player);
+        Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings);
+
+        // Cleanup despawned critter sprites
+        for (const c of this.wildCritters) {
+            if (c._despawned) this._cleanupCritterSprite(c);
+        }
+        this.wildCritters = this.wildCritters.filter(c => !c._despawned);
+
+        // Check building HP — destroy if 0
+        for (let i = this.buildings.length - 1; i >= 0; i--) {
+            const b = this.buildings[i];
+            if (b.hp !== undefined && b.hp <= 0) {
+                // Unassign workers
+                for (const cid of b.workers) {
+                    const cr = this.critters.find(c => c.id === cid);
+                    if (cr) cr.assignment = null;
+                }
+                if (b._pixiSprite) { b._pixiSprite.destroy({ children: true }); b._pixiSprite = null; }
+                UI.notify(`${BUILDING_DEFS[b.type].name} was destroyed!`, 4000);
+                this.buildings.splice(i, 1);
+            }
+        }
 
         if (this.player.hp < this.player.maxHp) {
             this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1 * dt);
@@ -567,23 +632,22 @@ class Game {
             if (c.assignment !== 'patrol') continue;
             const sp = SPECIES[c.species];
             const sx = c._patrolX || 0, sy = (c._patrolY || 0) + Math.sin(this.time*3 + c.id)*2;
-            const tex = typeof PIXI_CRITTER_TEXTURES !== 'undefined' ? PIXI_CRITTER_TEXTURES[c.species] : null;
+            const tex = this._getCritterTex(c.species);
             if (tex) {
-                if (!c._patrolSprite) {
+                if (!c._patrolSprite || c._patrolSprite._speciesKey !== c.species) {
+                    if (c._patrolSprite) { c._patrolSprite.parent?.removeChild(c._patrolSprite); c._patrolSprite.destroy(); }
                     c._patrolSprite = new PIXI.Sprite(tex);
                     c._patrolSprite.anchor.set(0.5, 0.5);
-                    c._patrolSprite.width = 14; c._patrolSprite.height = 14;
-                    const mask = new PIXI.Graphics();
-                    mask.beginFill(0xffffff);
-                    mask.drawCircle(0, 0, 7);
-                    mask.endFill();
-                    c._patrolSprite.addChild(mask);
-                    c._patrolSprite.mask = mask;
+                    c._patrolSprite._speciesKey = c.species;
                     this.entityContainer.addChild(c._patrolSprite);
+                } else if (c._patrolSprite.texture !== tex) {
+                    c._patrolSprite.texture = tex;
                 }
+                c._patrolSprite.width = 18; c._patrolSprite.height = 18;
                 c._patrolSprite.x = sx; c._patrolSprite.y = sy;
                 c._patrolSprite.visible = true;
             } else {
+                if (c._patrolSprite) c._patrolSprite.visible = false;
                 gfx.beginFill(PIXI.utils.string2hex(sp.color));
                 gfx.drawCircle(sx, sy, 7);
                 gfx.endFill();
@@ -662,7 +726,8 @@ class Game {
                 ovr.lineStyle(1.5, col, c.stunned ? 0.7 : 0.5);
                 ovr.drawCircle(sx, sy, 16);
                 ovr.lineStyle(0);
-                const t = this._getText(c.stunned ? 'E: FREE!' : 'E: CAPTURE', { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold', fill: col });
+                const label = c.stunned ? `E: FREE! (${Math.ceil(c.stunTimer)}s)` : 'E: CAPTURE';
+                const t = this._getText(label, { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold', fill: col });
                 t.x = sx; t.y = sy - 22;
             }
         }
@@ -821,7 +886,7 @@ class Game {
         const size = def.size * TILE_SIZE;
 
         // Building body — use Pixi sprite if available
-        const tex = typeof PIXI_BUILDING_TEXTURES !== 'undefined' ? PIXI_BUILDING_TEXTURES[building.type] : null;
+        const tex = this._getBuildingTex(building.type);
         if (tex) {
             // Manage persistent sprite
             if (!building._pixiSprite) {
@@ -852,6 +917,19 @@ class Game {
             gfx.lineStyle(1, 0xffffff, 0.05);
             gfx.drawCircle(tcx, tcy, def.range * TILE_SIZE);
             gfx.lineStyle(0);
+        }
+
+        // Building HP bar
+        if (building.hp !== undefined && building.hp < building.maxHp) {
+            const hpW = size - 8, hpH = 3;
+            gfx.beginFill(0x333333);
+            gfx.drawRect(wx + 4, wy + size - 6, hpW, hpH);
+            gfx.endFill();
+            const pct = building.hp / building.maxHp;
+            const hpColor = pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171;
+            gfx.beginFill(hpColor);
+            gfx.drawRect(wx + 4, wy + size - 6, hpW * pct, hpH);
+            gfx.endFill();
         }
 
         // Worker count badge
@@ -888,28 +966,23 @@ class Game {
         gfx.drawEllipse(sx, sy + 12, 10, 4);
         gfx.endFill();
 
-        // Body — use sprite if available
-        const tex = typeof PIXI_CRITTER_TEXTURES !== 'undefined' ? PIXI_CRITTER_TEXTURES[critter.species] : null;
+        // Body — use PIXI sprite if texture available
+        const tex = this._getCritterTex(critter.species);
         if (tex) {
             if (!critter._pixiSprite) {
                 critter._pixiSprite = new PIXI.Sprite(tex);
                 critter._pixiSprite.anchor.set(0.5, 0.5);
-                critter._pixiSprite.width = r * 2;
-                critter._pixiSprite.height = r * 2;
-                // Circular mask
-                const mask = new PIXI.Graphics();
-                mask.beginFill(0xffffff);
-                mask.drawCircle(0, 0, r);
-                mask.endFill();
-                critter._pixiSprite.addChild(mask);
-                critter._pixiSprite.mask = mask;
                 this.entityContainer.addChild(critter._pixiSprite);
             }
+            critter._pixiSprite.width = r * 2;
+            critter._pixiSprite.height = r * 2;
             critter._pixiSprite.x = sx;
             critter._pixiSprite.y = sy + bob;
             critter._pixiSprite.visible = true;
             critter._pixiSprite.alpha = critter.stunned ? 0.5 + Math.sin(this.time * 10) * 0.3 : 1;
         } else {
+            // Fallback colored circle
+            if (critter._pixiSprite) critter._pixiSprite.visible = false;
             const color = PIXI.utils.string2hex(sp.color);
             gfx.beginFill(color);
             gfx.drawCircle(sx, sy + bob, 8);
@@ -948,6 +1021,13 @@ class Game {
         // Aggro indicator
         if (critter.state === 'aggro') {
             gfx.lineStyle(2, 0xf87171, 0.7);
+            gfx.drawCircle(sx, sy + bob, 11);
+            gfx.lineStyle(0);
+        }
+
+        // Building attack indicator
+        if (critter.state === 'attacking_building') {
+            gfx.lineStyle(2, 0xff6b35, 0.7);
             gfx.drawCircle(sx, sy + bob, 11);
             gfx.lineStyle(0);
         }

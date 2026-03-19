@@ -64,29 +64,30 @@ class Critters {
     }
 
     static damageWild(critter, damage) {
+        if (critter.stunned) return; // Already downed — don't reset timer
         critter.hp = Math.max(0, critter.hp - damage);
         if (critter.hp <= 0) {
             critter.stunned = true;
-            critter.stunTimer = 5;
+            critter.stunTimer = 15; // 15 seconds to capture before despawn
             critter.state = 'idle';
             critter.fleeing = false;
+            critter._aggroed = false;
         } else {
-            // All critters fight back when hit
             critter._aggroed = true;
             critter.state = 'aggro';
         }
     }
 
-    static updateWild(dt, wildCritters, world, player) {
-        for (const c of wildCritters) {
-            // Stunned
+    static updateWild(dt, wildCritters, world, player, buildings) {
+        for (let ci = wildCritters.length - 1; ci >= 0; ci--) {
+            const c = wildCritters[ci];
+            // Stunned — 15s capture window then despawn
             if (c.stunned) {
                 c.stunTimer -= dt;
                 if (c.stunTimer <= 0) {
-                    c.stunned = false;
-                    c.hp = c.maxHp;
-                    c.state = 'idle';
-                    c.wanderTimer = 2;
+                    // Despawn — not captured in time
+                    c._despawned = true;
+                    wildCritters.splice(ci, 1);
                 }
                 continue;
             }
@@ -122,6 +123,42 @@ class Critters {
                 } else if (c.state === 'aggro') {
                     c.state = 'idle';
                     c.wanderTimer = 1;
+                }
+            }
+
+            // Attack buildings when aggressive and no player nearby
+            if ((sp.aggressive || c._aggroed) && buildings && c.state !== 'aggro') {
+                if (!c._bldgTimer) c._bldgTimer = 0;
+                c._bldgTimer -= dt;
+                let closestB = null, closestBDist = Infinity;
+                for (const b of buildings) {
+                    const def = BUILDING_DEFS[b.type];
+                    const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
+                    const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
+                    const bdx = bcx - c.x, bdy = bcy - c.y;
+                    const bd = Math.sqrt(bdx*bdx + bdy*bdy) / TILE_SIZE;
+                    if (bd < 8 && bd < closestBDist) { closestBDist = bd; closestB = b; }
+                }
+                if (closestB) {
+                    const def = BUILDING_DEFS[closestB.type];
+                    const bcx = (closestB.gridX + def.size / 2) * TILE_SIZE;
+                    const bcy = (closestB.gridY + def.size / 2) * TILE_SIZE;
+                    const bdx = bcx - c.x, bdy = bcy - c.y;
+                    const bd = Math.sqrt(bdx*bdx + bdy*bdy);
+                    c.state = 'attacking_building';
+                    if (bd > TILE_SIZE * 1.5) {
+                        c.x += (bdx / bd) * 50 * dt;
+                        c.y += (bdy / bd) * 50 * dt;
+                    } else if (c._bldgTimer <= 0) {
+                        c._bldgTimer = sp.attackCooldown || 1.5;
+                        const dmg = sp.attackDmg || 3;
+                        if (closestB.hp !== undefined) closestB.hp -= dmg;
+                        c._justAttacked = true;
+                        setTimeout(() => { c._justAttacked = false; }, 300);
+                    }
+                    continue;
+                } else if (c.state === 'attacking_building') {
+                    c.state = 'idle'; c.wanderTimer = 1;
                 }
             }
 
@@ -340,21 +377,40 @@ class Critters {
         ctx.fill();
     }
 
+    static MAX_LEVEL = 20;
+
     static getXpForLevel(level) {
         return Math.floor(50 * Math.pow(level, 1.5));
     }
 
     static addXp(critter, amount) {
+        if (critter.level >= Critters.MAX_LEVEL) return false;
         critter.xp += amount;
         const needed = Critters.getXpForLevel(critter.level);
         if (critter.xp >= needed) {
             critter.xp -= needed;
             critter.level++;
-            // Random stat boost on level up
+
+            // Level up: boost 2 stats — primary stat + random stat
+            const sp = SPECIES[critter.species];
             const statKeys = Object.keys(critter.stats);
-            const key = statKeys[Math.floor(Math.random() * statKeys.length)];
-            critter.stats[key]++;
-            return true; // leveled up
+            // Find the species' best base stat
+            let primaryStat = statKeys[0];
+            let bestVal = 0;
+            for (const k of statKeys) {
+                if (sp.baseStats[k] > bestVal) { bestVal = sp.baseStats[k]; primaryStat = k; }
+            }
+            // Always boost primary
+            critter.stats[primaryStat]++;
+            // 50% chance to also boost a random stat
+            if (Math.random() < 0.5) {
+                const other = statKeys[Math.floor(Math.random() * statKeys.length)];
+                critter.stats[other]++;
+            }
+
+            // Track what leveled for UI notification
+            critter._lastLevelUp = { level: critter.level, stat: primaryStat };
+            return true;
         }
         return false;
     }

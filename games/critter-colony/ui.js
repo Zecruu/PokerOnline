@@ -71,15 +71,34 @@ class UI {
             for (const [type, def] of Object.entries(BUILDING_DEFS)) {
                 const canAfford = Buildings.canAfford(type, g.resources);
                 const costStr = Object.entries(def.cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
+                // Building sprite image
+                const bSprite = typeof BUILDING_SPRITES !== 'undefined' && BUILDING_SPRITES[type] && BUILDING_SPRITES[type].complete && BUILDING_SPRITES[type].naturalWidth > 0
+                    ? BUILDING_SPRITES[type] : null;
                 html += `<div class="build-item ${canAfford ? '' : 'disabled'}" onclick="game.startPlacement('${type}')">`;
+                html += `<div class="build-header">`;
+                if (bSprite) {
+                    html += `<img class="build-icon" src="${bSprite.src}">`;
+                } else {
+                    html += `<div class="build-icon build-icon-fallback" style="background:${def.color}">${def.letter}</div>`;
+                }
+                html += `<div class="build-header-text">`;
                 html += `<span class="build-name">${def.name}</span>`;
                 html += `<span class="build-cost">${costStr || 'Free'}</span>`;
-                if (def.produces) html += `<span class="build-desc">Produces ${def.produces}</span>`;
+                html += `</div>`;
+                html += `</div>`;
+                // Stat yield info with icon
+                if (def.statKey) {
+                    const statIcon = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[def.statKey.toLowerCase()] && STAT_ICONS[def.statKey.toLowerCase()].complete
+                        ? `<img class="build-stat-icon" src="${STAT_ICONS[def.statKey.toLowerCase()].src}">` : '';
+                    html += `<div class="build-stat">${statIcon}<b>${def.statKey}</b> increases yield</div>`;
+                }
+                if (def.produces) html += `<span class="build-desc">Produces ${def.produces} — assign critters with high ${def.statKey || 'stats'}</span>`;
                 else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
                 else if (def.turret) html += `<span class="build-desc">Auto-attacks wild critters</span>`;
                 else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
-                else if (def.isResearch) html += `<span class="build-desc">Assign INT critters to research</span>`;
-                else if (def.isWorkbench) html += `<span class="build-desc">Crafts traps (5 wood + 3 stone each). Assign DEX critters</span>`;
+                else if (def.isResearch) html += `<span class="build-desc">Assign high INT critters to research faster</span>`;
+                else if (def.isWorkbench) html += `<span class="build-desc">Crafts traps (5 wood + 3 stone). High DEX = faster</span>`;
+                if (def.hp) html += `<span class="build-hp">HP: ${def.hp}</span>`;
                 html += `</div>`;
             }
 
@@ -124,9 +143,18 @@ class UI {
                     html += `<div class="cc-header">`;
                     html += critterImg;
                     html += `<span class="cc-name">${c.nickname}</span>`;
-                    html += `<span class="cc-level">Lv.${c.level}</span>`;
+                    const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
+                    html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
                     html += `<div class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</div>`;
+                    // XP bar
+                    if (c.level < maxLv) {
+                        const xpNeeded = typeof Critters !== 'undefined' ? Critters.getXpForLevel(c.level) : 50;
+                        const xpPct = Math.min(100, (c.xp / xpNeeded) * 100);
+                        html += `<div class="cc-xp"><div class="cc-xp-bar" style="width:${xpPct}%"></div><span class="cc-xp-text">${c.xp}/${xpNeeded} XP</span></div>`;
+                    } else {
+                        html += `<div class="cc-xp cc-xp-max"><span class="cc-xp-text">MAX LEVEL</span></div>`;
+                    }
                     html += `<div class="cc-stats">`;
                     for (const [key, val] of Object.entries(c.stats)) {
                         const iconImg = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[key.toLowerCase()] && STAT_ICONS[key.toLowerCase()].complete
@@ -134,6 +162,24 @@ class UI {
                         html += `<span class="cc-stat">${iconImg}${key}:${val}</span>`;
                     }
                     html += `</div>`;
+                    // Show bonus yield if assigned to a building
+                    if (c.assignment && c.assignment !== 'patrol') {
+                        const bld = g.buildings.find(b => b.id === c.assignment);
+                        if (bld) {
+                            const def = BUILDING_DEFS[bld.type];
+                            if (def.produces && def.statKey) {
+                                const statVal = c.stats[def.statKey] || 0;
+                                const bonus = (statVal * 0.05 * 100).toFixed(0);
+                                html += `<div class="cc-bonus">+${bonus}% ${def.produces} yield (${def.statKey}: ${statVal})</div>`;
+                            } else if (def.isResearch) {
+                                const intVal = c.stats.INT || 0;
+                                html += `<div class="cc-bonus">+${(intVal * 8).toFixed(0)}% research speed (INT: ${intVal})</div>`;
+                            } else if (def.isWorkbench) {
+                                const dexVal = c.stats.DEX || 0;
+                                html += `<div class="cc-bonus">-${(dexVal * 2).toFixed(0)}% craft time (DEX: ${dexVal})</div>`;
+                            }
+                        }
+                    }
 
                     html += `<div class="cc-assign">`;
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;

@@ -82,26 +82,41 @@ function preloadStatIcons() {
 }
 
 // ─── PIXI TEXTURE CACHE ─────────────────────────────────────
-// Converts loaded HTML Image objects to PIXI.Texture after preload
+// Load directly via PIXI.Texture.from(url) for reliable WebGL textures
 const PIXI_BUILDING_TEXTURES = {};
 const PIXI_CRITTER_TEXTURES = {};
+let _pixiTexturesReady = false;
 
 function buildPixiTextures() {
-    for (const [key, img] of Object.entries(BUILDING_SPRITES)) {
-        if (img && img.complete && img.naturalWidth > 0) {
-            try { PIXI_BUILDING_TEXTURES[key] = PIXI.Texture.from(img); } catch(e) {}
-        }
+    if (typeof PIXI === 'undefined') return;
+    const buildingDefs = {
+        mine: 'buildings/mine.png', lumber_mill: 'buildings/lumber-mill.png',
+        farm: 'buildings/farm.png', nest: 'buildings/nest.png',
+        turret: 'buildings/turret.png', research_lab: 'buildings/research-lab.png',
+        workbench: 'buildings/workbench.png',
+    };
+    const critterDefs = {
+        mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',
+        flickwing: 'critters/flickwing.png', glowmite: 'critters/glowmite.png',
+    };
+    for (const [key, path] of Object.entries(buildingDefs)) {
+        try {
+            PIXI_BUILDING_TEXTURES[key] = PIXI.Texture.from(getAssetUrl(path));
+        } catch(e) { console.warn('Failed to load building texture:', key, e); }
     }
-    for (const [key, img] of Object.entries(CRITTER_SPRITES)) {
-        if (img && img.complete && img.naturalWidth > 0) {
-            try { PIXI_CRITTER_TEXTURES[key] = PIXI.Texture.from(img); } catch(e) {}
-        }
+    for (const [key, path] of Object.entries(critterDefs)) {
+        try {
+            PIXI_CRITTER_TEXTURES[key] = PIXI.Texture.from(getAssetUrl(path));
+        } catch(e) { console.warn('Failed to load critter texture:', key, e); }
     }
+    _pixiTexturesReady = true;
 }
 
 // Preload everything
 function preloadAllAssets() {
-    return Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]).then(() => {
-        buildPixiTextures();
-    });
+    // HTML Image preload for UI panels (img tags in DOM)
+    const htmlPreload = Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]);
+    // PIXI texture load (for WebGL rendering)
+    buildPixiTextures();
+    return htmlPreload;
 }

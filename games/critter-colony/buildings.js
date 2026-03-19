@@ -3,14 +3,14 @@
    ============================================================ */
 
 const BUILDING_DEFS = {
-    mine:        { name: 'Mine',        cost: { wood: 30, stone: 0, food: 0 },   produces: 'stone', baseRate: 0.1, color: '#78909c', letter: 'M', size: 2, statKey: 'STR' },
-    lumber_mill: { name: 'Lumber Mill', cost: { wood: 0, stone: 30, food: 0 },   produces: 'wood',  baseRate: 0.1, color: '#6d4c41', letter: 'L', size: 2, statKey: 'STR' },
-    farm:        { name: 'Farm',        cost: { wood: 20, stone: 10, food: 0 },   produces: 'food',  baseRate: 0.1, color: '#7cb342', letter: 'F', size: 2, statKey: 'VIT' },
-    nest:        { name: 'Nest',        cost: { wood: 15, stone: 5, food: 0 },    produces: null,    baseRate: 0,   color: '#ffb74d', letter: 'N', size: 2, statKey: null, capacity: 4 },
-    turret:      { name: 'Turret',      cost: { wood: 20, stone: 30, food: 0 },   produces: null,    baseRate: 0,   color: '#607d8b', letter: 'T', size: 1, statKey: null, turret: true, range: 6, damage: 5, fireRate: 1 },
+    mine:        { name: 'Mine',        cost: { wood: 30, stone: 0, food: 0 },   produces: 'stone', baseRate: 0.1, color: '#78909c', letter: 'M', size: 2, statKey: 'STR', hp: 80 },
+    lumber_mill: { name: 'Lumber Mill', cost: { wood: 0, stone: 30, food: 0 },   produces: 'wood',  baseRate: 0.1, color: '#6d4c41', letter: 'L', size: 2, statKey: 'STR', hp: 80 },
+    farm:        { name: 'Farm',        cost: { wood: 20, stone: 10, food: 0 },   produces: 'food',  baseRate: 0.1, color: '#7cb342', letter: 'F', size: 2, statKey: 'VIT', hp: 60 },
+    nest:        { name: 'Nest',        cost: { wood: 15, stone: 5, food: 0 },    produces: null,    baseRate: 0,   color: '#ffb74d', letter: 'N', size: 2, statKey: null, capacity: 4, hp: 50 },
+    turret:      { name: 'Turret',      cost: { wood: 20, stone: 30, food: 0 },   produces: null,    baseRate: 0,   color: '#607d8b', letter: 'T', size: 1, statKey: null, turret: true, range: 6, damage: 5, fireRate: 1, hp: 120 },
     expander:    { name: 'Expander',    cost: { wood: 40, stone: 40, food: 20 },  produces: null,    baseRate: 0,   color: '#ab47bc', letter: 'E', size: 1, statKey: null, expander: true, expandRadius: 5 },
-    research_lab:{ name: 'Research Lab',cost: { wood: 50, stone: 50, food: 30 },  produces: null,    baseRate: 0,   color: '#5c6bc0', letter: 'R', size: 2, statKey: 'INT', isResearch: true },
-    workbench:   { name: 'Workbench',  cost: { wood: 25, stone: 15, food: 0 },   produces: null,    baseRate: 0,   color: '#8d6e63', letter: 'W', size: 2, statKey: 'DEX', isWorkbench: true },
+    research_lab:{ name: 'Research Lab',cost: { wood: 50, stone: 50, food: 30 },  produces: null,    baseRate: 0,   color: '#5c6bc0', letter: 'R', size: 2, statKey: 'INT', isResearch: true, hp: 100 },
+    workbench:   { name: 'Workbench',  cost: { wood: 25, stone: 15, food: 0 },   produces: null,    baseRate: 0,   color: '#8d6e63', letter: 'W', size: 2, statKey: 'DEX', isWorkbench: true, hp: 70 },
 };
 
 class Buildings {
@@ -43,6 +43,7 @@ class Buildings {
         for (const [res, cost] of Object.entries(def.cost)) {
             resources[res] -= cost;
         }
+        const maxHp = def.hp || 100;
         return {
             id: Date.now() + Math.floor(Math.random() * 1000),
             type,
@@ -50,6 +51,8 @@ class Buildings {
             gridY,
             workers: [],
             productionAccum: 0,
+            hp: maxHp,
+            maxHp,
             // Turret state
             turretTarget: null,
             turretCooldown: 0,
@@ -151,7 +154,12 @@ class Buildings {
 
                 for (const cid of b.workers) {
                     const c = critters.find(cr => cr.id === cid);
-                    if (c) Critters.addXp(c, gained);
+                    if (c) {
+                        const leveled = Critters.addXp(c, gained);
+                        if (leveled && c._lastLevelUp) {
+                            UI.notify(`${c.nickname} leveled up to Lv.${c._lastLevelUp.level}! +${c._lastLevelUp.stat}`);
+                        }
+                    }
                 }
             }
         }
