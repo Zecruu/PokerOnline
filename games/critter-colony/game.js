@@ -888,7 +888,8 @@ class Game {
             }
         }
 
-        Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings);
+        const bodyguards = this.critters.filter(c => c.assignment === 'bodyguard');
+        Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings, bodyguards);
 
         // Handle despawned critters — spawn skull, then recycle
         for (const c of this.wildCritters) {
@@ -1076,14 +1077,41 @@ class Game {
             }
 
             if (c._attackTimer <= 0) {
-                const targets = [...this.wildCritters, ...this.hordeCreatures].filter(w => !w.stunned);
-                for (const wc of targets) {
+                const dmg = (c.stats.STR || 1) * 3;
+                let hit = false;
+
+                // Attack wild critters
+                for (const wc of this.wildCritters) {
+                    if (wc.stunned) continue;
                     const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
-                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 4) {
-                        const dmg = (c.stats.STR || 1) * 3;
-                        if (wc.isHorde) { wc.hp -= dmg; if (wc.hp <= 0) { wc.stunned = true; wc.stunTimer = 3; } }
-                        else Critters.damageWild(wc, dmg);
-                        c._attackTimer = 1.0;
+                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
+                        Critters.damageWild(wc, dmg);
+                        c._attackTimer = 1.0; hit = true;
+                        if (this.sounds) this.sounds.hit();
+                        break;
+                    }
+                }
+
+                // Attack horde critters
+                if (!hit) for (const wc of this.hordeCreatures) {
+                    if (wc.stunned) continue;
+                    const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
+                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
+                        wc.hp -= dmg; if (wc.hp <= 0) { wc.stunned = true; wc.stunTimer = 3; }
+                        c._attackTimer = 1.0; hit = true;
+                        if (this.sounds) this.sounds.hit();
+                        break;
+                    }
+                }
+
+                // Attack world bosses
+                if (!hit && this.worldBosses) for (const boss of this.worldBosses) {
+                    if (boss.hp <= 0) continue;
+                    const ax = boss.x - c._patrolX, ay = boss.y - c._patrolY;
+                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
+                        boss.hp -= dmg;
+                        c._attackTimer = 1.0; hit = true;
+                        if (this.sounds) this.sounds.hit();
                         break;
                     }
                 }
@@ -1392,21 +1420,45 @@ class Game {
             }
         }
 
-        // Bodyguard critters
+        // Bodyguard critters — use actual sprite
         for (const c of this.critters) {
             if (c.assignment !== 'bodyguard') continue;
             const sp = SPECIES[c.species];
-            const colorNum = parseInt(sp.color.replace('#', ''), 16);
             const bx = c._patrolX || this.player.x;
             const by = c._patrolY || this.player.y;
             const bob = Math.sin(this.time * 3 + c.id) * 2;
+            const sizeScale = sp.size || 1;
+            const r = Math.round(10 * sizeScale);
 
-            gfx.lineStyle(2, 0x4FC3F7, 0.5);
-            gfx.drawCircle(bx, by + bob, 10);
-            gfx.lineStyle(0);
-            gfx.beginFill(colorNum);
-            gfx.drawCircle(bx, by + bob, 8);
+            // Shadow
+            gfx.beginFill(0x000000, 0.2);
+            gfx.drawEllipse(bx, by + 10, 8, 3);
             gfx.endFill();
+
+            // Use PIXI sprite if available
+            const tex = this._getCritterTex(c.species);
+            if (tex) {
+                if (!c._bgSprite) {
+                    c._bgSprite = new PIXI.Sprite(tex);
+                    c._bgSprite.anchor.set(0.5, 0.5);
+                    this.entityContainer.addChild(c._bgSprite);
+                }
+                c._bgSprite.width = r * 2;
+                c._bgSprite.height = r * 2;
+                c._bgSprite.x = bx;
+                c._bgSprite.y = by + bob;
+                c._bgSprite.visible = true;
+            } else {
+                if (c._bgSprite) c._bgSprite.visible = false;
+                const colorNum = parseInt(sp.color.replace('#', ''), 16);
+                gfx.beginFill(colorNum);
+                gfx.drawCircle(bx, by + bob, r);
+                gfx.endFill();
+            }
+
+            // Blue shield indicator
+            const t = this._getText('\uD83D\uDEE1', { fontSize: 10 });
+            t.x = bx; t.y = by + bob - r - 8;
         }
 
         // Projectiles
@@ -1848,7 +1900,7 @@ class Game {
         }
 
         // Aggro indicator — red "!" only, no circle
-        if (critter.state === 'aggro' || critter.state === 'attacking_building') {
+        if (critter.state === 'aggro' || critter.state === 'attacking_building' || critter.state === 'aggro_bodyguard') {
             const t = this._getText('!', { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xf87171 });
             t.x = sx; t.y = sy + bob - r - 16;
         }

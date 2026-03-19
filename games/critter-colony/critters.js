@@ -251,7 +251,7 @@ class Critters {
         }
     }
 
-    static updateWild(dt, wildCritters, world, player, buildings) {
+    static updateWild(dt, wildCritters, world, player, buildings, bodyguards) {
         for (let ci = wildCritters.length - 1; ci >= 0; ci--) {
             const c = wildCritters[ci];
             // Stunned — 15s capture window then despawn
@@ -294,6 +294,29 @@ class Critters {
                     c.state = 'idle';
                     c.wanderTimer = 1;
                 }
+            }
+
+            // Attack bodyguards if nearby
+            if (sp.aggressive && bodyguards && bodyguards.length > 0 && c.state !== 'aggro' && !c.fleeing) {
+                for (const bg of bodyguards) {
+                    const bgx = (bg._patrolX || 0) - c.x, bgy = (bg._patrolY || 0) - c.y;
+                    const bgDist = Math.sqrt(bgx * bgx + bgy * bgy) / TILE_SIZE;
+                    if (bgDist < (sp.aggroRange || 6)) {
+                        c.state = 'aggro_bodyguard';
+                        const len = Math.sqrt(bgx * bgx + bgy * bgy);
+                        if (len > 15) { c.x += (bgx / len) * 60 * dt; c.y += (bgy / len) * 60 * dt; }
+                        if (!c._attackTimer) c._attackTimer = 0;
+                        c._attackTimer -= dt;
+                        if (bgDist < 1.5 && c._attackTimer <= 0) {
+                            c._attackTimer = sp.attackCooldown || 1.5;
+                            if (bg.patrolHp !== undefined) bg.patrolHp -= (sp.attackDmg || 3);
+                            c._justAttacked = true;
+                            setTimeout(() => { c._justAttacked = false; }, 300);
+                        }
+                        break;
+                    }
+                }
+                if (c.state === 'aggro_bodyguard') continue;
             }
 
             // Attack buildings — all aggressive critters, wider detection range
