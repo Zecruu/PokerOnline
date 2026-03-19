@@ -690,29 +690,45 @@ class Game {
             if (!c._patrolAngle) c._patrolAngle = Math.random() * Math.PI * 2;
             if (!c._patrolX) c._patrolX = 0;
             if (!c._patrolY) c._patrolY = 0;
-            if (!c._patrolTargetX) { c._patrolTargetX = c._patrolX; c._patrolTargetY = c._patrolY; }
             if (!c._attackTimer) c._attackTimer = 0;
             c._attackTimer -= dt;
-            c._patrolAngle += dt * 0.3;
-            const orbitR = CHUNK_SIZE * TILE_SIZE * 1.2;
-            c._patrolTargetX = Math.cos(c._patrolAngle + c.id * 1.5) * orbitR;
-            c._patrolTargetY = Math.sin(c._patrolAngle + c.id * 1.5) * orbitR;
-            const pdx = c._patrolTargetX - c._patrolX;
-            const pdy = c._patrolTargetY - c._patrolY;
-            const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
-            if (pDist > 3) {
-                const speed = 60;
-                c._patrolX += (pdx / pDist) * speed * dt;
-                c._patrolY += (pdy / pDist) * speed * dt;
+
+            // Find nearest wild critter within detection range (12 tiles)
+            const detectRange = TILE_SIZE * 12;
+            let target = null, targetDist = Infinity;
+            for (const wc of this.wildCritters) {
+                if (wc.stunned) continue;
+                const ax = wc.x - (c._patrolX || 0), ay = wc.y - (c._patrolY || 0);
+                const d = Math.sqrt(ax * ax + ay * ay);
+                if (d < detectRange && d < targetDist) { targetDist = d; target = wc; }
             }
-            if (c._attackTimer <= 0) {
-                for (const wc of this.wildCritters) {
-                    const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
-                    if (Math.sqrt(ax*ax + ay*ay) < TILE_SIZE * 4) {
-                        Critters.damageWild(wc, (c.stats.STR || 1) * 2);
-                        c._attackTimer = 1.5;
-                        break;
-                    }
+
+            if (target) {
+                // Chase enemy
+                const chx = target.x - c._patrolX, chy = target.y - c._patrolY;
+                const chLen = Math.sqrt(chx * chx + chy * chy);
+                if (chLen > TILE_SIZE * 1.2) {
+                    const chaseSpeed = 90;
+                    c._patrolX += (chx / chLen) * chaseSpeed * dt;
+                    c._patrolY += (chy / chLen) * chaseSpeed * dt;
+                }
+                // Attack when close
+                if (chLen < TILE_SIZE * 1.5 && c._attackTimer <= 0) {
+                    Critters.damageWild(target, (c.stats.STR || 1) * 3);
+                    c._attackTimer = 1.0;
+                    this.sounds.hit();
+                }
+            } else {
+                // Orbit colony when no enemies
+                c._patrolAngle += dt * 0.3;
+                const orbitR = CHUNK_SIZE * TILE_SIZE * 1.2;
+                const targetX = Math.cos(c._patrolAngle + c.id * 1.5) * orbitR;
+                const targetY = Math.sin(c._patrolAngle + c.id * 1.5) * orbitR;
+                const pdx = targetX - c._patrolX, pdy = targetY - c._patrolY;
+                const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+                if (pDist > 3) {
+                    c._patrolX += (pdx / pDist) * 60 * dt;
+                    c._patrolY += (pdy / pDist) * 60 * dt;
                 }
             }
         }
