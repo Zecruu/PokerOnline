@@ -5,7 +5,7 @@
 const BUILDING_DEFS = {
     mine:        { name: 'Mine',        cost: { wood: 30, stone: 0, food: 0 },   produces: 'stone', baseRate: 0.1, color: '#78909c', letter: 'M', size: 2, statKey: 'STR', hp: 80 },
     lumber_mill: { name: 'Lumber Mill', cost: { wood: 0, stone: 30, food: 0 },   produces: 'wood',  baseRate: 0.1, color: '#6d4c41', letter: 'L', size: 2, statKey: 'STR', hp: 80 },
-    farm:        { name: 'Farm',        cost: { wood: 20, stone: 10, food: 0 },   produces: 'food',  baseRate: 0.1, color: '#7cb342', letter: 'F', size: 2, statKey: 'VIT', hp: 60 },
+    farm:        { name: 'Farm',        cost: { wood: 20, stone: 10, food: 0 },   produces: 'food',  baseRate: 0.2, color: '#7cb342', letter: 'F', size: 2, statKey: 'VIT', hp: 60 },
     nest:        { name: 'Nest',        cost: { wood: 15, stone: 5, food: 0 },    produces: null,    baseRate: 0,   color: '#ffb74d', letter: 'N', size: 2, statKey: null, capacity: 4, hp: 50 },
     turret:      { name: 'Turret',      cost: { wood: 20, stone: 30, food: 0 },   produces: null,    baseRate: 0,   color: '#607d8b', letter: 'T', size: 1, statKey: null, turret: true, range: 6, damage: 5, fireRate: 1, hp: 120 },
     expander:    { name: 'Expander',    cost: { wood: 40, stone: 40, food: 20 },  produces: null,    baseRate: 0,   color: '#ab47bc', letter: 'E', size: 1, statKey: null, expander: true, expandRadius: 5 },
@@ -158,6 +158,7 @@ class Buildings {
                         const leveled = Critters.addXp(c, gained);
                         if (leveled && c._lastLevelUp) {
                             UI.notify(`${c.nickname} leveled up to Lv.${c._lastLevelUp.level}! +${c._lastLevelUp.stat}`);
+                            if (typeof game !== 'undefined' && game.sounds) game.sounds.levelup();
                         }
                     }
                 }

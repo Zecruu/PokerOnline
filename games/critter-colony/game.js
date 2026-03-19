@@ -47,6 +47,9 @@ class Game {
         this.started = false;
         this.titleScreen = true;
 
+        // ─── SOUND ──────────────────────────────────────────
+        this.sounds = new GameSounds();
+
         // ─── PIXI SETUP ─────────────────────────────────────
         this.pixiApp = new PIXI.Application({
             view: this.canvas,
@@ -189,6 +192,7 @@ class Game {
         document.getElementById('titleScreen').classList.add('hidden');
         document.getElementById('gameUI').classList.remove('hidden');
         this.titleScreen = false; this.started = true;
+        this.sounds.init();
         // Clear old chunk sprites
         this._chunkSprites.forEach(cs => { if (cs.sprite.parent) cs.sprite.parent.removeChild(cs.sprite); cs.sprite.destroy(true); });
         this._chunkSprites.clear();
@@ -266,6 +270,7 @@ class Game {
                 this._cleanupCritterSprite(closest);
                 this.wildCritters = this.wildCritters.filter(c => c.id !== closest.id);
                 this.critters.push(result.captured);
+                this.sounds.capture();
                 UI.notify(`Captured ${SPECIES[result.captured.species].name}!`); UI.update();
             } else UI.notify(result.reason);
         }
@@ -308,14 +313,22 @@ class Game {
 
     _cleanupCritterSprite(critter) {
         if (critter._pixiSprite) {
-            if (critter._pixiSprite.parent) critter._pixiSprite.parent.removeChild(critter._pixiSprite);
+            critter._pixiSprite.parent?.removeChild(critter._pixiSprite);
             critter._pixiSprite.destroy({ children: true });
             critter._pixiSprite = null;
         }
         if (critter._patrolSprite) {
-            if (critter._patrolSprite.parent) critter._patrolSprite.parent.removeChild(critter._patrolSprite);
+            critter._patrolSprite.parent?.removeChild(critter._patrolSprite);
             critter._patrolSprite.destroy({ children: true });
             critter._patrolSprite = null;
+        }
+        // Clean up building worker sprites
+        for (const key of Object.keys(critter)) {
+            if (key.startsWith('_bldgWorker') && critter[key] instanceof PIXI.Sprite) {
+                critter[key].parent?.removeChild(critter[key]);
+                critter[key].destroy();
+                delete critter[key];
+            }
         }
     }
 
@@ -325,6 +338,7 @@ class Game {
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
         const speed = 400, damage = this.gunDamage + (this.research.gunDamage || 0) * 5;
         this.projectiles.push({ x: this.player.x, y: this.player.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, damage, lifetime: 2, fromTurret: false });
+        this.sounds.shoot();
     }
 
     _handlePlacement(wx, wy) {
@@ -343,6 +357,7 @@ class Game {
         }
         const b = Buildings.place(type, tx, ty, this.resources);
         this.buildings.push(b);
+        this.sounds.build();
         UI.notify(`Built ${def.name}!`); this.placementMode = null; UI.update();
     }
 
@@ -472,7 +487,7 @@ class Game {
             if (p.lifetime <= 0) { this.projectiles.splice(i, 1); continue; }
             for (const wc of this.wildCritters) {
                 const hx = wc.x - p.x, hy = wc.y - p.y;
-                if (Math.sqrt(hx*hx + hy*hy) < 12) { Critters.damageWild(wc, p.damage); this.projectiles.splice(i, 1); break; }
+                if (Math.sqrt(hx*hx + hy*hy) < 12) { Critters.damageWild(wc, p.damage); this.sounds.hit(); this.projectiles.splice(i, 1); break; }
             }
         }
 
@@ -494,6 +509,7 @@ class Game {
                     if (cr) cr.assignment = null;
                 }
                 if (b._pixiSprite) { b._pixiSprite.destroy({ children: true }); b._pixiSprite = null; }
+                this.sounds.destroy();
                 UI.notify(`${BUILDING_DEFS[b.type].name} was destroyed!`, 4000);
                 this.buildings.splice(i, 1);
             }
@@ -939,16 +955,34 @@ class Game {
             gfx.endFill();
         }
 
-        // Assigned critters
+        // Assigned critters — use sprites when available
         for (let i = 0; i < building.workers.length; i++) {
             const c = this.critters.find(cr => cr.id === building.workers[i]);
-            if (c) {
-                const sp = SPECIES[c.species];
-                const ox = (i % 2) * 18 + 8;
-                const oy = Math.floor(i / 2) * 18 + 40;
-                const bob = Math.sin(this.time * 4 + c.id) * 1.5;
+            if (!c) continue;
+            const sp = SPECIES[c.species];
+            const ox = (i % 2) * 20 + 8;
+            const oy = Math.floor(i / 2) * 20 + 38;
+            const bob = Math.sin(this.time * 4 + c.id) * 1.5;
+            const workerX = wx + ox;
+            const workerY = wy + oy + bob;
+
+            const tex = this._getCritterTex(c.species);
+            if (tex) {
+                // Use a persistent sprite keyed to worker slot
+                const spriteKey = '_bldgWorker' + building.id + '_' + i;
+                if (!c[spriteKey]) {
+                    c[spriteKey] = new PIXI.Sprite(tex);
+                    c[spriteKey].anchor.set(0.5, 0.5);
+                    this.entityContainer.addChild(c[spriteKey]);
+                } else if (c[spriteKey].texture !== tex) {
+                    c[spriteKey].texture = tex;
+                }
+                c[spriteKey].width = 16; c[spriteKey].height = 16;
+                c[spriteKey].x = workerX; c[spriteKey].y = workerY;
+                c[spriteKey].visible = true;
+            } else {
                 gfx.beginFill(PIXI.utils.string2hex(sp.color));
-                gfx.drawCircle(wx + ox, wy + oy + bob, 6);
+                gfx.drawCircle(workerX, workerY, 6);
                 gfx.endFill();
             }
         }
@@ -1105,35 +1139,106 @@ class Game {
 
     // ─── MINIMAP ────────────────────────────────────────────
     _renderMinimap(gfx, cw, ch) {
-        const ms = 120, mx = 10, my = ch - ms - 10, scale = 0.15;
-        gfx.beginFill(0x0a0a1e, 0.8);
+        const ms = 140, mx = 10, my = ch - ms - 10;
+        gfx.beginFill(0x0a0a1e, 0.85);
         gfx.lineStyle(1, 0xffffff, 0.15);
         gfx.drawRect(mx, my, ms, ms);
         gfx.endFill();
         gfx.lineStyle(0);
 
-        const cx = mx + ms / 2, cy = my + ms / 2;
+        const centerX = mx + ms / 2, centerY = my + ms / 2;
+        const playerTX = this.player.x / TILE_SIZE;
+        const playerTY = this.player.y / TILE_SIZE;
+
+        // Render chunk tiles on minimap
+        const mapColors = { [TILE.GRASS]:0x3a6832, [TILE.TREE]:0x2a5020, [TILE.ROCK]:0x555555, [TILE.WATER]:0x2266aa, [TILE.COLONY]:0x8a7a52, [TILE.PATH]:0x9a8a60 };
+        const viewRadius = ms / 2; // pixels on minimap
+        const tileRadius = 40; // how many tiles to show in each direction
+        const tileScale = viewRadius / tileRadius;
+
+        for (const [, chunk] of this.world.chunks) {
+            const chunkWorldTX = chunk.cx * CHUNK_SIZE;
+            const chunkWorldTY = chunk.cy * CHUNK_SIZE;
+
+            // Quick bounds check — skip chunks too far from player
+            const chunkCenterTX = chunkWorldTX + CHUNK_SIZE / 2;
+            const chunkCenterTY = chunkWorldTY + CHUNK_SIZE / 2;
+            if (Math.abs(chunkCenterTX - playerTX) > tileRadius + CHUNK_SIZE ||
+                Math.abs(chunkCenterTY - playerTY) > tileRadius + CHUNK_SIZE) continue;
+
+            // Draw each tile as a tiny pixel
+            for (let ly = 0; ly < CHUNK_SIZE; ly += 2) { // sample every 2 tiles for perf
+                for (let lx = 0; lx < CHUNK_SIZE; lx += 2) {
+                    const wtx = chunkWorldTX + lx;
+                    const wty = chunkWorldTY + ly;
+                    const relX = wtx - playerTX;
+                    const relY = wty - playerTY;
+                    if (Math.abs(relX) > tileRadius || Math.abs(relY) > tileRadius) continue;
+
+                    const sx = centerX + relX * tileScale;
+                    const sy = centerY + relY * tileScale;
+                    if (sx < mx || sx > mx + ms || sy < my || sy > my + ms) continue;
+
+                    const t = chunk.tiles[ly * CHUNK_SIZE + lx];
+                    const col = mapColors[t];
+                    if (col !== undefined) {
+                        gfx.beginFill(col);
+                        gfx.drawRect(sx, sy, Math.ceil(tileScale * 2), Math.ceil(tileScale * 2));
+                        gfx.endFill();
+                    }
+                }
+            }
+        }
+
+        // Buildings
         for (const b of this.buildings) {
-            const bx = cx + (b.gridX * TILE_SIZE - this.player.x) * scale / TILE_SIZE;
-            const by = cy + (b.gridY * TILE_SIZE - this.player.y) * scale / TILE_SIZE;
+            const relX = b.gridX - playerTX;
+            const relY = b.gridY - playerTY;
+            if (Math.abs(relX) > tileRadius || Math.abs(relY) > tileRadius) continue;
+            const bx = centerX + relX * tileScale;
+            const by = centerY + relY * tileScale;
             if (bx > mx && bx < mx + ms && by > my && by < my + ms) {
                 gfx.beginFill(PIXI.utils.string2hex(BUILDING_DEFS[b.type].color));
                 gfx.drawRect(bx - 1, by - 1, 3, 3);
                 gfx.endFill();
             }
         }
+
+        // Waypoints
         for (const wp of this.world.waypoints) {
-            const wpx = cx + (wp.x * TILE_SIZE - this.player.x) * scale / TILE_SIZE;
-            const wpy = cy + (wp.y * TILE_SIZE - this.player.y) * scale / TILE_SIZE;
+            const relX = wp.x - playerTX;
+            const relY = wp.y - playerTY;
+            if (Math.abs(relX) > tileRadius || Math.abs(relY) > tileRadius) continue;
+            const wpx = centerX + relX * tileScale;
+            const wpy = centerY + relY * tileScale;
             if (wpx > mx && wpx < mx + ms && wpy > my && wpy < my + ms) {
                 gfx.beginFill(wp.claimed ? 0x4ade80 : 0x888888);
                 gfx.drawCircle(wpx, wpy, 2);
                 gfx.endFill();
             }
         }
+
+        // Wild critters (red dots)
+        for (const wc of this.wildCritters) {
+            const relX = wc.x / TILE_SIZE - playerTX;
+            const relY = wc.y / TILE_SIZE - playerTY;
+            if (Math.abs(relX) > tileRadius || Math.abs(relY) > tileRadius) continue;
+            const wcx = centerX + relX * tileScale;
+            const wcy = centerY + relY * tileScale;
+            if (wcx > mx && wcx < mx + ms && wcy > my && wcy < my + ms) {
+                gfx.beginFill(wc.stunned ? 0xffd54f : 0xf87171, 0.7);
+                gfx.drawCircle(wcx, wcy, 1.5);
+                gfx.endFill();
+            }
+        }
+
+        // Player (center)
         gfx.beginFill(0x4FC3F7);
-        gfx.drawCircle(cx, cy, 3);
+        gfx.drawCircle(centerX, centerY, 3);
         gfx.endFill();
+        gfx.lineStyle(1, 0xffffff, 0.3);
+        gfx.drawCircle(centerX, centerY, 3);
+        gfx.lineStyle(0);
     }
 
     // ─── FULL MAP ───────────────────────────────────────────
