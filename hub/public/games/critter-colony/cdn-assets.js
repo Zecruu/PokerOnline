@@ -6,8 +6,10 @@ const CDN_CONFIG = {
     localBasePath: 'images/'
 };
 
+const ASSET_VERSION = 2; // bump to bust CDN cache
+
 function getAssetUrl(path) {
-    if (CDN_CONFIG.enabled) return `${CDN_CONFIG.baseUrl}/${path}`;
+    if (CDN_CONFIG.enabled) return `${CDN_CONFIG.baseUrl}/${path}?v=${ASSET_VERSION}`;
     return CDN_CONFIG.localBasePath + path;
 }
 
