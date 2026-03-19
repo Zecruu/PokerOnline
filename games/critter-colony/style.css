@@ -102,6 +102,12 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-xp-max{background:rgba(74,222,128,.15);text-align:center}
 .cc-bonus{font-size:.68rem;color:#4ade80;background:rgba(74,222,128,.08);padding:3px 6px;border-radius:4px;margin-top:4px}
 .cc-injured{font-size:.72rem;color:#f87171;background:rgba(248,113,113,.1);padding:4px 8px;border-radius:6px;margin:4px 0;font-weight:600}
+.cc-passives{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.cc-passive{font-size:.65rem;padding:2px 6px;border-radius:4px;border:1px solid;background:rgba(255,255,255,.03);cursor:help;font-weight:600}
+.cc-passive-neg{opacity:.7}
+.cc-patrol-hp{font-size:.72rem;color:#f87171;margin:2px 0}
+.cc-name{cursor:pointer}.cc-name:hover{text-decoration:underline;text-decoration-style:dotted}
+.res-dead{color:#f87171;font-weight:600;cursor:help}
 .mb-injured{opacity:.5;border:1px solid rgba(248,113,113,.2) !important}
 .mb-injury-time{margin-left:auto;color:#f87171;font-size:.7rem;font-weight:600}
 .build-stat{display:flex;align-items:center;gap:4px;font-size:.72rem;color:#4ade80;margin-bottom:2px}

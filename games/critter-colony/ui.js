@@ -209,7 +209,7 @@ class UI {
                     html += `<div class="critter-card">`;
                     html += `<div class="cc-header">`;
                     html += critterImg;
-                    html += `<span class="cc-name">${c.nickname}</span>`;
+                    html += `<span class="cc-name" onclick="game.renameCritter(${c.id})" title="Click to rename">${c.nickname}</span>`;
                     const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
                     html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
@@ -217,6 +217,22 @@ class UI {
                     if (c.injured) {
                         const mins = Math.ceil((c.injuredTimer || 0) / 60);
                         html += `<div class="cc-injured">🩹 Injured — ${mins}m recovery</div>`;
+                    }
+                    // Passives
+                    if (c.passives && c.passives.length > 0) {
+                        html += `<div class="cc-passives">`;
+                        for (const pid of c.passives) {
+                            const p = typeof PASSIVES !== 'undefined' ? PASSIVES[pid] : null;
+                            if (!p) continue;
+                            const pColor = RARITY_COLORS[p.rarity] || '#aaa';
+                            html += `<span class="cc-passive ${p.negative ? 'cc-passive-neg' : ''}" style="border-color:${pColor}40;color:${pColor}" title="${p.desc}">${p.icon} ${p.name}</span>`;
+                        }
+                        html += `</div>`;
+                    }
+                    // Patrol HP
+                    if (c.assignment === 'patrol' && c.patrolHp !== undefined) {
+                        const php = Math.floor(c.patrolHp), pmhp = c.patrolMaxHp || 50;
+                        html += `<div class="cc-patrol-hp">❤️ ${php}/${pmhp} HP</div>`;
                     }
                     // XP bar
                     if (c.level < maxLv) {

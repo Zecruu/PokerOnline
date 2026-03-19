@@ -24,6 +24,45 @@ const SPECIES = {
     celestine:   { name: 'Celestine',   color: '#e0f7fa', rarity: 'legendary', baseStats: { STR:6, DEX:8, INT:14, VIT:10, LCK:10 }, desc: 'Celestial deer. Divine researcher and healer.', aggressive: true, aggroRange: 16, attackDmg: 14, attackCooldown: 1.0, size: 1.8 },
 };
 
+// ─── PASSIVE ABILITIES ──────────────────────────────────────
+const PASSIVES = {
+    // COMMON passives (high roll chance)
+    hard_worker:    { name: 'Hard Worker',    rarity: 'common',    desc: '+15% production speed',    icon: '⚒️', effect: { prodBonus: 0.15 } },
+    thick_skin:     { name: 'Thick Skin',     rarity: 'common',    desc: '+20% patrol HP',           icon: '🛡️', effect: { hpBonus: 0.20 } },
+    quick_feet:     { name: 'Quick Feet',     rarity: 'common',    desc: '+25% move speed on patrol', icon: '👟', effect: { speedBonus: 0.25 } },
+    keen_eye:       { name: 'Keen Eye',       rarity: 'common',    desc: '+10% capture rate bonus',  icon: '👁️', effect: { captureBonus: 0.10 } },
+    glutton:        { name: 'Glutton',        rarity: 'common',    desc: '+30% food consumption',    icon: '🍖', effect: { foodPenalty: 0.30 }, negative: true },
+    lazy:           { name: 'Lazy',           rarity: 'common',    desc: '-20% production speed',    icon: '😴', effect: { prodBonus: -0.20 }, negative: true },
+
+    // UNCOMMON passives
+    lumberjack:     { name: 'Lumberjack',     rarity: 'uncommon',  desc: '+50% wood yield when assigned', icon: '🪓', effect: { resourceBonus: { wood: 0.50 } } },
+    quarry_master:  { name: 'Quarry Master',  rarity: 'uncommon',  desc: '+50% stone yield when assigned', icon: '⛏️', effect: { resourceBonus: { stone: 0.50 } } },
+    green_thumb:    { name: 'Green Thumb',    rarity: 'uncommon',  desc: '+50% food yield when assigned', icon: '🌱', effect: { resourceBonus: { food: 0.50 } } },
+    nimble_hands:   { name: 'Nimble Hands',   rarity: 'uncommon',  desc: '+30% crafting speed',      icon: '✋', effect: { craftBonus: 0.30 } },
+    researcher:     { name: 'Researcher',     rarity: 'uncommon',  desc: '+30% research speed',      icon: '🔬', effect: { researchBonus: 0.30 } },
+    brawler:        { name: 'Brawler',        rarity: 'uncommon',  desc: '+40% attack damage',       icon: '👊', effect: { dmgBonus: 0.40 } },
+
+    // RARE passives
+    overachiever:   { name: 'Overachiever',   rarity: 'rare',      desc: '+80% production speed',    icon: '⭐', effect: { prodBonus: 0.80 } },
+    iron_will:      { name: 'Iron Will',      rarity: 'rare',      desc: 'Survives lethal damage once per patrol', icon: '💪', effect: { deathSave: true } },
+    lucky_star:     { name: 'Lucky Star',     rarity: 'rare',      desc: '+25% capture rate + double XP', icon: '🍀', effect: { captureBonus: 0.25, xpMulti: 2 } },
+    double_harvest: { name: 'Double Harvest', rarity: 'rare',      desc: '20% chance to double resource yield', icon: '🎰', effect: { doubleChance: 0.20 } },
+    mentor:         { name: 'Mentor',         rarity: 'rare',      desc: 'Nearby workers gain +50% XP',  icon: '📚', effect: { xpAura: 0.50 } },
+
+    // LEGENDARY passives
+    golden_touch:   { name: 'Golden Touch',   rarity: 'legendary', desc: '+150% yield on ALL resources',  icon: '👑', effect: { prodBonus: 1.50 } },
+    undying:        { name: 'Undying',        rarity: 'legendary', desc: 'Cannot die on patrol. Respawns at 1 HP.', icon: '♾️', effect: { immortal: true } },
+    architect:      { name: 'Architect',      rarity: 'legendary', desc: 'Buildings this critter works at have +100% HP', icon: '🏛️', effect: { bldgHpBonus: 1.00 } },
+    prodigy:        { name: 'Prodigy',        rarity: 'legendary', desc: '+100% to ALL stat scaling', icon: '🧬', effect: { statMulti: 1.00 } },
+};
+
+const PASSIVE_POOL = {
+    common: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'common'),
+    uncommon: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'uncommon'),
+    rare: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'rare'),
+    legendary: Object.keys(PASSIVES).filter(k => PASSIVES[k].rarity === 'legendary'),
+};
+
 const RARITY_COLORS = { common: '#aaa', uncommon: '#8bc34a', rare: '#ffc107', legendary: '#e040fb' };
 const CATCH_RATES = { common: 0.70, uncommon: 0.40, rare: 0.20, legendary: 0.05 };
 const RARITY_HP = { common: 30, uncommon: 50, rare: 80, legendary: 150 };
@@ -41,6 +80,49 @@ class Critters {
             stats[key] = Math.max(1, base[key] + Math.floor(Math.random() * 5) - 2);
         }
         return stats;
+    }
+
+    static rollPassives(speciesRarity) {
+        const passives = [];
+        // Each critter gets 1-3 passives based on rarity
+        const count = speciesRarity === 'legendary' ? 3 : speciesRarity === 'rare' ? 2 : speciesRarity === 'uncommon' ? 2 : 1;
+        // Extra roll chance for a bonus passive
+        const bonusChance = speciesRarity === 'legendary' ? 0.5 : speciesRarity === 'rare' ? 0.3 : 0.15;
+        const totalSlots = count + (Math.random() < bonusChance ? 1 : 0);
+
+        for (let i = 0; i < totalSlots; i++) {
+            // Roll rarity of this passive slot
+            const roll = Math.random();
+            let pool;
+            if (roll < 0.03) pool = PASSIVE_POOL.legendary;
+            else if (roll < 0.12) pool = PASSIVE_POOL.rare;
+            else if (roll < 0.35) pool = PASSIVE_POOL.uncommon;
+            else pool = PASSIVE_POOL.common;
+
+            const id = pool[Math.floor(Math.random() * pool.length)];
+            if (!passives.includes(id)) passives.push(id);
+        }
+        return passives;
+    }
+
+    // Get total passive effect value for a critter
+    static getPassiveEffect(critter, effectKey) {
+        if (!critter.passives) return 0;
+        let total = 0;
+        for (const pid of critter.passives) {
+            const p = PASSIVES[pid];
+            if (!p || !p.effect) continue;
+            if (p.effect[effectKey] !== undefined) total += p.effect[effectKey];
+        }
+        return total;
+    }
+
+    static hasPassive(critter, effectKey) {
+        if (!critter.passives) return false;
+        return critter.passives.some(pid => {
+            const p = PASSIVES[pid];
+            return p && p.effect && p.effect[effectKey];
+        });
     }
 
     static spawnWild(world) {
@@ -250,6 +332,8 @@ class Critters {
                 id: critter.id, species: critter.species,
                 nickname: SPECIES[critter.species].name,
                 stats: critter.stats, level: 1, xp: 0, assignment: null,
+                passives: Critters.rollPassives(SPECIES[critter.species].rarity),
+                patrolHp: 50, patrolMaxHp: 50,
             };
             return { success: true, captured };
         }
@@ -271,6 +355,8 @@ class Critters {
                 level: 1,
                 xp: 0,
                 assignment: null,
+                passives: Critters.rollPassives(SPECIES[critter.species].rarity),
+                patrolHp: 50, patrolMaxHp: 50,
             };
             return { success: true, captured };
         } else {

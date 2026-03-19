@@ -17,6 +17,7 @@ class Game {
         this.critters = [];
         this.wildCritters = [];
         this.projectiles = [];
+        this.deadCritters = []; // permadeath graveyard
 
         // Combat
         this.gunCooldown = 0;
@@ -177,6 +178,7 @@ class Game {
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
         this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = gs.researchInProgress || null;
+        this.deadCritters = gs.deadCritters || [];
         this.wildCritters = Critters.spawnWild(this.world);
         if (elapsed > 10) {
             const gains = Save.applyAFKGains(this, elapsed);
@@ -197,7 +199,7 @@ class Game {
         this.resources = { wood: 50, stone: 50, food: 30 };
         this.resourceCaps = { wood: 200, stone: 200, food: 150 };
         this.inventory = { traps: 5 };
-        this.buildings = []; this.critters = [];
+        this.buildings = []; this.critters = []; this.deadCritters = [];
         this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = null;
         this.wildCritters = Critters.spawnWild(this.world);
@@ -491,6 +493,16 @@ class Game {
         UI.update();
     }
 
+    renameCritter(critterId) {
+        const c = this.critters.find(cr => cr.id === critterId);
+        if (!c) return;
+        const name = prompt(`Rename ${c.nickname}:`, c.nickname);
+        if (name && name.trim().length > 0 && name.trim().length <= 16) {
+            c.nickname = name.trim();
+            UI.update();
+        }
+    }
+
     togglePause() {
         this.paused = !this.paused;
         const el = document.getElementById('pauseOverlay');
@@ -696,13 +708,59 @@ class Game {
 
         Buildings.updateTurrets(dt, this.buildings, this.wildCritters, this.projectiles, this.research);
 
-        for (const c of this.critters) {
+        for (let pi = this.critters.length - 1; pi >= 0; pi--) {
+            const c = this.critters[pi];
             if (c.assignment !== 'patrol') continue;
             if (!c._patrolAngle) c._patrolAngle = Math.random() * Math.PI * 2;
             if (!c._patrolX) c._patrolX = 0;
             if (!c._patrolY) c._patrolY = 0;
             if (!c._attackTimer) c._attackTimer = 0;
+            if (!c._hurtTimer) c._hurtTimer = 0;
             c._attackTimer -= dt;
+            c._hurtTimer -= dt;
+
+            // Init patrol HP based on VIT
+            if (!c.patrolMaxHp) { c.patrolMaxHp = 30 + (c.stats.VIT || 3) * 5; c.patrolHp = c.patrolMaxHp; }
+            const hpBonus = Critters.getPassiveEffect(c, 'hpBonus');
+            const effectiveMaxHp = Math.floor(c.patrolMaxHp * (1 + hpBonus));
+
+            // Take damage from nearby wild critters that are aggroed
+            for (const wc of this.wildCritters) {
+                if (wc.stunned) continue;
+                const sp = SPECIES[wc.species];
+                if (!sp.aggressive && !wc._aggroed) continue;
+                const dx = (c._patrolX||0) - wc.x, dy = (c._patrolY||0) - wc.y;
+                const d = Math.sqrt(dx*dx + dy*dy);
+                if (d < TILE_SIZE * 1.5 && c._hurtTimer <= 0) {
+                    c.patrolHp -= (sp.attackDmg || 3);
+                    c._hurtTimer = sp.attackCooldown || 1.5;
+                    break;
+                }
+            }
+
+            // Check death
+            if (c.patrolHp <= 0) {
+                if (Critters.hasPassive(c, 'immortal')) {
+                    c.patrolHp = 1; // Undying passive
+                } else if (Critters.hasPassive(c, 'deathSave') && !c._deathSaveUsed) {
+                    c.patrolHp = Math.floor(effectiveMaxHp * 0.3);
+                    c._deathSaveUsed = true;
+                    UI.notify(`${c.nickname}'s Iron Will saved them!`);
+                } else {
+                    // Permadeath
+                    this._cleanupCritterSprite(c);
+                    this.deadCritters.push({ nickname: c.nickname, species: c.species, level: c.level, time: this.gameTimeSec });
+                    this.sounds.destroy();
+                    UI.notify(`${c.nickname} has fallen in battle! (Lv.${c.level} ${SPECIES[c.species].name})`, 5000);
+                    this.critters.splice(pi, 1);
+                    continue;
+                }
+            }
+
+            // Regen 1 hp/sec when not being hurt
+            if (c._hurtTimer <= 0 && c.patrolHp < effectiveMaxHp) {
+                c.patrolHp = Math.min(effectiveMaxHp, c.patrolHp + 2 * dt);
+            }
 
             // Find nearest wild critter within detection range (12 tiles)
             const detectRange = TILE_SIZE * 12;
@@ -832,6 +890,12 @@ class Game {
             foodEl.style.color = this.hungry ? '#f87171' : '#9ccc65';
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
+            const deadEl = document.getElementById('deadCount');
+            if (this.deadCritters.length > 0) {
+                deadEl.style.display = '';
+                deadEl.querySelector('span').textContent = this.deadCritters.length;
+                deadEl.title = this.deadCritters.map(d => `${d.nickname} Lv${d.level} (${SPECIES[d.species].name})`).join('\n');
+            } else { deadEl.style.display = 'none'; }
             // Resource rates
             const fmtRate = (r) => { const v = this._resourceRates[r] || 0; return v >= 0.01 ? `+${v.toFixed(1)}/s` : v <= -0.01 ? `${v.toFixed(1)}/s` : ''; };
             document.getElementById('rateWood').textContent = fmtRate('wood');

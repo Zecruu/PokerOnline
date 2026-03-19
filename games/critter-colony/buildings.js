@@ -11,6 +11,8 @@ const BUILDING_DEFS = {
     expander:    { name: 'Expander',    cost: { wood: 40, stone: 40, food: 20 },  produces: null,    baseRate: 0,   color: '#ab47bc', letter: 'E', size: 1, statKey: null, expander: true, expandRadius: 5 },
     research_lab:{ name: 'Research Lab',cost: { wood: 50, stone: 50, food: 30 },  produces: null,    baseRate: 0,   color: '#5c6bc0', letter: 'R', size: 2, statKey: 'INT', isResearch: true, hp: 100 },
     workbench:   { name: 'Workbench',  cost: { wood: 25, stone: 15, food: 0 },   produces: null,    baseRate: 0,   color: '#8d6e63', letter: 'W', size: 2, statKey: 'DEX', isWorkbench: true, hp: 70 },
+    wall:        { name: 'Wall',       cost: { wood: 5, stone: 10, food: 0 },   produces: null,    baseRate: 0,   color: '#546e7a', letter: '▪', size: 1, statKey: null, isWall: true, hp: 200, blocksMovement: true },
+    gate:        { name: 'Gate',       cost: { wood: 10, stone: 15, food: 0 },  produces: null,    baseRate: 0,   color: '#6d4c41', letter: '⊞', size: 1, statKey: null, isGate: true, hp: 150, blocksMovement: false },
 };
 
 class Buildings {
@@ -65,13 +67,28 @@ class Buildings {
         if (!def.produces || building.workers.length === 0) return 0;
 
         let totalStat = 0;
+        let passiveBonus = 0;
         for (const cid of building.workers) {
             const c = critters.find(cr => cr.id === cid);
-            if (c && def.statKey) {
-                totalStat += c.stats[def.statKey] || 0;
+            if (!c) continue;
+            if (def.statKey) {
+                let stat = c.stats[def.statKey] || 0;
+                // Prodigy passive doubles stat scaling
+                stat *= (1 + Critters.getPassiveEffect(c, 'statMulti'));
+                totalStat += stat;
             }
+            // Production bonus passives
+            passiveBonus += Critters.getPassiveEffect(c, 'prodBonus');
+            // Resource-specific passives (Lumberjack, Quarry Master, Green Thumb)
+            const resBonus = c.passives ? c.passives.reduce((sum, pid) => {
+                const p = PASSIVES[pid];
+                if (p && p.effect && p.effect.resourceBonus && p.effect.resourceBonus[def.produces])
+                    return sum + p.effect.resourceBonus[def.produces];
+                return sum;
+            }, 0) : 0;
+            passiveBonus += resBonus;
         }
-        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05);
+        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05) * (1 + passiveBonus);
         if (hungry) rate *= 0.5; // hungry debuff
         return rate;
     }
