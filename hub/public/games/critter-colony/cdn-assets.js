@@ -77,6 +77,29 @@ function preloadCritterSprites() {
     return Promise.allSettled(promises);
 }
 
+// ─── RESOURCE ICONS ──────────────────────────────────────────
+const RES_ICONS = {};
+
+function preloadResIcons() {
+    const defs = {
+        wood: 'icons/res-wood.png', stone: 'icons/res-stone.png', food: 'icons/res-food.png',
+        iron: 'icons/res-iron.png', oil: 'icons/res-oil.png', gold: 'icons/res-gold.png',
+        diamond: 'icons/res-diamond.png', crystal: 'icons/res-crystal.png',
+        gasoline: 'icons/res-gasoline.png', metal: 'icons/res-metal.png',
+        trap: 'icons/res-trap.png', ammo: 'icons/res-ammo.png', aethershard: 'icons/res-aethershard.png',
+    };
+    const promises = [];
+    for (const [key, path] of Object.entries(defs)) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const p = new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+        img.src = getAssetUrl(path);
+        RES_ICONS[key] = img;
+        promises.push(p);
+    }
+    return Promise.allSettled(promises);
+}
+
 // ─── STAT ICONS ──────────────────────────────────────────────
 const STAT_ICONS = {};
 
@@ -178,7 +201,7 @@ function preloadPlayerSprites() {
 // Preload everything
 function preloadAllAssets() {
     // HTML Image preload for UI panels (img tags in DOM)
-    const htmlPreload = Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons(), preloadPlayerSprites()]);
+    const htmlPreload = Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons(), preloadResIcons(), preloadPlayerSprites()]);
     // PIXI texture load (for WebGL rendering)
     buildPixiTextures();
     return htmlPreload;

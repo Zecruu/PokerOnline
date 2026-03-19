@@ -234,6 +234,8 @@ class Game {
         this._chunkSprites.forEach(cs => { if (cs.sprite.parent) cs.sprite.parent.removeChild(cs.sprite); cs.sprite.destroy(true); });
         this._chunkSprites.clear();
         UI.init(this); UI.update();
+        // Set resource icon images
+        this._setResIcons();
         this.lastTimestamp = performance.now();
         this.pixiApp.ticker.add(() => {
             const now = performance.now();
@@ -538,6 +540,19 @@ class Game {
     }
 
     // Get combined companion effects
+    _setResIcons() {
+        const map = {
+            riWood: 'wood', riStone: 'stone', riFood: 'food', riIron: 'iron',
+            riOil: 'oil', riGold: 'gold', riDiamond: 'diamond', riGas: 'gasoline',
+            riTrap: 'trap', riAmmo: 'ammo', riAether: 'aethershard',
+        };
+        for (const [elId, key] of Object.entries(map)) {
+            const el = document.getElementById(elId);
+            const icon = typeof RES_ICONS !== 'undefined' ? RES_ICONS[key] : null;
+            if (el && icon && icon.complete && icon.src) el.src = icon.src;
+        }
+    }
+
     closeBuildMenu() { UI.toggleBuildMenu(); }
     switchBuildTab(tab) { UI.switchTab(tab); }
 
