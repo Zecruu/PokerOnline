@@ -242,7 +242,11 @@ class UI {
                     const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
                     html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
-                    html += `<div class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</div>`;
+                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[sp.type] : null;
+                    html += `<div class="cc-type-row">`;
+                    html += `<span class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</span>`;
+                    if (typeInfo) html += `<span class="cc-type" style="color:${typeInfo.color}">${typeInfo.icon} ${typeInfo.name}</span>`;
+                    html += `</div>`;
                     if (c.injured) {
                         const mins = Math.ceil((c.injuredTimer || 0) / 60);
                         html += `<div class="cc-injured">🩹 Injured — ${mins}m recovery</div>`;
@@ -283,6 +287,10 @@ class UI {
                         const bld = g.buildings.find(b => b.id === c.assignment);
                         if (bld) {
                             const def = BUILDING_DEFS[bld.type];
+                            // Type match indicator
+                            const tBonus = typeof Critters !== 'undefined' ? Critters.getTypeBonus(c, bld.type) : 0;
+                            if (tBonus > 0) html += `<div class="cc-bonus cc-type-match">✅ Type match! +${(tBonus*100).toFixed(0)}% bonus</div>`;
+                            else if (tBonus < 0) html += `<div class="cc-bonus cc-type-mismatch">⚠️ Wrong type. ${(tBonus*100).toFixed(0)}% penalty</div>`;
                             if (def.produces && def.statKey) {
                                 const statVal = c.stats[def.statKey] || 0;
                                 const bonus = (statVal * 0.05 * 100).toFixed(0);

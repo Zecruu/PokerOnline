@@ -96,18 +96,16 @@ class Buildings {
 
         let totalStat = 0;
         let passiveBonus = 0;
+        let typeBonus = 0;
         for (const cid of building.workers) {
             const c = critters.find(cr => cr.id === cid);
             if (!c) continue;
             if (def.statKey) {
                 let stat = c.stats[def.statKey] || 0;
-                // Prodigy passive doubles stat scaling
                 stat *= (1 + Critters.getPassiveEffect(c, 'statMulti'));
                 totalStat += stat;
             }
-            // Production bonus passives
             passiveBonus += Critters.getPassiveEffect(c, 'prodBonus');
-            // Resource-specific passives (Lumberjack, Quarry Master, Green Thumb)
             const resBonus = c.passives ? c.passives.reduce((sum, pid) => {
                 const p = PASSIVES[pid];
                 if (p && p.effect && p.effect.resourceBonus && p.effect.resourceBonus[def.produces])
@@ -115,10 +113,12 @@ class Buildings {
                 return sum;
             }, 0) : 0;
             passiveBonus += resBonus;
+            // Type bonus/penalty
+            typeBonus += Critters.getTypeBonus(c, building.type);
         }
-        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05) * (1 + passiveBonus);
-        if (hungry) rate *= 0.5; // hungry debuff
-        return rate;
+        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05) * (1 + passiveBonus) * (1 + typeBonus / building.workers.length);
+        if (hungry) rate *= 0.5;
+        return Math.max(0, rate);
     }
 
     // Base 5 seconds per trap. Each DEX point from workers reduces by 2%, min 1 second.

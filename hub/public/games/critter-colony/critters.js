@@ -2,37 +2,52 @@
    Critter Colony — Critter System
    ============================================================ */
 
+// ─── CRITTER TYPES ──────────────────────────────────────────
+const CRITTER_TYPES = {
+    grass:  { name: 'Grass',  icon: '🌿', color: '#66bb6a', desc: 'Farming & food production', buildings: ['farm','greenhouse'] },
+    fire:   { name: 'Fire',   icon: '🔥', color: '#ff7043', desc: 'Smelting & fuel processing', buildings: ['smelter','gas_refinery'] },
+    muscle: { name: 'Muscle', icon: '💪', color: '#90a4ae', desc: 'Mining, lumber & combat',    buildings: ['mine','lumber_mill','iron_mine','oil_pump','gold_mine','diamond_drill'] },
+    arcane: { name: 'Arcane', icon: '🔮', color: '#ce93d8', desc: 'Research, crafting & extractors', buildings: ['research_lab','workbench','crystal_extractor','refinery'] },
+    beast:  { name: 'Beast',  icon: '🐾', color: '#8d6e63', desc: 'Patrol & bodyguard specialist', buildings: [] },
+    fairy:  { name: 'Fairy',  icon: '✨', color: '#fff176', desc: 'Lucky crafter & healer',    buildings: ['workbench','healer'] },
+};
+
+// Type bonus: +50% production when assigned to a matching building type
+// Wrong type: works but at -30% penalty
+const TYPE_MATCH_BONUS = 0.50;
+const TYPE_MISMATCH_PENALTY = -0.30;
+
 const SPECIES = {
     // ── COMMON (8) ──────────────────────────────────────────
-    mossbun:     { name: 'Mossbun',     color: '#66bb6a', rarity: 'common',    baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false, attackDmg: 2, attackCooldown: 2, size: 1 },
-    pebblit:     { name: 'Pebblit',     color: '#90a4ae', rarity: 'common',    baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 8, attackDmg: 4, attackCooldown: 1.2, size: 1 },
-    flickwing:   { name: 'Flickwing',   color: '#ffd54f', rarity: 'common',    baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false, attackDmg: 2, attackCooldown: 1.5, size: 1 },
-    thornback:   { name: 'Thornback',   color: '#558b2f', rarity: 'common',    baseStats: { STR:5, DEX:3, INT:2, VIT:6, LCK:4 }, desc: 'Spiky hedgehog critter. Tough and reliable.', aggressive: true, aggroRange: 6, attackDmg: 5, attackCooldown: 1.4, size: 1 },
-    mudgrub:     { name: 'Mudgrub',     color: '#795548', rarity: 'common',    baseStats: { STR:4, DEX:2, INT:1, VIT:8, LCK:2 }, desc: 'Ugly worm thing. Useless but very tanky.', aggressive: false, attackDmg: 1, attackCooldown: 3, size: 0.8 },
-    dustmite:    { name: 'Dustmite',    color: '#bcaaa4', rarity: 'common',    baseStats: { STR:2, DEX:5, INT:2, VIT:4, LCK:6 }, desc: 'Tiny dust bug. Annoyingly fast and lucky.', aggressive: true, aggroRange: 5, attackDmg: 1, attackCooldown: 0.8, size: 0.6 },
-    puffshroom:  { name: 'Puffshroom',  color: '#ef9a9a', rarity: 'common',    baseStats: { STR:1, DEX:1, INT:6, VIT:9, LCK:3 }, desc: 'Adorable mushroom blob. Great HP, terrible at everything else.', aggressive: false, attackDmg: 1, attackCooldown: 3, size: 1.1 },
-    scraprat:    { name: 'Scraprat',    color: '#8d6e63', rarity: 'common',    baseStats: { STR:3, DEX:6, INT:3, VIT:3, LCK:5 }, desc: 'Ugly sewer rat. Scrappy crafter with luck.', aggressive: true, aggroRange: 6, attackDmg: 3, attackCooldown: 1.0, size: 0.9 },
+    mossbun:     { name: 'Mossbun',     type: 'grass',  color: '#66bb6a', rarity: 'common',    baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false, attackDmg: 2, attackCooldown: 2, size: 1 },
+    pebblit:     { name: 'Pebblit',     type: 'muscle', color: '#90a4ae', rarity: 'common',    baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 8, attackDmg: 4, attackCooldown: 1.2, size: 1 },
+    flickwing:   { name: 'Flickwing',   type: 'arcane', color: '#ffd54f', rarity: 'common',    baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false, attackDmg: 2, attackCooldown: 1.5, size: 1 },
+    thornback:   { name: 'Thornback',   type: 'grass',  color: '#558b2f', rarity: 'common',    baseStats: { STR:5, DEX:3, INT:2, VIT:6, LCK:4 }, desc: 'Spiky hedgehog critter. Tough and reliable.', aggressive: true, aggroRange: 6, attackDmg: 5, attackCooldown: 1.4, size: 1 },
+    mudgrub:     { name: 'Mudgrub',     type: 'beast',  color: '#795548', rarity: 'common',    baseStats: { STR:4, DEX:2, INT:1, VIT:8, LCK:2 }, desc: 'Ugly worm thing. Useless but very tanky.', aggressive: false, attackDmg: 1, attackCooldown: 3, size: 0.8 },
+    dustmite:    { name: 'Dustmite',    type: 'beast',  color: '#bcaaa4', rarity: 'common',    baseStats: { STR:2, DEX:5, INT:2, VIT:4, LCK:6 }, desc: 'Tiny dust bug. Annoyingly fast and lucky.', aggressive: true, aggroRange: 5, attackDmg: 1, attackCooldown: 0.8, size: 0.6 },
+    puffshroom:  { name: 'Puffshroom',  type: 'grass',  color: '#ef9a9a', rarity: 'common',    baseStats: { STR:1, DEX:1, INT:6, VIT:9, LCK:3 }, desc: 'Adorable mushroom blob. Great HP, terrible at everything else.', aggressive: false, attackDmg: 1, attackCooldown: 3, size: 1.1 },
+    scraprat:    { name: 'Scraprat',    type: 'arcane', color: '#8d6e63', rarity: 'common',    baseStats: { STR:3, DEX:6, INT:3, VIT:3, LCK:5 }, desc: 'Ugly sewer rat. Scrappy crafter with luck.', aggressive: true, aggroRange: 6, attackDmg: 3, attackCooldown: 1.0, size: 0.9 },
 
     // ── UNCOMMON (6) ────────────────────────────────────────
-    glowmite:    { name: 'Glowmite',    color: '#ce93d8', rarity: 'uncommon',  baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8, size: 1 },
-    emberfox:    { name: 'Emberfox',    color: '#ff7043', rarity: 'uncommon',  baseStats: { STR:5, DEX:7, INT:3, VIT:4, LCK:5 }, desc: 'A fiery fox. Fast attacker and decent crafter.', aggressive: true, aggroRange: 10, attackDmg: 7, attackCooldown: 1.0, size: 1.2 },
-    crystalhorn: { name: 'Crystalhorn', color: '#7e57c2', rarity: 'uncommon',  baseStats: { STR:6, DEX:2, INT:4, VIT:7, LCK:5 }, desc: 'Crystalline beetle. Incredibly sturdy miner.', aggressive: true, aggroRange: 8, attackDmg: 8, attackCooldown: 1.6, size: 1.3 },
-    bogwalker:   { name: 'Bogwalker',   color: '#4e342e', rarity: 'uncommon',  baseStats: { STR:8, DEX:1, INT:2, VIT:9, LCK:2 }, desc: 'Massive swamp toad. Slow but hits like a truck.', aggressive: true, aggroRange: 5, attackDmg: 12, attackCooldown: 2.5, size: 1.6 },
-    sparkfly:    { name: 'Sparkfly',    color: '#80deea', rarity: 'uncommon',  baseStats: { STR:1, DEX:10, INT:5, VIT:2, LCK:6 }, desc: 'Tiny electric firefly. Lightning fast but fragile.', aggressive: false, attackDmg: 3, attackCooldown: 0.6, size: 0.7 },
-    rotjaw:      { name: 'Rotjaw',      color: '#6d4c41', rarity: 'uncommon',  baseStats: { STR:7, DEX:4, INT:1, VIT:6, LCK:3 }, desc: 'Decaying lizard. Ugly and mean. Good fighter.', aggressive: true, aggroRange: 10, attackDmg: 9, attackCooldown: 1.3, size: 1.3 },
+    glowmite:    { name: 'Glowmite',    type: 'arcane', color: '#ce93d8', rarity: 'uncommon',  baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8, size: 1 },
+    emberfox:    { name: 'Emberfox',    type: 'fire',   color: '#ff7043', rarity: 'uncommon',  baseStats: { STR:5, DEX:7, INT:3, VIT:4, LCK:5 }, desc: 'A fiery fox. Fast attacker and decent crafter.', aggressive: true, aggroRange: 10, attackDmg: 7, attackCooldown: 1.0, size: 1.2 },
+    crystalhorn: { name: 'Crystalhorn', type: 'muscle', color: '#7e57c2', rarity: 'uncommon',  baseStats: { STR:6, DEX:2, INT:4, VIT:7, LCK:5 }, desc: 'Crystalline beetle. Incredibly sturdy miner.', aggressive: true, aggroRange: 8, attackDmg: 8, attackCooldown: 1.6, size: 1.3 },
+    bogwalker:   { name: 'Bogwalker',   type: 'beast',  color: '#4e342e', rarity: 'uncommon',  baseStats: { STR:8, DEX:1, INT:2, VIT:9, LCK:2 }, desc: 'Massive swamp toad. Slow but hits like a truck.', aggressive: true, aggroRange: 5, attackDmg: 12, attackCooldown: 2.5, size: 1.6 },
+    sparkfly:    { name: 'Sparkfly',    type: 'arcane', color: '#80deea', rarity: 'uncommon',  baseStats: { STR:1, DEX:10, INT:5, VIT:2, LCK:6 }, desc: 'Tiny electric firefly. Lightning fast but fragile.', aggressive: false, attackDmg: 3, attackCooldown: 0.6, size: 0.7 },
+    rotjaw:      { name: 'Rotjaw',      type: 'muscle', color: '#6d4c41', rarity: 'uncommon',  baseStats: { STR:7, DEX:4, INT:1, VIT:6, LCK:3 }, desc: 'Decaying lizard. Ugly and mean. Good fighter.', aggressive: true, aggroRange: 10, attackDmg: 9, attackCooldown: 1.3, size: 1.3 },
 
     // ── RARE (5) ────────────────────────────────────────────
-    stormwing:   { name: 'Stormwing',   color: '#42a5f5', rarity: 'rare',      baseStats: { STR:4, DEX:10, INT:7, VIT:4, LCK:6 }, desc: 'Electric bird. Lightning fast, great at everything.', aggressive: true, aggroRange: 14, attackDmg: 10, attackCooldown: 0.8, size: 1.3 },
-    ironshell:   { name: 'Ironshell',   color: '#78909c', rarity: 'rare',      baseStats: { STR:9, DEX:2, INT:3, VIT:12, LCK:5 }, desc: 'Armored turtle. Nearly indestructible tank.', aggressive: true, aggroRange: 6, attackDmg: 12, attackCooldown: 2.0, size: 1.5 },
-    venomaw:     { name: 'Venomaw',     color: '#ab47bc', rarity: 'rare',      baseStats: { STR:7, DEX:6, INT:5, VIT:5, LCK:8 }, desc: 'Toxic frog. Poisons enemies and boosts luck.', aggressive: true, aggroRange: 12, attackDmg: 9, attackCooldown: 1.2, size: 1.2 },
-    goretusk:    { name: 'Goretusk',    color: '#b71c1c', rarity: 'rare',      baseStats: { STR:12, DEX:4, INT:1, VIT:8, LCK:3 }, desc: 'Blood-red boar. Pure aggression. Terrible worker.', aggressive: true, aggroRange: 16, attackDmg: 16, attackCooldown: 1.0, size: 1.7 },
-    faewisp:     { name: 'Faewisp',     color: '#b2ff59', rarity: 'rare',      baseStats: { STR:1, DEX:6, INT:12, VIT:3, LCK:10 }, desc: 'Ethereal fairy. Incredible researcher and lucky.', aggressive: false, attackDmg: 2, attackCooldown: 2, size: 0.8 },
+    stormwing:   { name: 'Stormwing',   type: 'arcane', color: '#42a5f5', rarity: 'rare',      baseStats: { STR:4, DEX:10, INT:7, VIT:4, LCK:6 }, desc: 'Electric bird. Lightning fast, great at everything.', aggressive: true, aggroRange: 14, attackDmg: 10, attackCooldown: 0.8, size: 1.3 },
+    ironshell:   { name: 'Ironshell',   type: 'muscle', color: '#78909c', rarity: 'rare',      baseStats: { STR:9, DEX:2, INT:3, VIT:12, LCK:5 }, desc: 'Armored turtle. Nearly indestructible tank.', aggressive: true, aggroRange: 6, attackDmg: 12, attackCooldown: 2.0, size: 1.5 },
+    venomaw:     { name: 'Venomaw',     type: 'beast',  color: '#ab47bc', rarity: 'rare',      baseStats: { STR:7, DEX:6, INT:5, VIT:5, LCK:8 }, desc: 'Toxic frog. Poisons enemies and boosts luck.', aggressive: true, aggroRange: 12, attackDmg: 9, attackCooldown: 1.2, size: 1.2 },
+    goretusk:    { name: 'Goretusk',    type: 'beast',  color: '#b71c1c', rarity: 'rare',      baseStats: { STR:12, DEX:4, INT:1, VIT:8, LCK:3 }, desc: 'Blood-red boar. Pure aggression. Terrible worker.', aggressive: true, aggroRange: 16, attackDmg: 16, attackCooldown: 1.0, size: 1.7 },
+    faewisp:     { name: 'Faewisp',     type: 'fairy',  color: '#b2ff59', rarity: 'rare',      baseStats: { STR:1, DEX:6, INT:12, VIT:3, LCK:10 }, desc: 'Ethereal fairy. Incredible researcher and lucky.', aggressive: false, attackDmg: 2, attackCooldown: 2, size: 0.8 },
 
     // ── LEGENDARY (4) ───────────────────────────────────────
-    shadowfang:  { name: 'Shadowfang',  color: '#5c2d91', rarity: 'legendary', baseStats: { STR:12, DEX:10, INT:6, VIT:8, LCK:8 }, desc: 'Dark wolf of shadow. Devastating in combat.', aggressive: true, aggroRange: 18, attackDmg: 18, attackCooldown: 0.7, size: 1.8 },
-    celestine:   { name: 'Celestine',   color: '#e0f7fa', rarity: 'legendary', baseStats: { STR:6, DEX:8, INT:14, VIT:10, LCK:10 }, desc: 'Celestial deer. Divine researcher and healer.', aggressive: true, aggroRange: 16, attackDmg: 14, attackCooldown: 1.0, size: 1.8 },
-    dreadmaw:    { name: 'Dreadmaw',    color: '#1a1a1a', rarity: 'legendary', baseStats: { STR:15, DEX:6, INT:2, VIT:14, LCK:5 }, desc: 'Abyssal horror. Giant mouth. Eats everything.', aggressive: true, aggroRange: 20, attackDmg: 25, attackCooldown: 0.8, size: 2.2 },
-    tinkerbell:  { name: 'Tinkerbell',  color: '#fff176', rarity: 'legendary', baseStats: { STR:2, DEX:14, INT:12, VIT:4, LCK:14 }, desc: 'Adorable golden pixie. Absurdly lucky crafter.', aggressive: false, attackDmg: 5, attackCooldown: 1.5, size: 0.6 },
+    shadowfang:  { name: 'Shadowfang',  type: 'beast',  color: '#5c2d91', rarity: 'legendary', baseStats: { STR:12, DEX:10, INT:6, VIT:8, LCK:8 }, desc: 'Dark wolf of shadow. Devastating in combat.', aggressive: true, aggroRange: 18, attackDmg: 18, attackCooldown: 0.7, size: 1.8 },
+    celestine:   { name: 'Celestine',   type: 'fairy',  color: '#e0f7fa', rarity: 'legendary', baseStats: { STR:6, DEX:8, INT:14, VIT:10, LCK:10 }, desc: 'Celestial deer. Divine researcher and healer.', aggressive: true, aggroRange: 16, attackDmg: 14, attackCooldown: 1.0, size: 1.8 },
+    dreadmaw:    { name: 'Dreadmaw',    type: 'beast',  color: '#1a1a1a', rarity: 'legendary', baseStats: { STR:15, DEX:6, INT:2, VIT:14, LCK:5 }, desc: 'Abyssal horror. Giant mouth. Eats everything.', aggressive: true, aggroRange: 20, attackDmg: 25, attackCooldown: 0.8, size: 2.2 },
+    tinkerbell:  { name: 'Tinkerbell',  type: 'fairy',  color: '#fff176', rarity: 'legendary', baseStats: { STR:2, DEX:14, INT:12, VIT:4, LCK:14 }, desc: 'Adorable golden pixie. Absurdly lucky crafter.', aggressive: false, attackDmg: 5, attackCooldown: 1.5, size: 0.6 },
 };
 
 // ─── PASSIVE ABILITIES ──────────────────────────────────────
@@ -106,6 +121,17 @@ const CAPTURE_RANGE = 2.5; // in tiles
 let _nextCritterId = 1;
 
 class Critters {
+    // Check if critter type matches a building
+    static getTypeBonus(critter, buildingType) {
+        const sp = SPECIES[critter.species];
+        if (!sp || !sp.type) return 0;
+        const typeInfo = CRITTER_TYPES[sp.type];
+        if (!typeInfo) return 0;
+        if (typeInfo.buildings.includes(buildingType)) return TYPE_MATCH_BONUS;
+        if (typeInfo.buildings.length > 0) return TYPE_MISMATCH_PENALTY; // has specialties but this isn't one
+        return 0; // beast type — no building specialty, no penalty
+    }
+
     static rollStats(species) {
         const base = SPECIES[species].baseStats;
         const stats = {};
