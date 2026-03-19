@@ -2057,66 +2057,45 @@ class Game {
     _drawPlayer(px, py) {
         // Determine direction based on last movement
         if (!this.player._dir) this.player._dir = 'front';
-        if (!this.player._animFrame) this.player._animFrame = 0;
-        if (!this.player._animTimer) this.player._animTimer = 0;
 
-        const dx = (this.keys['d'] || this.keys['arrowright'] ? 1 : 0) - (this.keys['a'] || this.keys['arrowleft'] ? 1 : 0);
-        const dy = (this.keys['s'] || this.keys['arrowdown'] ? 1 : 0) - (this.keys['w'] || this.keys['arrowup'] ? 1 : 0);
-        const moving = dx !== 0 || dy !== 0;
+        const mdx = (this.keys['d'] || this.keys['arrowright'] ? 1 : 0) - (this.keys['a'] || this.keys['arrowleft'] ? 1 : 0);
+        const mdy = (this.keys['s'] || this.keys['arrowdown'] ? 1 : 0) - (this.keys['w'] || this.keys['arrowup'] ? 1 : 0);
 
-        if (dx > 0) this.player._dir = 'right';
-        else if (dx < 0) this.player._dir = 'left';
-        else if (dy > 0) this.player._dir = 'front';
-        else if (dy < 0) this.player._dir = 'back';
+        if (mdx > 0) this.player._dir = 'right';
+        else if (mdx < 0) this.player._dir = 'left';
+        else if (mdy > 0) this.player._dir = 'front';
+        else if (mdy < 0) this.player._dir = 'back';
 
-        // Animate frames when moving
-        if (moving) {
-            this.player._animTimer += 0.15;
-            if (this.player._animTimer >= 1) {
-                this.player._animTimer = 0;
-                this.player._animFrame = (this.player._animFrame + 1) % 4;
-            }
-        } else {
-            this.player._animFrame = 0;
-            this.player._animTimer = 0;
-        }
-
-        // Get sprite — right = left flipped
+        // Single static sprites per direction
+        // Left sprite is the base — right = left flipped horizontally
         const dir = this.player._dir;
         const spriteKey = dir === 'right' ? 'left' : dir;
         const sprite = typeof PLAYER_SPRITES !== 'undefined' ? PLAYER_SPRITES[spriteKey] : null;
         const flipX = dir === 'right';
 
         if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-            // Sprite sheet: assume 4 frames in a row, each frame is (width/4) x height
-            const frameW = sprite.naturalWidth / 4;
-            const frameH = sprite.naturalHeight;
-            const frame = this.player._animFrame;
-            const sx = frame * frameW;
-            const drawW = 32, drawH = 32 * (frameH / frameW);
+            const drawSize = 48; // render size in world pixels
 
-            // Use a temp canvas for sprite rendering (PIXI gfx can't draw images directly)
             if (!this._playerCanvas) {
                 this._playerCanvas = document.createElement('canvas');
-                this._playerCanvas.width = 64;
-                this._playerCanvas.height = 64;
+                this._playerCanvas.width = drawSize;
+                this._playerCanvas.height = drawSize;
             }
             const pctx = this._playerCanvas.getContext('2d');
-            pctx.clearRect(0, 0, 64, 64);
+            pctx.clearRect(0, 0, drawSize, drawSize);
             pctx.save();
             if (flipX) {
                 pctx.scale(-1, 1);
-                pctx.drawImage(sprite, sx, 0, frameW, frameH, -64, 0, 64, 64);
+                pctx.drawImage(sprite, 0, 0, sprite.naturalWidth, sprite.naturalHeight, -drawSize, 0, drawSize, drawSize);
             } else {
-                pctx.drawImage(sprite, sx, 0, frameW, frameH, 0, 0, 64, 64);
+                pctx.drawImage(sprite, 0, 0, sprite.naturalWidth, sprite.naturalHeight, 0, 0, drawSize, drawSize);
             }
             pctx.restore();
 
-            // Draw the temp canvas as a PIXI texture
             if (!this._playerPixiTex) {
                 this._playerPixiTex = PIXI.Texture.from(this._playerCanvas);
                 this._playerPixiSprite = new PIXI.Sprite(this._playerPixiTex);
-                this._playerPixiSprite.anchor.set(0.5, 0.5);
+                this._playerPixiSprite.anchor.set(0.5, 0.7); // feet near bottom
                 this.worldContainer.addChild(this._playerPixiSprite);
             }
             this._playerPixiTex.update();
