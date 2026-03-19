@@ -59,15 +59,21 @@
       </div>
     </div>
 
-    <!-- Side Panel -->
-    <div id="sidePanel">
-      <div class="panel-tabs">
-        <button class="panel-tab active" id="tabBuildings">Build</button>
-        <button class="panel-tab" id="tabCritters">Critters</button>
-        <button class="panel-tab" id="tabManage">Manage</button>
-        <button class="panel-tab" id="tabResearch">Research</button>
+    <!-- Build Menu Modal (B key) -->
+    <div id="buildModal" class="build-modal hidden">
+      <div class="build-modal-content">
+        <div class="build-modal-header">
+          <h2>Build Menu</h2>
+          <button class="build-modal-close" onclick="game.closeBuildMenu()">&times;</button>
+        </div>
+        <div class="build-modal-tabs">
+          <button class="bm-tab active" data-tab="buildings" onclick="game.switchBuildTab('buildings')">Buildings</button>
+          <button class="bm-tab" data-tab="critters" onclick="game.switchBuildTab('critters')">Critters</button>
+          <button class="bm-tab" data-tab="manage" onclick="game.switchBuildTab('manage')">Manage</button>
+          <button class="bm-tab" data-tab="research" onclick="game.switchBuildTab('research')">Research</button>
+        </div>
+        <div id="buildModalBody" class="build-modal-body"></div>
       </div>
-      <div id="panelBody" class="panel-body"></div>
     </div>
 
     <!-- Controls hint -->

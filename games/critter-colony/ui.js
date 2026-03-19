@@ -47,20 +47,24 @@ class UI {
         this.activeTab = 'buildings';
         this.notifications = [];
         this.showWaypointMenu = false;
-        this.showResearchMenu = false;
-
-        document.getElementById('tabBuildings').onclick = () => this.switchTab('buildings');
-        document.getElementById('tabCritters').onclick = () => this.switchTab('critters');
-        document.getElementById('tabManage').onclick = () => this.switchTab('manage');
-        document.getElementById('tabResearch').onclick = () => this.switchTab('research');
+        this.showBuildMenu = false;
     }
 
     static switchTab(tab) {
         this.activeTab = tab;
-        document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-        const el = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+        document.querySelectorAll('.bm-tab').forEach(t => t.classList.remove('active'));
+        const el = document.querySelector(`.bm-tab[data-tab="${tab}"]`);
         if (el) el.classList.add('active');
         this.updatePanel();
+    }
+
+    static toggleBuildMenu() {
+        this.showBuildMenu = !this.showBuildMenu;
+        const modal = document.getElementById('buildModal');
+        if (modal) {
+            if (this.showBuildMenu) { modal.classList.remove('hidden'); this.updatePanel(); }
+            else modal.classList.add('hidden');
+        }
     }
 
     static update() {
@@ -86,7 +90,7 @@ class UI {
 
     static updatePanel() {
         const g = this.game;
-        const body = document.getElementById('panelBody');
+        const body = document.getElementById('buildModalBody');
         if (!body) return;
 
         // Don't rebuild critters/manage tab if a select is focused (prevents dropdown closing)
@@ -167,15 +171,18 @@ class UI {
         }
 
         if (this.activeTab === 'buildings') {
-            let html = '<div class="panel-section-label">Build</div>';
+            let html = '<div class="build-grid">';
             for (const [type, def] of Object.entries(BUILDING_DEFS)) {
                 if (def.unbuildable) continue;
                 const canAfford = Buildings.canAfford(type, g.resources);
+                const isLocked = def.researchReq && !(g.research[def.researchReq] > 0);
                 const costStr = Object.entries(def.cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
-                // Building sprite image
                 const bSprite = typeof BUILDING_SPRITES !== 'undefined' && BUILDING_SPRITES[type] && BUILDING_SPRITES[type].complete && BUILDING_SPRITES[type].naturalWidth > 0
                     ? BUILDING_SPRITES[type] : null;
-                html += `<div class="build-item ${canAfford ? '' : 'disabled'}" onclick="game.startPlacement('${type}')">`;
+
+                const classes = isLocked ? 'build-item locked disabled' : canAfford ? 'build-item' : 'build-item disabled';
+                const onclick = isLocked ? '' : `onclick="game.startPlacement('${type}')"`;
+                html += `<div class="${classes}" ${onclick}>`;
                 html += `<div class="build-header">`;
                 if (bSprite) {
                     html += `<img class="build-icon" src="${bSprite.src}">`;
@@ -184,24 +191,31 @@ class UI {
                 }
                 html += `<div class="build-header-text">`;
                 html += `<span class="build-name">${def.name}</span>`;
-                html += `<span class="build-cost">${costStr || 'Free'}</span>`;
-                html += `</div>`;
-                html += `</div>`;
-                // Stat yield info with icon
-                if (def.statKey) {
-                    const statIcon = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[def.statKey.toLowerCase()] && STAT_ICONS[def.statKey.toLowerCase()].complete
-                        ? `<img class="build-stat-icon" src="${STAT_ICONS[def.statKey.toLowerCase()].src}">` : '';
-                    html += `<div class="build-stat">${statIcon}<b>${def.statKey}</b> increases yield</div>`;
+                if (isLocked) {
+                    const rd = RESEARCH_DEFS[def.researchReq];
+                    html += `<span class="build-locked-text">Requires: ${rd ? rd.name : def.researchReq}</span>`;
+                } else {
+                    html += `<span class="build-cost">${costStr || 'Free'}</span>`;
                 }
-                if (def.produces) html += `<span class="build-desc">Produces ${def.produces} — assign critters with high ${def.statKey || 'stats'}</span>`;
-                else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
-                else if (def.turret) html += `<span class="build-desc">Auto-attacks wild critters</span>`;
-                else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
-                else if (def.isResearch) html += `<span class="build-desc">Assign high INT critters to research faster</span>`;
-                else if (def.isWorkbench) html += `<span class="build-desc">Crafts traps (5 wood + 3 stone). High DEX = faster</span>`;
-                if (def.hp) html += `<span class="build-hp">HP: ${def.hp}</span>`;
+                html += `</div>`;
+                html += `</div>`;
+                if (!isLocked) {
+                    if (def.produces) html += `<span class="build-desc">Produces ${def.produces}</span>`;
+                    else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
+                    else if (def.turret) html += `<span class="build-desc">Auto-attacks enemies</span>`;
+                    else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
+                    else if (def.isResearch) html += `<span class="build-desc">Research new tech</span>`;
+                    else if (def.isWorkbench) html += `<span class="build-desc">Craft traps & ammo</span>`;
+                    else if (def.isGenerator) html += `<span class="build-desc">Powers nearby extractors</span>`;
+                    else if (def.isExtractor) html += `<span class="build-desc">Place on ${NODE_INFO[def.nodeType]?.name || 'node'}</span>`;
+                    else if (def.isStorage) html += `<span class="build-desc">+150 resource cap</span>`;
+                    else if (def.isPassiveLab) html += `<span class="build-desc">Transfer passives</span>`;
+                    else if (def.isHealer) html += `<span class="build-desc">Auto-heal injured</span>`;
+                    else if (def.isBarracks) html += `<span class="build-desc">+30% patrol damage</span>`;
+                }
                 html += `</div>`;
             }
+            html += '</div>'; // close build-grid
 
             if (g.buildings.length > 0) {
                 html += '<div class="panel-section-label" style="margin-top:12px">Your Buildings</div>';

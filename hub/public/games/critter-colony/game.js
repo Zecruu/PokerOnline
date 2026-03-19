@@ -254,10 +254,11 @@ class Game {
             if (e.key.toLowerCase() === 'q') this.miningHeld = true;
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
             if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
-            if (e.key.toLowerCase() === 'b') UI.switchTab('buildings');
+            if (e.key.toLowerCase() === 'b') UI.toggleBuildMenu();
             if (e.key === 'Escape') {
                 if (this.paused) { this.togglePause(); }
                 else if (document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden')) { this.toggleSettings(); }
+                else if (UI.showBuildMenu) { UI.toggleBuildMenu(); }
                 else { this.placementMode = null; UI.showWaypointMenu = false; this.showFullMap = false; }
             }
             if (e.key.toLowerCase() === 'p') this.togglePause();
@@ -468,9 +469,12 @@ class Game {
     }
 
     startPlacement(type) {
+        const def = BUILDING_DEFS[type];
+        if (def.researchReq && !(this.research[def.researchReq] > 0)) { UI.notify('Research required first!'); return; }
         if (!Buildings.canAfford(type, this.resources)) { UI.notify('Not enough resources!'); return; }
         this.placementMode = { type };
-        UI.notify(`Click colony zone to place ${BUILDING_DEFS[type].name}. ESC to cancel.`);
+        if (UI.showBuildMenu) UI.toggleBuildMenu(); // close modal when placing
+        UI.notify(`Click to place ${def.name}. ESC to cancel.`);
     }
 
     assignCritter(critterId, valueStr) {
@@ -534,6 +538,9 @@ class Game {
     }
 
     // Get combined companion effects
+    closeBuildMenu() { UI.toggleBuildMenu(); }
+    switchBuildTab(tab) { UI.switchTab(tab); }
+
     getCompanionEffect(effectKey) {
         let total = 0;
         for (const c of this.critters) {
@@ -1240,7 +1247,7 @@ class Game {
                 }
             }
 
-            UI.updatePanel();
+            if (UI.showBuildMenu) UI.updatePanel();
         }
     }
 
