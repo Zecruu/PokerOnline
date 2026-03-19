@@ -3,6 +3,7 @@
    ============================================================ */
 
 const BUILDING_DEFS = {
+    hq:          { name: 'Colony HQ',   cost: { wood: 0, stone: 0, food: 0 },    produces: null,    baseRate: 0,   color: '#4FC3F7', letter: 'H', size: 3, statKey: null, hp: 500, isHQ: true, unbuildable: true },
     mine:        { name: 'Mine',        cost: { wood: 30, stone: 0, food: 0 },   produces: 'stone', baseRate: 0.1, color: '#78909c', letter: 'M', size: 2, statKey: 'STR', hp: 80 },
     lumber_mill: { name: 'Lumber Mill', cost: { wood: 0, stone: 30, food: 0 },   produces: 'wood',  baseRate: 0.1, color: '#6d4c41', letter: 'L', size: 2, statKey: 'STR', hp: 80 },
     farm:        { name: 'Farm',        cost: { wood: 20, stone: 10, food: 0 },   produces: 'food',  baseRate: 0.2, color: '#7cb342', letter: 'F', size: 2, statKey: 'VIT', hp: 60 },

@@ -143,6 +143,7 @@ class UI {
         if (this.activeTab === 'buildings') {
             let html = '<div class="panel-section-label">Build</div>';
             for (const [type, def] of Object.entries(BUILDING_DEFS)) {
+                if (def.unbuildable) continue;
                 const canAfford = Buildings.canAfford(type, g.resources);
                 const costStr = Object.entries(def.cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
                 // Building sprite image

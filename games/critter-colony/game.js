@@ -12,7 +12,7 @@ class Game {
 
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
-        this.inventory = { traps: 5, ammo: 30 };
+        this.inventory = { traps: 5, ammo: 120 };
         this.buildings = [];
         this.critters = [];
         this.wildCritters = [];
@@ -148,6 +148,15 @@ class Game {
         let html = '<div class="title-content">';
         html += '<h1 class="title-logo">Critter<span>Colony</span></h1>';
         html += '<p class="title-sub">Capture. Build. Automate.</p>';
+        html += '<div class="title-info">';
+        html += '<p>Explore an infinite procedural world. Capture wild critters and put them to work mining, farming, researching, and crafting.</p>';
+        html += '<p>Build walls and turrets to defend your colony. Assign patrol guards to fight off aggressive creatures.</p>';
+        html += '<div class="title-lose"><b>Lose condition:</b> Your Colony HQ is destroyed → Game Over</div>';
+        html += '<div class="title-controls">';
+        html += '<span>WASD move</span><span>Hold Click shoot</span><span>Hold Q mine</span>';
+        html += '<span>E capture</span><span>B build</span><span>T teleport</span><span>M map</span>';
+        html += '</div>';
+        html += '</div>';
         html += '<div class="title-buttons">';
         if (hasData) html += '<button class="title-btn title-continue" onclick="game.loadAndStart()">Continue</button>';
         html += '<button class="title-btn title-new" onclick="game.newGame()">New Game</button>';
@@ -198,11 +207,14 @@ class Game {
         this.player.x = 0; this.player.y = 0;
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
-        this.inventory = { traps: 5, ammo: 30 };
-        this.buildings = []; this.critters = []; this.deadCritters = [];
+        this.inventory = { traps: 5, ammo: 120 };
+        this.critters = []; this.deadCritters = [];
         this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = null;
+        // Place HQ at colony center
+        this.buildings = [Buildings.place('hq', -1, -1, { wood:0, stone:0, food:0, iron:0 })];
         this.wildCritters = Critters.spawnWild(this.world);
+        this.gameOver = false;
         this._startGame();
     }
 
@@ -359,7 +371,26 @@ class Game {
 
     _shoot(wx, wy) {
         if (this.gunCooldown > 0) return;
-        if ((this.inventory.ammo || 0) <= 0) { UI.notify('Out of ammo! Craft bullets at workbench.'); return; }
+        if ((this.inventory.ammo || 0) <= 0) {
+            // Knife slash — melee attack, no ammo needed
+            this.gunCooldown = 0.6;
+            const knifeDmg = 5 + (this.research.gunDamage || 0) * 2;
+            const knifeRange = TILE_SIZE * 2;
+            for (const wc of this.wildCritters) {
+                const dx = wc.x - this.player.x, dy = wc.y - this.player.y;
+                if (Math.sqrt(dx*dx + dy*dy) < knifeRange) {
+                    Critters.damageWild(wc, knifeDmg);
+                    this.sounds.hit();
+                    break;
+                }
+            }
+            // Throttled ammo warning (once every 10 seconds)
+            if (!this._lastAmmoWarn || this.time - this._lastAmmoWarn > 10) {
+                this._lastAmmoWarn = this.time;
+                UI.notify('Out of ammo! Using knife. Craft bullets at workbench.');
+            }
+            return;
+        }
         this.gunCooldown = 0.5;
         this.inventory.ammo--;
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
@@ -419,9 +450,13 @@ class Game {
             UI.notify(`${critter.nickname} is injured! (${mins}m left)`);
             return;
         }
-        if (critter.assignment && critter.assignment !== 'patrol') {
+        // Clean up old assignment sprites
+        if (critter.assignment === 'patrol') {
+            this._cleanupCritterSprite(critter);
+        } else if (critter.assignment && critter.assignment !== 'patrol') {
             const oldB = this.buildings.find(b => b.id === critter.assignment);
             if (oldB) oldB.workers = oldB.workers.filter(w => w !== critterId);
+            this._cleanupCritterSprite(critter);
         }
         if (valueStr === 'patrol') {
             critter.assignment = 'patrol';
@@ -517,7 +552,23 @@ class Game {
         }
     }
 
+    _triggerGameOver() {
+        this.gameOver = true;
+        this.paused = true;
+        Save.deleteLocal();
+        const mins = Math.floor(this.gameTimeSec / 60);
+        const el = document.getElementById('pauseOverlay');
+        el.classList.remove('hidden');
+        el.querySelector('.pause-content').innerHTML = `
+            <h2 style="color:#f87171">COLONY DESTROYED</h2>
+            <p style="margin-bottom:8px">Your Colony HQ has been overrun!</p>
+            <p style="color:#888;font-size:.85rem">Survived: ${mins} minutes | Critters captured: ${this.critters.length + this.deadCritters.length} | Fallen: ${this.deadCritters.length}</p>
+            <button class="title-btn title-new" onclick="location.reload()" style="margin-top:16px">Try Again</button>
+        `;
+    }
+
     togglePause() {
+        if (this.gameOver) return;
         this.paused = !this.paused;
         const el = document.getElementById('pauseOverlay');
         if (el) el.classList.toggle('hidden', !this.paused);
@@ -588,10 +639,12 @@ class Game {
         }
 
         let dx = 0, dy = 0;
+        if (this.player._dead) { dx = 0; dy = 0; } // no movement while dead
+        else {
         if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
         if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
         if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
-        if (this.keys['d'] || this.keys['arrowright']) dx += 1;
+        if (this.keys['d'] || this.keys['arrowright']) dx += 1; }
         if (dx || dy) {
             const len = Math.sqrt(dx*dx + dy*dy); dx /= len; dy /= len;
             const nx = this.player.x + dx * this.player.speed * dt;
@@ -610,7 +663,7 @@ class Game {
         this.world.updateLoadedChunks(this.player.x, this.player.y);
 
         this.gunCooldown = Math.max(0, this.gunCooldown - dt);
-        if (this.mouseDown && this.gunCooldown <= 0 && !this.placementMode) {
+        if (this.mouseDown && this.gunCooldown <= 0 && !this.placementMode && !this.player._dead) {
             this._shoot(this.mouse.worldX, this.mouse.worldY);
         }
 
@@ -700,18 +753,37 @@ class Game {
                 }
                 if (b._pixiSprite) { b._pixiSprite.destroy({ children: true }); b._pixiSprite = null; }
                 this.sounds.destroy();
+                // HQ destroyed = game over
+                if (BUILDING_DEFS[b.type].isHQ) {
+                    this.buildings.splice(i, 1);
+                    this._triggerGameOver();
+                    return;
+                }
                 UI.notify(`${BUILDING_DEFS[b.type].name} was destroyed!`, 4000);
                 this.buildings.splice(i, 1);
             }
         }
 
-        if (this.player.hp < this.player.maxHp) {
-            this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1 * dt);
-        }
-        if (this.player.hp <= 0) {
-            this.player.hp = this.player.maxHp;
-            this.player.x = 0; this.player.y = 0;
-            UI.notify('You were knocked out! Respawned at colony.', 4000);
+        // Player death / respawn
+        if (this.player._dead) {
+            this.player._respawnTimer -= dt;
+            if (this.player._respawnTimer <= 0) {
+                this.player._dead = false;
+                this.player.hp = this.player.maxHp;
+                this.player.x = 0; this.player.y = 0;
+                UI.notify('Respawned at colony.', 3000);
+            }
+        } else {
+            if (this.player.hp < this.player.maxHp) {
+                this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1 * dt);
+            }
+            if (this.player.hp <= 0) {
+                this.player._dead = true;
+                this.player._respawnTimer = 5;
+                this.player.hp = 0;
+                this.sounds.destroy();
+                UI.notify('You were knocked out! Respawning in 5s...', 5000);
+            }
         }
 
         const caps = {};
@@ -1086,6 +1158,18 @@ class Game {
 
         // Waypoint menu
         if (UI.showWaypointMenu) this._renderWaypointMenu(ovr, w, h);
+
+        // Death respawn overlay
+        if (this.player._dead) {
+            ovr.beginFill(0x000000, 0.5);
+            ovr.drawRect(0, 0, w, h);
+            ovr.endFill();
+            const secs = Math.ceil(this.player._respawnTimer || 0);
+            const dt = this._getText(`KNOCKED OUT`, { fontFamily: 'monospace', fontSize: 28, fontWeight: 'bold', fill: 0xf87171 });
+            dt.x = w / 2; dt.y = h / 2 - 20;
+            const ds = this._getText(`Respawning in ${secs}s...`, { fontFamily: 'monospace', fontSize: 14, fill: 0xaaaaaa });
+            ds.x = w / 2; ds.y = h / 2 + 15;
+        }
 
         // FPS counter
         if (this.showFps) {
