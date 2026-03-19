@@ -377,9 +377,7 @@ class Buildings {
             ctx.fillText(def.letter, sx + size / 2, sy + (def.size === 1 ? size / 2 : 18));
         }
 
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx + 2, sy + 2, size - 4, size - 4);
+        // No grid outline on placed buildings
 
         // Turret barrel
         if (def.turret) {
