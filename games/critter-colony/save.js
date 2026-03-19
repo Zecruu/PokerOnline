@@ -60,6 +60,7 @@ class Save {
                 id: c.id, species: c.species, nickname: c.nickname,
                 stats: { ...c.stats }, level: c.level, xp: c.xp,
                 assignment: c.assignment,
+                injured: c.injured || false, injuredTimer: c.injuredTimer || 0,
             })),
             research: { ...game.research },
             researchInProgress: game.researchInProgress ? { ...game.researchInProgress } : null,

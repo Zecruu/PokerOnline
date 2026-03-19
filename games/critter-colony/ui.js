@@ -214,6 +214,10 @@ class UI {
                     html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
                     html += `<div class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</div>`;
+                    if (c.injured) {
+                        const mins = Math.ceil((c.injuredTimer || 0) / 60);
+                        html += `<div class="cc-injured">🩹 Injured — ${mins}m recovery</div>`;
+                    }
                     // XP bar
                     if (c.level < maxLv) {
                         const xpNeeded = typeof Critters !== 'undefined' ? Critters.getXpForLevel(c.level) : 50;
@@ -341,7 +345,7 @@ class UI {
                             }
                         } else {
                             // Empty slot — show dropdown to assign idle critter
-                            const idle = g.critters.filter(cr => !cr.assignment);
+                            const idle = g.critters.filter(cr => !cr.assignment && !cr.injured);
                             if (idle.length > 0) {
                                 html += `<div class="mb-worker mb-empty-assign">`;
                                 html += `<select class="mb-assign-select" onchange="game.assignCritter(parseInt(this.value), '${b.id}')">`;
@@ -380,8 +384,9 @@ class UI {
                     html += `</div>`;
                 }
 
-                // Unassigned critters
-                const idle = g.critters.filter(c => !c.assignment);
+                // Critter lists
+                const injured = g.critters.filter(c => c.injured);
+                const idle = g.critters.filter(c => !c.assignment && !c.injured);
                 const patrolling = g.critters.filter(c => c.assignment === 'patrol');
 
                 if (patrolling.length > 0) {
@@ -401,10 +406,23 @@ class UI {
                     html += `<div class="panel-section-label" style="margin-top:10px">Idle (${idle.length})</div>`;
                     html += `<div class="mb-idle-list">`;
                     for (const c of idle) {
-                        const sp = SPECIES[c.species];
                         html += `<div class="mb-idle-critter">`;
                         html += UI._critterIconHtml(c.species);
                         html += `<span>${c.nickname} Lv${c.level}</span>`;
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                if (injured.length > 0) {
+                    html += `<div class="panel-section-label" style="margin-top:10px;color:#f87171">Injured (${injured.length})</div>`;
+                    html += `<div class="mb-idle-list">`;
+                    for (const c of injured) {
+                        const mins = Math.ceil((c.injuredTimer || 0) / 60);
+                        html += `<div class="mb-idle-critter mb-injured">`;
+                        html += UI._critterIconHtml(c.species);
+                        html += `<span>${c.nickname} Lv${c.level}</span>`;
+                        html += `<span class="mb-injury-time">🩹 ${mins}m</span>`;
                         html += `</div>`;
                     }
                     html += `</div>`;

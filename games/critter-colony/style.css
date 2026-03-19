@@ -101,6 +101,9 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-xp-text{position:absolute;top:0;left:0;right:0;text-align:center;font-size:.6rem;line-height:14px;color:#fff;font-weight:600}
 .cc-xp-max{background:rgba(74,222,128,.15);text-align:center}
 .cc-bonus{font-size:.68rem;color:#4ade80;background:rgba(74,222,128,.08);padding:3px 6px;border-radius:4px;margin-top:4px}
+.cc-injured{font-size:.72rem;color:#f87171;background:rgba(248,113,113,.1);padding:4px 8px;border-radius:6px;margin:4px 0;font-weight:600}
+.mb-injured{opacity:.5;border:1px solid rgba(248,113,113,.2) !important}
+.mb-injury-time{margin-left:auto;color:#f87171;font-size:.7rem;font-weight:600}
 .build-stat{display:flex;align-items:center;gap:4px;font-size:.72rem;color:#4ade80;margin-bottom:2px}
 .build-stat-icon{width:14px;height:14px;object-fit:contain}
 .title-hint{color:#666;font-size:.8rem;margin-top:16px}

@@ -410,6 +410,11 @@ class Game {
     assignCritter(critterId, valueStr) {
         const critter = this.critters.find(c => c.id === critterId);
         if (!critter) return;
+        if (critter.injured) {
+            const mins = Math.ceil((critter.injuredTimer || 0) / 60);
+            UI.notify(`${critter.nickname} is injured! (${mins}m left)`);
+            return;
+        }
         if (critter.assignment && critter.assignment !== 'patrol') {
             const oldB = this.buildings.find(b => b.id === critter.assignment);
             if (oldB) oldB.workers = oldB.workers.filter(w => w !== critterId);
@@ -656,10 +661,16 @@ class Game {
         for (let i = this.buildings.length - 1; i >= 0; i--) {
             const b = this.buildings[i];
             if (b.hp !== undefined && b.hp <= 0) {
-                // Unassign workers
+                // Injure workers — 5 minute recovery, can't be assigned
                 for (const cid of b.workers) {
                     const cr = this.critters.find(c => c.id === cid);
-                    if (cr) cr.assignment = null;
+                    if (cr) {
+                        cr.assignment = null;
+                        cr.injured = true;
+                        cr.injuredTimer = 300; // 5 minutes in seconds
+                        this._cleanupCritterSprite(cr);
+                        UI.notify(`${cr.nickname} was injured! (5 min recovery)`, 4000);
+                    }
                 }
                 if (b._pixiSprite) { b._pixiSprite.destroy({ children: true }); b._pixiSprite = null; }
                 this.sounds.destroy();
@@ -742,6 +753,18 @@ class Game {
                     this.research[this.researchInProgress.id] = (this.research[this.researchInProgress.id]||0) + 1;
                     UI.notify(`Research complete: ${rd.name}!`);
                     this.researchInProgress = null; UI.update();
+                }
+            }
+        }
+
+        // Tick injured critter recovery
+        for (const c of this.critters) {
+            if (c.injured) {
+                c.injuredTimer -= dt;
+                if (c.injuredTimer <= 0) {
+                    c.injured = false;
+                    c.injuredTimer = 0;
+                    UI.notify(`${c.nickname} has recovered!`);
                 }
             }
         }
