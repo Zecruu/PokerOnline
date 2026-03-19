@@ -27,7 +27,7 @@ const SPECIES = {
 // ─── PASSIVE ABILITIES ──────────────────────────────────────
 const PASSIVES = {
     // COMMON passives (high roll chance)
-    hard_worker:    { name: 'Hard Worker',    rarity: 'common',    desc: '+15% production speed',    icon: '⚒️', effect: { prodBonus: 0.15 } },
+    hard_worker:    { name: 'Hard Worker',    rarity: 'common',    desc: 'Building produces 15% more resources', icon: '⚒️', effect: { prodBonus: 0.15 } },
     thick_skin:     { name: 'Thick Skin',     rarity: 'common',    desc: '+20% patrol HP',           icon: '🛡️', effect: { hpBonus: 0.20 } },
     quick_feet:     { name: 'Quick Feet',     rarity: 'common',    desc: '+25% move speed on patrol', icon: '👟', effect: { speedBonus: 0.25 } },
     keen_eye:       { name: 'Keen Eye',       rarity: 'common',    desc: '+10% capture rate bonus',  icon: '👁️', effect: { captureBonus: 0.10 } },
@@ -43,14 +43,14 @@ const PASSIVES = {
     brawler:        { name: 'Brawler',        rarity: 'uncommon',  desc: '+40% attack damage',       icon: '👊', effect: { dmgBonus: 0.40 } },
 
     // RARE passives
-    overachiever:   { name: 'Overachiever',   rarity: 'rare',      desc: '+80% production speed',    icon: '⭐', effect: { prodBonus: 0.80 } },
+    overachiever:   { name: 'Overachiever',   rarity: 'rare',      desc: 'Building produces 80% more resources (1.8x)', icon: '⭐', effect: { prodBonus: 0.80 } },
     iron_will:      { name: 'Iron Will',      rarity: 'rare',      desc: 'Survives lethal damage once per patrol', icon: '💪', effect: { deathSave: true } },
     lucky_star:     { name: 'Lucky Star',     rarity: 'rare',      desc: '+25% capture rate + double XP', icon: '🍀', effect: { captureBonus: 0.25, xpMulti: 2 } },
     double_harvest: { name: 'Double Harvest', rarity: 'rare',      desc: '20% chance to double resource yield', icon: '🎰', effect: { doubleChance: 0.20 } },
     mentor:         { name: 'Mentor',         rarity: 'rare',      desc: 'Nearby workers gain +50% XP',  icon: '📚', effect: { xpAura: 0.50 } },
 
     // LEGENDARY passives
-    golden_touch:   { name: 'Golden Touch',   rarity: 'legendary', desc: '+150% yield on ALL resources',  icon: '👑', effect: { prodBonus: 1.50 } },
+    golden_touch:   { name: 'Golden Touch',   rarity: 'legendary', desc: 'Building produces 2.5x resources (ALL types)', icon: '👑', effect: { prodBonus: 1.50 } },
     undying:        { name: 'Undying',        rarity: 'legendary', desc: 'Cannot die on patrol. Respawns at 1 HP.', icon: '♾️', effect: { immortal: true } },
     architect:      { name: 'Architect',      rarity: 'legendary', desc: 'Buildings this critter works at have +100% HP', icon: '🏛️', effect: { bldgHpBonus: 1.00 } },
     prodigy:        { name: 'Prodigy',        rarity: 'legendary', desc: '+100% to ALL stat scaling', icon: '🧬', effect: { statMulti: 1.00 } },

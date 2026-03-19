@@ -11,6 +11,7 @@ const BUILDING_DEFS = {
     expander:    { name: 'Expander',    cost: { wood: 40, stone: 40, food: 20 },  produces: null,    baseRate: 0,   color: '#ab47bc', letter: 'E', size: 1, statKey: null, expander: true, expandRadius: 5 },
     research_lab:{ name: 'Research Lab',cost: { wood: 50, stone: 50, food: 30 },  produces: null,    baseRate: 0,   color: '#5c6bc0', letter: 'R', size: 2, statKey: 'INT', isResearch: true, hp: 100 },
     workbench:   { name: 'Workbench',  cost: { wood: 25, stone: 15, food: 0 },   produces: null,    baseRate: 0,   color: '#8d6e63', letter: 'W', size: 2, statKey: 'DEX', isWorkbench: true, hp: 70 },
+    iron_mine:   { name: 'Iron Mine',  cost: { wood: 30, stone: 40, food: 0 },  produces: 'iron',  baseRate: 0.08, color: '#b0bec5', letter: 'I', size: 2, statKey: 'STR', hp: 100 },
     wall:        { name: 'Wall',       cost: { wood: 5, stone: 10, food: 0 },   produces: null,    baseRate: 0,   color: '#546e7a', letter: '▪', size: 1, statKey: null, isWall: true, hp: 200, blocksMovement: true },
     gate:        { name: 'Gate',       cost: { wood: 10, stone: 15, food: 0 },  produces: null,    baseRate: 0,   color: '#6d4c41', letter: '⊞', size: 1, statKey: null, isGate: true, hp: 150, blocksMovement: false },
 };
@@ -124,34 +125,49 @@ class Buildings {
         for (const b of buildings) {
             const def = BUILDING_DEFS[b.type];
 
-            // Workbench: craft queue system
+            // Workbench: multi-recipe craft queue
             if (def.isWorkbench) {
-                if (!b.craftQueue) b.craftQueue = 0; // how many queued to auto-craft
+                if (!b.craftQueue) b.craftQueue = 0;
+                if (!b.ammoQueue) b.ammoQueue = 0;
                 if (!b.craftProgress) b.craftProgress = 0;
 
-                // Only auto-craft if workers assigned AND queue > 0
-                const hasWork = b.workers.length > 0 && b.craftQueue > 0;
-                // Manual craft also progresses (craftProgress set by game.manualCraft)
-                if (hasWork || b._manualCrafting) {
+                let recipe = null;
+                if (b._manualCrafting) recipe = b._manualRecipe || 'trap';
+                else if (b.workers.length > 0) {
+                    if (b.craftQueue > 0) recipe = 'trap';
+                    else if (b.ammoQueue > 0) recipe = 'ammo';
+                }
+
+                if (recipe) {
+                    b.activeRecipe = recipe;
                     const craftTime = Buildings.getCraftTime(b, critters);
                     b.craftProgress += dt;
 
                     if (b.craftProgress >= craftTime && inventory) {
-                        if ((resources.wood || 0) >= 5 && (resources.stone || 0) >= 3) {
-                            resources.wood -= 5;
-                            resources.stone -= 3;
-                            inventory.traps = (inventory.traps || 0) + 1;
+                        let ok = false;
+                        if (recipe === 'trap' && (resources.wood||0) >= 5 && (resources.stone||0) >= 3) {
+                            resources.wood -= 5; resources.stone -= 3;
+                            inventory.traps = (inventory.traps||0) + 1;
+                            ok = true; if (b.craftQueue > 0) b.craftQueue--;
+                        } else if (recipe === 'ammo' && (resources.iron||0) >= 2 && (resources.stone||0) >= 1) {
+                            resources.iron -= 2; resources.stone -= 1;
+                            inventory.ammo = (inventory.ammo||0) + 5;
+                            ok = true; if (b.ammoQueue > 0) b.ammoQueue--;
+                        }
+                        if (ok) {
                             b.craftProgress = 0;
-                            if (b.craftQueue > 0) b.craftQueue--;
-                            if (b._manualCrafting) b._manualCrafting = false;
-
+                            if (b._manualCrafting) { b._manualCrafting = false; b._manualRecipe = null; }
                             for (const cid of b.workers) {
                                 const c = critters.find(cr => cr.id === cid);
-                                if (c) Critters.addXp(c, 1);
+                                if (c) {
+                                    const leveled = Critters.addXp(c, 1);
+                                    if (leveled && c._lastLevelUp) {
+                                        UI.notify(`${c.nickname} leveled up to Lv.${c._lastLevelUp.level}! +${c._lastLevelUp.stat}`);
+                                        if (typeof game !== 'undefined' && game.sounds) game.sounds.levelup();
+                                    }
+                                }
                             }
-                        } else {
-                            b.craftProgress = craftTime; // wait for resources
-                        }
+                        } else { b.craftProgress = craftTime; }
                     }
                 }
                 continue;

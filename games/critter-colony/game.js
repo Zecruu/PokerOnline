@@ -10,9 +10,9 @@ class Game {
         this.player = { x: 0, y: 0, speed: 200, hp: 100, maxHp: 100 };
         this.cam = { x: 0, y: 0 };
 
-        this.resources = { wood: 50, stone: 50, food: 30 };
-        this.resourceCaps = { wood: 200, stone: 200, food: 150 };
-        this.inventory = { traps: 5 };
+        this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
+        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
+        this.inventory = { traps: 5, ammo: 30 };
         this.buildings = [];
         this.critters = [];
         this.wildCritters = [];
@@ -54,8 +54,8 @@ class Game {
         this.titleScreen = true;
         this.paused = false;
         this.gameTimeSec = 0; // in-game time in seconds
-        this._resourceRates = { wood: 0, stone: 0, food: 0 };
-        this._rateTracker = { wood: 0, stone: 0, food: 0 };
+        this._resourceRates = { wood: 0, stone: 0, food: 0, iron: 0 };
+        this._rateTracker = { wood: 0, stone: 0, food: 0, iron: 0 };
         this._rateSampleTimer = 0;
         this.showFps = false;
         this._fpsFrames = 0;
@@ -196,9 +196,9 @@ class Game {
         for (const b of this.buildings) { if (b._pixiSprite) { b._pixiSprite.destroy({ children: true }); b._pixiSprite = null; } }
         this.world.generate();
         this.player.x = 0; this.player.y = 0;
-        this.resources = { wood: 50, stone: 50, food: 30 };
-        this.resourceCaps = { wood: 200, stone: 200, food: 150 };
-        this.inventory = { traps: 5 };
+        this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
+        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
+        this.inventory = { traps: 5, ammo: 30 };
         this.buildings = []; this.critters = []; this.deadCritters = [];
         this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = null;
@@ -359,7 +359,9 @@ class Game {
 
     _shoot(wx, wy) {
         if (this.gunCooldown > 0) return;
+        if ((this.inventory.ammo || 0) <= 0) { UI.notify('Out of ammo! Craft bullets at workbench.'); return; }
         this.gunCooldown = 0.5;
+        this.inventory.ammo--;
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
         const speed = 400, damage = this.gunDamage + (this.research.gunDamage || 0) * 5;
         this.projectiles.push({ x: this.player.x, y: this.player.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, damage, lifetime: 2, fromTurret: false });
@@ -461,25 +463,37 @@ class Game {
         return Math.sqrt(dx * dx + dy * dy) < TILE_SIZE * 4;
     }
 
-    manualCraft(buildingId) {
+    manualCraft(buildingId, recipe) {
+        recipe = recipe || 'trap';
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
         if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
-        if ((this.resources.wood || 0) < 5 || (this.resources.stone || 0) < 3) { UI.notify('Need 5 wood + 3 stone!'); return; }
+        if (recipe === 'trap') {
+            if ((this.resources.wood||0) < 5 || (this.resources.stone||0) < 3) { UI.notify('Need 5 wood + 3 stone!'); return; }
+        } else if (recipe === 'ammo') {
+            if ((this.resources.iron||0) < 2 || (this.resources.stone||0) < 1) { UI.notify('Need 2 iron + 1 stone!'); return; }
+        }
         b._manualCrafting = true;
+        b._manualRecipe = recipe;
         b.craftProgress = 0;
         this.sounds.build();
-        UI.notify('Crafting trap...');
+        UI.notify(recipe === 'ammo' ? 'Crafting bullets...' : 'Crafting trap...');
     }
 
-    queueCraft(buildingId, amount) {
+    queueCraft(buildingId, amount, recipe) {
+        recipe = recipe || 'trap';
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
         if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
-        if (!b.craftQueue) b.craftQueue = 0;
-        b.craftQueue += amount;
-        if (b.workers.length === 0) UI.notify(`${amount} traps queued. Assign DEX critters to auto-craft!`);
-        else UI.notify(`${amount} traps queued (${b.craftQueue} total)`);
+        if (recipe === 'ammo') {
+            if (!b.ammoQueue) b.ammoQueue = 0;
+            b.ammoQueue += amount;
+            UI.notify(`${amount} ammo batches queued (${b.ammoQueue} total)`);
+        } else {
+            if (!b.craftQueue) b.craftQueue = 0;
+            b.craftQueue += amount;
+            UI.notify(`${amount} traps queued (${b.craftQueue} total)`);
+        }
         UI.update();
     }
 
@@ -566,7 +580,7 @@ class Game {
         // Track resource rates (sample every 2 seconds)
         this._rateSampleTimer += dt;
         if (this._rateSampleTimer >= 2) {
-            for (const r of ['wood', 'stone', 'food']) {
+            for (const r of ['wood', 'stone', 'food', 'iron']) {
                 this._resourceRates[r] = ((this.resources[r] || 0) - (this._rateTracker[r] || 0)) / this._rateSampleTimer;
                 this._rateTracker[r] = this.resources[r] || 0;
             }
@@ -701,10 +715,10 @@ class Game {
         }
 
         const caps = {};
-        for (const r of ['wood','stone','food']) caps[r] = (this.resourceCaps[r]||200) + (this.research.storageCap||0)*100;
+        for (const r of ['wood','stone','food','iron']) caps[r] = (this.resourceCaps[r]||200) + (this.research.storageCap||0)*100;
 
         Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
-        for (const r of ['wood','stone','food']) this.resources[r] = Math.min(this.resources[r], caps[r]);
+        for (const r of ['wood','stone','food','iron']) this.resources[r] = Math.min(this.resources[r], caps[r]);
 
         Buildings.updateTurrets(dt, this.buildings, this.wildCritters, this.projectiles, this.research);
 
@@ -888,7 +902,10 @@ class Game {
             const foodEl = document.getElementById('resFood');
             foodEl.textContent = `${Math.floor(this.resources.food)}/${gc('food')}`;
             foodEl.style.color = this.hungry ? '#f87171' : '#9ccc65';
+            document.getElementById('resIron').textContent = `${Math.floor(this.resources.iron||0)}/${gc('iron')}`;
+            document.getElementById('rateIron').textContent = fmtRate('iron');
             document.getElementById('trapCount').textContent = this.inventory.traps;
+            document.getElementById('ammoCount').textContent = this.inventory.ammo || 0;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
             const deadEl = document.getElementById('deadCount');
             if (this.deadCritters.length > 0) {

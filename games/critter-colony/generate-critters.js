@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const API_KEY = 'AIzaSyCGZQG32r1_DzhGaAt1qcUQhJBC20Bl0QQ';
+const API_KEY = process.env.GEMINI_API_KEY || '';
 const OUTPUT_DIR = path.join(__dirname, 'images', 'critters');
 
 const CRITTERS = [
