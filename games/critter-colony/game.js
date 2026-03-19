@@ -192,7 +192,7 @@ class Game {
             return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
         });
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
+        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.deadCritters = gs.deadCritters || [];
         this.wildCritters = Critters.spawnWild(this.world);
@@ -216,7 +216,7 @@ class Game {
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
         this.inventory = { traps: 5, ammo: 120 };
         this.critters = []; this.deadCritters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0 };
         this.researchInProgress = null;
         // Place HQ at colony center
         this.buildings = [Buildings.place('hq', -1, -1, { wood:0, stone:0, food:0, iron:0 })];
@@ -470,6 +470,12 @@ class Game {
             critter._patrolX = this.player.x + (Math.random() - 0.5) * 200;
             critter._patrolY = this.player.y + (Math.random() - 0.5) * 200;
             UI.notify(`${critter.nickname} is now on patrol!`);
+        } else if (valueStr === 'bodyguard') {
+            const maxBG = 1 + (this.research.bodyguardSlots || 0);
+            const currentBG = this.critters.filter(c => c.assignment === 'bodyguard').length;
+            if (currentBG >= maxBG) { UI.notify(`Max ${maxBG} bodyguards! Research Bodyguard Training.`); return; }
+            critter.assignment = 'bodyguard';
+            UI.notify(`${critter.nickname} is now your bodyguard!`);
         } else if (valueStr) {
             const bid = parseInt(valueStr);
             const newB = this.buildings.find(b => b.id === bid);
@@ -922,6 +928,49 @@ class Game {
             }
         }
 
+        // ─── BODYGUARDS ──────────────────────────────────────
+        for (const c of this.critters) {
+            if (c.assignment !== 'bodyguard') continue;
+            if (!c._attackTimer) c._attackTimer = 0;
+            c._attackTimer -= dt;
+
+            const followDist = 40 + (c.id % 3) * 20;
+            const angle = (c.id % 4) * (Math.PI / 2) + this.time * 0.5;
+            const targetX = this.player.x + Math.cos(angle) * followDist;
+            const targetY = this.player.y + Math.sin(angle) * followDist;
+            const dx = targetX - (c._patrolX || this.player.x);
+            const dy = targetY - (c._patrolY || this.player.y);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 5) {
+                c._patrolX = (c._patrolX || this.player.x) + (dx / dist) * 180 * dt;
+                c._patrolY = (c._patrolY || this.player.y) + (dy / dist) * 180 * dt;
+            }
+
+            if (c._attackTimer <= 0) {
+                const targets = [...this.wildCritters, ...this.hordeCreatures].filter(w => !w.stunned);
+                for (const wc of targets) {
+                    const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
+                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 4) {
+                        const dmg = (c.stats.STR || 1) * 3;
+                        if (wc.isHorde) { wc.hp -= dmg; if (wc.hp <= 0) { wc.stunned = true; wc.stunTimer = 3; } }
+                        else Critters.damageWild(wc, dmg);
+                        c._attackTimer = 1.0;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // ─── WORLD BOSSES ───────────────────────────────────
+        if (!this.worldBosses) this.worldBosses = [];
+        if (!this._bossSpawnTimer) this._bossSpawnTimer = 300;
+        this._bossSpawnTimer -= dt;
+        if (this._bossSpawnTimer <= 0 && this.worldBosses.length < 3) {
+            this._spawnWorldBoss();
+            this._bossSpawnTimer = 600;
+        }
+        this._updateWorldBosses(dt);
+
         if (this.researchInProgress) {
             const speed = Buildings.getResearchSpeed(this.buildings, this.critters);
             if (speed > 0) {
@@ -1061,6 +1110,7 @@ class Game {
             document.getElementById('resIron').textContent = `${Math.floor(this.resources.iron||0)}/${gc('iron')}`;
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('ammoCount').textContent = this.inventory.ammo || 0;
+            document.getElementById('aethershardCount').textContent = this.inventory.aethershards || 0;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
             const deadEl = document.getElementById('deadCount');
             if (this.deadCritters.length > 0) {
@@ -1176,6 +1226,58 @@ class Game {
                 gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw * pct, 3);
                 gfx.endFill();
             }
+        }
+
+        // World Bosses
+        if (this.worldBosses) {
+            for (const boss of this.worldBosses) {
+                if (boss.hp <= 0) continue;
+                const bc = parseInt(boss.color.replace('#', ''), 16);
+                const r = TILE_SIZE * boss.size * 0.5;
+                const pulse = Math.sin(this.time * 2) * 3;
+
+                // Glow aura
+                gfx.lineStyle(3, 0xffd700, 0.3 + Math.sin(this.time * 3) * 0.15);
+                gfx.drawCircle(boss.x, boss.y, r + 8 + pulse);
+                gfx.lineStyle(0);
+
+                // Body
+                gfx.beginFill(bc);
+                gfx.drawCircle(boss.x, boss.y, r);
+                gfx.endFill();
+
+                // Inner pattern
+                gfx.beginFill(0xffd700, 0.3);
+                gfx.drawCircle(boss.x, boss.y, r * 0.4);
+                gfx.endFill();
+
+                // HP bar (wide)
+                const bw = r * 3;
+                gfx.beginFill(0x333333);
+                gfx.drawRect(boss.x - bw / 2, boss.y - r - 14, bw, 6);
+                gfx.endFill();
+                const pct = boss.hp / boss.maxHp;
+                gfx.beginFill(pct > 0.5 ? 0xff6600 : pct > 0.25 ? 0xff0000 : 0x880000);
+                gfx.drawRect(boss.x - bw / 2, boss.y - r - 14, bw * pct, 6);
+                gfx.endFill();
+            }
+        }
+
+        // Bodyguard critters
+        for (const c of this.critters) {
+            if (c.assignment !== 'bodyguard') continue;
+            const sp = SPECIES[c.species];
+            const colorNum = parseInt(sp.color.replace('#', ''), 16);
+            const bx = c._patrolX || this.player.x;
+            const by = c._patrolY || this.player.y;
+            const bob = Math.sin(this.time * 3 + c.id) * 2;
+
+            gfx.lineStyle(2, 0x4FC3F7, 0.5);
+            gfx.drawCircle(bx, by + bob, 10);
+            gfx.lineStyle(0);
+            gfx.beginFill(colorNum);
+            gfx.drawCircle(bx, by + bob, 8);
+            gfx.endFill();
         }
 
         // Projectiles
@@ -1861,6 +1963,93 @@ class Game {
 
     _resize() {
         this.pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
+    }
+
+    // ─── WORLD BOSSES ────────────────────────────────────────
+    // Bosses drop "Aethershard" — rare ore that boosts a stat by 5
+    _spawnWorldBoss() {
+        const bossTypes = [
+            { name: 'Stonecrusher', color: '#616161', hp: 500, dmg: 20, speed: 40, size: 3, drops: 2 },
+            { name: 'Infernal Wyrm', color: '#d32f2f', hp: 400, dmg: 25, speed: 60, size: 2.5, drops: 2 },
+            { name: 'Crystal Titan', color: '#7c4dff', hp: 700, dmg: 15, speed: 30, size: 3.5, drops: 3 },
+            { name: 'Void Stalker', color: '#1a1a2e', hp: 350, dmg: 30, speed: 80, size: 2, drops: 2 },
+            { name: 'Ancient Treant', color: '#2e7d32', hp: 800, dmg: 12, speed: 20, size: 4, drops: 4 },
+        ];
+        const type = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const dist = (20 + Math.random() * 30) * TILE_SIZE;
+
+        this.worldBosses.push({
+            id: _nextCritterId++,
+            ...type,
+            x: Math.cos(angle) * dist,
+            y: Math.sin(angle) * dist,
+            maxHp: type.hp,
+            _attackTimer: 0,
+            _phase: 0, // bosses have attack phases
+            _phaseTimer: 0,
+        });
+
+        UI.notify(`🔱 WORLD BOSS: ${type.name} has appeared!`, 6000);
+        if (this.sounds) this.sounds.alert?.();
+    }
+
+    _updateWorldBosses(dt) {
+        for (let i = this.worldBosses.length - 1; i >= 0; i--) {
+            const boss = this.worldBosses[i];
+
+            // Boss is dead
+            if (boss.hp <= 0) {
+                // Drop Aethershards
+                if (!this.inventory.aethershards) this.inventory.aethershards = 0;
+                this.inventory.aethershards += boss.drops;
+                UI.notify(`🔱 ${boss.name} defeated! +${boss.drops} Aethershards!`, 5000);
+                if (this.sounds) this.sounds.levelup?.();
+                this.worldBosses.splice(i, 1);
+                continue;
+            }
+
+            // Chase player if within 15 tiles
+            const pdx = this.player.x - boss.x, pdy = this.player.y - boss.y;
+            const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+            if (pDist < TILE_SIZE * 15 && pDist > TILE_SIZE * 1.5) {
+                boss.x += (pdx / pDist) * boss.speed * dt;
+                boss.y += (pdy / pDist) * boss.speed * dt;
+            }
+
+            // Attack player
+            boss._attackTimer -= dt;
+            if (pDist < TILE_SIZE * 2 && boss._attackTimer <= 0) {
+                this.player.hp -= boss.dmg;
+                boss._attackTimer = 2;
+            }
+
+            // Take projectile damage
+            for (let pi = this.projectiles.length - 1; pi >= 0; pi--) {
+                const p = this.projectiles[pi];
+                const hx = boss.x - p.x, hy = boss.y - p.y;
+                if (Math.sqrt(hx * hx + hy * hy) < TILE_SIZE * boss.size * 0.5) {
+                    boss.hp -= p.damage;
+                    this.projectiles.splice(pi, 1);
+                }
+            }
+        }
+    }
+
+    // Use Aethershard on a critter
+    useAethershard(critterId, statKey) {
+        if (!this.inventory.aethershards || this.inventory.aethershards <= 0) {
+            UI.notify('No Aethershards!'); return;
+        }
+        const critter = this.critters.find(c => c.id === critterId);
+        if (!critter) return;
+        if (!critter.stats[statKey]) { UI.notify('Invalid stat!'); return; }
+
+        this.inventory.aethershards--;
+        critter.stats[statKey] += 5;
+        UI.notify(`✨ ${critter.nickname}'s ${statKey} +5! (now ${critter.stats[statKey]})`, 4000);
+        if (this.sounds) this.sounds.levelup?.();
+        UI.update();
     }
 
     // ─── HORDE SYSTEM ──────────────────────────────────────

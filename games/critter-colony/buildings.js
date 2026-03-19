@@ -13,8 +13,14 @@ const BUILDING_DEFS = {
     research_lab:{ name: 'Research Lab',cost: { wood: 50, stone: 50, food: 30 },  produces: null,    baseRate: 0,   color: '#5c6bc0', letter: 'R', size: 2, statKey: 'INT', isResearch: true, hp: 100 },
     workbench:   { name: 'Workbench',  cost: { wood: 25, stone: 15, food: 0 },   produces: null,    baseRate: 0,   color: '#8d6e63', letter: 'W', size: 2, statKey: 'DEX', isWorkbench: true, hp: 70 },
     iron_mine:   { name: 'Iron Mine',  cost: { wood: 30, stone: 40, food: 0 },  produces: 'iron',  baseRate: 0.08, color: '#b0bec5', letter: 'I', size: 2, statKey: 'STR', hp: 100 },
-    wall:        { name: 'Wall',       cost: { wood: 5, stone: 10, food: 0 },   produces: null,    baseRate: 0,   color: '#546e7a', letter: '▪', size: 1, statKey: null, isWall: true, hp: 200, blocksMovement: true },
-    gate:        { name: 'Gate',       cost: { wood: 10, stone: 15, food: 0 },  produces: null,    baseRate: 0,   color: '#6d4c41', letter: '⊞', size: 1, statKey: null, isGate: true, hp: 150, blocksMovement: false },
+    wall:        { name: 'Wall',        cost: { wood: 5, stone: 10, food: 0 },    produces: null,    baseRate: 0,   color: '#546e7a', letter: '▪', size: 1, statKey: null, isWall: true, hp: 200, blocksMovement: true },
+    gate:        { name: 'Gate',        cost: { wood: 10, stone: 15, food: 0 },   produces: null,    baseRate: 0,   color: '#6d4c41', letter: '⊞', size: 1, statKey: null, isGate: true, hp: 150, blocksMovement: false },
+    storage:     { name: 'Storage',     cost: { wood: 35, stone: 35, food: 0 },   produces: null,    baseRate: 0,   color: '#8d6e63', letter: 'S', size: 2, statKey: null, isStorage: true, hp: 80, storageCap: 150, researchReq: 'storageBuilding' },
+    smelter:     { name: 'Smelter',     cost: { wood: 20, stone: 40, iron: 10 },  produces: 'metal', baseRate: 0.06, color: '#e65100', letter: '🔥', size: 2, statKey: 'STR', hp: 100, researchReq: 'smelting' },
+    greenhouse:  { name: 'Greenhouse',  cost: { wood: 40, stone: 20, food: 0 },   produces: 'food',  baseRate: 0.3,  color: '#43a047', letter: 'G', size: 2, statKey: 'VIT', hp: 60, researchReq: 'greenhouse' },
+    barracks:    { name: 'Barracks',    cost: { wood: 30, stone: 50, iron: 15 },  produces: null,    baseRate: 0,   color: '#c62828', letter: 'B', size: 2, statKey: null, hp: 150, isBarracks: true, patrolBonus: 0.3, researchReq: 'barracks' },
+    refinery:    { name: 'Refinery',    cost: { wood: 30, stone: 50, iron: 20 },  produces: 'crystal', baseRate: 0.03, color: '#7b1fa2', letter: '♦', size: 2, statKey: 'INT', hp: 120, researchReq: 'refinery' },
+    healer:      { name: 'Healing Hut', cost: { wood: 25, stone: 20, food: 15 },  produces: null,    baseRate: 0,   color: '#e91e63', letter: '+', size: 2, statKey: 'VIT', hp: 60, isHealer: true, researchReq: 'healingHut' },
 };
 
 class Buildings {

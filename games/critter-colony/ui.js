@@ -13,6 +13,17 @@ const RESEARCH_DEFS = {
     colonyRadius: { name: 'Colony Reach',       desc: 'Bigger expander radius',maxLevel: 3,  cost: (l) => ({ wood: 60*(l+1), stone: 60*(l+1), food: 40*(l+1) }), time: 50 },
     critterCap:   { name: 'Critter Capacity',   desc: '+4 max critters',       maxLevel: 10, cost: (l) => ({ wood: 25*(l+1), stone: 25*(l+1), food: 15*(l+1) }), time: 20 },
     workersPerB:  { name: 'Workforce Training', desc: '+1 worker per building', maxLevel: 4,  cost: (l) => ({ wood: 35*(l+1), stone: 35*(l+1), food: 20*(l+1) }), time: 35 },
+    // Base upgrades
+    baseHp:       { name: 'Fortification',     desc: '+50 HP to all buildings', maxLevel: 8,  cost: (l) => ({ wood: 40*(l+1), stone: 50*(l+1), food: 0 }),        time: 30 },
+    baseTurret:   { name: 'HQ Auto-Turret',    desc: 'HQ fires at enemies (stacks)', maxLevel: 3, cost: (l) => ({ wood: 50*(l+1), stone: 60*(l+1), iron: 20*(l+1) }), time: 50 },
+    bodyguardSlots:{ name: 'Bodyguard Training',desc: '+1 bodyguard slot (max 4)', maxLevel: 3, cost: (l) => ({ wood: 40*(l+1), stone: 30*(l+1), food: 30*(l+1) }), time: 40 },
+    // Building unlocks
+    storageBuilding:{ name: 'Storage Tech',    desc: 'Unlocks Storage building (+150 cap each)', maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, food: 20 }), time: 30 },
+    smelting:     { name: 'Smelting',          desc: 'Unlocks Smelter (ore → metal)',    maxLevel: 1, cost: (l) => ({ wood: 50, stone: 80, food: 0 }),        time: 45 },
+    greenhouse:   { name: 'Greenhouse Tech',   desc: 'Unlocks Greenhouse (2x food)',    maxLevel: 1, cost: (l) => ({ wood: 60, stone: 40, food: 30 }),       time: 35 },
+    barracks:     { name: 'Barracks',          desc: 'Unlocks Barracks (+30% patrol dmg)', maxLevel: 1, cost: (l) => ({ wood: 50, stone: 70, food: 20 }),    time: 40 },
+    refinery:     { name: 'Crystal Refinery',  desc: 'Unlocks Refinery (produces crystal)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 80, food: 40 }),   time: 60 },
+    healingHut:   { name: 'Healing Arts',      desc: 'Unlocks Healing Hut (auto-heal injured)', maxLevel: 1, cost: (l) => ({ wood: 40, stone: 30, food: 40 }), time: 35 },
 };
 
 class UI {
@@ -278,12 +289,18 @@ class UI {
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
                     html += `<option value="">Idle</option>`;
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
+                    const bodyguardCount = g.critters.filter(cr => cr.assignment === 'bodyguard').length;
+                    const maxBodyguards = 1 + (g.research.bodyguardSlots || 0);
+                    if (c.assignment === 'bodyguard' || bodyguardCount < maxBodyguards) {
+                        html += `<option value="bodyguard" ${c.assignment === 'bodyguard' ? 'selected' : ''}>Bodyguard (${bodyguardCount}/${maxBodyguards})</option>`;
+                    }
                     const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
                     for (const b of g.buildings) {
                         const def = BUILDING_DEFS[b.type];
-                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue;
+                        if (def.isHQ || def.isWall || def.isGate) continue; // skip non-assignable
+                        if (!def.produces && !def.isResearch && !def.isWorkbench && !def.isStorage) continue;
                         const isFull = b.workers.length >= maxW && c.assignment !== b.id;
-                        if (isFull) continue; // hide full buildings unless critter is already there
+                        if (isFull) continue;
                         const selected = c.assignment === b.id ? 'selected' : '';
                         html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length}/${maxW})</option>`;
                     }
