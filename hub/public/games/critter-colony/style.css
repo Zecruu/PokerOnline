@@ -121,6 +121,7 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-assign select{width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 8px;color:#e0e0e0;font-size:.8rem;cursor:pointer}
 .cc-assign select:focus{outline:none;border-color:rgba(102,187,106,.4)}
 .cc-assign select option{background:#1a1a2e;color:#e0e0e0}
+.cc-assign-hint{display:block;font-size:.6rem;color:#555;margin-top:2px;text-align:center}
 .cc-xp{position:relative;height:14px;background:#222;border-radius:4px;margin:4px 0;overflow:hidden}
 .cc-xp-bar{height:100%;background:linear-gradient(90deg,#fbbf24,#f59e0b);border-radius:4px;transition:width .3s}
 .cc-xp-text{position:absolute;top:0;left:0;right:0;text-align:center;font-size:.6rem;line-height:14px;color:#fff;font-weight:600}

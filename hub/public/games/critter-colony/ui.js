@@ -324,7 +324,7 @@ class UI {
 
                     html += `<div class="cc-assign">`;
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
-                    html += `<option value="">Idle</option>`;
+                    html += `<option value="" ${!c.assignment ? 'selected' : ''}>Idle</option>`;
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
                     const companionCount = g.critters.filter(cr => cr.assignment === 'companion').length;
                     const maxCompanions = 1 + (g.research.companionSlots || 0);
@@ -336,18 +336,8 @@ class UI {
                     if (c.assignment === 'bodyguard' || bodyguardCount < maxBodyguards) {
                         html += `<option value="bodyguard" ${c.assignment === 'bodyguard' ? 'selected' : ''}>Bodyguard (${bodyguardCount}/${maxBodyguards})</option>`;
                     }
-                    const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
-                    for (const b of g.buildings) {
-                        const def = BUILDING_DEFS[b.type];
-                        if (def.isHQ || def.isWall || def.isGate) continue;
-                        if (!def.produces && !def.isResearch && !def.isWorkbench && !def.isStorage) continue;
-                        const isAssignedHere = c.assignment == b.id; // loose compare for string/number
-                        const isFull = b.workers.length >= maxW && !isAssignedHere;
-                        if (isFull) continue;
-                        const selected = isAssignedHere ? 'selected' : '';
-                        html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length}/${maxW})</option>`;
-                    }
                     html += `</select>`;
+                    html += `<span class="cc-assign-hint">Assign to buildings in Manage tab</span>`;
                     html += `</div>`;
                     // Sacrifice button
                     html += `<button class="cc-sacrifice" onclick="game.sacrificeCritter(${c.id})">🩸 Sacrifice</button>`;
@@ -407,7 +397,7 @@ class UI {
             } else {
                 for (const b of g.buildings) {
                     const def = BUILDING_DEFS[b.type];
-                    if (def.turret || def.expander || def.capacity) continue; // skip turrets, expanders, nests
+                    if (def.turret || def.expander || def.capacity || def.isHQ || def.isWall || def.isGate || def.isGenerator) continue;
 
                     // Find best critter type for this building
                     let bestType = null;
