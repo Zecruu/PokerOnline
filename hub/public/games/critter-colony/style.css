@@ -147,6 +147,7 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .mb-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:#fff;flex-shrink:0}
 .mb-name{font-weight:700;font-size:.85rem;flex:1}
 .mb-cap{font-size:.7rem;color:#888}
+.mb-best-type{font-size:.65rem;font-weight:600;margin-left:auto;margin-right:6px}
 .mb-workers{display:flex;flex-direction:column;gap:4px}
 .mb-worker{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:rgba(255,255,255,.03);cursor:pointer;transition:all .2s}
 .mb-worker:hover{background:rgba(248,113,113,.08)}

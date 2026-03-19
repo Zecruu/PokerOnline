@@ -48,7 +48,7 @@ const SPECIES = {
     shadowfang:  { name: 'Shadowfang',  type: 'beast',  color: '#5c2d91', rarity: 'legendary', baseStats: { STR:12, DEX:10, INT:6, VIT:8, LCK:8 }, desc: 'Dark wolf of shadow. Devastating in combat.', aggressive: true, aggroRange: 18, attackDmg: 18, attackCooldown: 0.7, size: 1.8 },
     celestine:   { name: 'Celestine',   type: 'fairy',  color: '#e0f7fa', rarity: 'legendary', baseStats: { STR:6, DEX:8, INT:14, VIT:10, LCK:10 }, desc: 'Celestial deer. Divine researcher and healer.', aggressive: true, aggroRange: 16, attackDmg: 14, attackCooldown: 1.0, size: 1.8 },
     dreadmaw:    { name: 'Dreadmaw',    type: 'beast',  color: '#1a1a1a', rarity: 'legendary', baseStats: { STR:15, DEX:6, INT:2, VIT:14, LCK:5 }, desc: 'Abyssal horror. Giant mouth. Eats everything.', aggressive: true, aggroRange: 20, attackDmg: 25, attackCooldown: 0.8, size: 2.2 },
-    tinkerbell:  { name: 'Tinkerbell',  type: 'fairy',  color: '#fff176', rarity: 'legendary', baseStats: { STR:2, DEX:14, INT:12, VIT:4, LCK:14 }, desc: 'Adorable golden pixie. Absurdly lucky crafter.', aggressive: false, attackDmg: 5, attackCooldown: 1.5, size: 0.6 },
+    pixibell:  { name: 'Pixibell',  type: 'fairy',  color: '#fff176', rarity: 'legendary', baseStats: { STR:2, DEX:14, INT:12, VIT:4, LCK:14 }, desc: 'Adorable golden pixie. Absurdly lucky crafter.', aggressive: false, attackDmg: 5, attackCooldown: 1.5, size: 0.6 },
 };
 
 // ─── PASSIVE ABILITIES ──────────────────────────────────────

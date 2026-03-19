@@ -409,10 +409,19 @@ class UI {
                     const def = BUILDING_DEFS[b.type];
                     if (def.turret || def.expander || def.capacity) continue; // skip turrets, expanders, nests
 
+                    // Find best critter type for this building
+                    let bestType = null;
+                    if (typeof CRITTER_TYPES !== 'undefined') {
+                        for (const [tKey, tInfo] of Object.entries(CRITTER_TYPES)) {
+                            if (tInfo.buildings.includes(b.type)) { bestType = tInfo; break; }
+                        }
+                    }
+
                     html += `<div class="manage-building">`;
                     html += `<div class="mb-header">`;
                     html += `<span class="mb-icon" style="background:${def.color}">${def.letter}</span>`;
                     html += `<span class="mb-name">${def.name}</span>`;
+                    if (bestType) html += `<span class="mb-best-type" style="color:${bestType.color}">${bestType.icon} ${bestType.name}</span>`;
                     html += `<span class="mb-cap">${b.workers.length}/${maxW}</span>`;
                     html += `</div>`;
 
@@ -439,8 +448,12 @@ class UI {
                                 html += `<option value="">+ Assign critter...</option>`;
                                 for (const ic of idle) {
                                     const isp = SPECIES[ic.species];
-                                    const statVal = def.statKey ? ` (${def.statKey}:${ic.stats[def.statKey]||0})` : '';
-                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level}${statVal}</option>`;
+                                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[isp.type] : null;
+                                    const typeTag = typeInfo ? `${typeInfo.icon}${typeInfo.name}` : '';
+                                    const statVal = def.statKey ? ` ${def.statKey}:${ic.stats[def.statKey]||0}` : '';
+                                    const tBonus = typeof Critters !== 'undefined' ? Critters.getTypeBonus(ic, b.type) : 0;
+                                    const matchTag = tBonus > 0 ? ' ✅' : tBonus < 0 ? ' ⚠️' : '';
+                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level} [${typeTag}]${statVal}${matchTag}</option>`;
                                 }
                                 html += `</select>`;
                                 html += `</div>`;

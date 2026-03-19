@@ -59,7 +59,7 @@ function preloadCritterSprites() {
         bogwalker: 'critters/bogwalker.png', sparkfly: 'critters/sparkfly.png',
         rotjaw: 'critters/rotjaw.png', goretusk: 'critters/goretusk.png',
         faewisp: 'critters/faewisp.png', dreadmaw: 'critters/dreadmaw.png',
-        tinkerbell: 'critters/tinkerbell.png',
+        pixibell: 'critters/pixibell.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
@@ -163,7 +163,7 @@ function buildPixiTextures() {
         bogwalker: 'critters/bogwalker.png', sparkfly: 'critters/sparkfly.png',
         rotjaw: 'critters/rotjaw.png', goretusk: 'critters/goretusk.png',
         faewisp: 'critters/faewisp.png', dreadmaw: 'critters/dreadmaw.png',
-        tinkerbell: 'critters/tinkerbell.png',
+        pixibell: 'critters/pixibell.png',
     };
     for (const [key, path] of Object.entries(buildingDefs)) {
         const t = _loadPixiTex(path);
