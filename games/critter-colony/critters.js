@@ -3,17 +3,32 @@
    ============================================================ */
 
 const SPECIES = {
-    mossbun:   { name: 'Mossbun',   color: '#66bb6a', rarity: 'common',   baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false, attackDmg: 2, attackCooldown: 2 },
-    pebblit:   { name: 'Pebblit',   color: '#90a4ae', rarity: 'common',   baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 8, attackDmg: 4, attackCooldown: 1.2 },
-    flickwing: { name: 'Flickwing', color: '#ffd54f', rarity: 'common',   baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false, attackDmg: 2, attackCooldown: 1.5 },
-    glowmite:  { name: 'Glowmite', color: '#ce93d8', rarity: 'uncommon', baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8 },
+    // ── COMMON (4) ──────────────────────────────────────────
+    mossbun:     { name: 'Mossbun',     color: '#66bb6a', rarity: 'common',    baseStats: { STR:3, DEX:4, INT:3, VIT:7, LCK:3 }, desc: 'A gentle grass critter. Great farmer.', aggressive: false, attackDmg: 2, attackCooldown: 2, size: 1 },
+    pebblit:     { name: 'Pebblit',     color: '#90a4ae', rarity: 'common',    baseStats: { STR:7, DEX:3, INT:2, VIT:5, LCK:3 }, desc: 'Tough little rock critter. Born to mine.', aggressive: true, aggroRange: 8, attackDmg: 4, attackCooldown: 1.2, size: 1 },
+    flickwing:   { name: 'Flickwing',   color: '#ffd54f', rarity: 'common',    baseStats: { STR:2, DEX:8, INT:4, VIT:3, LCK:3 }, desc: 'Fast and nimble. Excellent at crafting.', aggressive: false, attackDmg: 2, attackCooldown: 1.5, size: 1 },
+    thornback:   { name: 'Thornback',   color: '#558b2f', rarity: 'common',    baseStats: { STR:5, DEX:3, INT:2, VIT:6, LCK:4 }, desc: 'Spiky hedgehog critter. Tough and reliable.', aggressive: true, aggroRange: 6, attackDmg: 5, attackCooldown: 1.4, size: 1 },
+
+    // ── UNCOMMON (3) ────────────────────────────────────────
+    glowmite:    { name: 'Glowmite',    color: '#ce93d8', rarity: 'uncommon',  baseStats: { STR:2, DEX:3, INT:8, VIT:3, LCK:4 }, desc: 'A mysterious luminous critter. Great researcher.', aggressive: true, aggroRange: 10, attackDmg: 6, attackCooldown: 1.8, size: 1 },
+    emberfox:    { name: 'Emberfox',    color: '#ff7043', rarity: 'uncommon',  baseStats: { STR:5, DEX:7, INT:3, VIT:4, LCK:5 }, desc: 'A fiery fox. Fast attacker and decent crafter.', aggressive: true, aggroRange: 10, attackDmg: 7, attackCooldown: 1.0, size: 1.2 },
+    crystalhorn: { name: 'Crystalhorn', color: '#7e57c2', rarity: 'uncommon',  baseStats: { STR:6, DEX:2, INT:4, VIT:7, LCK:5 }, desc: 'Crystalline beetle. Incredibly sturdy miner.', aggressive: true, aggroRange: 8, attackDmg: 8, attackCooldown: 1.6, size: 1.3 },
+
+    // ── RARE (3) ────────────────────────────────────────────
+    stormwing:   { name: 'Stormwing',   color: '#42a5f5', rarity: 'rare',      baseStats: { STR:4, DEX:10, INT:7, VIT:4, LCK:6 }, desc: 'Electric bird. Lightning fast, great at everything.', aggressive: true, aggroRange: 14, attackDmg: 10, attackCooldown: 0.8, size: 1.3 },
+    ironshell:   { name: 'Ironshell',   color: '#78909c', rarity: 'rare',      baseStats: { STR:9, DEX:2, INT:3, VIT:12, LCK:5 }, desc: 'Armored turtle. Nearly indestructible tank.', aggressive: true, aggroRange: 6, attackDmg: 12, attackCooldown: 2.0, size: 1.5 },
+    venomaw:     { name: 'Venomaw',     color: '#ab47bc', rarity: 'rare',      baseStats: { STR:7, DEX:6, INT:5, VIT:5, LCK:8 }, desc: 'Toxic frog. Poisons enemies and boosts luck.', aggressive: true, aggroRange: 12, attackDmg: 9, attackCooldown: 1.2, size: 1.2 },
+
+    // ── LEGENDARY (2) ───────────────────────────────────────
+    shadowfang:  { name: 'Shadowfang',  color: '#5c2d91', rarity: 'legendary', baseStats: { STR:12, DEX:10, INT:6, VIT:8, LCK:8 }, desc: 'Dark wolf of shadow. Devastating in combat.', aggressive: true, aggroRange: 18, attackDmg: 18, attackCooldown: 0.7, size: 1.8 },
+    celestine:   { name: 'Celestine',   color: '#e0f7fa', rarity: 'legendary', baseStats: { STR:6, DEX:8, INT:14, VIT:10, LCK:10 }, desc: 'Celestial deer. Divine researcher and healer.', aggressive: true, aggroRange: 16, attackDmg: 14, attackCooldown: 1.0, size: 1.8 },
 };
 
 const RARITY_COLORS = { common: '#aaa', uncommon: '#8bc34a', rare: '#ffc107', legendary: '#e040fb' };
 const CATCH_RATES = { common: 0.70, uncommon: 0.40, rare: 0.20, legendary: 0.05 };
 const RARITY_HP = { common: 30, uncommon: 50, rare: 80, legendary: 150 };
-const WILD_MIN_COUNT = 12;
-const WILD_MAX_COUNT = 16;
+const WILD_MIN_COUNT = 16;
+const WILD_MAX_COUNT = 24;
 const CAPTURE_RANGE = 2.5; // in tiles
 
 let _nextCritterId = 1;
@@ -32,15 +47,21 @@ class Critters {
         const wilds = [];
         const rng = world._seededRng(world.seed + 7777);
         const count = WILD_MIN_COUNT + Math.floor(Math.random() * (WILD_MAX_COUNT - WILD_MIN_COUNT + 1));
-        const speciesKeys = Object.keys(SPECIES);
+
+        const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
+        const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
+        const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
+        const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
 
         for (let i = 0; i < count; i++) {
             const pos = world.randomGrassTile(rng);
-            // Weight by rarity
+            // Weight by rarity: 50% common, 25% uncommon, 18% rare, 7% legendary
             let species;
             const roll = Math.random();
-            if (roll < 0.15) species = 'glowmite';
-            else species = speciesKeys[Math.floor(Math.random() * 3)]; // first 3 are common
+            if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
+            else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
+            else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
+            else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
 
             const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
             wilds.push({

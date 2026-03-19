@@ -993,7 +993,8 @@ class Game {
         const sp = SPECIES[critter.species];
         const sx = critter.x, sy = critter.y;
         const bob = Math.sin(this.time * 3 + critter.id) * 2;
-        const r = 12;
+        const sizeScale = sp.size || 1;
+        const r = Math.round(12 * sizeScale);
 
         // Shadow
         gfx.beginFill(0x000000, 0.2);
@@ -1019,7 +1020,7 @@ class Game {
             if (critter._pixiSprite) critter._pixiSprite.visible = false;
             const color = PIXI.utils.string2hex(sp.color);
             gfx.beginFill(color);
-            gfx.drawCircle(sx, sy + bob, 8);
+            gfx.drawCircle(sx, sy + bob, Math.round(8 * sizeScale));
             gfx.endFill();
             // Eyes
             gfx.beginFill(0xffffff);

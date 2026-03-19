@@ -44,10 +44,12 @@ const CRITTER_SPRITES = {};
 
 function preloadCritterSprites() {
     const defs = {
-        mossbun: 'critters/mossbun.png',
-        pebblit: 'critters/pebblit.png',
-        flickwing: 'critters/flickwing.png',
-        glowmite: 'critters/glowmite.png',
+        mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',
+        flickwing: 'critters/flickwing.png', glowmite: 'critters/glowmite.png',
+        thornback: 'critters/thornback.png', emberfox: 'critters/emberfox.png',
+        crystalhorn: 'critters/crystalhorn.png', stormwing: 'critters/stormwing.png',
+        ironshell: 'critters/ironshell.png', venomaw: 'critters/venomaw.png',
+        shadowfang: 'critters/shadowfang.png', celestine: 'critters/celestine.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
@@ -98,6 +100,10 @@ function buildPixiTextures() {
     const critterDefs = {
         mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',
         flickwing: 'critters/flickwing.png', glowmite: 'critters/glowmite.png',
+        thornback: 'critters/thornback.png', emberfox: 'critters/emberfox.png',
+        crystalhorn: 'critters/crystalhorn.png', stormwing: 'critters/stormwing.png',
+        ironshell: 'critters/ironshell.png', venomaw: 'critters/venomaw.png',
+        shadowfang: 'critters/shadowfang.png', celestine: 'critters/celestine.png',
     };
     for (const [key, path] of Object.entries(buildingDefs)) {
         try {
