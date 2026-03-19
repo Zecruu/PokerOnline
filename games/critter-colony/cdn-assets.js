@@ -153,10 +153,32 @@ function buildPixiTextures() {
     _pixiTexturesReady = true;
 }
 
+// ─── PLAYER SPRITES ──────────────────────────────────────────
+const PLAYER_SPRITES = {};
+
+function preloadPlayerSprites() {
+    const defs = {
+        front: 'player/player-front.png',
+        back: 'player/player-back.png',
+        left: 'player/player-left.png',
+        // right = left flipped in code
+    };
+    const promises = [];
+    for (const [key, path] of Object.entries(defs)) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const p = new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+        img.src = getAssetUrl(path);
+        PLAYER_SPRITES[key] = img;
+        promises.push(p);
+    }
+    return Promise.allSettled(promises);
+}
+
 // Preload everything
 function preloadAllAssets() {
     // HTML Image preload for UI panels (img tags in DOM)
-    const htmlPreload = Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]);
+    const htmlPreload = Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons(), preloadPlayerSprites()]);
     // PIXI texture load (for WebGL rendering)
     buildPixiTextures();
     return htmlPreload;
