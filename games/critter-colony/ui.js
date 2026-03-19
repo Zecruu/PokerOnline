@@ -317,11 +317,12 @@ class UI {
                     const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
                     for (const b of g.buildings) {
                         const def = BUILDING_DEFS[b.type];
-                        if (def.isHQ || def.isWall || def.isGate) continue; // skip non-assignable
+                        if (def.isHQ || def.isWall || def.isGate) continue;
                         if (!def.produces && !def.isResearch && !def.isWorkbench && !def.isStorage) continue;
-                        const isFull = b.workers.length >= maxW && c.assignment !== b.id;
+                        const isAssignedHere = c.assignment == b.id; // loose compare for string/number
+                        const isFull = b.workers.length >= maxW && !isAssignedHere;
                         if (isFull) continue;
-                        const selected = c.assignment === b.id ? 'selected' : '';
+                        const selected = isAssignedHere ? 'selected' : '';
                         html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length}/${maxW})</option>`;
                     }
                     html += `</select>`;
