@@ -28,6 +28,28 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 #resWood{color:#8d6e63}
 #resStone{color:#90a4ae}
 #resFood{color:#9ccc65}
+.res-rate{font-size:.65rem;color:#4ade80;font-weight:400;margin-left:2px}
+.res-time{color:#fbbf24;font-weight:700;font-size:.8rem;font-family:monospace}
+.res-actions{display:flex;gap:4px;margin-left:auto}
+.res-btn{width:28px;height:28px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#aaa;font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.res-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+
+/* Settings Panel */
+.settings-panel{position:fixed;top:48px;right:308px;width:280px;background:rgba(14,14,28,.97);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-radius:12px;z-index:20;padding:16px}
+.settings-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:700;font-size:.95rem}
+.settings-body{display:flex;flex-direction:column;gap:10px}
+.setting-row{display:flex;align-items:center;gap:8px;font-size:.82rem;color:#ccc}
+.setting-row span:first-child{flex:1;min-width:100px}
+.setting-row input[type="range"]{flex:1;accent-color:#66bb6a;height:4px}
+.setting-row input[type="checkbox"]{accent-color:#66bb6a;width:16px;height:16px}
+.setting-row span:last-child{min-width:36px;text-align:right;color:#888;font-size:.75rem}
+
+/* Pause Overlay */
+.pause-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:200;display:flex;justify-content:center;align-items:center}
+.pause-overlay.hidden{display:none}
+.pause-content{text-align:center}
+.pause-content h2{font-size:3rem;font-weight:900;color:#fff;margin-bottom:8px;letter-spacing:4px}
+.pause-content p{color:#888;margin-bottom:20px}
 
 /* ========== SIDE PANEL ========== */
 #sidePanel{position:fixed;top:0;right:0;width:300px;height:100%;background:rgba(14,14,28,.95);backdrop-filter:blur(8px);border-left:1px solid rgba(255,255,255,.06);z-index:10;display:flex;flex-direction:column}

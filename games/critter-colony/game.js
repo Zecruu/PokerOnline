@@ -51,6 +51,17 @@ class Game {
 
         this.started = false;
         this.titleScreen = true;
+        this.paused = false;
+        this.gameTimeSec = 0; // in-game time in seconds
+        this._resourceRates = { wood: 0, stone: 0, food: 0 };
+        this._rateTracker = { wood: 0, stone: 0, food: 0 };
+        this._rateSampleTimer = 0;
+        this.showFps = false;
+        this._fpsFrames = 0;
+        this._fpsTimer = 0;
+        this._fpsDisplay = 0;
+        this.zoomLevel = 1;
+        this.mouseSensitivity = 1;
 
         // ─── SOUND ──────────────────────────────────────────
         this.sounds = new GameSounds();
@@ -223,7 +234,12 @@ class Game {
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
             if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
             if (e.key.toLowerCase() === 'b') UI.switchTab('buildings');
-            if (e.key === 'Escape') { this.placementMode = null; UI.showWaypointMenu = false; this.showFullMap = false; }
+            if (e.key === 'Escape') {
+                if (this.paused) { this.togglePause(); }
+                else if (document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden')) { this.toggleSettings(); }
+                else { this.placementMode = null; UI.showWaypointMenu = false; this.showFullMap = false; }
+            }
+            if (e.key.toLowerCase() === 'p') this.togglePause();
         };
         window.onkeyup = (e) => {
             this.keys[e.key.toLowerCase()] = false;
@@ -470,6 +486,43 @@ class Game {
         UI.update();
     }
 
+    togglePause() {
+        this.paused = !this.paused;
+        const el = document.getElementById('pauseOverlay');
+        if (el) el.classList.toggle('hidden', !this.paused);
+        const btn = document.getElementById('pauseBtn');
+        if (btn) btn.textContent = this.paused ? '▶' : '⏸';
+    }
+
+    toggleSettings() {
+        const el = document.getElementById('settingsPanel');
+        if (el) el.classList.toggle('hidden');
+    }
+
+    applySetting(key, value) {
+        switch (key) {
+            case 'volume':
+                this.sounds.setVolume(parseInt(value) / 100);
+                document.getElementById('setVolumeVal').textContent = value + '%';
+                break;
+            case 'sfx':
+                if (!value) this.sounds.toggleMute();
+                else if (this.sounds.muted) this.sounds.toggleMute();
+                break;
+            case 'zoom':
+                this.zoomLevel = parseInt(value) / 100;
+                document.getElementById('setZoomVal').textContent = value + '%';
+                break;
+            case 'sensitivity':
+                this.mouseSensitivity = parseInt(value) / 100;
+                document.getElementById('setSensVal').textContent = value + '%';
+                break;
+            case 'fps':
+                this.showFps = value;
+                break;
+        }
+    }
+
     startResearch(researchId) {
         if (this.researchInProgress) { UI.notify('Already researching!'); return; }
         const rd = RESEARCH_DEFS[researchId];
@@ -482,8 +535,27 @@ class Game {
         UI.notify(`Researching ${rd.name}...`); UI.update();
     }
 
-    // ─── UPDATE (100% identical game logic) ─────────────────
+    // ─── UPDATE ──────────────────────────────────────────────
     update(dt) {
+        // FPS counter
+        this._fpsFrames++;
+        this._fpsTimer += dt;
+        if (this._fpsTimer >= 1) { this._fpsDisplay = this._fpsFrames; this._fpsFrames = 0; this._fpsTimer = 0; }
+
+        if (this.paused) return;
+
+        this.gameTimeSec += dt;
+
+        // Track resource rates (sample every 2 seconds)
+        this._rateSampleTimer += dt;
+        if (this._rateSampleTimer >= 2) {
+            for (const r of ['wood', 'stone', 'food']) {
+                this._resourceRates[r] = ((this.resources[r] || 0) - (this._rateTracker[r] || 0)) / this._rateSampleTimer;
+                this._rateTracker[r] = this.resources[r] || 0;
+            }
+            this._rateSampleTimer = 0;
+        }
+
         let dx = 0, dy = 0;
         if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
         if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
@@ -721,6 +793,16 @@ class Game {
             foodEl.style.color = this.hungry ? '#f87171' : '#9ccc65';
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
+            // Resource rates
+            const fmtRate = (r) => { const v = this._resourceRates[r] || 0; return v >= 0.01 ? `+${v.toFixed(1)}/s` : v <= -0.01 ? `${v.toFixed(1)}/s` : ''; };
+            document.getElementById('rateWood').textContent = fmtRate('wood');
+            document.getElementById('rateStone').textContent = fmtRate('stone');
+            document.getElementById('rateFood').textContent = fmtRate('food');
+            // Game time
+            const mins = Math.floor(this.gameTimeSec / 60);
+            const secs = Math.floor(this.gameTimeSec % 60);
+            const hrs = Math.floor(mins / 60);
+            document.getElementById('gameTime').textContent = hrs > 0 ? `${hrs}:${(mins%60).toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}` : `${mins}:${secs.toString().padStart(2,'0')}`;
             UI.updatePanel();
         }
     }
@@ -730,9 +812,10 @@ class Game {
         const w = this.pixiApp.screen.width, h = this.pixiApp.screen.height;
         const camX = this.cam.x, camY = this.cam.y;
 
-        // Move world container (camera)
-        this.worldContainer.x = -camX;
-        this.worldContainer.y = -camY;
+        // Move world container (camera + zoom)
+        this.worldContainer.scale.set(this.zoomLevel);
+        this.worldContainer.x = -camX * this.zoomLevel + w * (1 - this.zoomLevel) / 2;
+        this.worldContainer.y = -camY * this.zoomLevel + h * (1 - this.zoomLevel) / 2;
 
         // ── Chunk tile rendering (cached textures) ──
         this._updateChunks(camX, camY, w, h);
@@ -883,6 +966,13 @@ class Game {
 
         // Waypoint menu
         if (UI.showWaypointMenu) this._renderWaypointMenu(ovr, w, h);
+
+        // FPS counter
+        if (this.showFps) {
+            const fps = this._getText(`FPS: ${this._fpsDisplay}`, { fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', fill: 0x4ade80 });
+            fps.anchor.set(1, 0);
+            fps.x = w - 310; fps.y = 48;
+        }
 
         // Minimap / Full Map
         if (this.showFullMap) {
