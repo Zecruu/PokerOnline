@@ -2,7 +2,21 @@
    Critter Colony — Infinite Chunk-Based World
    ============================================================ */
 
-const TILE = { GRASS: 0, TREE: 1, ROCK: 2, WATER: 3, COLONY: 4, PATH: 5 };
+const TILE = { GRASS: 0, TREE: 1, ROCK: 2, WATER: 3, COLONY: 4, PATH: 5, NODE_OIL: 6, NODE_GOLD: 7, NODE_DIAMOND: 8, NODE_CRYSTAL: 9 };
+
+const NODE_COLORS = {
+    [TILE.NODE_OIL]:     ['#1a1a1a', '#222'],
+    [TILE.NODE_GOLD]:    ['#ffd700', '#e6c200'],
+    [TILE.NODE_DIAMOND]: ['#b3e5fc', '#81d4fa'],
+    [TILE.NODE_CRYSTAL]: ['#ce93d8', '#ba68c8'],
+};
+
+const NODE_INFO = {
+    [TILE.NODE_OIL]:     { name: 'Oil Deposit',     resource: 'oil',     color: '#1a1a1a', icon: '🛢️' },
+    [TILE.NODE_GOLD]:    { name: 'Gold Vein',        resource: 'gold',    color: '#ffd700', icon: '✨' },
+    [TILE.NODE_DIAMOND]: { name: 'Diamond Cluster',  resource: 'diamond', color: '#81d4fa', icon: '💎' },
+    [TILE.NODE_CRYSTAL]: { name: 'Arcane Crystal',   resource: 'crystal', color: '#ce93d8', icon: '🔮' },
+};
 const TILE_SIZE = 32;
 const CHUNK_SIZE = 16;
 
@@ -22,6 +36,10 @@ const TILE_COLORS = {
     [TILE.WATER]:  ['#2a6faa','#2d74b0','#2768a2'],
     [TILE.COLONY]: ['#8a7a52','#8e7e56','#867650'],
     [TILE.PATH]:   ['#a89060','#a48a5c','#ac9464'],
+    [TILE.NODE_OIL]:     ['#1a1a1a','#222'],
+    [TILE.NODE_GOLD]:    ['#8a7a30','#7a6a28'],
+    [TILE.NODE_DIAMOND]: ['#5a7a8a','#4a6a7a'],
+    [TILE.NODE_CRYSTAL]: ['#6a4a7a','#5a3a6a'],
 };
 
 class World {
@@ -128,6 +146,20 @@ class World {
                 else {
                     tiles[idx] = TILE.GRASS;
                 }
+
+                // Resource nodes — spawn in specific noise ranges, far from colony
+                const distFromOrigin = Math.sqrt(wx * wx + wy * wy);
+                if (tiles[idx] === TILE.GRASS && distFromOrigin > 40) {
+                    const n4 = this._noise2D(wx * 0.015 + 1000, wy * 0.015 + 1000);
+                    const n5 = this._noise2D(wx * 0.03 + 2000, wy * 0.03 + 2000);
+                    if (n4 > 0.55 && n5 > 0.5 && n2 > 0.6) {
+                        // Pick node type based on distance + noise
+                        if (distFromOrigin > 120 && n4 > 0.7) tiles[idx] = TILE.NODE_DIAMOND;
+                        else if (distFromOrigin > 80 && n4 > 0.62) tiles[idx] = TILE.NODE_GOLD;
+                        else if (n5 > 0.65) tiles[idx] = TILE.NODE_CRYSTAL;
+                        else tiles[idx] = TILE.NODE_OIL;
+                    }
+                }
             }
         }
     }
@@ -149,7 +181,18 @@ class World {
 
     isWalkable(worldTileX, worldTileY) {
         const t = this.getTile(worldTileX, worldTileY);
-        return t === TILE.GRASS || t === TILE.COLONY || t === TILE.PATH;
+        return t === TILE.GRASS || t === TILE.COLONY || t === TILE.PATH
+            || t === TILE.NODE_OIL || t === TILE.NODE_GOLD || t === TILE.NODE_DIAMOND || t === TILE.NODE_CRYSTAL;
+    }
+
+    isNode(worldTileX, worldTileY) {
+        const t = this.getTile(worldTileX, worldTileY);
+        return t >= TILE.NODE_OIL && t <= TILE.NODE_CRYSTAL;
+    }
+
+    getNodeInfo(worldTileX, worldTileY) {
+        const t = this.getTile(worldTileX, worldTileY);
+        return NODE_INFO[t] || null;
     }
 
     isColony(worldTileX, worldTileY) {
@@ -373,6 +416,26 @@ class World {
                 }
 
                 // Path — slightly different shade, no extra decoration
+
+                // Resource nodes
+                if (NODE_COLORS[t]) {
+                    const nc = NODE_COLORS[t];
+                    const nci = (wx * 3 + wy * 7) % nc.length;
+                    ctx.fillStyle = nc[nci];
+                    ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
+                    // Sparkle/indicator
+                    const info = NODE_INFO[t];
+                    if (info) {
+                        ctx.fillStyle = info.color + '66';
+                        ctx.beginPath();
+                        ctx.arc(sx + 16, sy + 16, 8, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = info.color;
+                        ctx.beginPath();
+                        ctx.arc(sx + 16, sy + 16, 4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
             }
         }
     }

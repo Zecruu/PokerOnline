@@ -24,6 +24,15 @@ const RESEARCH_DEFS = {
     barracks:     { name: 'Barracks',          desc: 'Unlocks Barracks (+30% patrol dmg)', maxLevel: 1, cost: (l) => ({ wood: 50, stone: 70, food: 20 }),    time: 40 },
     refinery:     { name: 'Crystal Refinery',  desc: 'Unlocks Refinery (produces crystal)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 80, food: 40 }),   time: 60 },
     healingHut:   { name: 'Healing Arts',      desc: 'Unlocks Healing Hut (auto-heal injured)', maxLevel: 1, cost: (l) => ({ wood: 40, stone: 30, food: 40 }), time: 35 },
+    // Extractors
+    oilDrilling:  { name: 'Oil Drilling',      desc: 'Unlocks Oil Pump (place on oil nodes)',   maxLevel: 1, cost: (l) => ({ wood: 60, stone: 80, food: 0 }),       time: 50 },
+    goldMining:   { name: 'Gold Mining',       desc: 'Unlocks Gold Mine (place on gold nodes)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 100, iron: 20 }),     time: 60 },
+    diamondDrill: { name: 'Diamond Drilling',  desc: 'Unlocks Diamond Drill (diamond nodes)',   maxLevel: 1, cost: (l) => ({ wood: 100, stone: 120, iron: 40 }),    time: 80 },
+    crystalExtract:{ name: 'Crystal Extraction',desc: 'Unlocks Crystal Extractor',              maxLevel: 1, cost: (l) => ({ wood: 70, stone: 90, iron: 15 }),      time: 55 },
+    // Snare tiers
+    ironSnare:    { name: 'Iron Snares',       desc: 'Craft Iron Snares (catches uncommon)',    maxLevel: 1, cost: (l) => ({ wood: 40, stone: 40, iron: 10 }),      time: 30 },
+    goldSnare:    { name: 'Gold Snares',       desc: 'Craft Gold Snares (catches rare)',        maxLevel: 1, cost: (l) => ({ wood: 50, stone: 50, gold: 5 }),       time: 45 },
+    diamondSnare: { name: 'Diamond Snares',    desc: 'Craft Diamond Snares (catches legendary)',maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, diamond: 3 }),    time: 60 },
 };
 
 class UI {

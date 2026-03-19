@@ -90,6 +90,15 @@ const PASSIVE_POOL = {
 const RARITY_COLORS = { common: '#aaa', uncommon: '#8bc34a', rare: '#ffc107', legendary: '#e040fb' };
 const CATCH_RATES = { common: 0.70, uncommon: 0.40, rare: 0.20, legendary: 0.05 };
 const RARITY_HP = { common: 30, uncommon: 50, rare: 80, legendary: 150 };
+
+// ─── SNARE TIERS (trap types) ───────────────────────────────
+// Higher tiers needed for rarer critters. Using wrong tier = 0% catch rate.
+const SNARE_TIERS = {
+    rope_snare:    { name: 'Rope Snare',    tier: 1, color: '#8d6e63', captures: ['common'],                     craftCost: { wood: 5, stone: 3 }, desc: 'Basic snare. Catches common critters.' },
+    iron_snare:    { name: 'Iron Snare',     tier: 2, color: '#78909c', captures: ['common','uncommon'],          craftCost: { wood: 5, iron: 3 }, desc: 'Reinforced snare. Catches uncommon.', researchReq: 'ironSnare' },
+    gold_snare:    { name: 'Gold Snare',     tier: 3, color: '#ffd700', captures: ['common','uncommon','rare'],   craftCost: { iron: 3, gold: 2 }, desc: 'Enchanted snare. Catches rare.', researchReq: 'goldSnare' },
+    diamond_snare: { name: 'Diamond Snare',  tier: 4, color: '#81d4fa', captures: ['common','uncommon','rare','legendary'], craftCost: { gold: 2, diamond: 1 }, desc: 'Perfect snare. Catches legendary.', researchReq: 'diamondSnare' },
+};
 const WILD_MIN_COUNT = 16;
 const WILD_MAX_COUNT = 24;
 const CAPTURE_RANGE = 2.5; // in tiles
@@ -337,8 +346,30 @@ class Critters {
         }
     }
 
+    // Find the best snare tier the player can use for this critter's rarity
+    static getBestSnare(inventory, critterRarity) {
+        const tiers = Object.entries(SNARE_TIERS).reverse(); // check highest first
+        for (const [key, snare] of tiers) {
+            if ((inventory[key] || 0) > 0 && snare.captures.includes(critterRarity)) {
+                return key;
+            }
+        }
+        // Fallback to old traps for backwards compat
+        if ((inventory.traps || 0) > 0 && critterRarity === 'common') return '_legacy_trap';
+        return null;
+    }
+
     static attemptCapture(critter, game) {
-        if (game.inventory.traps <= 0) return { success: false, reason: 'No traps!' };
+        const sp = SPECIES[critter.species];
+        const snareKey = Critters.getBestSnare(game.inventory, sp.rarity);
+
+        if (!snareKey) {
+            if (sp.rarity !== 'common') {
+                const needed = sp.rarity === 'uncommon' ? 'Iron Snare' : sp.rarity === 'rare' ? 'Gold Snare' : 'Diamond Snare';
+                return { success: false, reason: `Need ${needed} for ${sp.rarity} critters!` };
+            }
+            return { success: false, reason: 'No snares!' };
+        }
 
         const px = game.player.x;
         const py = game.player.y;
@@ -348,7 +379,9 @@ class Critters {
 
         if (dist > CAPTURE_RANGE) return { success: false, reason: 'Too far away!' };
 
-        game.inventory.traps--;
+        // Consume the snare
+        if (snareKey === '_legacy_trap') game.inventory.traps--;
+        else game.inventory[snareKey] = (game.inventory[snareKey] || 0) - 1;
 
         // Stunned = guaranteed capture
         if (critter.stunned) {

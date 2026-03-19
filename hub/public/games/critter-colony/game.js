@@ -11,7 +11,7 @@ class Game {
         this.cam = { x: 0, y: 0 };
 
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
-        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
+        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
         this.inventory = { traps: 5, ammo: 120 };
         this.buildings = [];
         this.critters = [];
@@ -192,7 +192,7 @@ class Game {
             return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
         });
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0 };
+        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.deadCritters = gs.deadCritters || [];
         this.wildCritters = Critters.spawnWild(this.world);
@@ -213,10 +213,10 @@ class Game {
         this.world.generate();
         this.player.x = 0; this.player.y = 0;
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
-        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
+        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
         this.inventory = { traps: 5, ammo: 120 };
         this.critters = []; this.deadCritters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0 };
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = null;
         // Place HQ at colony center
         this.buildings = [Buildings.place('hq', -1, -1, { wood:0, stone:0, food:0, iron:0 })];
@@ -409,6 +409,21 @@ class Game {
     _handlePlacement(wx, wy) {
         const tx = Math.floor(wx / TILE_SIZE), ty = Math.floor(wy / TILE_SIZE);
         const type = this.placementMode.type, def = BUILDING_DEFS[type];
+
+        // Extractor placement — must be on correct node type
+        if (def.isExtractor) {
+            if (!Buildings.canPlaceExtractor(tx, ty, this.buildings, this.world, def.nodeType)) {
+                const info = NODE_INFO[def.nodeType];
+                UI.notify(`Must place on ${info ? info.name : 'resource node'}!`); return;
+            }
+            if (!Buildings.canAfford(type, this.resources)) { UI.notify('Not enough resources!'); return; }
+            const b = Buildings.place(type, tx, ty, this.resources);
+            this.buildings.push(b);
+            this.sounds.build();
+            UI.notify(`Built ${def.name} on ${NODE_INFO[def.nodeType]?.name || 'node'}!`);
+            this.placementMode = null; UI.update(); return;
+        }
+
         if (!Buildings.canPlace(tx, ty, def.size, this.buildings, this.world)) { UI.notify('Cannot build here!'); return; }
         if (!Buildings.canAfford(type, this.resources)) { UI.notify('Not enough resources!'); return; }
         if (def.expander) {
@@ -827,7 +842,7 @@ class Game {
         }
 
         const caps = {};
-        for (const r of ['wood','stone','food','iron']) caps[r] = (this.resourceCaps[r]||200) + (this.research.storageCap||0)*100;
+        for (const r of ['wood','stone','food','iron','oil','gold','diamond','crystal','metal']) caps[r] = (this.resourceCaps[r]||50) + (this.research.storageCap||0)*100;
 
         Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
         for (const r of ['wood','stone','food','iron']) this.resources[r] = Math.min(this.resources[r], caps[r]);

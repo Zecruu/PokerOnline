@@ -21,6 +21,11 @@ const BUILDING_DEFS = {
     barracks:    { name: 'Barracks',    cost: { wood: 30, stone: 50, iron: 15 },  produces: null,    baseRate: 0,   color: '#c62828', letter: 'B', size: 2, statKey: null, hp: 150, isBarracks: true, patrolBonus: 0.3, researchReq: 'barracks' },
     refinery:    { name: 'Refinery',    cost: { wood: 30, stone: 50, iron: 20 },  produces: 'crystal', baseRate: 0.03, color: '#7b1fa2', letter: '♦', size: 2, statKey: 'INT', hp: 120, researchReq: 'refinery' },
     healer:      { name: 'Healing Hut', cost: { wood: 25, stone: 20, food: 15 },  produces: null,    baseRate: 0,   color: '#e91e63', letter: '+', size: 2, statKey: 'VIT', hp: 60, isHealer: true, researchReq: 'healingHut' },
+    // Extractors — must be placed ON resource nodes
+    oil_pump:    { name: 'Oil Pump',    cost: { wood: 30, stone: 40, iron: 10 }, produces: 'oil',     baseRate: 0.05, color: '#37474f', letter: '⛽', size: 1, statKey: 'STR', hp: 100, isExtractor: true, nodeType: TILE.NODE_OIL, researchReq: 'oilDrilling' },
+    gold_mine:   { name: 'Gold Mine',   cost: { wood: 40, stone: 60, iron: 20 }, produces: 'gold',    baseRate: 0.03, color: '#f9a825', letter: 'G', size: 1, statKey: 'STR', hp: 120, isExtractor: true, nodeType: TILE.NODE_GOLD, researchReq: 'goldMining' },
+    diamond_drill:{ name: 'Diamond Drill',cost: { wood: 50, stone: 80, iron: 30 },produces: 'diamond', baseRate: 0.02, color: '#4fc3f7', letter: '♦', size: 1, statKey: 'STR', hp: 150, isExtractor: true, nodeType: TILE.NODE_DIAMOND, researchReq: 'diamondDrill' },
+    crystal_extractor:{ name: 'Crystal Extractor',cost: { wood: 40, stone: 50, iron: 15 },produces: 'crystal', baseRate: 0.04, color: '#ab47bc', letter: '◆', size: 1, statKey: 'INT', hp: 100, isExtractor: true, nodeType: TILE.NODE_CRYSTAL, researchReq: 'crystalExtract' },
 };
 
 class Buildings {
@@ -28,6 +33,18 @@ class Buildings {
         const def = BUILDING_DEFS[type];
         for (const [res, cost] of Object.entries(def.cost)) {
             if ((resources[res] || 0) < cost) return false;
+        }
+        return true;
+    }
+
+    static canPlaceExtractor(gridX, gridY, buildings, world, nodeType) {
+        // Must be on the correct node type
+        if (world.getTile(gridX, gridY) !== nodeType) return false;
+        // No overlap
+        for (const b of buildings) {
+            const def = BUILDING_DEFS[b.type];
+            if (gridX >= b.gridX && gridX < b.gridX + def.size &&
+                gridY >= b.gridY && gridY < b.gridY + def.size) return false;
         }
         return true;
     }
