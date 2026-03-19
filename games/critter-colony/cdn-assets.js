@@ -16,6 +16,7 @@ const BUILDING_SPRITES = {};
 
 function preloadBuildingSprites() {
     const defs = {
+        hq: 'buildings/hq.png',
         mine: 'buildings/mine.png',
         lumber_mill: 'buildings/lumber-mill.png',
         farm: 'buildings/farm.png',
@@ -23,6 +24,9 @@ function preloadBuildingSprites() {
         turret: 'buildings/turret.png',
         research_lab: 'buildings/research-lab.png',
         workbench: 'buildings/workbench.png',
+        iron_mine: 'buildings/iron-mine.png',
+        wall: 'buildings/wall.png',
+        gate: 'buildings/gate.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
@@ -111,10 +115,12 @@ function _loadPixiTex(path) {
 function buildPixiTextures() {
     if (typeof PIXI === 'undefined') return;
     const buildingDefs = {
+        hq: 'buildings/hq.png',
         mine: 'buildings/mine.png', lumber_mill: 'buildings/lumber-mill.png',
         farm: 'buildings/farm.png', nest: 'buildings/nest.png',
         turret: 'buildings/turret.png', research_lab: 'buildings/research-lab.png',
-        workbench: 'buildings/workbench.png',
+        workbench: 'buildings/workbench.png', iron_mine: 'buildings/iron-mine.png',
+        wall: 'buildings/wall.png', gate: 'buildings/gate.png',
     };
     const critterDefs = {
         mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',

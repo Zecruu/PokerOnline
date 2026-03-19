@@ -16,6 +16,7 @@ const BUILDING_SPRITES = {};
 
 function preloadBuildingSprites() {
     const defs = {
+        hq: 'buildings/hq.png',
         mine: 'buildings/mine.png',
         lumber_mill: 'buildings/lumber-mill.png',
         farm: 'buildings/farm.png',
@@ -23,6 +24,9 @@ function preloadBuildingSprites() {
         turret: 'buildings/turret.png',
         research_lab: 'buildings/research-lab.png',
         workbench: 'buildings/workbench.png',
+        iron_mine: 'buildings/iron-mine.png',
+        wall: 'buildings/wall.png',
+        gate: 'buildings/gate.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
@@ -44,18 +48,21 @@ const CRITTER_SPRITES = {};
 
 function preloadCritterSprites() {
     const defs = {
-        mossbun: 'critters/mossbun.png',
-        pebblit: 'critters/pebblit.png',
-        flickwing: 'critters/flickwing.png',
-        glowmite: 'critters/glowmite.png',
+        mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',
+        flickwing: 'critters/flickwing.png', glowmite: 'critters/glowmite.png',
+        thornback: 'critters/thornback.png', emberfox: 'critters/emberfox.png',
+        crystalhorn: 'critters/crystalhorn.png', stormwing: 'critters/stormwing.png',
+        ironshell: 'critters/ironshell.png', venomaw: 'critters/venomaw.png',
+        shadowfang: 'critters/shadowfang.png', celestine: 'critters/celestine.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
         const img = new Image();
         img.crossOrigin = "anonymous";
+        const localPath = CDN_CONFIG.localBasePath + path;
         const p = new Promise((resolve) => {
             img.onload = resolve;
-            img.onerror = resolve;
+            img.onerror = () => { img.src = localPath; img.onload = resolve; img.onerror = resolve; };
         });
         img.src = getAssetUrl(path);
         CRITTER_SPRITES[key] = img;
@@ -81,7 +88,64 @@ function preloadStatIcons() {
     return Promise.allSettled(promises);
 }
 
+// ─── PIXI TEXTURE CACHE ─────────────────────────────────────
+// Load directly via PIXI.Texture.from(url) for reliable WebGL textures
+const PIXI_BUILDING_TEXTURES = {};
+const PIXI_CRITTER_TEXTURES = {};
+let _pixiTexturesReady = false;
+
+function _loadPixiTex(path) {
+    // Try CDN first, fall back to local
+    const cdnUrl = CDN_CONFIG.enabled ? `${CDN_CONFIG.baseUrl}/${path}` : null;
+    const localUrl = CDN_CONFIG.localBasePath + path;
+    try {
+        const tex = PIXI.Texture.from(cdnUrl || localUrl);
+        // If CDN fails, the baseTexture error handler will switch to local
+        if (cdnUrl) {
+            tex.baseTexture.resource?.source?.addEventListener?.('error', () => {
+                try { tex.baseTexture.resource.source.src = localUrl; } catch(e) {}
+            });
+        }
+        return tex;
+    } catch(e) {
+        try { return PIXI.Texture.from(localUrl); } catch(e2) { return null; }
+    }
+}
+
+function buildPixiTextures() {
+    if (typeof PIXI === 'undefined') return;
+    const buildingDefs = {
+        hq: 'buildings/hq.png',
+        mine: 'buildings/mine.png', lumber_mill: 'buildings/lumber-mill.png',
+        farm: 'buildings/farm.png', nest: 'buildings/nest.png',
+        turret: 'buildings/turret.png', research_lab: 'buildings/research-lab.png',
+        workbench: 'buildings/workbench.png', iron_mine: 'buildings/iron-mine.png',
+        wall: 'buildings/wall.png', gate: 'buildings/gate.png',
+    };
+    const critterDefs = {
+        mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',
+        flickwing: 'critters/flickwing.png', glowmite: 'critters/glowmite.png',
+        thornback: 'critters/thornback.png', emberfox: 'critters/emberfox.png',
+        crystalhorn: 'critters/crystalhorn.png', stormwing: 'critters/stormwing.png',
+        ironshell: 'critters/ironshell.png', venomaw: 'critters/venomaw.png',
+        shadowfang: 'critters/shadowfang.png', celestine: 'critters/celestine.png',
+    };
+    for (const [key, path] of Object.entries(buildingDefs)) {
+        const t = _loadPixiTex(path);
+        if (t) PIXI_BUILDING_TEXTURES[key] = t;
+    }
+    for (const [key, path] of Object.entries(critterDefs)) {
+        const t = _loadPixiTex(path);
+        if (t) PIXI_CRITTER_TEXTURES[key] = t;
+    }
+    _pixiTexturesReady = true;
+}
+
 // Preload everything
 function preloadAllAssets() {
-    return Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]);
+    // HTML Image preload for UI panels (img tags in DOM)
+    const htmlPreload = Promise.all([preloadBuildingSprites(), preloadCritterSprites(), preloadStatIcons()]);
+    // PIXI texture load (for WebGL rendering)
+    buildPixiTextures();
+    return htmlPreload;
 }
