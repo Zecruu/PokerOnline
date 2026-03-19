@@ -43,6 +43,9 @@ class Game {
         this._waypointButtons = [];
         this.showFullMap = false;
 
+        // Death skulls (visual markers that despawn after 3s)
+        this.deathSkulls = []; // { x, y, timer }
+
         // Horde system
         this.hordeTimer = 15 * 60; // 15 minutes default
         this.hordeInterval = 15 * 60;
@@ -887,12 +890,19 @@ class Game {
 
         Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings);
 
-        // Handle despawned critters — recycle them instead of destroying
+        // Handle despawned critters — spawn skull, then recycle
         for (const c of this.wildCritters) {
             if (c._despawned) {
+                this.deathSkulls.push({ x: c.x, y: c.y, timer: 3 });
                 this._cleanupCritterSprite(c);
                 Critters.recycle(c, this.world);
             }
+        }
+
+        // Update death skulls
+        for (let i = this.deathSkulls.length - 1; i >= 0; i--) {
+            this.deathSkulls[i].timer -= dt;
+            if (this.deathSkulls[i].timer <= 0) this.deathSkulls.splice(i, 1);
         }
 
         // Check building HP — destroy if 0
@@ -1406,6 +1416,33 @@ class Game {
             gfx.endFill();
         }
 
+        // Death skulls
+        for (const skull of this.deathSkulls) {
+            const alpha = Math.min(1, skull.timer / 1);
+            const floatY = (3 - skull.timer) * 10;
+            const t = this._getText('\uD83D\uDC80', { fontSize: 16 });
+            t.x = skull.x; t.y = skull.y - floatY;
+            t.alpha = alpha;
+        }
+
+        // Boss location markers (pulsing skull pointing toward distant bosses)
+        if (this.worldBosses) {
+            for (const boss of this.worldBosses) {
+                if (boss.hp <= 0) continue;
+                const bdx = boss.x - this.player.x, bdy = boss.y - this.player.y;
+                const bDist = Math.sqrt(bdx * bdx + bdy * bdy);
+                if (bDist > 600) {
+                    const angle = Math.atan2(bdy, bdx);
+                    const edgeX = this.player.x + Math.cos(angle) * 450;
+                    const edgeY = this.player.y + Math.sin(angle) * 450;
+                    const pulse = 0.6 + Math.sin(this.time * 3) * 0.3;
+                    const t = this._getText('\uD83D\uDC80', { fontSize: 20 });
+                    t.x = edgeX; t.y = edgeY;
+                    t.alpha = pulse;
+                }
+            }
+        }
+
         // Player
         const px = this.player.x, py = this.player.y;
         gfx.beginFill(0x000000, 0.3);
@@ -1791,46 +1828,29 @@ class Game {
             gfx.endFill();
         }
 
-        // Stunned
+        // Stunned — stars above head
         if (critter.stunned) {
-            gfx.lineStyle(2, 0xffd54f, 0.5 + Math.sin(this.time * 10) * 0.3);
-            gfx.drawCircle(sx, sy + bob, 12);
-            gfx.lineStyle(0);
+            const t = this._getText('★ ★', { fontFamily: 'monospace', fontSize: 10, fill: 0xffd54f });
+            t.x = sx; t.y = sy + bob - r - 10;
         }
 
-        // HP bar
+        // HP bar (scales with critter size)
         if (critter.hp < critter.maxHp && !critter.stunned) {
-            const barW = 20, barH = 3;
+            const barW = Math.max(20, r * 2.2), barH = 3;
             gfx.beginFill(0x333333);
-            gfx.drawRect(sx - barW/2, sy + bob - 16, barW, barH);
+            gfx.drawRect(sx - barW/2, sy + bob - r - 8, barW, barH);
             gfx.endFill();
             const pct = critter.hp / critter.maxHp;
             const hpColor = pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171;
             gfx.beginFill(hpColor);
-            gfx.drawRect(sx - barW/2, sy + bob - 16, barW * pct, barH);
+            gfx.drawRect(sx - barW/2, sy + bob - r - 8, barW * pct, barH);
             gfx.endFill();
         }
 
-        // Aggro indicator
-        if (critter.state === 'aggro') {
-            gfx.lineStyle(2, 0xf87171, 0.7);
-            gfx.drawCircle(sx, sy + bob, 11);
-            gfx.lineStyle(0);
-        }
-
-        // Building attack indicator
-        if (critter.state === 'attacking_building') {
-            gfx.lineStyle(2, 0xff6b35, 0.7);
-            gfx.drawCircle(sx, sy + bob, 11);
-            gfx.lineStyle(0);
-        }
-
-        // Rarity glow
-        if (sp.rarity !== 'common') {
-            const rc = PIXI.utils.string2hex(RARITY_COLORS[sp.rarity].replace(/[^0-9a-fA-F#]/g, ''));
-            gfx.lineStyle(2, rc, 0.4);
-            gfx.drawCircle(sx, sy + bob, 11);
-            gfx.lineStyle(0);
+        // Aggro indicator — red "!" only, no circle
+        if (critter.state === 'aggro' || critter.state === 'attacking_building') {
+            const t = this._getText('!', { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xf87171 });
+            t.x = sx; t.y = sy + bob - r - 16;
         }
     }
 
@@ -2296,10 +2316,11 @@ class Game {
         for (let i = this.hordeCreatures.length - 1; i >= 0; i--) {
             const h = this.hordeCreatures[i];
 
-            // Stunned — remove from horde (defeated)
+            // Stunned — remove from horde (defeated), spawn skull
             if (h.stunned) {
                 h.stunTimer -= dt;
                 if (h.stunTimer <= 0) {
+                    this.deathSkulls.push({ x: h.x, y: h.y, timer: 3 });
                     this.hordeCreatures.splice(i, 1);
                 }
                 continue;
