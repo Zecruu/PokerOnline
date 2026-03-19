@@ -66,6 +66,75 @@ class UI {
         // Don't rebuild critters/manage tab if a select is focused (prevents dropdown closing)
         if ((this.activeTab === 'critters' || this.activeTab === 'manage') && body.querySelector('select:focus')) return;
 
+        // ── WORKBENCH UI (overrides other tabs when open) ──
+        if (g._activeWorkbench) {
+            const wb = g.buildings.find(b => b.id === g._activeWorkbench);
+            if (!wb || !g._isNearWorkbench(g._activeWorkbench)) {
+                g._activeWorkbench = null; // auto-close if walked away
+            } else {
+                const ct = Buildings.getCraftTime(wb, g.critters);
+                const canCraft = (g.resources.wood || 0) >= 5 && (g.resources.stone || 0) >= 3;
+                const crafting = (wb.workers.length > 0 && wb.craftQueue > 0) || wb._manualCrafting;
+                const pct = crafting ? Math.min(100, ((wb.craftProgress || 0) / ct) * 100) : 0;
+
+                let html = `<div class="wb-panel">`;
+                html += `<div class="wb-panel-header"><span>Workbench</span><button class="wb-close" onclick="game.closeWorkbench()">✕</button></div>`;
+
+                // Craft recipe: Trap
+                html += `<div class="wb-recipe">`;
+                html += `<div class="wb-recipe-icon">🪤</div>`;
+                html += `<div class="wb-recipe-info">`;
+                html += `<div class="wb-recipe-name">Trap</div>`;
+                html += `<div class="wb-recipe-desc">Used to capture stunned critters</div>`;
+                html += `<div class="wb-recipe-cost">`;
+                html += `<span class="wb-res ${(g.resources.wood||0)>=5?'':'wb-res-lack'}">🪵 5 Wood</span>`;
+                html += `<span class="wb-res ${(g.resources.stone||0)>=3?'':'wb-res-lack'}">🪨 3 Stone</span>`;
+                html += `</div>`;
+                html += `</div></div>`;
+
+                // Progress bar
+                if (crafting) {
+                    html += `<div class="wb-progress">`;
+                    html += `<div class="wb-prog-bar"><div class="wb-prog-fill" style="width:${pct}%"></div></div>`;
+                    html += `<span class="wb-prog-text">${Math.floor(pct)}% — ${ct.toFixed(1)}s/trap</span>`;
+                    html += `</div>`;
+                }
+
+                // Craft buttons
+                html += `<div class="wb-craft-btns">`;
+                html += `<button class="wb-craft-btn" onclick="game.manualCraft(${wb.id})" ${canCraft?'':'disabled'}>Craft 1</button>`;
+                html += `<button class="wb-craft-btn" onclick="game.queueCraft(${wb.id},5)" ${canCraft?'':'disabled'}>Queue +5</button>`;
+                html += `<button class="wb-craft-btn" onclick="game.queueCraft(${wb.id},20)" ${canCraft?'':'disabled'}>Queue +20</button>`;
+                html += `</div>`;
+
+                // Queue info
+                if (wb.craftQueue > 0) {
+                    html += `<div class="wb-queue-info">${wb.craftQueue} traps queued</div>`;
+                }
+
+                // Workers
+                html += `<div class="wb-workers-label">Workers (${wb.workers.length}) — higher DEX = faster</div>`;
+                if (wb.workers.length > 0) {
+                    html += `<div class="wb-worker-list">`;
+                    for (const cid of wb.workers) {
+                        const c = g.critters.find(cr => cr.id === cid);
+                        if (c) {
+                            html += `<div class="wb-worker-item">${UI._critterIconHtml(c.species, 'wb-worker-icon')} ${c.nickname} <span style="color:#ffd54f">DEX:${c.stats.DEX||0}</span></div>`;
+                        }
+                    }
+                    html += `</div>`;
+                } else {
+                    html += `<div class="wb-no-workers">No workers — assign DEX critters for auto-craft</div>`;
+                }
+
+                // Inventory
+                html += `<div class="wb-inventory">Traps: <span>${g.inventory.traps}</span></div>`;
+                html += `</div>`;
+                body.innerHTML = html;
+                return;
+            }
+        }
+
         if (this.activeTab === 'buildings') {
             let html = '<div class="panel-section-label">Build</div>';
             for (const [type, def] of Object.entries(BUILDING_DEFS)) {
@@ -112,17 +181,15 @@ class UI {
                     html += `<span class="pb-workers">${b.workers.length} workers</span>`;
                     if (def.produces) html += `<span class="pb-rate">+${rate.toFixed(2)}/s ${def.produces}</span>`;
 
-                    // Workbench crafting controls
+                    // Workbench — open button
                     if (def.isWorkbench) {
-                        const ct = Buildings.getCraftTime(b, g.critters);
-                        const canCraft = (g.resources.wood || 0) >= 5 && (g.resources.stone || 0) >= 3;
-                        html += `<div class="wb-controls">`;
-                        html += `<span class="wb-speed">${ct.toFixed(1)}s/trap</span>`;
-                        html += `<button class="wb-btn" onclick="game.manualCraft(${b.id})" ${canCraft ? '' : 'disabled'}>Craft 1</button>`;
-                        html += `<button class="wb-btn" onclick="game.queueCraft(${b.id}, 5)" ${canCraft ? '' : 'disabled'}>+5</button>`;
-                        html += `<button class="wb-btn" onclick="game.queueCraft(${b.id}, 20)" ${canCraft ? '' : 'disabled'}>+20</button>`;
-                        if (b.craftQueue > 0) html += `<span class="wb-queue">${b.craftQueue} queued</span>`;
-                        html += `</div>`;
+                        html += `<button class="wb-open-btn" onclick="game.openWorkbench(${b.id})">Open Workbench</button>`;
+                        if (b.craftQueue > 0 || b._manualCrafting) {
+                            const ct = Buildings.getCraftTime(b, g.critters);
+                            const pct = Math.min(100, ((b.craftProgress || 0) / ct) * 100);
+                            html += `<div class="wb-inline-prog"><div class="wb-inline-bar" style="width:${pct}%"></div></div>`;
+                            if (b.craftQueue > 0) html += `<span class="wb-queue">${b.craftQueue} queued</span>`;
+                        }
                     }
 
                     html += `</div>`;

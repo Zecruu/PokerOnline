@@ -428,22 +428,45 @@ class Game {
         UI.update();
     }
 
+    _isNearWorkbench(buildingId) {
+        const b = this.buildings.find(b => b.id === buildingId);
+        if (!b) return false;
+        const def = BUILDING_DEFS[b.type];
+        const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
+        const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
+        const dx = this.player.x - bcx, dy = this.player.y - bcy;
+        return Math.sqrt(dx * dx + dy * dy) < TILE_SIZE * 4;
+    }
+
     manualCraft(buildingId) {
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
+        if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
         if ((this.resources.wood || 0) < 5 || (this.resources.stone || 0) < 3) { UI.notify('Need 5 wood + 3 stone!'); return; }
         b._manualCrafting = true;
         b.craftProgress = 0;
+        this.sounds.build();
         UI.notify('Crafting trap...');
     }
 
     queueCraft(buildingId, amount) {
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
+        if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
         if (!b.craftQueue) b.craftQueue = 0;
         b.craftQueue += amount;
         if (b.workers.length === 0) UI.notify(`${amount} traps queued. Assign DEX critters to auto-craft!`);
         else UI.notify(`${amount} traps queued (${b.craftQueue} total)`);
+        UI.update();
+    }
+
+    openWorkbench(buildingId) {
+        this._activeWorkbench = buildingId;
+        UI.update();
+    }
+
+    closeWorkbench() {
+        this._activeWorkbench = null;
         UI.update();
     }
 
