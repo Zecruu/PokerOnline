@@ -187,7 +187,7 @@ class UI {
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
                     for (const b of g.buildings) {
                         const def = BUILDING_DEFS[b.type];
-                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue;
+                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue; // skips nests, turrets, expanders
                         const selected = c.assignment === b.id ? 'selected' : '';
                         html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length})</option>`;
                     }
@@ -249,7 +249,7 @@ class UI {
             } else {
                 for (const b of g.buildings) {
                     const def = BUILDING_DEFS[b.type];
-                    if (def.turret || def.expander) continue; // skip non-assignable
+                    if (def.turret || def.expander || def.capacity) continue; // skip turrets, expanders, nests
 
                     html += `<div class="manage-building">`;
                     html += `<div class="mb-header">`;

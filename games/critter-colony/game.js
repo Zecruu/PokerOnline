@@ -23,6 +23,11 @@ class Game {
         this.gunDamage = 10;
         this.mouseDown = false;
 
+        // Mining
+        this.miningHeld = false;
+        this.miningProgress = 0;
+        this.miningTarget = null; // {tx, ty, type}
+
         // Research
         this.research = {
             gunDamage: 0, storageCap: 0, captureBonus: 0,
@@ -214,12 +219,16 @@ class Game {
             this.keys[e.key.toLowerCase()] = true;
             if (!this.started) return;
             if (e.key.toLowerCase() === 'e') this._handleEKey();
+            if (e.key.toLowerCase() === 'q') this.miningHeld = true;
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
             if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
             if (e.key.toLowerCase() === 'b') UI.switchTab('buildings');
             if (e.key === 'Escape') { this.placementMode = null; UI.showWaypointMenu = false; this.showFullMap = false; }
         };
-        window.onkeyup = (e) => { this.keys[e.key.toLowerCase()] = false; };
+        window.onkeyup = (e) => {
+            this.keys[e.key.toLowerCase()] = false;
+            if (e.key.toLowerCase() === 'q') { this.miningHeld = false; this.miningProgress = 0; this.miningTarget = null; }
+        };
         this.canvas.onmousemove = (e) => {
             const r = this.canvas.getBoundingClientRect();
             this.mouse.x = e.clientX - r.left; this.mouse.y = e.clientY - r.top;
@@ -479,6 +488,55 @@ class Game {
             this._shoot(this.mouse.worldX, this.mouse.worldY);
         }
 
+        // Mining (hold Q) — mine adjacent trees/rocks
+        if (this.miningHeld) {
+            const ptx = Math.floor(this.player.x / TILE_SIZE);
+            const pty = Math.floor(this.player.y / TILE_SIZE);
+            // Find closest tree or rock within 2 tiles
+            if (!this.miningTarget) {
+                let bestDist = Infinity;
+                for (let dy = -2; dy <= 2; dy++) {
+                    for (let dx = -2; dx <= 2; dx++) {
+                        const tx = ptx + dx, ty = pty + dy;
+                        const t = this.world.getTile(tx, ty);
+                        if (t === TILE.TREE || t === TILE.ROCK) {
+                            const d = Math.abs(dx) + Math.abs(dy);
+                            if (d < bestDist) { bestDist = d; this.miningTarget = { tx, ty, type: t }; }
+                        }
+                    }
+                }
+            }
+            if (this.miningTarget) {
+                // Check still in range
+                const mdx = this.miningTarget.tx - ptx, mdy = this.miningTarget.ty - pty;
+                if (Math.abs(mdx) > 2 || Math.abs(mdy) > 2) {
+                    this.miningTarget = null; this.miningProgress = 0;
+                } else {
+                    const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : 1.2; // seconds
+                    this.miningProgress += dt;
+                    if (this.miningProgress >= mineTime) {
+                        const t = this.miningTarget.type;
+                        const tx = this.miningTarget.tx, ty = this.miningTarget.ty;
+                        // Harvest
+                        if (t === TILE.TREE) {
+                            this.resources.wood = Math.min(this.resources.wood + 3, (this.resourceCaps.wood || 200) + (this.research.storageCap || 0) * 100);
+                        } else if (t === TILE.ROCK) {
+                            this.resources.stone = Math.min(this.resources.stone + 3, (this.resourceCaps.stone || 200) + (this.research.storageCap || 0) * 100);
+                        }
+                        // Clear tile to grass
+                        this.world.setTile(tx, ty, TILE.GRASS);
+                        // Invalidate chunk cache
+                        const cx = Math.floor(tx / CHUNK_SIZE), cy = Math.floor(ty / CHUNK_SIZE);
+                        const cs = this._chunkSprites.get(cx + ',' + cy);
+                        if (cs) cs.dirty = true;
+                        this.sounds.hit();
+                        this.miningProgress = 0;
+                        this.miningTarget = null; // find next target
+                    }
+                }
+            }
+        }
+
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt;
@@ -728,6 +786,24 @@ class Game {
         const ovr = this._overlayGfx;
         ovr.clear();
         this._resetTextPool();
+
+        // Mining progress bar
+        if (this.miningHeld && this.miningTarget && this.miningProgress > 0) {
+            const mtx = this.miningTarget.tx * TILE_SIZE + TILE_SIZE / 2 - camX;
+            const mty = this.miningTarget.ty * TILE_SIZE - 4 - camY;
+            const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : 1.2;
+            const pct = Math.min(1, this.miningProgress / mineTime);
+            const barW = 28;
+            ovr.beginFill(0x333333);
+            ovr.drawRect(mtx - barW / 2, mty, barW, 4);
+            ovr.endFill();
+            ovr.beginFill(this.miningTarget.type === TILE.TREE ? 0x66bb6a : 0x90a4ae);
+            ovr.drawRect(mtx - barW / 2, mty, barW * pct, 4);
+            ovr.endFill();
+            const label = this.miningTarget.type === TILE.TREE ? 'Chopping...' : 'Mining...';
+            const mt = this._getText(label, { fontFamily: 'monospace', fontSize: 9, fontWeight: 'bold', fill: 0xffffff });
+            mt.x = mtx; mt.y = mty - 8;
+        }
 
         // Gun aim line
         if (this.gunCooldown <= 0 && !this.placementMode) {
