@@ -244,6 +244,7 @@ class UI {
             body.innerHTML = html;
 
         } else if (this.activeTab === 'critters') {
+            this._buildingsRendered = false;
             let html = '';
             if (g.critters.length === 0) {
                 html = '<div class="panel-empty">No critters captured yet.<br>Explore and press E near wild critters!</div>';
@@ -252,38 +253,41 @@ class UI {
                     const sp = SPECIES[c.species];
                     const critterImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[c.species] && CRITTER_SPRITES[c.species].complete
                         ? `<img class="cc-icon" src="${CRITTER_SPRITES[c.species].src}">` : `<span class="cc-dot" style="background:${sp.color}"></span>`;
-                    html += `<div class="critter-card">`;
-                    html += `<div class="cc-header">`;
-                    html += critterImg;
-                    html += `<span class="cc-name" onclick="game.renameCritter(${c.id})" title="Click to rename">${c.nickname}</span>`;
                     const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
+                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[sp.type] : null;
+
+                    // Assignment status
+                    let statusText = 'Idle', statusColor = '#888';
+                    if (c.assignment === 'patrol') { statusText = '🛡️ Patrol'; statusColor = '#4ade80'; }
+                    else if (c.assignment === 'companion') { statusText = '💫 Companion'; statusColor = '#fbbf24'; }
+                    else if (c.assignment === 'bodyguard') { statusText = '⚔️ Bodyguard'; statusColor = '#4FC3F7'; }
+                    else if (c.assignment) {
+                        const bld = g.buildings.find(b => b.id == c.assignment);
+                        if (bld) { statusText = `⚙️ ${BUILDING_DEFS[bld.type].name}`; statusColor = '#4ade80'; }
+                    }
+
+                    html += `<div class="critter-card${c.injured ? ' cc-card-injured' : ''}">`;
+
+                    // Top row: icon + name + level + type + rarity
+                    html += `<div class="cc-top">`;
+                    html += critterImg;
+                    html += `<div class="cc-top-info">`;
+                    html += `<div class="cc-name-row">`;
+                    html += `<span class="cc-name" onclick="game.renameCritter(${c.id})" title="Click to rename">${c.nickname}</span>`;
                     html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
-                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[sp.type] : null;
-                    html += `<div class="cc-type-row">`;
+                    html += `<div class="cc-meta-row">`;
                     html += `<span class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</span>`;
                     if (typeInfo) html += `<span class="cc-type" style="color:${typeInfo.color}">${typeInfo.icon} ${typeInfo.name}</span>`;
+                    html += `<span class="cc-status" style="color:${statusColor}">${statusText}</span>`;
                     html += `</div>`;
+                    html += `</div></div>`;
+
                     if (c.injured) {
                         const mins = Math.ceil((c.injuredTimer || 0) / 60);
                         html += `<div class="cc-injured">🩹 Injured — ${mins}m recovery</div>`;
                     }
-                    // Passives
-                    if (c.passives && c.passives.length > 0) {
-                        html += `<div class="cc-passives">`;
-                        for (const pid of c.passives) {
-                            const p = typeof PASSIVES !== 'undefined' ? PASSIVES[pid] : null;
-                            if (!p) continue;
-                            const pColor = RARITY_COLORS[p.rarity] || '#aaa';
-                            html += `<span class="cc-passive ${p.negative ? 'cc-passive-neg' : ''}" style="border-color:${pColor}40;color:${pColor}" title="${p.desc}">${p.icon} ${p.name}</span>`;
-                        }
-                        html += `</div>`;
-                    }
-                    // Patrol HP
-                    if (c.assignment === 'patrol' && c.patrolHp !== undefined) {
-                        const php = Math.floor(c.patrolHp), pmhp = c.patrolMaxHp || 50;
-                        html += `<div class="cc-patrol-hp">❤️ ${php}/${pmhp} HP</div>`;
-                    }
+
                     // XP bar
                     if (c.level < maxLv) {
                         const xpNeeded = typeof Critters !== 'undefined' ? Critters.getXpForLevel(c.level) : 50;
@@ -292,6 +296,8 @@ class UI {
                     } else {
                         html += `<div class="cc-xp cc-xp-max"><span class="cc-xp-text">MAX LEVEL</span></div>`;
                     }
+
+                    // Stats row
                     html += `<div class="cc-stats">`;
                     for (const [key, val] of Object.entries(c.stats)) {
                         const iconImg = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[key.toLowerCase()] && STAT_ICONS[key.toLowerCase()].complete
@@ -299,37 +305,54 @@ class UI {
                         html += `<span class="cc-stat">${iconImg}${key}:${val}</span>`;
                     }
                     html += `</div>`;
-                    // Show bonus yield if assigned to a building
-                    if (c.assignment && c.assignment !== 'patrol') {
-                        const bld = g.buildings.find(b => b.id === c.assignment);
+
+                    // PASSIVES — prominent section with full descriptions
+                    if (c.passives && c.passives.length > 0) {
+                        html += `<div class="cc-passives-section">`;
+                        html += `<div class="cc-passives-label">Passives</div>`;
+                        for (const pid of c.passives) {
+                            const p = typeof PASSIVES !== 'undefined' ? PASSIVES[pid] : null;
+                            if (!p) continue;
+                            const pColor = RARITY_COLORS[p.rarity] || '#aaa';
+                            html += `<div class="cc-passive-full ${p.negative ? 'cc-passive-neg' : ''}">`;
+                            html += `<span class="cc-pf-icon">${p.icon}</span>`;
+                            html += `<div class="cc-pf-info">`;
+                            html += `<span class="cc-pf-name" style="color:${pColor}">${p.name}</span>`;
+                            html += `<span class="cc-pf-desc">${p.desc}</span>`;
+                            html += `</div></div>`;
+                        }
+                        html += `</div>`;
+                    } else {
+                        html += `<div class="cc-no-passives">No passives</div>`;
+                    }
+
+                    // Patrol HP
+                    if ((c.assignment === 'patrol' || c.assignment === 'bodyguard') && c.patrolHp !== undefined) {
+                        const php = Math.floor(c.patrolHp), pmhp = c.patrolMaxHp || 50;
+                        const hpPct = Math.min(100, (php / pmhp) * 100);
+                        html += `<div class="cc-patrol-hp-bar"><div class="cc-php-fill" style="width:${hpPct}%"></div><span>❤️ ${php}/${pmhp}</span></div>`;
+                    }
+
+                    // Assignment + type match info
+                    if (c.assignment && c.assignment !== 'patrol' && c.assignment !== 'companion' && c.assignment !== 'bodyguard') {
+                        const bld = g.buildings.find(b => b.id == c.assignment);
                         if (bld) {
                             const def = BUILDING_DEFS[bld.type];
-                            // Type match indicator
                             const tBonus = typeof Critters !== 'undefined' ? Critters.getTypeBonus(c, bld.type) : 0;
-                            if (tBonus > 0) html += `<div class="cc-bonus cc-type-match">✅ Type match! +${(tBonus*100).toFixed(0)}% bonus</div>`;
-                            else if (tBonus < 0) html += `<div class="cc-bonus cc-type-mismatch">⚠️ Wrong type. ${(tBonus*100).toFixed(0)}% penalty</div>`;
-                            if (def.produces && def.statKey) {
-                                const statVal = c.stats[def.statKey] || 0;
-                                const bonus = (statVal * 0.05 * 100).toFixed(0);
-                                html += `<div class="cc-bonus">+${bonus}% ${def.produces} yield (${def.statKey}: ${statVal})</div>`;
-                            } else if (def.isResearch) {
-                                const intVal = c.stats.INT || 0;
-                                html += `<div class="cc-bonus">+${(intVal * 8).toFixed(0)}% research speed (INT: ${intVal})</div>`;
-                            } else if (def.isWorkbench) {
-                                const dexVal = c.stats.DEX || 0;
-                                html += `<div class="cc-bonus">-${(dexVal * 2).toFixed(0)}% craft time (DEX: ${dexVal})</div>`;
-                            }
+                            if (tBonus > 0) html += `<div class="cc-bonus cc-type-match">✅ Type match! +${(tBonus*100).toFixed(0)}%</div>`;
+                            else if (tBonus < 0) html += `<div class="cc-bonus cc-type-mismatch">⚠️ Wrong type ${(tBonus*100).toFixed(0)}%</div>`;
                         }
                     }
 
+                    // Role dropdown
                     html += `<div class="cc-assign">`;
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
                     html += `<option value="" ${!c.assignment ? 'selected' : ''}>Idle</option>`;
-                    html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
+                    html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>🛡️ Patrol</option>`;
                     const companionCount = g.critters.filter(cr => cr.assignment === 'companion').length;
                     const maxCompanions = 1 + (g.research.companionSlots || 0);
                     if (c.assignment === 'companion' || companionCount < maxCompanions) {
-                        html += `<option value="companion" ${c.assignment === 'companion' ? 'selected' : ''}>Companion (${companionCount}/${maxCompanions})</option>`;
+                        html += `<option value="companion" ${c.assignment === 'companion' ? 'selected' : ''}>💫 Companion (${companionCount}/${maxCompanions})</option>`;
                     }
                     const bodyguardCount = g.critters.filter(cr => cr.assignment === 'bodyguard').length;
                     const maxBodyguards = 1 + (g.research.bodyguardSlots || 0);

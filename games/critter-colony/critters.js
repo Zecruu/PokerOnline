@@ -94,6 +94,15 @@ const PASSIVES = {
     prodigy:        { name: 'Prodigy',        rarity: 'legendary', desc: '+100% to ALL stat scaling', icon: '🧬', effect: { statMulti: 1.00 } },
     juggernaut:     { name: 'Juggernaut',     rarity: 'legendary', desc: '+200% HP, +150% dmg, immune to knockback', icon: '🏔️', effect: { hpBonus: 2.00, dmgBonus: 1.50, knockbackImmune: true } },
     reaper:         { name: 'Reaper',         rarity: 'legendary', desc: '10% chance to instantly kill wild critters', icon: '💀', effect: { executeChance: 0.10 } },
+    gamba:          { name: 'Gamba',           rarity: 'rare',      desc: 'Chance to 2x crafted items (scales with INT)', icon: '🎲', effect: { gambaChance: true } },
+    chopper:        { name: 'Chopper',         rarity: 'uncommon',  desc: '5x wood production when assigned to Lumber Mill', icon: '🪓', effect: { resourceBonus: { wood: 4.0 } } },
+    ironlung:       { name: 'Iron Lung',       rarity: 'uncommon',  desc: '3x stone production when assigned to Mine', icon: '⛏️', effect: { resourceBonus: { stone: 2.0 } } },
+    oil_baron:      { name: 'Oil Baron',       rarity: 'rare',      desc: '4x oil production from Oil Pump', icon: '🛢️', effect: { resourceBonus: { oil: 3.0 } } },
+    goldfinger:     { name: 'Goldfinger',      rarity: 'rare',      desc: '3x gold production from Gold Mine', icon: '💰', effect: { resourceBonus: { gold: 2.0 } } },
+    glass_cannon:   { name: 'Glass Cannon',    rarity: 'uncommon',  desc: '+200% dmg but -80% HP. One hit wonder.', icon: '💥', effect: { dmgBonus: 2.00, hpBonus: -0.80 } },
+    scavenger:      { name: 'Scavenger',       rarity: 'common',    desc: '+15% all resource production', icon: '🔍', effect: { prodBonus: 0.15 } },
+    cursed:         { name: 'Cursed',           rarity: 'common',    desc: '-50% production, -30% HP. Terrible.', icon: '☠️', effect: { prodBonus: -0.50, hpBonus: -0.30 }, negative: true },
+    bottomless_pit: { name: 'Bottomless Pit',  rarity: 'common',    desc: '+100% food consumption. Always hungry.', icon: '🕳️', effect: { foodPenalty: 1.00 }, negative: true },
 
     // ── COMPANION PASSIVES (only activate when assigned as companion) ──
     waterwalker:    { name: 'Waterwalker',    rarity: 'uncommon',  desc: 'COMPANION: Player can walk on water',   icon: '🌊', effect: { companionWaterWalk: true }, companionOnly: true },
