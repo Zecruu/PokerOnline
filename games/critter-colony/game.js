@@ -45,6 +45,8 @@ class Game {
 
         // Death skulls (visual markers that despawn after 3s)
         this.deathSkulls = []; // { x, y, timer }
+        // Floating damage numbers
+        this.damageNumbers = []; // { x, y, text, timer, color, vy }
 
         // Horde system
         this.hordeTimer = 15 * 60; // 15 minutes default
@@ -422,10 +424,42 @@ class Game {
             this.gunCooldown = 0.6;
             const knifeDmg = 5 + (this.research.gunDamage || 0) * 2;
             const knifeRange = TILE_SIZE * 2;
+            const slashAngle = Math.atan2(wy - this.player.y, wx - this.player.x);
+            // Always show swing arc toward mouse
+            if (!this._knifeSwings) this._knifeSwings = [];
+            this._knifeSwings.push({ x: this.player.x, y: this.player.y, angle: slashAngle, timer: 0.25 });
+            let knifeHit = false;
+            // Hit wild critters
             for (const wc of this.wildCritters) {
                 const dx = wc.x - this.player.x, dy = wc.y - this.player.y;
                 if (Math.sqrt(dx*dx + dy*dy) < knifeRange) {
                     Critters.damageWild(wc, knifeDmg);
+                    this._spawnDmgNum(wc.x, wc.y, knifeDmg, 0xff8a65);
+                    this.sounds.hit();
+                    knifeHit = true;
+                    break;
+                }
+            }
+            // Also hit horde critters
+            if (!knifeHit) for (const h of this.hordeCreatures) {
+                if (h.stunned) continue;
+                const dx = h.x - this.player.x, dy = h.y - this.player.y;
+                if (Math.sqrt(dx*dx + dy*dy) < knifeRange) {
+                    h.hp -= knifeDmg;
+                    if (h.hp <= 0) { h.stunned = true; h.stunTimer = 3; }
+                    this._spawnDmgNum(h.x, h.y, knifeDmg, 0xff8a65);
+                    this.sounds.hit();
+                    knifeHit = true;
+                    break;
+                }
+            }
+            // Also hit world bosses
+            if (!knifeHit && this.worldBosses) for (const boss of this.worldBosses) {
+                if (boss.hp <= 0) continue;
+                const dx = boss.x - this.player.x, dy = boss.y - this.player.y;
+                if (Math.sqrt(dx*dx + dy*dy) < knifeRange * 1.5) {
+                    boss.hp -= knifeDmg;
+                    this._spawnDmgNum(boss.x, boss.y, knifeDmg, 0xff8a65);
                     this.sounds.hit();
                     break;
                 }
@@ -931,6 +965,7 @@ class Game {
                 const hx = wc.x - p.x, hy = wc.y - p.y;
                 if (Math.sqrt(hx*hx + hy*hy) < 12) {
                     Critters.damageWild(wc, p.damage);
+                    this._spawnDmgNum(wc.x, wc.y, p.damage, 0xffd54f);
                     this.sounds.slash();
                     // Slash hit effect
                     if (!this._hitEffects) this._hitEffects = [];
@@ -963,11 +998,27 @@ class Game {
             if (this.deathSkulls[i].timer <= 0) this.deathSkulls.splice(i, 1);
         }
 
+        // Update floating damage numbers
+        for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+            const dn = this.damageNumbers[i];
+            dn.timer -= dt;
+            dn.y += dn.vy * dt;
+            if (dn.timer <= 0) this.damageNumbers.splice(i, 1);
+        }
+
         // Update hit slash effects
         if (this._hitEffects) {
             for (let i = this._hitEffects.length - 1; i >= 0; i--) {
                 this._hitEffects[i].timer -= dt;
                 if (this._hitEffects[i].timer <= 0) this._hitEffects.splice(i, 1);
+            }
+        }
+
+        // Update knife swing arcs
+        if (this._knifeSwings) {
+            for (let i = this._knifeSwings.length - 1; i >= 0; i--) {
+                this._knifeSwings[i].timer -= dt;
+                if (this._knifeSwings[i].timer <= 0) this._knifeSwings.splice(i, 1);
             }
         }
 
@@ -1027,7 +1078,12 @@ class Game {
         Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
         for (const r of ['wood','stone','food','iron']) this.resources[r] = Math.min(this.resources[r], caps[r]);
 
-        Buildings.updateTurrets(dt, this.buildings, this.wildCritters, this.projectiles, this.research);
+        // Combine all turret targets: wild critters + world bosses
+        this._turretTargets = this.wildCritters;
+        if (this.worldBosses && this.worldBosses.length > 0) {
+            this._turretTargets = this.wildCritters.concat(this.worldBosses.filter(b => b.hp > 0));
+        }
+        Buildings.updateTurrets(dt, this.buildings, this._turretTargets, this.projectiles, this.research);
 
         for (let pi = this.critters.length - 1; pi >= 0; pi--) {
             const c = this.critters[pi];
@@ -1104,7 +1160,9 @@ class Game {
                 }
                 // Attack when close
                 if (chLen < TILE_SIZE * 1.5 && c._attackTimer <= 0) {
-                    Critters.damageWild(target, (c.stats.STR || 1) * 3);
+                    const patDmg = (c.stats.STR || 1) * 3;
+                    Critters.damageWild(target, patDmg);
+                    this._spawnDmgNum(target.x, target.y, patDmg, 0x81c784);
                     c._attackTimer = 1.0;
                     this.sounds.hit();
                 }
@@ -1151,6 +1209,7 @@ class Game {
                     const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
                         Critters.damageWild(wc, dmg);
+                        this._spawnDmgNum(wc.x, wc.y, dmg, 0x64b5f6);
                         c._attackTimer = 1.0; hit = true;
                         if (this.sounds) this.sounds.hit();
                         break;
@@ -1163,6 +1222,7 @@ class Game {
                     const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
                         wc.hp -= dmg; if (wc.hp <= 0) { wc.stunned = true; wc.stunTimer = 3; }
+                        this._spawnDmgNum(wc.x, wc.y, dmg, 0x64b5f6);
                         c._attackTimer = 1.0; hit = true;
                         if (this.sounds) this.sounds.hit();
                         break;
@@ -1175,6 +1235,7 @@ class Game {
                     const ax = boss.x - c._patrolX, ay = boss.y - c._patrolY;
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
                         boss.hp -= dmg;
+                        this._spawnDmgNum(boss.x, boss.y, dmg, 0x64b5f6);
                         c._attackTimer = 1.0; hit = true;
                         if (this.sounds) this.sounds.hit();
                         break;
@@ -1630,12 +1691,59 @@ class Game {
             }
         }
 
+        // Knife swing arcs — wide sweeping arc from player
+        if (this._knifeSwings) {
+            for (const ks of this._knifeSwings) {
+                const progress = 1 - (ks.timer / 0.25); // 0→1
+                const alpha = 1 - progress;
+                const sweepAngle = 1.2; // radians of arc sweep
+                const startAngle = ks.angle - sweepAngle / 2;
+                const currentSweep = sweepAngle * progress;
+                const innerR = 10;
+                const outerR = 30 + progress * 8;
+
+                // Bright arc
+                gfx.lineStyle(3, 0xffcc80, alpha * 0.9);
+                gfx.arc(ks.x, ks.y, outerR, startAngle, startAngle + currentSweep);
+                gfx.lineStyle(0);
+
+                // Blade line at current sweep tip
+                const tipAngle = startAngle + currentSweep;
+                gfx.lineStyle(2, 0xffffff, alpha * 0.8);
+                gfx.moveTo(ks.x + Math.cos(tipAngle) * innerR, ks.y + Math.sin(tipAngle) * innerR);
+                gfx.lineTo(ks.x + Math.cos(tipAngle) * outerR, ks.y + Math.sin(tipAngle) * outerR);
+                gfx.lineStyle(0);
+
+                // Faint trail fill
+                gfx.beginFill(0xffcc80, alpha * 0.15);
+                gfx.moveTo(ks.x, ks.y);
+                const segments = 8;
+                for (let s = 0; s <= segments; s++) {
+                    const a = startAngle + (currentSweep * s / segments);
+                    gfx.lineTo(ks.x + Math.cos(a) * outerR, ks.y + Math.sin(a) * outerR);
+                }
+                gfx.lineTo(ks.x, ks.y);
+                gfx.endFill();
+            }
+        }
+
         // Death skulls (world space)
         for (const skull of this.deathSkulls) {
             const alpha = Math.min(1, skull.timer / 1);
             const floatY = (3 - skull.timer) * 10;
             const t = this._getWorldText('\uD83D\uDC80', { fontSize: 16 });
             t.x = skull.x; t.y = skull.y - floatY;
+            t.alpha = alpha;
+        }
+
+        // Floating damage numbers (world space)
+        for (const dn of this.damageNumbers) {
+            const alpha = Math.min(1, dn.timer / 0.3);
+            const t = this._getWorldText(dn.text, {
+                fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold',
+                fill: dn.color, stroke: 0x000000, strokeThickness: 3,
+            });
+            t.x = dn.x; t.y = dn.y;
             t.alpha = alpha;
         }
 
@@ -2488,6 +2596,7 @@ class Game {
                 const hx = boss.x - p.x, hy = boss.y - p.y;
                 if (Math.sqrt(hx * hx + hy * hy) < TILE_SIZE * boss.size * 0.5) {
                     boss.hp -= p.damage;
+                    this._spawnDmgNum(boss.x, boss.y, p.damage, 0xffd740);
                     this.projectiles.splice(pi, 1);
                 }
             }
@@ -2629,6 +2738,17 @@ class Game {
         UI.notify('Left multiplayer session.', 3000);
     }
 
+    _spawnDmgNum(x, y, amount, color) {
+        this.damageNumbers.push({
+            x: x + (Math.random() - 0.5) * 12,
+            y: y - 8,
+            text: Math.floor(amount).toString(),
+            timer: 0.8,
+            color: color || 0xffffff,
+            vy: -40 - Math.random() * 20,
+        });
+    }
+
     _escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str;
@@ -2755,6 +2875,7 @@ class Game {
                 const hx = h.x - p.x, hy = h.y - p.y;
                 if (Math.sqrt(hx * hx + hy * hy) < 14) {
                     h.hp -= p.damage;
+                    this._spawnDmgNum(h.x, h.y, p.damage, 0xff5252);
                     if (h.hp <= 0) {
                         h.stunned = true;
                         h.stunTimer = 3; // shorter stun, just for death animation
@@ -2778,7 +2899,9 @@ class Game {
                     if (h.stunned) continue;
                     const ax = h.x - (c._patrolX || 0), ay = h.y - (c._patrolY || 0);
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
-                        h.hp -= (c.stats.STR || 1) * 2;
+                        const patDmg = (c.stats.STR || 1) * 2;
+                        h.hp -= patDmg;
+                        this._spawnDmgNum(h.x, h.y, patDmg, 0x81c784);
                         if (h.hp <= 0) { h.stunned = true; h.stunTimer = 3; }
                         c._attackTimer = 1.5;
                         break;
