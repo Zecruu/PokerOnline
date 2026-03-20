@@ -357,7 +357,10 @@ class Critters {
                     } else if (c._bldgTimer <= 0) {
                         c._bldgTimer = sp.attackCooldown || 1.5;
                         const dmg = sp.attackDmg || 3;
-                        if (closestB.hp !== undefined) closestB.hp -= dmg;
+                        if (closestB.hp !== undefined) {
+                            closestB.hp -= dmg;
+                            if (typeof game !== 'undefined' && game.sounds) game.sounds.buildingHit();
+                        }
                         c._justAttacked = true;
                         setTimeout(() => { c._justAttacked = false; }, 300);
                     }

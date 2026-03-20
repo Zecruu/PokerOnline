@@ -2879,7 +2879,10 @@ class Game {
                     const bdist = Math.sqrt((h.x - bcx) ** 2 + (h.y - bcy) ** 2);
                     if (bdist < TILE_SIZE * 2) {
                         const dmg = Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
-                        if (b.hp !== undefined) b.hp -= dmg;
+                        if (b.hp !== undefined) {
+                            b.hp -= dmg;
+                            if (this.sounds) this.sounds.buildingHit();
+                        }
                         h._attackTimer = sp.attackCooldown || 1.5;
                         break;
                     }
