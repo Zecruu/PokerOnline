@@ -282,7 +282,7 @@ class Critters {
 
                 if (pDist < aggroRange) {
                     c.state = 'aggro';
-                    const speed = 70;
+                    const speed = 220; // slightly faster than player (200)
                     const len = Math.sqrt(pdx*pdx + pdy*pdy);
                     if (len > 15) {
                         c.x += (pdx / len) * speed * dt;
@@ -408,7 +408,7 @@ class Critters {
                     c.state = 'idle';
                     c.wanderTimer = 2 + Math.random() * 4;
                 } else {
-                    const speed = 45;
+                    const speed = 60;
                     c.x += (dx / dist) * speed * dt;
                     c.y += (dy / dist) * speed * dt;
                 }

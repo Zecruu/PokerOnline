@@ -911,7 +911,14 @@ class Game {
             for (const wc of this.wildCritters) {
                 if (wc.stunned) continue;
                 const hx = wc.x - p.x, hy = wc.y - p.y;
-                if (Math.sqrt(hx*hx + hy*hy) < 12) { Critters.damageWild(wc, p.damage); this.sounds.hit(); this.projectiles.splice(i, 1); break; }
+                if (Math.sqrt(hx*hx + hy*hy) < 12) {
+                    Critters.damageWild(wc, p.damage);
+                    this.sounds.hit();
+                    // Slash hit effect
+                    if (!this._hitEffects) this._hitEffects = [];
+                    this._hitEffects.push({ x: wc.x, y: wc.y, timer: 0.2, angle: Math.atan2(p.vy, p.vx) });
+                    this.projectiles.splice(i, 1); break;
+                }
             }
         }
 
@@ -931,6 +938,14 @@ class Game {
         for (let i = this.deathSkulls.length - 1; i >= 0; i--) {
             this.deathSkulls[i].timer -= dt;
             if (this.deathSkulls[i].timer <= 0) this.deathSkulls.splice(i, 1);
+        }
+
+        // Update hit slash effects
+        if (this._hitEffects) {
+            for (let i = this._hitEffects.length - 1; i >= 0; i--) {
+                this._hitEffects[i].timer -= dt;
+                if (this._hitEffects[i].timer <= 0) this._hitEffects.splice(i, 1);
+            }
         }
 
         // Check building HP — destroy if 0
@@ -1560,6 +1575,21 @@ class Game {
             gfx.endFill();
         }
 
+        // Hit slash effects
+        if (this._hitEffects) {
+            for (const fx of this._hitEffects) {
+                const alpha = fx.timer / 0.2;
+                const len = 18;
+                gfx.lineStyle(3, 0xffffff, alpha * 0.9);
+                gfx.moveTo(fx.x + Math.cos(fx.angle - 0.4) * 3, fx.y + Math.sin(fx.angle - 0.4) * 3);
+                gfx.lineTo(fx.x + Math.cos(fx.angle - 0.4) * len, fx.y + Math.sin(fx.angle - 0.4) * len);
+                gfx.lineStyle(2, 0xffd54f, alpha * 0.7);
+                gfx.moveTo(fx.x + Math.cos(fx.angle + 0.4) * 3, fx.y + Math.sin(fx.angle + 0.4) * 3);
+                gfx.lineTo(fx.x + Math.cos(fx.angle + 0.4) * (len - 4), fx.y + Math.sin(fx.angle + 0.4) * (len - 4));
+                gfx.lineStyle(0);
+            }
+        }
+
         // Death skulls (world space)
         for (const skull of this.deathSkulls) {
             const alpha = Math.min(1, skull.timer / 1);
@@ -1996,6 +2026,19 @@ class Game {
         if (critter.state === 'aggro' || critter.state === 'attacking_building' || critter.state === 'aggro_bodyguard') {
             const t = this._getWorldText('!', { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xf87171 });
             t.x = sx; t.y = sy + bob - r - 16;
+        }
+
+        // Slash animation when critter attacks
+        if (critter._justAttacked) {
+            const slashAngle = Math.random() * Math.PI * 2;
+            const slashLen = r + 8;
+            gfx.lineStyle(3, 0xff4444, 0.8);
+            gfx.moveTo(sx + Math.cos(slashAngle) * 4, sy + bob + Math.sin(slashAngle) * 4);
+            gfx.lineTo(sx + Math.cos(slashAngle) * slashLen, sy + bob + Math.sin(slashAngle) * slashLen);
+            gfx.lineStyle(2, 0xffffff, 0.6);
+            gfx.moveTo(sx + Math.cos(slashAngle + 0.3) * 6, sy + bob + Math.sin(slashAngle + 0.3) * 6);
+            gfx.lineTo(sx + Math.cos(slashAngle + 0.3) * (slashLen - 2), sy + bob + Math.sin(slashAngle + 0.3) * (slashLen - 2));
+            gfx.lineStyle(0);
         }
     }
 
