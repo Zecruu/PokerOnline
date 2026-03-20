@@ -11,7 +11,7 @@ class Game {
         this.cam = { x: 0, y: 0 };
 
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
-        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
+        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
         this.inventory = { traps: 5, ammo: 120 };
         this.buildings = [];
         this.critters = [];
@@ -42,16 +42,6 @@ class Game {
         this.placementMode = null;
         this._waypointButtons = [];
         this.showFullMap = false;
-
-        // Death skulls (visual markers that despawn after 3s)
-        this.deathSkulls = []; // { x, y, timer }
-
-        // Horde system
-        this.hordeTimer = 15 * 60; // 15 minutes default
-        this.hordeInterval = 15 * 60;
-        this.hordeWave = 0;
-        this.hordeActive = false;
-        this.hordeCreatures = [];
 
         // Timers
         this.autoSaveTimer = 60;
@@ -195,7 +185,7 @@ class Game {
             return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
         });
         this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
+        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.deadCritters = gs.deadCritters || [];
         this.wildCritters = Critters.spawnWild(this.world);
@@ -216,10 +206,10 @@ class Game {
         this.world.generate();
         this.player.x = 0; this.player.y = 0;
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
-        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
+        this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100 };
         this.inventory = { traps: 5, ammo: 120 };
         this.critters = []; this.deadCritters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0 };
         this.researchInProgress = null;
         // Place HQ at colony center
         this.buildings = [Buildings.place('hq', -1, -1, { wood:0, stone:0, food:0, iron:0 })];
@@ -237,8 +227,6 @@ class Game {
         this._chunkSprites.forEach(cs => { if (cs.sprite.parent) cs.sprite.parent.removeChild(cs.sprite); cs.sprite.destroy(true); });
         this._chunkSprites.clear();
         UI.init(this); UI.update();
-        // Set resource icon images
-        this._setResIcons();
         this.lastTimestamp = performance.now();
         this.pixiApp.ticker.add(() => {
             const now = performance.now();
@@ -259,11 +247,10 @@ class Game {
             if (e.key.toLowerCase() === 'q') this.miningHeld = true;
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
             if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
-            if (e.key.toLowerCase() === 'b') UI.toggleBuildMenu();
+            if (e.key.toLowerCase() === 'b') UI.switchTab('buildings');
             if (e.key === 'Escape') {
                 if (this.paused) { this.togglePause(); }
                 else if (document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden')) { this.toggleSettings(); }
-                else if (UI.showBuildMenu) { UI.toggleBuildMenu(); }
                 else { this.placementMode = null; UI.showWaypointMenu = false; this.showFullMap = false; }
             }
             if (e.key.toLowerCase() === 'p') this.togglePause();
@@ -415,30 +402,6 @@ class Game {
     _handlePlacement(wx, wy) {
         const tx = Math.floor(wx / TILE_SIZE), ty = Math.floor(wy / TILE_SIZE);
         const type = this.placementMode.type, def = BUILDING_DEFS[type];
-
-        // Extractor placement — must be on correct node type
-        if (def.isExtractor) {
-            if (!Buildings.canPlaceExtractor(tx, ty, this.buildings, this.world, def.nodeType)) {
-                const info = NODE_INFO[def.nodeType];
-                UI.notify(`Must place on ${info ? info.name : 'resource node'}!`); return;
-            }
-            if (!Buildings.canAfford(type, this.resources)) { UI.notify('Not enough resources!'); return; }
-            const b = Buildings.place(type, tx, ty, this.resources);
-            this.buildings.push(b);
-            this.sounds.build();
-
-            // Create outpost waypoint for this extractor
-            const info = NODE_INFO[def.nodeType];
-            const outpostName = `${info?.name || 'Outpost'} #${this.buildings.filter(bb => BUILDING_DEFS[bb.type].isExtractor).length}`;
-            const existingWP = this.world.waypoints.find(w => Math.abs(w.x - tx) < 3 && Math.abs(w.y - ty) < 3);
-            if (!existingWP) {
-                this.world.waypoints.push({ name: outpostName, x: tx, y: ty, claimed: true, isOutpost: true });
-            }
-
-            UI.notify(`Built ${def.name}! Outpost waypoint created.`);
-            this.placementMode = null; UI.update(); return;
-        }
-
         if (!Buildings.canPlace(tx, ty, def.size, this.buildings, this.world)) { UI.notify('Cannot build here!'); return; }
         if (!Buildings.canAfford(type, this.resources)) { UI.notify('Not enough resources!'); return; }
         if (def.expander) {
@@ -474,12 +437,9 @@ class Game {
     }
 
     startPlacement(type) {
-        const def = BUILDING_DEFS[type];
-        if (def.researchReq && !(this.research[def.researchReq] > 0)) { UI.notify('Research required first!'); return; }
         if (!Buildings.canAfford(type, this.resources)) { UI.notify('Not enough resources!'); return; }
         this.placementMode = { type };
-        if (UI.showBuildMenu) UI.toggleBuildMenu(); // close modal when placing
-        UI.notify(`Click to place ${def.name}. ESC to cancel.`);
+        UI.notify(`Click colony zone to place ${BUILDING_DEFS[type].name}. ESC to cancel.`);
     }
 
     assignCritter(critterId, valueStr) {
@@ -503,20 +463,6 @@ class Game {
             critter._patrolX = this.player.x + (Math.random() - 0.5) * 200;
             critter._patrolY = this.player.y + (Math.random() - 0.5) * 200;
             UI.notify(`${critter.nickname} is now on patrol!`);
-        } else if (valueStr === 'companion') {
-            const maxComp = 1 + (this.research.companionSlots || 0);
-            const currentComp = this.critters.filter(c => c.assignment === 'companion').length;
-            if (currentComp >= maxComp) { UI.notify(`Max ${maxComp} companions! Research Companion Bond.`); return; }
-            critter.assignment = 'companion';
-            const sp = SPECIES[critter.species];
-            const typeInfo = CRITTER_TYPES[sp.type];
-            UI.notify(`${critter.nickname} is now your companion! ${typeInfo?.icon || ''}`);
-        } else if (valueStr === 'bodyguard') {
-            const maxBG = 1 + (this.research.bodyguardSlots || 0);
-            const currentBG = this.critters.filter(c => c.assignment === 'bodyguard').length;
-            if (currentBG >= maxBG) { UI.notify(`Max ${maxBG} bodyguards! Research Bodyguard Training.`); return; }
-            critter.assignment = 'bodyguard';
-            UI.notify(`${critter.nickname} is now your bodyguard!`);
         } else if (valueStr) {
             const bid = parseInt(valueStr);
             const newB = this.buildings.find(b => b.id === bid);
@@ -542,95 +488,6 @@ class Game {
         UI.update();
     }
 
-    // Get combined companion effects
-    _setResIcons() {
-        const map = {
-            riWood: 'wood', riStone: 'stone', riFood: 'food', riIron: 'iron',
-            riOil: 'oil', riGold: 'gold', riDiamond: 'diamond', riGas: 'gasoline',
-            riTrap: 'trap', riAmmo: 'ammo', riAether: 'aethershard',
-        };
-        for (const [elId, key] of Object.entries(map)) {
-            const el = document.getElementById(elId);
-            const icon = typeof RES_ICONS !== 'undefined' ? RES_ICONS[key] : null;
-            if (el && icon && icon.complete && icon.src) el.src = icon.src;
-        }
-    }
-
-    closeBuildMenu() { UI.toggleBuildMenu(); }
-    switchBuildTab(tab) { UI.switchTab(tab); }
-
-    getCompanionEffect(effectKey) {
-        let total = 0;
-        for (const c of this.critters) {
-            if (c.assignment !== 'companion') continue;
-            total += Critters.getPassiveEffect(c, effectKey);
-            // Type-based companion bonuses
-            const sp = SPECIES[c.species];
-            const typeInfo = sp ? CRITTER_TYPES[sp.type] : null;
-            if (typeInfo?.canSwim && effectKey === 'companionWaterWalk') total = 1; // any water type grants water walk
-        }
-        return total;
-    }
-
-    hasCompanionEffect(effectKey) {
-        for (const c of this.critters) {
-            if (c.assignment !== 'companion') continue;
-            if (Critters.hasPassive(c, effectKey)) return true;
-            const sp = SPECIES[c.species];
-            const typeInfo = sp ? CRITTER_TYPES[sp.type] : null;
-            if (typeInfo?.canSwim && effectKey === 'companionWaterWalk') return true;
-        }
-        return false;
-    }
-
-    // Transfer passive from one critter to another (costs gold)
-    transferPassive(fromId, passiveId, toId) {
-        const from = this.critters.find(c => c.id === fromId);
-        const to = this.critters.find(c => c.id === toId);
-        if (!from || !to) return;
-        if (!from.passives || !from.passives.includes(passiveId)) { UI.notify('Critter doesn\'t have that passive!'); return; }
-        if (to.passives && to.passives.includes(passiveId)) { UI.notify('Target already has that passive!'); return; }
-
-        const goldCost = 10;
-        if ((this.resources.gold || 0) < goldCost) { UI.notify(`Need ${goldCost} gold to transfer!`); return; }
-
-        this.resources.gold -= goldCost;
-        from.passives = from.passives.filter(p => p !== passiveId);
-        if (!to.passives) to.passives = [];
-        to.passives.push(passiveId);
-        const p = PASSIVES[passiveId];
-        UI.notify(`Transferred ${p?.name || passiveId} from ${from.nickname} to ${to.nickname}! (-${goldCost} gold)`);
-        if (this.sounds) this.sounds.levelup?.();
-        UI.update();
-    }
-
-    sacrificeCritter(critterId) {
-        const critter = this.critters.find(c => c.id === critterId);
-        if (!critter) return;
-        const sp = SPECIES[critter.species];
-
-        if (!confirm(`Sacrifice ${critter.nickname} (Lv.${critter.level} ${sp.name}) for food? This is permanent.`)) return;
-
-        // Remove from building
-        if (critter.assignment && critter.assignment !== 'patrol') {
-            const bld = this.buildings.find(b => b.id === critter.assignment);
-            if (bld) bld.workers = bld.workers.filter(w => w !== critterId);
-        }
-
-        // Food gained: base 10 + level * 5 + VIT * 2
-        const foodGained = 10 + critter.level * 5 + (critter.stats.VIT || 0) * 2;
-        const cap = (this.resourceCaps.food || 150) + (this.research.storageCap || 0) * 100;
-        this.resources.food = Math.min(this.resources.food + foodGained, cap);
-
-        this.critters = this.critters.filter(c => c.id !== critterId);
-        if (!this.deadCritters) this.deadCritters = [];
-        this.deadCritters.push({ ...critter, causeOfDeath: 'sacrificed' });
-
-        UI.notify(`🩸 Sacrificed ${critter.nickname} for ${foodGained} food...`, 4000);
-        if (this.sounds) this.sounds.sacrifice?.();
-        UI.update();
-    }
-
     _isNearWorkbench(buildingId) {
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b) return false;
@@ -645,34 +502,42 @@ class Game {
         recipe = recipe || 'trap';
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
-        if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
-        if (recipe === 'trap') {
-            if ((this.resources.wood||0) < 5 || (this.resources.stone||0) < 3) { UI.notify('Need 5 wood + 3 stone!'); return; }
-        } else if (recipe === 'ammo') {
-            if ((this.resources.iron||0) < 2 || (this.resources.stone||0) < 1) { UI.notify('Need 2 iron + 1 stone!'); return; }
-        }
-        b._manualCrafting = true;
-        b._manualRecipe = recipe;
-        b.craftProgress = 0;
-        this.sounds.build();
-        UI.notify(recipe === 'ammo' ? 'Crafting bullets...' : 'Crafting trap...');
+        if (!this._isNearWorkbench(buildingId)) { this._wbMsg('Get closer to the Workbench!'); return; }
+        // Queue it — same as queueCraft with amount 1
+        this.queueCraft(buildingId, 1, recipe);
     }
 
     queueCraft(buildingId, amount, recipe) {
         recipe = recipe || 'trap';
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
-        if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
-        const queueMap = {
-            trap: 'craftQueue', ammo: 'ammoQueue',
-            iron_snare: 'ironSnareQueue', gold_snare: 'goldSnareQueue', diamond_snare: 'diamondSnareQueue',
-        };
-        const qKey = queueMap[recipe] || 'craftQueue';
-        if (!b[qKey]) b[qKey] = 0;
-        b[qKey] += amount;
-        const names = { trap:'traps', ammo:'ammo batches', iron_snare:'Iron Snares', gold_snare:'Gold Snares', diamond_snare:'Diamond Snares' };
-        UI.notify(`${amount} ${names[recipe]||recipe} queued (${b[qKey]} total)`);
+        if (!this._isNearWorkbench(buildingId)) { this._wbMsg('Get closer to the Workbench!'); return; }
+        if (recipe === 'ammo') {
+            if ((this.resources.iron||0) < 2 || (this.resources.stone||0) < 1) { this._wbMsg('Need 2 iron + 1 stone!'); return; }
+            if (!b.ammoQueue) b.ammoQueue = 0;
+            b.ammoQueue += amount;
+            this._wbMsg(`+${amount} ammo batch${amount>1?'es':''} queued (${b.ammoQueue} total)`);
+        } else {
+            if ((this.resources.wood||0) < 5 || (this.resources.stone||0) < 3) { this._wbMsg('Need 5 wood + 3 stone!'); return; }
+            if (!b.craftQueue) b.craftQueue = 0;
+            b.craftQueue += amount;
+            this._wbMsg(`+${amount} trap${amount>1?'s':''} queued (${b.craftQueue} total)`);
+        }
+        this.sounds.build();
         UI.update();
+    }
+
+    // Workbench message — shows inside the workbench panel, not as floating notification
+    _wbMsg(text) {
+        const el = document.getElementById('wbStatusMsg');
+        if (el) {
+            el.textContent = text;
+            el.style.opacity = '1';
+            clearTimeout(this._wbMsgTimer);
+            this._wbMsgTimer = setTimeout(() => { if (el) el.style.opacity = '0'; }, 3000);
+        } else {
+            UI.notify(text);
+        }
     }
 
     openWorkbench(buildingId) {
@@ -788,27 +653,14 @@ class Game {
         if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
         if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
         if (this.keys['d'] || this.keys['arrowright']) dx += 1; }
-        // Companion speed bonus
-        const compSpeed = this.getCompanionEffect('companionSpeed');
-        const canWaterWalk = this.hasCompanionEffect('companionWaterWalk');
-        const moveSpeed = this.player.speed * (1 + compSpeed);
-
-        // Companion mining speed bonus cached
-        this.player._compMineBonus = this.getCompanionEffect('companionMine');
-
         if (dx || dy) {
             const len = Math.sqrt(dx*dx + dy*dy); dx /= len; dy /= len;
-            const nx = this.player.x + dx * moveSpeed * dt;
-            const ny = this.player.y + dy * moveSpeed * dt;
-            const canWalk = (tx, ty) => {
-                if (this.world.isWalkable(tx, ty)) return true;
-                if (canWaterWalk && this.world.getTile(tx, ty) === TILE.WATER) return true;
-                return false;
-            };
-            if (canWalk(Math.floor(nx/TILE_SIZE), Math.floor(ny/TILE_SIZE))) { this.player.x = nx; this.player.y = ny; }
+            const nx = this.player.x + dx * this.player.speed * dt;
+            const ny = this.player.y + dy * this.player.speed * dt;
+            if (this.world.isWalkable(Math.floor(nx/TILE_SIZE), Math.floor(ny/TILE_SIZE))) { this.player.x = nx; this.player.y = ny; }
             else {
-                if (canWalk(Math.floor(nx/TILE_SIZE), Math.floor(this.player.y/TILE_SIZE))) this.player.x = nx;
-                if (canWalk(Math.floor(this.player.x/TILE_SIZE), Math.floor(ny/TILE_SIZE))) this.player.y = ny;
+                if (this.world.isWalkable(Math.floor(nx/TILE_SIZE), Math.floor(this.player.y/TILE_SIZE))) this.player.x = nx;
+                if (this.world.isWalkable(Math.floor(this.player.x/TILE_SIZE), Math.floor(ny/TILE_SIZE))) this.player.y = ny;
             }
         }
 
@@ -834,7 +686,7 @@ class Game {
                     for (let dx = -2; dx <= 2; dx++) {
                         const tx = ptx + dx, ty = pty + dy;
                         const t = this.world.getTile(tx, ty);
-                        if (t === TILE.TREE || t === TILE.ROCK || t === TILE.NODE_OIL) {
+                        if (t === TILE.TREE || t === TILE.ROCK) {
                             const d = Math.abs(dx) + Math.abs(dy);
                             if (d < bestDist) { bestDist = d; this.miningTarget = { tx, ty, type: t }; }
                         }
@@ -847,24 +699,19 @@ class Game {
                 if (Math.abs(mdx) > 2 || Math.abs(mdy) > 2) {
                     this.miningTarget = null; this.miningProgress = 0;
                 } else {
-                    const baseMineTime = this.miningTarget.type === TILE.TREE ? 0.8 : this.miningTarget.type === TILE.NODE_OIL ? 2.0 : 1.2;
-                    const mineTime = baseMineTime / (1 + (this.player._compMineBonus || 0));
+                    const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : 1.2; // seconds
                     this.miningProgress += dt;
                     if (this.miningProgress >= mineTime) {
                         const t = this.miningTarget.type;
                         const tx = this.miningTarget.tx, ty = this.miningTarget.ty;
                         // Harvest
-                        const cap = (r) => (this.resourceCaps[r] || 50) + (this.research.storageCap || 0) * 100;
                         if (t === TILE.TREE) {
-                            this.resources.wood = Math.min(this.resources.wood + 3, cap('wood'));
+                            this.resources.wood = Math.min(this.resources.wood + 3, (this.resourceCaps.wood || 200) + (this.research.storageCap || 0) * 100);
                         } else if (t === TILE.ROCK) {
-                            this.resources.stone = Math.min(this.resources.stone + 3, cap('stone'));
-                        } else if (t === TILE.NODE_OIL) {
-                            this.resources.oil = Math.min((this.resources.oil || 0) + 1, cap('oil'));
-                            UI.notify('+1 Oil', 1500);
+                            this.resources.stone = Math.min(this.resources.stone + 3, (this.resourceCaps.stone || 200) + (this.research.storageCap || 0) * 100);
                         }
-                        // Clear tile to grass (except oil — oil nodes persist, just give resource)
-                        if (t !== TILE.NODE_OIL) this.world.setTile(tx, ty, TILE.GRASS);
+                        // Clear tile to grass
+                        this.world.setTile(tx, ty, TILE.GRASS);
                         // Invalidate chunk cache
                         const cx = Math.floor(tx / CHUNK_SIZE), cy = Math.floor(ty / CHUNK_SIZE);
                         const cs = this._chunkSprites.get(cx + ',' + cy);
@@ -882,28 +729,19 @@ class Game {
             p.x += p.vx * dt; p.y += p.vy * dt; p.lifetime -= dt;
             if (p.lifetime <= 0) { this.projectiles.splice(i, 1); continue; }
             for (const wc of this.wildCritters) {
-                if (wc.stunned) continue;
                 const hx = wc.x - p.x, hy = wc.y - p.y;
                 if (Math.sqrt(hx*hx + hy*hy) < 12) { Critters.damageWild(wc, p.damage); this.sounds.hit(); this.projectiles.splice(i, 1); break; }
             }
         }
 
-        const bodyguards = this.critters.filter(c => c.assignment === 'bodyguard');
-        Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings, bodyguards);
+        Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings);
 
-        // Handle despawned critters — spawn skull, then recycle
+        // Handle despawned critters — recycle them instead of destroying
         for (const c of this.wildCritters) {
             if (c._despawned) {
-                this.deathSkulls.push({ x: c.x, y: c.y, timer: 3 });
                 this._cleanupCritterSprite(c);
                 Critters.recycle(c, this.world);
             }
-        }
-
-        // Update death skulls
-        for (let i = this.deathSkulls.length - 1; i >= 0; i--) {
-            this.deathSkulls[i].timer -= dt;
-            if (this.deathSkulls[i].timer <= 0) this.deathSkulls.splice(i, 1);
         }
 
         // Check building HP — destroy if 0
@@ -957,7 +795,7 @@ class Game {
         }
 
         const caps = {};
-        for (const r of ['wood','stone','food','iron','oil','gold','diamond','crystal','metal']) caps[r] = (this.resourceCaps[r]||50) + (this.research.storageCap||0)*100;
+        for (const r of ['wood','stone','food','iron']) caps[r] = (this.resourceCaps[r]||200) + (this.research.storageCap||0)*100;
 
         Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
         for (const r of ['wood','stone','food','iron']) this.resources[r] = Math.min(this.resources[r], caps[r]);
@@ -1058,76 +896,6 @@ class Game {
             }
         }
 
-        // ─── BODYGUARDS ──────────────────────────────────────
-        for (const c of this.critters) {
-            if (c.assignment !== 'bodyguard') continue;
-            if (!c._attackTimer) c._attackTimer = 0;
-            c._attackTimer -= dt;
-
-            const followDist = 40 + (c.id % 3) * 20;
-            const angle = (c.id % 4) * (Math.PI / 2) + this.time * 0.5;
-            const targetX = this.player.x + Math.cos(angle) * followDist;
-            const targetY = this.player.y + Math.sin(angle) * followDist;
-            const dx = targetX - (c._patrolX || this.player.x);
-            const dy = targetY - (c._patrolY || this.player.y);
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 5) {
-                c._patrolX = (c._patrolX || this.player.x) + (dx / dist) * 180 * dt;
-                c._patrolY = (c._patrolY || this.player.y) + (dy / dist) * 180 * dt;
-            }
-
-            if (c._attackTimer <= 0) {
-                const dmg = (c.stats.STR || 1) * 3;
-                let hit = false;
-
-                // Attack wild critters
-                for (const wc of this.wildCritters) {
-                    if (wc.stunned) continue;
-                    const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
-                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
-                        Critters.damageWild(wc, dmg);
-                        c._attackTimer = 1.0; hit = true;
-                        if (this.sounds) this.sounds.hit();
-                        break;
-                    }
-                }
-
-                // Attack horde critters
-                if (!hit) for (const wc of this.hordeCreatures) {
-                    if (wc.stunned) continue;
-                    const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
-                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
-                        wc.hp -= dmg; if (wc.hp <= 0) { wc.stunned = true; wc.stunTimer = 3; }
-                        c._attackTimer = 1.0; hit = true;
-                        if (this.sounds) this.sounds.hit();
-                        break;
-                    }
-                }
-
-                // Attack world bosses
-                if (!hit && this.worldBosses) for (const boss of this.worldBosses) {
-                    if (boss.hp <= 0) continue;
-                    const ax = boss.x - c._patrolX, ay = boss.y - c._patrolY;
-                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
-                        boss.hp -= dmg;
-                        c._attackTimer = 1.0; hit = true;
-                        if (this.sounds) this.sounds.hit();
-                        break;
-                    }
-                }
-            }
-        }
-
-        // ─── WORLD BOSSES ───────────────────────────────────
-        if (!this.worldBosses) this.worldBosses = [];
-        if (!this._bossSpawnTimer) this._bossSpawnTimer = 300;
-        this._bossSpawnTimer -= dt;
-        if (this._bossSpawnTimer <= 0 && this.worldBosses.length < 3) {
-            this._spawnWorldBoss();
-            this._bossSpawnTimer = 600;
-        }
-        this._updateWorldBosses(dt);
-
         if (this.researchInProgress) {
             const speed = Buildings.getResearchSpeed(this.buildings, this.critters);
             if (speed > 0) {
@@ -1153,25 +921,7 @@ class Game {
             }
         }
 
-        // ─── BUILDING PASSIVE HEAL ─────────────────────────
-        for (const b of this.buildings) {
-            const def = BUILDING_DEFS[b.type];
-            if (!def.hp || b.hp >= (b.maxHp || def.hp)) continue;
-            if (!b._lastDamageTime) b._lastDamageTime = 0;
-            // Track when last damaged
-            if (b.hp < (b._lastHp || b.hp)) {
-                b._lastDamageTime = this.gameTimeSec;
-            }
-            b._lastHp = b.hp;
-            // Heal 2 HP/sec after 2 minutes of no damage
-            if (this.gameTimeSec - b._lastDamageTime > 120) {
-                b.hp = Math.min((b.maxHp || def.hp), b.hp + 2 * dt);
-            }
-        }
-
-        // ─── FOOD CONSUMPTION + STARVATION ────────────────
         if (!this._foodTimer) this._foodTimer = 0;
-        if (!this._starveTimer) this._starveTimer = 0;
         this._foodTimer += dt;
         if (this._foodTimer >= 5) {
             this._foodTimer = 0;
@@ -1180,34 +930,11 @@ class Game {
             if (this.resources.food >= consumption) {
                 this.resources.food -= consumption;
                 this.hungry = false;
-                this._starveTimer = 0;
             } else {
                 this.resources.food = Math.max(0, this.resources.food - consumption);
                 if (!this.hungry) {
                     this.hungry = true;
-                    UI.notify('⚠️ Critters are hungry! Build more Farms.', 4000);
-                }
-                // Starvation — after 60s of no food, critters start dying
-                this._starveTimer += 5;
-                if (this._starveTimer >= 60 && this.resources.food <= 0) {
-                    // Kill the weakest assigned critter
-                    const assigned = this.critters.filter(c => c.assignment);
-                    if (assigned.length > 0) {
-                        assigned.sort((a, b) => a.level - b.level);
-                        const victim = assigned[0];
-                        // Remove from building
-                        if (victim.assignment && victim.assignment !== 'patrol') {
-                            const bld = this.buildings.find(b => b.id === victim.assignment);
-                            if (bld) bld.workers = bld.workers.filter(w => w !== victim.id);
-                        }
-                        this.critters = this.critters.filter(c => c.id !== victim.id);
-                        if (!this.deadCritters) this.deadCritters = [];
-                        this.deadCritters.push({ ...victim, causeOfDeath: 'starvation' });
-                        UI.notify(`💀 ${victim.nickname} starved to death!`, 5000);
-                        if (this.sounds) this.sounds.destroy?.();
-                        this._starveTimer = 30; // next death in 30s if still starving
-                        UI.update();
-                    }
+                    UI.notify('Critters are hungry! Build more Farms.', 4000);
                 }
             }
         }
@@ -1241,15 +968,6 @@ class Game {
             }
         }
 
-        // ─── HORDE SYSTEM ────────────────────────────────────
-        this.hordeTimer -= dt;
-        if (this.hordeTimer <= 0 && !this.hordeActive) {
-            this._startHorde();
-        }
-        if (this.hordeActive) {
-            this._updateHorde(dt);
-        }
-
         this.autoSaveTimer -= dt;
         if (this.autoSaveTimer <= 0) { this.autoSaveTimer = 60; Save.save(this); }
 
@@ -1257,7 +975,7 @@ class Game {
 
         this.panelUpdateTimer -= dt;
         if (this.panelUpdateTimer <= 0) {
-            this.panelUpdateTimer = 0.5;
+            this.panelUpdateTimer = 1.0; // slower rebuild to prevent sprite flicker
             const gc = (r) => caps[r]||200;
             document.getElementById('resWood').textContent = `${Math.floor(this.resources.wood)}/${gc('wood')}`;
             document.getElementById('resStone').textContent = `${Math.floor(this.resources.stone)}/${gc('stone')}`;
@@ -1267,7 +985,6 @@ class Game {
             document.getElementById('resIron').textContent = `${Math.floor(this.resources.iron||0)}/${gc('iron')}`;
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('ammoCount').textContent = this.inventory.ammo || 0;
-            document.getElementById('aethershardCount').textContent = this.inventory.aethershards || 0;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
             const deadEl = document.getElementById('deadCount');
             if (this.deadCritters.length > 0) {
@@ -1286,22 +1003,7 @@ class Game {
             const secs = Math.floor(this.gameTimeSec % 60);
             const hrs = Math.floor(mins / 60);
             document.getElementById('gameTime').textContent = hrs > 0 ? `${hrs}:${(mins%60).toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}` : `${mins}:${secs.toString().padStart(2,'0')}`;
-
-            // Horde timer
-            const hordeEl = document.getElementById('hordeTimer');
-            if (hordeEl) {
-                if (this.hordeActive) {
-                    hordeEl.textContent = `⚔️ HORDE! (${this.hordeCreatures.length})`;
-                    hordeEl.style.color = '#ff4444';
-                } else {
-                    const hm = Math.floor(this.hordeTimer / 60);
-                    const hs = Math.floor(this.hordeTimer % 60);
-                    hordeEl.textContent = `⚔️ ${hm}:${hs.toString().padStart(2, '0')}`;
-                    hordeEl.style.color = this.hordeTimer < 60 ? '#ff4444' : '#f87171';
-                }
-            }
-
-            if (UI.showBuildMenu) UI.updatePanel();
+            UI.updatePanel();
         }
     }
 
@@ -1316,7 +1018,12 @@ class Game {
         this.worldContainer.y = -camY * this.zoomLevel + h * (1 - this.zoomLevel) / 2;
 
         // ── Chunk tile rendering (cached textures) ──
-        this._updateChunks(camX, camY, w, h);
+        // Account for zoom — when zoomed out, more world area is visible
+        const visW = w / this.zoomLevel;
+        const visH = h / this.zoomLevel;
+        const visCamX = camX - (visW - w) / 2;
+        const visCamY = camY - (visH - h) / 2;
+        this._updateChunks(visCamX, visCamY, visW, visH);
 
         // ── Entity graphics (redrawn each frame via single Graphics) ──
         const gfx = this._entityGfx;
@@ -1355,112 +1062,6 @@ class Game {
         // Wild critters
         for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
 
-        // Horde critters (red-tinted)
-        for (const h of this.hordeCreatures) {
-            if (h.stunned) continue;
-            const sp = SPECIES[h.species];
-            const colorNum = parseInt(sp.color.replace('#', ''), 16);
-            const r = h.isHorde ? 10 * (sp.size || 1) : 8;
-
-            // Red glow ring
-            gfx.lineStyle(2, 0xff0000, 0.6);
-            gfx.drawCircle(h.x, h.y, r + 4);
-            gfx.lineStyle(0);
-
-            // Body
-            gfx.beginFill(colorNum);
-            gfx.drawCircle(h.x, h.y, r);
-            gfx.endFill();
-
-            // HP bar
-            if (h.hp < h.maxHp) {
-                const bw = r * 2.5;
-                gfx.beginFill(0x333333);
-                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw, 3);
-                gfx.endFill();
-                const pct = h.hp / h.maxHp;
-                gfx.beginFill(pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171);
-                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw * pct, 3);
-                gfx.endFill();
-            }
-        }
-
-        // World Bosses
-        if (this.worldBosses) {
-            for (const boss of this.worldBosses) {
-                if (boss.hp <= 0) continue;
-                const bc = parseInt(boss.color.replace('#', ''), 16);
-                const r = TILE_SIZE * boss.size * 0.5;
-                const pulse = Math.sin(this.time * 2) * 3;
-
-                // Glow aura
-                gfx.lineStyle(3, 0xffd700, 0.3 + Math.sin(this.time * 3) * 0.15);
-                gfx.drawCircle(boss.x, boss.y, r + 8 + pulse);
-                gfx.lineStyle(0);
-
-                // Body
-                gfx.beginFill(bc);
-                gfx.drawCircle(boss.x, boss.y, r);
-                gfx.endFill();
-
-                // Inner pattern
-                gfx.beginFill(0xffd700, 0.3);
-                gfx.drawCircle(boss.x, boss.y, r * 0.4);
-                gfx.endFill();
-
-                // HP bar (wide)
-                const bw = r * 3;
-                gfx.beginFill(0x333333);
-                gfx.drawRect(boss.x - bw / 2, boss.y - r - 14, bw, 6);
-                gfx.endFill();
-                const pct = boss.hp / boss.maxHp;
-                gfx.beginFill(pct > 0.5 ? 0xff6600 : pct > 0.25 ? 0xff0000 : 0x880000);
-                gfx.drawRect(boss.x - bw / 2, boss.y - r - 14, bw * pct, 6);
-                gfx.endFill();
-            }
-        }
-
-        // Bodyguard critters — use actual sprite
-        for (const c of this.critters) {
-            if (c.assignment !== 'bodyguard') continue;
-            const sp = SPECIES[c.species];
-            const bx = c._patrolX || this.player.x;
-            const by = c._patrolY || this.player.y;
-            const bob = Math.sin(this.time * 3 + c.id) * 2;
-            const sizeScale = sp.size || 1;
-            const r = Math.round(10 * sizeScale);
-
-            // Shadow
-            gfx.beginFill(0x000000, 0.2);
-            gfx.drawEllipse(bx, by + 10, 8, 3);
-            gfx.endFill();
-
-            // Use PIXI sprite if available
-            const tex = this._getCritterTex(c.species);
-            if (tex) {
-                if (!c._bgSprite) {
-                    c._bgSprite = new PIXI.Sprite(tex);
-                    c._bgSprite.anchor.set(0.5, 0.5);
-                    this.entityContainer.addChild(c._bgSprite);
-                }
-                c._bgSprite.width = r * 2;
-                c._bgSprite.height = r * 2;
-                c._bgSprite.x = bx;
-                c._bgSprite.y = by + bob;
-                c._bgSprite.visible = true;
-            } else {
-                if (c._bgSprite) c._bgSprite.visible = false;
-                const colorNum = parseInt(sp.color.replace('#', ''), 16);
-                gfx.beginFill(colorNum);
-                gfx.drawCircle(bx, by + bob, r);
-                gfx.endFill();
-            }
-
-            // Blue shield indicator
-            const t = this._getText('\uD83D\uDEE1', { fontSize: 10 });
-            t.x = bx; t.y = by + bob - r - 8;
-        }
-
         // Projectiles
         for (const p of this.projectiles) {
             gfx.beginFill(p.fromTurret ? 0x90a4ae : 0xffd54f);
@@ -1468,40 +1069,16 @@ class Game {
             gfx.endFill();
         }
 
-        // Death skulls
-        for (const skull of this.deathSkulls) {
-            const alpha = Math.min(1, skull.timer / 1);
-            const floatY = (3 - skull.timer) * 10;
-            const t = this._getText('\uD83D\uDC80', { fontSize: 16 });
-            t.x = skull.x; t.y = skull.y - floatY;
-            t.alpha = alpha;
-        }
-
-        // Boss location markers (pulsing skull pointing toward distant bosses)
-        if (this.worldBosses) {
-            for (const boss of this.worldBosses) {
-                if (boss.hp <= 0) continue;
-                const bdx = boss.x - this.player.x, bdy = boss.y - this.player.y;
-                const bDist = Math.sqrt(bdx * bdx + bdy * bdy);
-                if (bDist > 600) {
-                    const angle = Math.atan2(bdy, bdx);
-                    const edgeX = this.player.x + Math.cos(angle) * 450;
-                    const edgeY = this.player.y + Math.sin(angle) * 450;
-                    const pulse = 0.6 + Math.sin(this.time * 3) * 0.3;
-                    const t = this._getText('\uD83D\uDC80', { fontSize: 20 });
-                    t.x = edgeX; t.y = edgeY;
-                    t.alpha = pulse;
-                }
-            }
-        }
-
         // Player
         const px = this.player.x, py = this.player.y;
         gfx.beginFill(0x000000, 0.3);
-        gfx.drawEllipse(px, py + 16, 12, 5);
+        gfx.drawEllipse(px, py + 12, 10, 5);
         gfx.endFill();
-        // Draw player sprite (animated sprite sheet, 4 frames per direction)
-        this._drawPlayer(px, py);
+        gfx.beginFill(0x4FC3F7);
+        gfx.lineStyle(2, 0xffffff);
+        gfx.drawCircle(px, py, 10);
+        gfx.endFill();
+        gfx.lineStyle(0);
 
         // Player HP bar
         if (this.player.hp < this.player.maxHp) {
@@ -1880,29 +1457,46 @@ class Game {
             gfx.endFill();
         }
 
-        // Stunned — stars above head
+        // Stunned
         if (critter.stunned) {
-            const t = this._getText('★ ★', { fontFamily: 'monospace', fontSize: 10, fill: 0xffd54f });
-            t.x = sx; t.y = sy + bob - r - 10;
+            gfx.lineStyle(2, 0xffd54f, 0.5 + Math.sin(this.time * 10) * 0.3);
+            gfx.drawCircle(sx, sy + bob, 12);
+            gfx.lineStyle(0);
         }
 
-        // HP bar (scales with critter size)
+        // HP bar
         if (critter.hp < critter.maxHp && !critter.stunned) {
-            const barW = Math.max(20, r * 2.2), barH = 3;
+            const barW = 20, barH = 3;
             gfx.beginFill(0x333333);
-            gfx.drawRect(sx - barW/2, sy + bob - r - 8, barW, barH);
+            gfx.drawRect(sx - barW/2, sy + bob - 16, barW, barH);
             gfx.endFill();
             const pct = critter.hp / critter.maxHp;
             const hpColor = pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171;
             gfx.beginFill(hpColor);
-            gfx.drawRect(sx - barW/2, sy + bob - r - 8, barW * pct, barH);
+            gfx.drawRect(sx - barW/2, sy + bob - 16, barW * pct, barH);
             gfx.endFill();
         }
 
-        // Aggro indicator — red "!" only, no circle
-        if (critter.state === 'aggro' || critter.state === 'attacking_building' || critter.state === 'aggro_bodyguard') {
-            const t = this._getText('!', { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xf87171 });
-            t.x = sx; t.y = sy + bob - r - 16;
+        // Aggro indicator
+        if (critter.state === 'aggro') {
+            gfx.lineStyle(2, 0xf87171, 0.7);
+            gfx.drawCircle(sx, sy + bob, 11);
+            gfx.lineStyle(0);
+        }
+
+        // Building attack indicator
+        if (critter.state === 'attacking_building') {
+            gfx.lineStyle(2, 0xff6b35, 0.7);
+            gfx.drawCircle(sx, sy + bob, 11);
+            gfx.lineStyle(0);
+        }
+
+        // Rarity glow
+        if (sp.rarity !== 'common') {
+            const rc = PIXI.utils.string2hex(RARITY_COLORS[sp.rarity].replace(/[^0-9a-fA-F#]/g, ''));
+            gfx.lineStyle(2, rc, 0.4);
+            gfx.drawCircle(sx, sy + bob, 11);
+            gfx.lineStyle(0);
         }
     }
 
@@ -2149,311 +1743,8 @@ class Game {
         gfx.lineStyle(0);
     }
 
-    _drawPlayer(px, py) {
-        // Determine direction based on last movement
-        if (!this.player._dir) this.player._dir = 'front';
-
-        const mdx = (this.keys['d'] || this.keys['arrowright'] ? 1 : 0) - (this.keys['a'] || this.keys['arrowleft'] ? 1 : 0);
-        const mdy = (this.keys['s'] || this.keys['arrowdown'] ? 1 : 0) - (this.keys['w'] || this.keys['arrowup'] ? 1 : 0);
-
-        if (mdx > 0) this.player._dir = 'right';
-        else if (mdx < 0) this.player._dir = 'left';
-        else if (mdy > 0) this.player._dir = 'front';
-        else if (mdy < 0) this.player._dir = 'back';
-
-        // Single static sprites per direction
-        // Left sprite is the base — right = left flipped horizontally
-        const dir = this.player._dir;
-        // The 'left' sprite file actually faces right, so:
-        // Moving right = use 'left' image as-is (no flip)
-        // Moving left = use 'left' image flipped
-        const spriteKey = (dir === 'right' || dir === 'left') ? 'left' : dir;
-        const sprite = typeof PLAYER_SPRITES !== 'undefined' ? PLAYER_SPRITES[spriteKey] : null;
-        const flipX = dir === 'left';
-
-        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-            const drawSize = 48; // render size in world pixels
-
-            if (!this._playerCanvas) {
-                this._playerCanvas = document.createElement('canvas');
-                this._playerCanvas.width = drawSize;
-                this._playerCanvas.height = drawSize;
-            }
-            const pctx = this._playerCanvas.getContext('2d');
-            pctx.clearRect(0, 0, drawSize, drawSize);
-            pctx.save();
-            if (flipX) {
-                pctx.scale(-1, 1);
-                pctx.drawImage(sprite, 0, 0, sprite.naturalWidth, sprite.naturalHeight, -drawSize, 0, drawSize, drawSize);
-            } else {
-                pctx.drawImage(sprite, 0, 0, sprite.naturalWidth, sprite.naturalHeight, 0, 0, drawSize, drawSize);
-            }
-            pctx.restore();
-
-            if (!this._playerPixiTex) {
-                this._playerPixiTex = PIXI.Texture.from(this._playerCanvas);
-                this._playerPixiSprite = new PIXI.Sprite(this._playerPixiTex);
-                this._playerPixiSprite.anchor.set(0.5, 0.7); // feet near bottom
-                this.worldContainer.addChild(this._playerPixiSprite);
-            }
-            this._playerPixiTex.update();
-            this._playerPixiSprite.x = px;
-            this._playerPixiSprite.y = py;
-            this._playerPixiSprite.visible = true;
-        } else {
-            // Fallback blue circle
-            if (this._playerPixiSprite) this._playerPixiSprite.visible = false;
-            const gfx = this._gfx;
-            gfx.beginFill(0x4FC3F7);
-            gfx.lineStyle(2, 0xffffff);
-            gfx.drawCircle(px, py, 10);
-            gfx.endFill();
-            gfx.lineStyle(0);
-        }
-    }
-
     _resize() {
         this.pixiApp.renderer.resize(window.innerWidth, window.innerHeight);
-    }
-
-    // ─── WORLD BOSSES ────────────────────────────────────────
-    // Bosses drop "Aethershard" — rare ore that boosts a stat by 5
-    _spawnWorldBoss() {
-        const bossTypes = [
-            { name: 'Stonecrusher', color: '#616161', hp: 500, dmg: 20, speed: 40, size: 3, drops: 2 },
-            { name: 'Infernal Wyrm', color: '#d32f2f', hp: 400, dmg: 25, speed: 60, size: 2.5, drops: 2 },
-            { name: 'Crystal Titan', color: '#7c4dff', hp: 700, dmg: 15, speed: 30, size: 3.5, drops: 3 },
-            { name: 'Void Stalker', color: '#1a1a2e', hp: 350, dmg: 30, speed: 80, size: 2, drops: 2 },
-            { name: 'Ancient Treant', color: '#2e7d32', hp: 800, dmg: 12, speed: 20, size: 4, drops: 4 },
-        ];
-        const type = bossTypes[Math.floor(Math.random() * bossTypes.length)];
-        const angle = Math.random() * Math.PI * 2;
-        const dist = (20 + Math.random() * 30) * TILE_SIZE;
-
-        this.worldBosses.push({
-            id: _nextCritterId++,
-            ...type,
-            x: Math.cos(angle) * dist,
-            y: Math.sin(angle) * dist,
-            maxHp: type.hp,
-            _attackTimer: 0,
-            _phase: 0, // bosses have attack phases
-            _phaseTimer: 0,
-        });
-
-        UI.notify(`🔱 WORLD BOSS: ${type.name} has appeared!`, 6000);
-        if (this.sounds) this.sounds.alert?.();
-    }
-
-    _updateWorldBosses(dt) {
-        for (let i = this.worldBosses.length - 1; i >= 0; i--) {
-            const boss = this.worldBosses[i];
-
-            // Boss is dead
-            if (boss.hp <= 0) {
-                // Drop Aethershards
-                if (!this.inventory.aethershards) this.inventory.aethershards = 0;
-                this.inventory.aethershards += boss.drops;
-                UI.notify(`🔱 ${boss.name} defeated! +${boss.drops} Aethershards!`, 5000);
-                if (this.sounds) this.sounds.levelup?.();
-                this.worldBosses.splice(i, 1);
-                continue;
-            }
-
-            // Chase player if within 15 tiles
-            const pdx = this.player.x - boss.x, pdy = this.player.y - boss.y;
-            const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
-            if (pDist < TILE_SIZE * 15 && pDist > TILE_SIZE * 1.5) {
-                boss.x += (pdx / pDist) * boss.speed * dt;
-                boss.y += (pdy / pDist) * boss.speed * dt;
-            }
-
-            // Attack player
-            boss._attackTimer -= dt;
-            if (pDist < TILE_SIZE * 2 && boss._attackTimer <= 0) {
-                this.player.hp -= boss.dmg;
-                boss._attackTimer = 2;
-            }
-
-            // Take projectile damage
-            for (let pi = this.projectiles.length - 1; pi >= 0; pi--) {
-                const p = this.projectiles[pi];
-                const hx = boss.x - p.x, hy = boss.y - p.y;
-                if (Math.sqrt(hx * hx + hy * hy) < TILE_SIZE * boss.size * 0.5) {
-                    boss.hp -= p.damage;
-                    this.projectiles.splice(pi, 1);
-                }
-            }
-        }
-    }
-
-    // Use Aethershard on a critter
-    useAethershard(critterId, statKey) {
-        if (!this.inventory.aethershards || this.inventory.aethershards <= 0) {
-            UI.notify('No Aethershards!'); return;
-        }
-        const critter = this.critters.find(c => c.id === critterId);
-        if (!critter) return;
-        if (!critter.stats[statKey]) { UI.notify('Invalid stat!'); return; }
-
-        this.inventory.aethershards--;
-        critter.stats[statKey] += 5;
-        UI.notify(`✨ ${critter.nickname}'s ${statKey} +5! (now ${critter.stats[statKey]})`, 4000);
-        if (this.sounds) this.sounds.levelup?.();
-        UI.update();
-    }
-
-    // ─── HORDE SYSTEM ──────────────────────────────────────
-    _startHorde() {
-        this.hordeWave++;
-        this.hordeActive = true;
-        this.hordeCreatures = [];
-
-        // Scale difficulty with wave
-        const baseCount = 6 + this.hordeWave * 3;
-        const count = Math.min(baseCount, 40);
-        const hpMult = 1 + this.hordeWave * 0.3;
-        const dmgMult = 1 + this.hordeWave * 0.2;
-
-        // Pick species weighted toward aggressive ones
-        const aggroSpecies = Object.keys(SPECIES).filter(k => SPECIES[k].aggressive);
-        const allSpecies = Object.keys(SPECIES);
-
-        for (let i = 0; i < count; i++) {
-            // Spawn in a ring around colony (8-14 tiles out)
-            const angle = (Math.PI * 2 / count) * i + Math.random() * 0.3;
-            const dist = (8 + Math.random() * 6) * CHUNK_SIZE;
-            const sx = Math.cos(angle) * dist * TILE_SIZE;
-            const sy = Math.sin(angle) * dist * TILE_SIZE;
-
-            // Higher waves spawn rarer critters
-            let species;
-            const roll = Math.random();
-            if (this.hordeWave >= 5 && roll < 0.05) species = 'dreadmaw';
-            else if (this.hordeWave >= 3 && roll < 0.15) species = aggroSpecies[Math.floor(Math.random() * aggroSpecies.length)];
-            else species = aggroSpecies[Math.floor(Math.random() * aggroSpecies.length)];
-
-            const sp = SPECIES[species];
-            const baseHp = (RARITY_HP[sp.rarity] || 30) * hpMult;
-
-            this.hordeCreatures.push({
-                id: _nextCritterId++,
-                species,
-                x: sx, y: sy,
-                hp: Math.floor(baseHp),
-                maxHp: Math.floor(baseHp),
-                stats: Critters.rollStats(species),
-                dmgMult,
-                state: 'charging', // always charge toward HQ
-                _attackTimer: 0,
-                stunned: false, stunTimer: 0,
-                fleeing: false, fleeTimer: 0,
-                _aggroed: true,
-                isHorde: true,
-            });
-        }
-
-        UI.notify(`⚠️ HORDE WAVE ${this.hordeWave}! ${count} creatures attacking!`, 6000);
-        if (this.sounds) this.sounds.alert?.();
-    }
-
-    _updateHorde(dt) {
-        if (this.hordeCreatures.length === 0) {
-            this.hordeActive = false;
-            this.hordeTimer = this.hordeInterval;
-            UI.notify(`✅ Horde wave ${this.hordeWave} defeated!`, 4000);
-            return;
-        }
-
-        for (let i = this.hordeCreatures.length - 1; i >= 0; i--) {
-            const h = this.hordeCreatures[i];
-
-            // Stunned — remove from horde (defeated), spawn skull
-            if (h.stunned) {
-                h.stunTimer -= dt;
-                if (h.stunTimer <= 0) {
-                    this.deathSkulls.push({ x: h.x, y: h.y, timer: 3 });
-                    this.hordeCreatures.splice(i, 1);
-                }
-                continue;
-            }
-
-            // Charge toward HQ (0,0)
-            const dx = -h.x, dy = -h.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const speed = 80;
-            if (dist > TILE_SIZE * 2) {
-                h.x += (dx / dist) * speed * dt;
-                h.y += (dy / dist) * speed * dt;
-            }
-
-            // Attack buildings near them
-            if (!h._attackTimer) h._attackTimer = 0;
-            h._attackTimer -= dt;
-            if (h._attackTimer <= 0) {
-                const sp = SPECIES[h.species];
-                for (const b of this.buildings) {
-                    const def = BUILDING_DEFS[b.type];
-                    const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
-                    const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
-                    const bdist = Math.sqrt((h.x - bcx) ** 2 + (h.y - bcy) ** 2);
-                    if (bdist < TILE_SIZE * 2) {
-                        const dmg = Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
-                        if (b.hp !== undefined) b.hp -= dmg;
-                        h._attackTimer = sp.attackCooldown || 1.5;
-                        break;
-                    }
-                }
-
-                // Also attack player if close
-                const pdist = Math.sqrt((h.x - this.player.x) ** 2 + (h.y - this.player.y) ** 2);
-                if (pdist < TILE_SIZE * 1.5 && h._attackTimer <= 0) {
-                    const sp = SPECIES[h.species];
-                    this.player.hp -= Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
-                    h._attackTimer = sp.attackCooldown || 1.5;
-                }
-            }
-        }
-
-        // Projectiles hit horde creatures
-        for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            const p = this.projectiles[i];
-            for (const h of this.hordeCreatures) {
-                if (h.stunned) continue;
-                const hx = h.x - p.x, hy = h.y - p.y;
-                if (Math.sqrt(hx * hx + hy * hy) < 14) {
-                    h.hp -= p.damage;
-                    if (h.hp <= 0) {
-                        h.stunned = true;
-                        h.stunTimer = 3; // shorter stun, just for death animation
-                    }
-                    this.projectiles.splice(i, 1);
-                    break;
-                }
-            }
-        }
-
-        // Turrets also target horde creatures
-        Buildings.updateTurrets(dt, this.buildings, this.hordeCreatures, this.projectiles, this.research);
-
-        // Patrol critters attack horde
-        for (const c of this.critters) {
-            if (c.assignment !== 'patrol') continue;
-            if (!c._attackTimer) c._attackTimer = 0;
-            c._attackTimer -= dt;
-            if (c._attackTimer <= 0) {
-                for (const h of this.hordeCreatures) {
-                    if (h.stunned) continue;
-                    const ax = h.x - (c._patrolX || 0), ay = h.y - (c._patrolY || 0);
-                    if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
-                        h.hp -= (c.stats.STR || 1) * 2;
-                        if (h.hp <= 0) { h.stunned = true; h.stunTimer = 3; }
-                        c._attackTimer = 1.5;
-                        break;
-                    }
-                }
-            }
-        }
     }
 }
 
