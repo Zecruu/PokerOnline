@@ -1329,7 +1329,72 @@ class Game {
             }
 
             if (UI.showBuildMenu) UI.updatePanel();
+            this._updatePartyHud();
         }
+    }
+
+    _updatePartyHud() {
+        const el = document.getElementById('partyHud');
+        if (!el) return;
+
+        const bodyguards = this.critters.filter(c => c.assignment === 'bodyguard');
+        const companions = this.critters.filter(c => c.assignment === 'companion');
+
+        if (bodyguards.length === 0 && companions.length === 0) { el.innerHTML = ''; return; }
+
+        let html = '';
+
+        if (bodyguards.length > 0) {
+            html += '<div class="ph-section"><div class="ph-label">⚔️ Bodyguards</div>';
+            for (const c of bodyguards) {
+                const sp = SPECIES[c.species];
+                const spriteImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[c.species] && CRITTER_SPRITES[c.species].complete
+                    ? `<img class="ph-icon" src="${CRITTER_SPRITES[c.species].src}">` : `<div class="ph-icon ph-icon-fb" style="background:${sp.color}"></div>`;
+                const maxLv = Critters.MAX_LEVEL || 20;
+                const php = Math.floor(c.patrolHp || 0), pmhp = c.patrolMaxHp || 50;
+                const hpPct = Math.min(100, (php / pmhp) * 100);
+                const xpNeeded = Critters.getXpForLevel(c.level);
+                const xpPct = c.level >= maxLv ? 100 : Math.min(100, (c.xp / xpNeeded) * 100);
+
+                html += `<div class="ph-critter">`;
+                html += spriteImg;
+                html += `<div class="ph-info">`;
+                html += `<div class="ph-name">${c.nickname} <span class="ph-lv">Lv${c.level}</span></div>`;
+                html += `<div class="ph-bar ph-hp"><div class="ph-fill ph-hp-fill" style="width:${hpPct}%"></div><span>❤️ ${php}/${pmhp}</span></div>`;
+                html += `<div class="ph-bar ph-xp"><div class="ph-fill ph-xp-fill" style="width:${xpPct}%"></div><span>${c.level >= maxLv ? 'MAX' : `${c.xp}/${xpNeeded}`}</span></div>`;
+                html += `</div></div>`;
+            }
+            html += '</div>';
+        }
+
+        if (companions.length > 0) {
+            html += '<div class="ph-section"><div class="ph-label">💫 Companions</div>';
+            for (const c of companions) {
+                const sp = SPECIES[c.species];
+                const spriteImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[c.species] && CRITTER_SPRITES[c.species].complete
+                    ? `<img class="ph-icon" src="${CRITTER_SPRITES[c.species].src}">` : `<div class="ph-icon ph-icon-fb" style="background:${sp.color}"></div>`;
+                const typeInfo = CRITTER_TYPES[sp.type];
+                const maxLv = Critters.MAX_LEVEL || 20;
+                const xpNeeded = Critters.getXpForLevel(c.level);
+                const xpPct = c.level >= maxLv ? 100 : Math.min(100, (c.xp / xpNeeded) * 100);
+
+                // Hunger (active companions consume food)
+                const hungerPct = this.hungry ? 0 : 100;
+
+                html += `<div class="ph-critter">`;
+                html += spriteImg;
+                html += `<div class="ph-info">`;
+                html += `<div class="ph-name">${c.nickname} <span class="ph-lv">Lv${c.level}</span>`;
+                if (typeInfo) html += ` <span class="ph-type" style="color:${typeInfo.color}">${typeInfo.icon}</span>`;
+                html += `</div>`;
+                html += `<div class="ph-bar ph-xp"><div class="ph-fill ph-xp-fill" style="width:${xpPct}%"></div><span>${c.level >= maxLv ? 'MAX' : `${c.xp}/${xpNeeded}`}</span></div>`;
+                html += `<div class="ph-bar ph-hunger"><div class="ph-fill ph-hunger-fill" style="width:${hungerPct}%"></div><span>${this.hungry ? '🍖 Starving!' : '🍖 Fed'}</span></div>`;
+                html += `</div></div>`;
+            }
+            html += '</div>';
+        }
+
+        el.innerHTML = html;
     }
 
     // ─── PIXI RENDER ────────────────────────────────────────

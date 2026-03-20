@@ -333,6 +333,13 @@ class UI {
                         html += `<div class="cc-patrol-hp-bar"><div class="cc-php-fill" style="width:${hpPct}%"></div><span>❤️ ${php}/${pmhp}</span></div>`;
                     }
 
+                    // Hunger bar (for assigned critters)
+                    if (c.assignment) {
+                        const hungerPct = g.hungry ? 0 : 100;
+                        const hungerColor = g.hungry ? '#f87171' : '#4ade80';
+                        html += `<div class="cc-hunger-bar"><div class="cc-hunger-fill" style="width:${hungerPct}%;background:${hungerColor}"></div><span>${g.hungry ? '🍖 Starving!' : '🍖 Fed'}</span></div>`;
+                    }
+
                     // Assignment + type match info
                     if (c.assignment && c.assignment !== 'patrol' && c.assignment !== 'companion' && c.assignment !== 'bodyguard') {
                         const bld = g.buildings.find(b => b.id == c.assignment);

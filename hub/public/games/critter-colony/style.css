@@ -260,6 +260,30 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .ri-btn:hover{background:rgba(129,140,248,.2)}
 .ri-btn:disabled{opacity:.3;cursor:not-allowed}
 
+/* ========== PARTY HUD (left side) ========== */
+.party-hud{position:fixed;top:48px;left:8px;width:180px;z-index:10;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.ph-section{background:rgba(10,10,20,.85);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:8px;pointer-events:auto}
+.ph-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:6px}
+.ph-critter{display:flex;gap:8px;align-items:center;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.04)}
+.ph-critter:last-child{margin-bottom:0;padding-bottom:0;border:none}
+.ph-icon{width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.ph-icon-fb{display:flex;align-items:center;justify-content:center;font-size:.8rem;color:#fff}
+.ph-info{flex:1;min-width:0}
+.ph-name{font-size:.75rem;font-weight:700;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph-lv{font-size:.6rem;color:#fbbf24;font-weight:600}
+.ph-type{font-size:.7rem}
+.ph-bar{position:relative;height:10px;background:#222;border-radius:3px;overflow:hidden;margin-top:2px}
+.ph-fill{height:100%;border-radius:3px;transition:width .3s}
+.ph-hp-fill{background:linear-gradient(90deg,#f87171,#ef4444)}
+.ph-xp-fill{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+.ph-hunger-fill{background:linear-gradient(90deg,#4ade80,#22c55e)}
+.ph-bar span{position:absolute;top:0;left:0;right:0;text-align:center;font-size:.5rem;line-height:10px;color:#fff;font-weight:600}
+
+/* Hunger bar in critter cards */
+.cc-hunger-bar{position:relative;height:12px;background:#222;border-radius:4px;margin:4px 0;overflow:hidden}
+.cc-hunger-fill{height:100%;border-radius:4px;transition:width .3s}
+.cc-hunger-bar span{position:absolute;top:0;left:0;right:0;text-align:center;font-size:.55rem;line-height:12px;color:#fff;font-weight:600}
+
 /* ========== CONTROLS HINT ========== */
 #controlsHint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:.75rem;z-index:10;pointer-events:none}
 
