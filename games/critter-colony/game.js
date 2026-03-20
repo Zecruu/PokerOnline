@@ -308,13 +308,21 @@ class Game {
         this.canvas.onmousemove = (e) => {
             const r = this.canvas.getBoundingClientRect();
             this.mouse.x = e.clientX - r.left; this.mouse.y = e.clientY - r.top;
-            this.mouse.worldX = this.mouse.x + this.cam.x; this.mouse.worldY = this.mouse.y + this.cam.y;
+            // Screen → world, accounting for zoom
+            const w = this.pixiApp.screen.width, h = this.pixiApp.screen.height;
+            const zoom = this.zoomLevel || 1;
+            this.mouse.worldX = (this.mouse.x - w * (1 - zoom) / 2) / zoom + this.cam.x;
+            this.mouse.worldY = (this.mouse.y - h * (1 - zoom) / 2) / zoom + this.cam.y;
         };
         this.canvas.onmousedown = (e) => {
             if (this.titleScreen || !this.started) return;
             const r = this.canvas.getBoundingClientRect();
             const mx = e.clientX - r.left, my = e.clientY - r.top;
-            const wx = mx + this.cam.x, wy = my + this.cam.y;
+            // Screen → world, accounting for zoom
+            const w = this.pixiApp.screen.width, hh = this.pixiApp.screen.height;
+            const zoom = this.zoomLevel || 1;
+            const wx = (mx - w * (1 - zoom) / 2) / zoom + this.cam.x;
+            const wy = (my - hh * (1 - zoom) / 2) / zoom + this.cam.y;
             if (UI.showWaypointMenu && this._waypointButtons) {
                 for (const btn of this._waypointButtons) {
                     if (mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h) {
@@ -1837,8 +1845,15 @@ class Game {
         if (this.placementMode) {
             const tx = Math.floor(this.mouse.worldX/TILE_SIZE), ty = Math.floor(this.mouse.worldY/TILE_SIZE);
             const def = BUILDING_DEFS[this.placementMode.type];
-            const cp = Buildings.canPlace(tx, ty, def.size, this.buildings, this.world);
-            const sx = tx*TILE_SIZE-camX, sy = ty*TILE_SIZE-camY, sz = def.size*TILE_SIZE;
+            const cp = def.isExtractor
+                ? Buildings.canPlaceExtractor(tx, ty, this.buildings, this.world, def.nodeType)
+                : Buildings.canPlace(tx, ty, def.size, this.buildings, this.world);
+            const zoom = this.zoomLevel || 1;
+            const zoomOffX = w * (1 - zoom) / 2;
+            const zoomOffY = h * (1 - zoom) / 2;
+            const sx = (tx * TILE_SIZE - camX) * zoom + zoomOffX;
+            const sy = (ty * TILE_SIZE - camY) * zoom + zoomOffY;
+            const sz = def.size * TILE_SIZE * zoom;
             ovr.beginFill(cp ? 0x4ade80 : 0xf87171, 0.3);
             ovr.lineStyle(2, cp ? 0x4ade80 : 0xf87171);
             ovr.drawRect(sx, sy, sz, sz);
