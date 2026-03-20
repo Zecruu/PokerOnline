@@ -121,6 +121,31 @@ class Game {
     }
 
     // ─── TEXT POOL ───────────────────────────────────────────
+    // Get text on the world container (moves with camera)
+    _getWorldText(str, style) {
+        if (!this._worldTextPool) { this._worldTextPool = []; this._worldTextIdx = 0; }
+        if (this._worldTextIdx < this._worldTextPool.length) {
+            const t = this._worldTextPool[this._worldTextIdx];
+            t.text = str; t.style = style; t.visible = true; t.alpha = 1;
+            this._worldTextIdx++;
+            return t;
+        }
+        const t = new PIXI.Text(str, style);
+        t.anchor.set(0.5, 0.5);
+        this.entityContainer.addChild(t);
+        this._worldTextPool.push(t);
+        this._worldTextIdx++;
+        return t;
+    }
+
+    _resetWorldTextPool() {
+        if (!this._worldTextPool) return;
+        for (let i = this._worldTextIdx; i < this._worldTextPool.length; i++) {
+            this._worldTextPool[i].visible = false;
+        }
+        this._worldTextIdx = 0;
+    }
+
     _getText(str, style) {
         if (this._textIdx < this._textPool.length) {
             const t = this._textPool[this._textIdx];
@@ -1456,8 +1481,8 @@ class Game {
                 gfx.endFill();
             }
 
-            // Blue shield indicator
-            const t = this._getText('\uD83D\uDEE1', { fontSize: 10 });
+            // Blue shield indicator (world space)
+            const t = this._getWorldText('\uD83D\uDEE1', { fontSize: 10 });
             t.x = bx; t.y = by + bob - r - 8;
         }
 
@@ -1468,11 +1493,11 @@ class Game {
             gfx.endFill();
         }
 
-        // Death skulls
+        // Death skulls (world space)
         for (const skull of this.deathSkulls) {
             const alpha = Math.min(1, skull.timer / 1);
             const floatY = (3 - skull.timer) * 10;
-            const t = this._getText('\uD83D\uDC80', { fontSize: 16 });
+            const t = this._getWorldText('\uD83D\uDC80', { fontSize: 16 });
             t.x = skull.x; t.y = skull.y - floatY;
             t.alpha = alpha;
         }
@@ -1488,7 +1513,7 @@ class Game {
                     const edgeX = this.player.x + Math.cos(angle) * 450;
                     const edgeY = this.player.y + Math.sin(angle) * 450;
                     const pulse = 0.6 + Math.sin(this.time * 3) * 0.3;
-                    const t = this._getText('\uD83D\uDC80', { fontSize: 20 });
+                    const t = this._getWorldText('\uD83D\uDC80', { fontSize: 20 });
                     t.x = edgeX; t.y = edgeY;
                     t.alpha = pulse;
                 }
@@ -1520,6 +1545,7 @@ class Game {
         const ovr = this._overlayGfx;
         ovr.clear();
         this._resetTextPool();
+        this._resetWorldTextPool();
 
         // Mining progress bar
         if (this.miningHeld && this.miningTarget && this.miningProgress > 0) {
@@ -1880,9 +1906,9 @@ class Game {
             gfx.endFill();
         }
 
-        // Stunned — stars above head
+        // Stunned — stars above head (world space)
         if (critter.stunned) {
-            const t = this._getText('★ ★', { fontFamily: 'monospace', fontSize: 10, fill: 0xffd54f });
+            const t = this._getWorldText('★ ★', { fontFamily: 'monospace', fontSize: 10, fill: 0xffd54f });
             t.x = sx; t.y = sy + bob - r - 10;
         }
 
@@ -1899,9 +1925,9 @@ class Game {
             gfx.endFill();
         }
 
-        // Aggro indicator — red "!" only, no circle
+        // Aggro indicator — red "!" only, no circle (world space)
         if (critter.state === 'aggro' || critter.state === 'attacking_building' || critter.state === 'aggro_bodyguard') {
-            const t = this._getText('!', { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xf87171 });
+            const t = this._getWorldText('!', { fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', fill: 0xf87171 });
             t.x = sx; t.y = sy + bob - r - 16;
         }
     }
