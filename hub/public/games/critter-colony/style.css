@@ -216,6 +216,7 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .wb-queue-sm{text-align:center;font-size:.7rem;color:#fbbf24;margin-bottom:6px}
 .wb-inv-row{display:flex;justify-content:space-around;padding:8px;background:rgba(255,255,255,.03);border-radius:8px;font-size:.85rem;color:#ccc;margin-top:8px}
 .wb-inv-row b{color:#fff}
+.wb-status-msg{text-align:center;font-size:.78rem;font-weight:600;color:#fbbf24;padding:6px;margin:6px 0;transition:opacity .5s;min-height:24px}
 
 /* ========== RESEARCH ========== */
 .research-progress{padding:10px;border-radius:8px;background:rgba(92,107,188,.1);border:1px solid rgba(92,107,188,.3);margin-bottom:8px}

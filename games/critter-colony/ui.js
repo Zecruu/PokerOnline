@@ -13,6 +13,32 @@ const RESEARCH_DEFS = {
     colonyRadius: { name: 'Colony Reach',       desc: 'Bigger expander radius',maxLevel: 3,  cost: (l) => ({ wood: 60*(l+1), stone: 60*(l+1), food: 40*(l+1) }), time: 50 },
     critterCap:   { name: 'Critter Capacity',   desc: '+4 max critters',       maxLevel: 10, cost: (l) => ({ wood: 25*(l+1), stone: 25*(l+1), food: 15*(l+1) }), time: 20 },
     workersPerB:  { name: 'Workforce Training', desc: '+1 worker per building', maxLevel: 4,  cost: (l) => ({ wood: 35*(l+1), stone: 35*(l+1), food: 20*(l+1) }), time: 35 },
+    // Base upgrades
+    baseHp:       { name: 'Fortification',     desc: '+50 HP to all buildings', maxLevel: 8,  cost: (l) => ({ wood: 40*(l+1), stone: 50*(l+1), food: 0 }),        time: 30 },
+    baseTurret:   { name: 'HQ Auto-Turret',    desc: 'HQ fires at enemies (stacks)', maxLevel: 3, cost: (l) => ({ wood: 50*(l+1), stone: 60*(l+1), iron: 20*(l+1) }), time: 50 },
+    bodyguardSlots:{ name: 'Bodyguard Training',desc: '+1 bodyguard slot (max 4)', maxLevel: 3, cost: (l) => ({ wood: 40*(l+1), stone: 30*(l+1), food: 30*(l+1) }), time: 40 },
+    // Building unlocks
+    storageBuilding:{ name: 'Storage Tech',    desc: 'Unlocks Storage building (+150 cap each)', maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, food: 20 }), time: 30 },
+    smelting:     { name: 'Smelting',          desc: 'Unlocks Smelter (ore → metal)',    maxLevel: 1, cost: (l) => ({ wood: 50, stone: 80, food: 0 }),        time: 45 },
+    greenhouse:   { name: 'Greenhouse Tech',   desc: 'Unlocks Greenhouse (2x food)',    maxLevel: 1, cost: (l) => ({ wood: 60, stone: 40, food: 30 }),       time: 35 },
+    barracks:     { name: 'Barracks',          desc: 'Unlocks Barracks (+30% patrol dmg)', maxLevel: 1, cost: (l) => ({ wood: 50, stone: 70, food: 20 }),    time: 40 },
+    refinery:     { name: 'Crystal Refinery',  desc: 'Unlocks Refinery (produces crystal)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 80, food: 40 }),   time: 60 },
+    healingHut:   { name: 'Healing Arts',      desc: 'Unlocks Healing Hut (auto-heal injured)', maxLevel: 1, cost: (l) => ({ wood: 40, stone: 30, food: 40 }), time: 35 },
+    // Extractors
+    oilDrilling:  { name: 'Oil Drilling',      desc: 'Unlocks Oil Pump (place on oil nodes)',   maxLevel: 1, cost: (l) => ({ wood: 60, stone: 80, food: 0 }),       time: 50 },
+    goldMining:   { name: 'Gold Mining',       desc: 'Unlocks Gold Mine (place on gold nodes)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 100, iron: 20 }),     time: 60 },
+    diamondDrill: { name: 'Diamond Drilling',  desc: 'Unlocks Diamond Drill (diamond nodes)',   maxLevel: 1, cost: (l) => ({ wood: 100, stone: 120, iron: 40 }),    time: 80 },
+    crystalExtract:{ name: 'Crystal Extraction',desc: 'Unlocks Crystal Extractor',              maxLevel: 1, cost: (l) => ({ wood: 70, stone: 90, iron: 15 }),      time: 55 },
+    // Power chain
+    gasRefining:  { name: 'Gas Refining',      desc: 'Unlocks Gas Refinery (oil → gasoline)',  maxLevel: 1, cost: (l) => ({ wood: 50, stone: 60, iron: 15 }),      time: 40 },
+    generators:   { name: 'Power Generators',  desc: 'Unlocks Generator (powers extractors)',  maxLevel: 1, cost: (l) => ({ wood: 60, stone: 70, iron: 25 }),      time: 50 },
+    // Companion & passive
+    companionSlots:{ name: 'Companion Bond',   desc: '+1 companion slot (max 4)',       maxLevel: 3, cost: (l) => ({ wood: 40*(l+1), stone: 30*(l+1), food: 30*(l+1) }), time: 40 },
+    passiveLab:   { name: 'Passive Lab',       desc: 'Unlocks Passive Lab (transfer passives)', maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, gold: 5 }), time: 50 },
+    // Snare tiers
+    ironSnare:    { name: 'Iron Snares',       desc: 'Craft Iron Snares (catches uncommon)',    maxLevel: 1, cost: (l) => ({ wood: 40, stone: 40, iron: 10 }),      time: 30 },
+    goldSnare:    { name: 'Gold Snares',       desc: 'Craft Gold Snares (catches rare)',        maxLevel: 1, cost: (l) => ({ wood: 50, stone: 50, gold: 5 }),       time: 45 },
+    diamondSnare: { name: 'Diamond Snares',    desc: 'Craft Diamond Snares (catches legendary)',maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, diamond: 3 }),    time: 60 },
 };
 
 class UI {
@@ -21,26 +47,27 @@ class UI {
         this.activeTab = 'buildings';
         this.notifications = [];
         this.showWaypointMenu = false;
-        this.showResearchMenu = false;
-
-        document.getElementById('tabBuildings').onclick = () => this.switchTab('buildings');
-        document.getElementById('tabCritters').onclick = () => this.switchTab('critters');
-        document.getElementById('tabManage').onclick = () => this.switchTab('manage');
-        document.getElementById('tabResearch').onclick = () => this.switchTab('research');
+        this.showBuildMenu = false;
     }
 
     static switchTab(tab) {
         this.activeTab = tab;
-        this._buildingsRendered = false;
-        this._forceRebuild = true;
-        document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-        const el = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+        document.querySelectorAll('.bm-tab').forEach(t => t.classList.remove('active'));
+        const el = document.querySelector(`.bm-tab[data-tab="${tab}"]`);
         if (el) el.classList.add('active');
         this.updatePanel();
     }
 
+    static toggleBuildMenu() {
+        this.showBuildMenu = !this.showBuildMenu;
+        const modal = document.getElementById('buildModal');
+        if (modal) {
+            if (this.showBuildMenu) { modal.classList.remove('hidden'); this.updatePanel(); }
+            else modal.classList.add('hidden');
+        }
+    }
+
     static update() {
-        this._forceRebuild = true;
         const g = this.game;
         const getCap = (r) => (g.resourceCaps[r] || 200) + (g.research.storageCap || 0) * 100;
 
@@ -63,14 +90,11 @@ class UI {
 
     static updatePanel() {
         const g = this.game;
-        const body = document.getElementById('panelBody');
+        const body = document.getElementById('buildModalBody');
         if (!body) return;
 
-        // Don't rebuild if a select is focused (prevents dropdown closing)
-        if (body.querySelector('select:focus')) return;
-        // Don't rebuild buildings tab on timer (prevents sprite flicker) — only on explicit update()
-        if (this.activeTab === 'buildings' && this._buildingsRendered && !this._forceRebuild) return;
-        this._forceRebuild = false;
+        // Don't rebuild critters/manage tab if a select is focused (prevents dropdown closing)
+        if ((this.activeTab === 'critters' || this.activeTab === 'manage') && body.querySelector('select:focus')) return;
 
         // ── WORKBENCH UI (overrides other tabs when open) ──
         if (g._activeWorkbench) {
@@ -138,9 +162,6 @@ class UI {
                     }
                 } else html += `<div class="wb-no-workers">No workers — assign DEX critters for auto-craft</div>`;
 
-                // Status message (shows inside panel instead of floating notification)
-                html += `<div id="wbStatusMsg" class="wb-status-msg" style="opacity:0"></div>`;
-
                 // Inventory
                 html += `<div class="wb-inv-row"><span>🪤 Traps: <b>${g.inventory.traps}</b></span><span>💥 Ammo: <b>${g.inventory.ammo||0}</b></span></div>`;
                 html += `</div>`;
@@ -150,15 +171,18 @@ class UI {
         }
 
         if (this.activeTab === 'buildings') {
-            let html = '<div class="panel-section-label">Build</div>';
+            let html = '<div class="build-grid">';
             for (const [type, def] of Object.entries(BUILDING_DEFS)) {
                 if (def.unbuildable) continue;
                 const canAfford = Buildings.canAfford(type, g.resources);
+                const isLocked = def.researchReq && !(g.research[def.researchReq] > 0);
                 const costStr = Object.entries(def.cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
-                // Building sprite image
                 const bSprite = typeof BUILDING_SPRITES !== 'undefined' && BUILDING_SPRITES[type] && BUILDING_SPRITES[type].complete && BUILDING_SPRITES[type].naturalWidth > 0
                     ? BUILDING_SPRITES[type] : null;
-                html += `<div class="build-item ${canAfford ? '' : 'disabled'}" onclick="game.startPlacement('${type}')">`;
+
+                const classes = isLocked ? 'build-item locked disabled' : canAfford ? 'build-item' : 'build-item disabled';
+                const onclick = isLocked ? '' : `onclick="game.startPlacement('${type}')"`;
+                html += `<div class="${classes}" ${onclick}>`;
                 html += `<div class="build-header">`;
                 if (bSprite) {
                     html += `<img class="build-icon" src="${bSprite.src}">`;
@@ -167,24 +191,31 @@ class UI {
                 }
                 html += `<div class="build-header-text">`;
                 html += `<span class="build-name">${def.name}</span>`;
-                html += `<span class="build-cost">${costStr || 'Free'}</span>`;
-                html += `</div>`;
-                html += `</div>`;
-                // Stat yield info with icon
-                if (def.statKey) {
-                    const statIcon = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[def.statKey.toLowerCase()] && STAT_ICONS[def.statKey.toLowerCase()].complete
-                        ? `<img class="build-stat-icon" src="${STAT_ICONS[def.statKey.toLowerCase()].src}">` : '';
-                    html += `<div class="build-stat">${statIcon}<b>${def.statKey}</b> increases yield</div>`;
+                if (isLocked) {
+                    const rd = RESEARCH_DEFS[def.researchReq];
+                    html += `<span class="build-locked-text">Requires: ${rd ? rd.name : def.researchReq}</span>`;
+                } else {
+                    html += `<span class="build-cost">${costStr || 'Free'}</span>`;
                 }
-                if (def.produces) html += `<span class="build-desc">Produces ${def.produces} — assign critters with high ${def.statKey || 'stats'}</span>`;
-                else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
-                else if (def.turret) html += `<span class="build-desc">Auto-attacks wild critters</span>`;
-                else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
-                else if (def.isResearch) html += `<span class="build-desc">Assign high INT critters to research faster</span>`;
-                else if (def.isWorkbench) html += `<span class="build-desc">Crafts traps (5 wood + 3 stone). High DEX = faster</span>`;
-                if (def.hp) html += `<span class="build-hp">HP: ${def.hp}</span>`;
+                html += `</div>`;
+                html += `</div>`;
+                if (!isLocked) {
+                    if (def.produces) html += `<span class="build-desc">Produces ${def.produces}</span>`;
+                    else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
+                    else if (def.turret) html += `<span class="build-desc">Auto-attacks enemies</span>`;
+                    else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
+                    else if (def.isResearch) html += `<span class="build-desc">Research new tech</span>`;
+                    else if (def.isWorkbench) html += `<span class="build-desc">Craft traps & ammo</span>`;
+                    else if (def.isGenerator) html += `<span class="build-desc">Powers nearby extractors</span>`;
+                    else if (def.isExtractor) html += `<span class="build-desc">Place on ${NODE_INFO[def.nodeType]?.name || 'node'}</span>`;
+                    else if (def.isStorage) html += `<span class="build-desc">+150 resource cap</span>`;
+                    else if (def.isPassiveLab) html += `<span class="build-desc">Transfer passives</span>`;
+                    else if (def.isHealer) html += `<span class="build-desc">Auto-heal injured</span>`;
+                    else if (def.isBarracks) html += `<span class="build-desc">+30% patrol damage</span>`;
+                }
                 html += `</div>`;
             }
+            html += '</div>'; // close build-grid
 
             if (g.buildings.length > 0) {
                 html += '<div class="panel-section-label" style="margin-top:12px">Your Buildings</div>';
@@ -211,10 +242,8 @@ class UI {
                 }
             }
             body.innerHTML = html;
-            this._buildingsRendered = true;
 
         } else if (this.activeTab === 'critters') {
-            this._buildingsRendered = false;
             let html = '';
             if (g.critters.length === 0) {
                 html = '<div class="panel-empty">No critters captured yet.<br>Explore and press E near wild critters!</div>';
@@ -230,7 +259,11 @@ class UI {
                     const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
                     html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
-                    html += `<div class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</div>`;
+                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[sp.type] : null;
+                    html += `<div class="cc-type-row">`;
+                    html += `<span class="cc-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</span>`;
+                    if (typeInfo) html += `<span class="cc-type" style="color:${typeInfo.color}">${typeInfo.icon} ${typeInfo.name}</span>`;
+                    html += `</div>`;
                     if (c.injured) {
                         const mins = Math.ceil((c.injuredTimer || 0) / 60);
                         html += `<div class="cc-injured">🩹 Injured — ${mins}m recovery</div>`;
@@ -271,6 +304,10 @@ class UI {
                         const bld = g.buildings.find(b => b.id === c.assignment);
                         if (bld) {
                             const def = BUILDING_DEFS[bld.type];
+                            // Type match indicator
+                            const tBonus = typeof Critters !== 'undefined' ? Critters.getTypeBonus(c, bld.type) : 0;
+                            if (tBonus > 0) html += `<div class="cc-bonus cc-type-match">✅ Type match! +${(tBonus*100).toFixed(0)}% bonus</div>`;
+                            else if (tBonus < 0) html += `<div class="cc-bonus cc-type-mismatch">⚠️ Wrong type. ${(tBonus*100).toFixed(0)}% penalty</div>`;
                             if (def.produces && def.statKey) {
                                 const statVal = c.stats[def.statKey] || 0;
                                 const bonus = (statVal * 0.05 * 100).toFixed(0);
@@ -287,16 +324,23 @@ class UI {
 
                     html += `<div class="cc-assign">`;
                     html += `<select onchange="game.assignCritter(${c.id}, this.value)">`;
-                    html += `<option value="">Idle</option>`;
+                    html += `<option value="" ${!c.assignment ? 'selected' : ''}>Idle</option>`;
                     html += `<option value="patrol" ${c.assignment === 'patrol' ? 'selected' : ''}>Patrol (Guard)</option>`;
-                    for (const b of g.buildings) {
-                        const def = BUILDING_DEFS[b.type];
-                        if (!def.produces && !def.isResearch && !def.isWorkbench) continue; // skips nests, turrets, expanders
-                        const selected = c.assignment === b.id ? 'selected' : '';
-                        html += `<option value="${b.id}" ${selected}>${def.name} (${b.workers.length})</option>`;
+                    const companionCount = g.critters.filter(cr => cr.assignment === 'companion').length;
+                    const maxCompanions = 1 + (g.research.companionSlots || 0);
+                    if (c.assignment === 'companion' || companionCount < maxCompanions) {
+                        html += `<option value="companion" ${c.assignment === 'companion' ? 'selected' : ''}>Companion (${companionCount}/${maxCompanions})</option>`;
+                    }
+                    const bodyguardCount = g.critters.filter(cr => cr.assignment === 'bodyguard').length;
+                    const maxBodyguards = 1 + (g.research.bodyguardSlots || 0);
+                    if (c.assignment === 'bodyguard' || bodyguardCount < maxBodyguards) {
+                        html += `<option value="bodyguard" ${c.assignment === 'bodyguard' ? 'selected' : ''}>Bodyguard (${bodyguardCount}/${maxBodyguards})</option>`;
                     }
                     html += `</select>`;
+                    html += `<span class="cc-assign-hint">Assign to buildings in Manage tab</span>`;
                     html += `</div>`;
+                    // Sacrifice button
+                    html += `<button class="cc-sacrifice" onclick="game.sacrificeCritter(${c.id})">🩸 Sacrifice</button>`;
                     html += `</div>`;
                 }
             }
@@ -344,6 +388,68 @@ class UI {
             }
             body.innerHTML = html;
 
+        } else if (this.activeTab === 'workbench') {
+            let html = '';
+            // Find nearest workbench
+            const wb = g.buildings.find(b => BUILDING_DEFS[b.type].isWorkbench);
+            const isNear = wb && g._isNearWorkbench ? g._isNearWorkbench(wb.id) : false;
+
+            if (!wb) {
+                html = '<div class="panel-empty">No Workbench built yet!<br>Build one from the Buildings tab.</div>';
+            } else if (!isNear) {
+                html = '<div class="panel-empty">⚠️ Walk near your Workbench to craft!<br><br>Workbench must be within range to use.</div>';
+            } else {
+                const ct = Buildings.getCraftTime(wb, g.critters);
+                const crafting = (wb.workers.length > 0 && (wb.craftQueue > 0 || wb.ammoQueue > 0)) || wb._manualCrafting;
+                const pct = crafting ? Math.min(100, ((wb.craftProgress || 0) / ct) * 100) : 0;
+
+                html += `<div class="wb-panel">`;
+                html += `<div class="wb-speed-info">Craft speed: ${ct.toFixed(1)}s per item (${wb.workers.length} workers)</div>`;
+
+                if (crafting) {
+                    const label = wb.activeRecipe === 'ammo' ? 'Bullets' : wb.activeRecipe === 'iron_snare' ? 'Iron Snare' : wb.activeRecipe === 'gold_snare' ? 'Gold Snare' : wb.activeRecipe === 'diamond_snare' ? 'Diamond Snare' : 'Trap';
+                    html += `<div class="wb-progress"><div class="wb-prog-bar"><div class="wb-prog-fill" style="width:${pct}%"></div></div>`;
+                    html += `<span class="wb-prog-text">Crafting ${label}... ${Math.floor(pct)}%</span></div>`;
+                }
+
+                // Recipes
+                const recipes = [
+                    { id: 'trap', name: 'Rope Snare', desc: 'Catches common critters', cost: {wood:5,stone:3}, icon: '🪤', result: 'traps', qty: 1 },
+                    { id: 'ammo', name: 'Bullets x5', desc: 'Ammo for tamer gun', cost: {iron:2,stone:1}, icon: '💥', result: 'ammo', qty: 5 },
+                    { id: 'iron_snare', name: 'Iron Snare', desc: 'Catches uncommon critters', cost: {wood:5,iron:3}, icon: '⛓️', result: 'iron_snare', qty: 1, req: 'ironSnare' },
+                    { id: 'gold_snare', name: 'Gold Snare', desc: 'Catches rare critters', cost: {iron:3,gold:2}, icon: '✨', result: 'gold_snare', qty: 1, req: 'goldSnare' },
+                    { id: 'diamond_snare', name: 'Diamond Snare', desc: 'Catches legendary critters', cost: {gold:2,diamond:1}, icon: '💎', result: 'diamond_snare', qty: 1, req: 'diamondSnare' },
+                ];
+
+                for (const r of recipes) {
+                    if (r.req && !(g.research[r.req] > 0)) {
+                        html += `<div class="wb-recipe wb-recipe-locked">`;
+                        html += `<div class="wb-recipe-icon">${r.icon}</div>`;
+                        html += `<div class="wb-recipe-info"><div class="wb-recipe-name">${r.name} 🔒</div>`;
+                        html += `<div class="wb-recipe-desc">Requires: ${RESEARCH_DEFS[r.req]?.name || r.req}</div></div></div>`;
+                        continue;
+                    }
+                    const canCraft = Object.entries(r.cost).every(([k,v]) => (g.resources[k]||0) >= v);
+                    const costStr = Object.entries(r.cost).map(([k,v]) => `${v} ${k}`).join(' + ');
+                    const owned = g.inventory[r.result] || 0;
+
+                    html += `<div class="wb-recipe">`;
+                    html += `<div class="wb-recipe-icon">${r.icon}</div>`;
+                    html += `<div class="wb-recipe-info">`;
+                    html += `<div class="wb-recipe-name">${r.name} <span style="color:#888;font-size:.7rem">(owned: ${owned})</span></div>`;
+                    html += `<div class="wb-recipe-desc">${r.desc}</div>`;
+                    html += `<div class="wb-recipe-cost">${costStr} → ${r.icon}x${r.qty}</div>`;
+                    html += `</div>`;
+                    html += `<div class="wb-recipe-btns">`;
+                    html += `<button class="wb-craft-sm" onclick="game.manualCraft(${wb.id},'${r.id}')" ${canCraft?'':'disabled'}>x1</button>`;
+                    html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},5,'${r.id}')" ${canCraft?'':'disabled'}>+5</button>`;
+                    html += `<button class="wb-craft-sm" onclick="game.queueCraft(${wb.id},20,'${r.id}')" ${canCraft?'':'disabled'}>+20</button>`;
+                    html += `</div></div>`;
+                }
+                html += `</div>`;
+            }
+            body.innerHTML = html;
+
         } else if (this.activeTab === 'manage') {
             let html = '';
             const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
@@ -353,12 +459,21 @@ class UI {
             } else {
                 for (const b of g.buildings) {
                     const def = BUILDING_DEFS[b.type];
-                    if (def.turret || def.expander || def.capacity) continue; // skip turrets, expanders, nests
+                    if (def.turret || def.expander || def.capacity || def.isHQ || def.isWall || def.isGate || def.isGenerator) continue;
+
+                    // Find best critter type for this building
+                    let bestType = null;
+                    if (typeof CRITTER_TYPES !== 'undefined') {
+                        for (const [tKey, tInfo] of Object.entries(CRITTER_TYPES)) {
+                            if (tInfo.buildings.includes(b.type)) { bestType = tInfo; break; }
+                        }
+                    }
 
                     html += `<div class="manage-building">`;
                     html += `<div class="mb-header">`;
                     html += `<span class="mb-icon" style="background:${def.color}">${def.letter}</span>`;
                     html += `<span class="mb-name">${def.name}</span>`;
+                    if (bestType) html += `<span class="mb-best-type" style="color:${bestType.color}">${bestType.icon} ${bestType.name}</span>`;
                     html += `<span class="mb-cap">${b.workers.length}/${maxW}</span>`;
                     html += `</div>`;
 
@@ -385,8 +500,12 @@ class UI {
                                 html += `<option value="">+ Assign critter...</option>`;
                                 for (const ic of idle) {
                                     const isp = SPECIES[ic.species];
-                                    const statVal = def.statKey ? ` (${def.statKey}:${ic.stats[def.statKey]||0})` : '';
-                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level}${statVal}</option>`;
+                                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[isp.type] : null;
+                                    const typeTag = typeInfo ? `${typeInfo.icon}${typeInfo.name}` : '';
+                                    const statVal = def.statKey ? ` ${def.statKey}:${ic.stats[def.statKey]||0}` : '';
+                                    const tBonus = typeof Critters !== 'undefined' ? Critters.getTypeBonus(ic, b.type) : 0;
+                                    const matchTag = tBonus > 0 ? ' ✅' : tBonus < 0 ? ' ⚠️' : '';
+                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level} [${typeTag}]${statVal}${matchTag}</option>`;
                                 }
                                 html += `</select>`;
                                 html += `</div>`;
