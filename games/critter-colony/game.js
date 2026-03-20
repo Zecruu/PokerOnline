@@ -796,6 +796,15 @@ class Game {
         if (btn) btn.textContent = this.paused ? '▶' : '⏸';
     }
 
+    returnToMenu() {
+        // Save before leaving
+        Save.save(this);
+        // Disconnect multiplayer if active
+        if (this.network && this.network.roomId) this.mpLeave();
+        // Reload the page to return to title screen
+        location.reload();
+    }
+
     toggleSettings() {
         const el = document.getElementById('settingsPanel');
         if (el) el.classList.toggle('hidden');
