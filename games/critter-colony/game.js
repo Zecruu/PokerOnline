@@ -913,7 +913,7 @@ class Game {
                 const hx = wc.x - p.x, hy = wc.y - p.y;
                 if (Math.sqrt(hx*hx + hy*hy) < 12) {
                     Critters.damageWild(wc, p.damage);
-                    this.sounds.hit();
+                    this.sounds.slash();
                     // Slash hit effect
                     if (!this._hitEffects) this._hitEffects = [];
                     this._hitEffects.push({ x: wc.x, y: wc.y, timer: 0.2, angle: Math.atan2(p.vy, p.vx) });
@@ -924,6 +924,11 @@ class Game {
 
         const bodyguards = this.critters.filter(c => c.assignment === 'bodyguard');
         Critters.updateWild(dt, this.wildCritters, this.world, this.player, this.buildings, bodyguards);
+
+        // Play slash sound for any critter that just attacked
+        for (const c of this.wildCritters) {
+            if (c._playSlash) { c._playSlash = false; if (this.sounds) this.sounds.slash(); }
+        }
 
         // Handle despawned critters — spawn skull, then recycle
         for (const c of this.wildCritters) {
@@ -1575,17 +1580,21 @@ class Game {
             gfx.endFill();
         }
 
-        // Hit slash effects
+        // Hit slash effects — white arc lines
         if (this._hitEffects) {
             for (const fx of this._hitEffects) {
                 const alpha = fx.timer / 0.2;
-                const len = 18;
-                gfx.lineStyle(3, 0xffffff, alpha * 0.9);
-                gfx.moveTo(fx.x + Math.cos(fx.angle - 0.4) * 3, fx.y + Math.sin(fx.angle - 0.4) * 3);
-                gfx.lineTo(fx.x + Math.cos(fx.angle - 0.4) * len, fx.y + Math.sin(fx.angle - 0.4) * len);
-                gfx.lineStyle(2, 0xffd54f, alpha * 0.7);
-                gfx.moveTo(fx.x + Math.cos(fx.angle + 0.4) * 3, fx.y + Math.sin(fx.angle + 0.4) * 3);
-                gfx.lineTo(fx.x + Math.cos(fx.angle + 0.4) * (len - 4), fx.y + Math.sin(fx.angle + 0.4) * (len - 4));
+                const len = 20;
+                // White slash arc
+                gfx.lineStyle(3, 0xffffff, alpha);
+                gfx.moveTo(fx.x + Math.cos(fx.angle - 0.5) * 4, fx.y + Math.sin(fx.angle - 0.5) * 4);
+                gfx.lineTo(fx.x + Math.cos(fx.angle) * len, fx.y + Math.sin(fx.angle) * len);
+                gfx.lineTo(fx.x + Math.cos(fx.angle + 0.5) * 4, fx.y + Math.sin(fx.angle + 0.5) * 4);
+                // Second thin line
+                gfx.lineStyle(1, 0xffffff, alpha * 0.6);
+                gfx.moveTo(fx.x + Math.cos(fx.angle + Math.PI - 0.3) * 4, fx.y + Math.sin(fx.angle + Math.PI - 0.3) * 4);
+                gfx.lineTo(fx.x + Math.cos(fx.angle + Math.PI) * 12, fx.y + Math.sin(fx.angle + Math.PI) * 12);
+                gfx.lineTo(fx.x + Math.cos(fx.angle + Math.PI + 0.3) * 4, fx.y + Math.sin(fx.angle + Math.PI + 0.3) * 4);
                 gfx.lineStyle(0);
             }
         }
@@ -2028,16 +2037,23 @@ class Game {
             t.x = sx; t.y = sy + bob - r - 16;
         }
 
-        // Slash animation when critter attacks
+        // Slash animation when critter attacks — white arc line
         if (critter._justAttacked) {
-            const slashAngle = Math.random() * Math.PI * 2;
-            const slashLen = r + 8;
-            gfx.lineStyle(3, 0xff4444, 0.8);
-            gfx.moveTo(sx + Math.cos(slashAngle) * 4, sy + bob + Math.sin(slashAngle) * 4);
-            gfx.lineTo(sx + Math.cos(slashAngle) * slashLen, sy + bob + Math.sin(slashAngle) * slashLen);
-            gfx.lineStyle(2, 0xffffff, 0.6);
-            gfx.moveTo(sx + Math.cos(slashAngle + 0.3) * 6, sy + bob + Math.sin(slashAngle + 0.3) * 6);
-            gfx.lineTo(sx + Math.cos(slashAngle + 0.3) * (slashLen - 2), sy + bob + Math.sin(slashAngle + 0.3) * (slashLen - 2));
+            const angle = Math.atan2(
+                (this.player.y || 0) - sy,
+                (this.player.x || 0) - sx
+            );
+            const len = r + 14;
+            // Main white slash
+            gfx.lineStyle(3, 0xffffff, 0.9);
+            gfx.moveTo(sx + Math.cos(angle - 0.6) * (r + 2), sy + bob + Math.sin(angle - 0.6) * (r + 2));
+            gfx.lineTo(sx + Math.cos(angle) * len, sy + bob + Math.sin(angle) * len);
+            gfx.lineTo(sx + Math.cos(angle + 0.6) * (r + 2), sy + bob + Math.sin(angle + 0.6) * (r + 2));
+            // Thin trailing line
+            gfx.lineStyle(1, 0xffffff, 0.5);
+            gfx.moveTo(sx + Math.cos(angle - 0.8) * r, sy + bob + Math.sin(angle - 0.8) * r);
+            gfx.lineTo(sx + Math.cos(angle) * (len + 4), sy + bob + Math.sin(angle) * (len + 4));
+            gfx.lineTo(sx + Math.cos(angle + 0.8) * r, sy + bob + Math.sin(angle + 0.8) * r);
             gfx.lineStyle(0);
         }
     }

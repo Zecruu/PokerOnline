@@ -410,6 +410,39 @@ class GameSounds {
     }
 
     /** Soft footstep sound */
+    /** Slash wind swoosh sound */
+    slash() {
+        if (!this._ensureContext()) return;
+        const t = this.ctx.currentTime;
+
+        // Quick high-pitched whoosh (filtered noise sweep)
+        const g = this._createGain(0);
+        g.gain.setValueAtTime(0.4, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+        const f = this._createFilter('bandpass', 4000);
+        f.Q.value = 2;
+        f.frequency.setValueAtTime(6000, t);
+        f.frequency.exponentialRampToValueAtTime(1000, t + 0.15);
+        f.connect(g);
+
+        const n = this._createNoise(0.15);
+        n.connect(f);
+        n.start(t);
+        n.stop(t + 0.15);
+
+        // Subtle tonal swoosh
+        const g2 = this._createGain(0);
+        g2.gain.setValueAtTime(0.15, t);
+        g2.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+
+        const osc = this._createOsc('sine', 800, g2);
+        osc.frequency.setValueAtTime(1200, t);
+        osc.frequency.exponentialRampToValueAtTime(300, t + 0.1);
+        osc.start(t);
+        osc.stop(t + 0.1);
+    }
+
     walk() {
         if (!this._ensureContext()) return;
         const t = this.ctx.currentTime;

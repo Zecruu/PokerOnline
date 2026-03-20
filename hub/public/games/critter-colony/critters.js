@@ -282,7 +282,7 @@ class Critters {
 
                 if (pDist < aggroRange) {
                     c.state = 'aggro';
-                    const speed = 220; // slightly faster than player (200)
+                    const speed = 205; // slightly faster than player (200)
                     const len = Math.sqrt(pdx*pdx + pdy*pdy);
                     if (len > 15) {
                         c.x += (pdx / len) * speed * dt;
@@ -295,6 +295,7 @@ class Critters {
                         if (player.hp !== undefined) {
                             player.hp -= sp.attackDmg || 3;
                             c._justAttacked = true;
+                            c._playSlash = true;
                             setTimeout(() => { c._justAttacked = false; }, 300);
                         }
                     }
@@ -320,6 +321,7 @@ class Critters {
                             c._attackTimer = sp.attackCooldown || 1.5;
                             if (bg.patrolHp !== undefined) bg.patrolHp -= (sp.attackDmg || 3);
                             c._justAttacked = true;
+                            c._playSlash = true;
                             setTimeout(() => { c._justAttacked = false; }, 300);
                         }
                         break;
