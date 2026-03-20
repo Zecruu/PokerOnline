@@ -162,7 +162,7 @@ class Buildings {
                 // Recipe definitions with costs
                 const CRAFT_RECIPES = {
                     trap:          { cost: {wood:5, stone:3},   result: 'traps',         qty: 1, queue: 'craftQueue' },
-                    ammo:          { cost: {iron:2, stone:1},   result: 'ammo',          qty: 5, queue: 'ammoQueue' },
+                    ammo:          { cost: {iron:2, stone:1},   result: 'ammo',          qty: 10, queue: 'ammoQueue' },
                     iron_snare:    { cost: {wood:5, iron:3},    result: 'iron_snare',    qty: 1, queue: 'ironSnareQueue' },
                     gold_snare:    { cost: {iron:3, gold:2},    result: 'gold_snare',    qty: 1, queue: 'goldSnareQueue' },
                     diamond_snare: { cost: {gold:2, diamond:1}, result: 'diamond_snare', qty: 1, queue: 'diamondSnareQueue' },
