@@ -143,7 +143,7 @@ class Buildings {
                 if (c) intSum += c.stats.INT || 0;
             }
             if (b.workers.length > 0) {
-                speed += 0.05 * b.workers.length * (1 + intSum * 0.08);
+                speed += 0.075 * b.workers.length * (1 + intSum * 0.08);
             }
         }
         return speed;
