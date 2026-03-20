@@ -552,7 +552,8 @@ class Game {
                 UI.notify(`${critter.nickname} assigned to ${BUILDING_DEFS[newB.type].name} (${newB.workers.length}/${maxW})`);
             }
         } else { critter.assignment = null; }
-        UI.update();
+        UI._forceRebuild = true;
+        UI.updatePanel();
     }
 
     unassignFromManage(critterId) {
@@ -564,7 +565,8 @@ class Game {
         }
         critter.assignment = null;
         UI.notify(`${critter.nickname} unassigned.`);
-        UI.update();
+        UI._forceRebuild = true;
+        UI.updatePanel();
     }
 
     // Get combined companion effects
@@ -1528,16 +1530,16 @@ class Game {
         // Draw player sprite (animated sprite sheet, 4 frames per direction)
         this._drawPlayer(px, py);
 
-        // Player HP bar
+        // Player HP bar (above sprite)
         if (this.player.hp < this.player.maxHp) {
-            const hpW = 28, hpH = 4;
+            const hpW = 32, hpH = 4;
             gfx.beginFill(0x333333);
-            gfx.drawRect(px - hpW/2, py - 18, hpW, hpH);
+            gfx.drawRect(px - hpW/2, py - 38, hpW, hpH);
             gfx.endFill();
             const pct = this.player.hp / this.player.maxHp;
             const hpColor = pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171;
             gfx.beginFill(hpColor);
-            gfx.drawRect(px - hpW/2, py - 18, hpW * pct, hpH);
+            gfx.drawRect(px - hpW/2, py - 38, hpW * pct, hpH);
             gfx.endFill();
         }
 
