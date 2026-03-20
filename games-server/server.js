@@ -3,6 +3,8 @@ const compression = require('compression');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { Server: SocketServer } = require('socket.io');
 
 // ============================================
 // STRIPE CONFIGURATION (Add API keys when ready)
@@ -270,12 +272,229 @@ app.use((req, res) => {
     res.status(404).send('Game not found. <a href="/">Back to games</a>');
 });
 
+// ============================================
+// CRITTER COLONY — MULTIPLAYER (Socket.IO)
+// ============================================
+const server = http.createServer(app);
+const io = new SocketServer(server, {
+    path: '/colony-mp',
+    cors: { origin: '*', methods: ['GET', 'POST'] },
+    pingInterval: 10000,
+    pingTimeout: 5000,
+});
+
+// Room storage: roomId → { hostId, worldSeed, players: Map<socketId, {name, x, y, color}>, createdAt }
+const colonyRooms = new Map();
+
+function generateRoomId() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let id = '';
+    for (let i = 0; i < 5; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+}
+
+const PLAYER_COLORS = ['#66bb6a', '#ffa726', '#ab47bc', '#29b6f6', '#ef5350', '#ffee58', '#26c6da', '#ec407a'];
+
+io.on('connection', (socket) => {
+    console.log(`[Colony MP] Player connected: ${socket.id}`);
+    let currentRoom = null;
+
+    // Create a new room
+    socket.on('colony:create', (data, cb) => {
+        const roomId = generateRoomId();
+        const room = {
+            hostId: socket.id,
+            worldSeed: data.worldSeed || Math.floor(Math.random() * 999999),
+            players: new Map(),
+            createdAt: Date.now(),
+            lastWorldState: null,
+        };
+        room.players.set(socket.id, {
+            name: data.name || 'Host',
+            x: 0, y: 0, dir: 'front',
+            hp: 100, maxHp: 100,
+            color: PLAYER_COLORS[0],
+        });
+        colonyRooms.set(roomId, room);
+        socket.join(roomId);
+        currentRoom = roomId;
+        console.log(`[Colony MP] Room ${roomId} created by ${data.name || 'Host'}`);
+        cb({ roomId, success: true });
+    });
+
+    // Join existing room
+    socket.on('colony:join', (data, cb) => {
+        const room = colonyRooms.get(data.roomId);
+        if (!room) { cb({ error: 'Room not found' }); return; }
+        if (room.players.size >= 8) { cb({ error: 'Room is full (max 8)' }); return; }
+
+        const colorIdx = room.players.size % PLAYER_COLORS.length;
+        const playerInfo = {
+            name: data.name || 'Player',
+            x: 0, y: 0, dir: 'front',
+            hp: 100, maxHp: 100,
+            color: PLAYER_COLORS[colorIdx],
+        };
+        room.players.set(socket.id, playerInfo);
+        socket.join(data.roomId);
+        currentRoom = data.roomId;
+
+        // Notify others
+        socket.to(data.roomId).emit('colony:player-joined', {
+            id: socket.id,
+            name: playerInfo.name,
+            color: playerInfo.color,
+        });
+
+        // Build player list for the joiner
+        const players = [];
+        for (const [id, p] of room.players) {
+            players.push({ id, name: p.name, x: p.x, y: p.y, color: p.color });
+        }
+
+        // Request world state from host
+        const hostSocket = io.sockets.sockets.get(room.hostId);
+        if (hostSocket) {
+            hostSocket.emit('colony:request-state', { requesterId: socket.id }, (worldState) => {
+                cb({ success: true, players, worldState });
+            });
+        } else {
+            // Fallback: send last known state
+            cb({ success: true, players, worldState: room.lastWorldState || { worldSeed: room.worldSeed } });
+        }
+
+        console.log(`[Colony MP] ${data.name || 'Player'} joined room ${data.roomId} (${room.players.size} players)`);
+    });
+
+    // List open rooms
+    socket.on('colony:list', (data, cb) => {
+        const rooms = [];
+        for (const [id, room] of colonyRooms) {
+            const host = room.players.get(room.hostId);
+            rooms.push({
+                roomId: id,
+                hostName: host?.name || 'Unknown',
+                playerCount: room.players.size,
+                maxPlayers: 8,
+                createdAt: room.createdAt,
+            });
+        }
+        cb({ rooms });
+    });
+
+    // Leave room
+    socket.on('colony:leave', () => {
+        if (currentRoom) leaveCurrentRoom();
+    });
+
+    // Player position update
+    socket.on('colony:move', (data) => {
+        if (!currentRoom) return;
+        const room = colonyRooms.get(currentRoom);
+        if (!room) return;
+        const player = room.players.get(socket.id);
+        if (player) {
+            player.x = data.x; player.y = data.y;
+            player.dir = data.dir;
+            player.hp = data.hp; player.maxHp = data.maxHp;
+        }
+        // Broadcast all positions to room
+        const positions = [];
+        for (const [id, p] of room.players) {
+            positions.push({ id, x: p.x, y: p.y, dir: p.dir, hp: p.hp, maxHp: p.maxHp });
+        }
+        socket.to(currentRoom).emit('colony:positions', positions);
+    });
+
+    // State sync (host → server → clients)
+    socket.on('colony:state-sync', (state) => {
+        if (!currentRoom) return;
+        const room = colonyRooms.get(currentRoom);
+        if (!room || room.hostId !== socket.id) return;
+        room.lastWorldState = state;
+        socket.to(currentRoom).emit('colony:state-sync', state);
+    });
+
+    // Game actions (building, capturing, etc.)
+    socket.on('colony:action', (data) => {
+        if (!currentRoom) return;
+        const room = colonyRooms.get(currentRoom);
+        if (!room) return;
+        const player = room.players.get(socket.id);
+        data.from = socket.id;
+        data.playerName = player?.name || 'Player';
+        socket.to(currentRoom).emit('colony:action', data);
+    });
+
+    // Projectiles
+    socket.on('colony:projectile', (data) => {
+        if (!currentRoom) return;
+        data.from = socket.id;
+        socket.to(currentRoom).volatile.emit('colony:projectile', data);
+    });
+
+    // Chat
+    socket.on('colony:chat', (data) => {
+        if (!currentRoom) return;
+        socket.to(currentRoom).emit('colony:chat', data);
+    });
+
+    // Host responds with full world state for new joiners
+    socket.on('colony:request-state', (data, cb) => {
+        // This is handled on the host client — they'll respond with Save._buildGameState
+        // The callback is forwarded from the join flow
+    });
+
+    // Disconnect
+    socket.on('disconnect', () => {
+        console.log(`[Colony MP] Player disconnected: ${socket.id}`);
+        if (currentRoom) leaveCurrentRoom();
+    });
+
+    function leaveCurrentRoom() {
+        const room = colonyRooms.get(currentRoom);
+        if (!room) { currentRoom = null; return; }
+
+        room.players.delete(socket.id);
+        socket.leave(currentRoom);
+
+        if (room.players.size === 0) {
+            // Empty room — delete
+            colonyRooms.delete(currentRoom);
+            console.log(`[Colony MP] Room ${currentRoom} deleted (empty)`);
+        } else if (room.hostId === socket.id) {
+            // Host left — promote next player
+            const nextHost = room.players.keys().next().value;
+            room.hostId = nextHost;
+            io.to(currentRoom).emit('colony:player-left', {
+                id: socket.id,
+                newHost: nextHost,
+            });
+            console.log(`[Colony MP] Host left room ${currentRoom}, promoted ${nextHost}`);
+        } else {
+            io.to(currentRoom).emit('colony:player-left', { id: socket.id });
+        }
+        currentRoom = null;
+    }
+});
+
+// Cleanup stale rooms every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, room] of colonyRooms) {
+        if (room.players.size === 0 || now - room.createdAt > 12 * 60 * 60 * 1000) {
+            colonyRooms.delete(id);
+        }
+    }
+}, 5 * 60 * 1000);
+
 // Bind to 0.0.0.0 explicitly for Railway
 const HOST = '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, () => {
     console.log(`🎮 Games server running on http://${HOST}:${PORT}`);
     console.log(`   Serving games from: ${path.join(__dirname, 'public')}`);
+    console.log(`   🌐 Colony Multiplayer: Socket.IO on /colony-mp`);
 }).on('error', (err) => {
     console.error('❌ Server failed to start:', err);
     process.exit(1);

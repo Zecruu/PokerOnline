@@ -74,6 +74,10 @@ class Game {
         this.zoomLevel = 1;
         this.mouseSensitivity = 1;
 
+        // ─── MULTIPLAYER ───────────────────────────────────────
+        this.network = new Network(this);
+        this.mpServerUrl = ''; // auto-detect from current origin
+
         // ─── SOUND ──────────────────────────────────────────
         this.sounds = new GameSounds();
 
@@ -195,6 +199,7 @@ class Game {
         html += '<div class="title-buttons">';
         if (hasData) html += '<button class="title-btn title-continue" onclick="game.loadAndStart()">Continue</button>';
         html += '<button class="title-btn title-new" onclick="game.newGame()">New Game</button>';
+        html += '<button class="title-btn title-new" onclick="game.toggleMpLobby()" style="border-color:rgba(102,187,106,.4);color:#66bb6a">Multiplayer</button>';
         html += '</div>';
         if (!Save.isLoggedIn()) html += '<p class="title-hint">Progress saves locally. Log in for cloud saves!</p>';
         html += '</div>';
@@ -285,6 +290,7 @@ class Game {
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
             if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
             if (e.key.toLowerCase() === 'b') UI.toggleBuildMenu();
+            if (e.key.toLowerCase() === 'n') this.toggleMpLobby();
             if (e.key === 'Escape') {
                 if (this.paused) { this.togglePause(); }
                 else if (document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden')) { this.toggleSettings(); }
@@ -348,6 +354,8 @@ class Game {
                 this.wildCritters = this.wildCritters.filter(c => c.id !== closest.id);
                 this.critters.push(result.captured);
                 this.sounds.capture();
+                // MP broadcast
+                this.network.sendAction('capture', { critter: result.captured });
                 UI.notify(`Captured ${SPECIES[result.captured.species].name}!`); UI.update();
             } else UI.notify(result.reason);
         }
@@ -433,7 +441,9 @@ class Game {
         this.inventory.ammo--;
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
         const speed = 400, damage = this.gunDamage + (this.research.gunDamage || 0) * 5;
-        this.projectiles.push({ x: this.player.x, y: this.player.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, damage, lifetime: 2, fromTurret: false });
+        const vx = Math.cos(angle)*speed, vy = Math.sin(angle)*speed;
+        this.projectiles.push({ x: this.player.x, y: this.player.y, vx, vy, damage, lifetime: 2, fromTurret: false });
+        this.network.sendProjectile(this.player.x, this.player.y, vx, vy, damage);
         this.sounds.shoot();
     }
 
@@ -461,6 +471,8 @@ class Game {
             }
 
             UI.notify(`Built ${def.name}! Outpost waypoint created.`);
+            // MP broadcast
+            this.network.sendAction('build', { buildingType: type, building: { ...b, workers: [] } });
             this.placementMode = null; UI.update(); return;
         }
 
@@ -472,12 +484,16 @@ class Game {
             this.world.expandColony(tx, ty, radius);
             // Invalidate affected chunk caches
             this._invalidateChunksNear(tx, ty, radius);
+            // MP broadcast
+            this.network.sendAction('colony-expand', { tx, ty, radius });
             UI.notify(`Colony expanded! (+${radius} tile radius)`);
             this.placementMode = null; UI.update(); return;
         }
         const b = Buildings.place(type, tx, ty, this.resources);
         this.buildings.push(b);
         this.sounds.build();
+        // MP broadcast
+        this.network.sendAction('build', { buildingType: type, building: { ...b, workers: [] } });
         UI.notify(`Built ${def.name}!`); this.placementMode = null; UI.update();
     }
 
@@ -784,6 +800,8 @@ class Game {
         for (const [k,v] of Object.entries(cost)) { if ((this.resources[k]||0) < v) { UI.notify('Not enough resources!'); return; } }
         for (const [k,v] of Object.entries(cost)) this.resources[k] -= v;
         this.researchInProgress = { id: researchId, progress: 0 };
+        // MP broadcast
+        this.network.sendAction('research-start', { researchId });
         UI.notify(`Researching ${rd.name}...`); UI.update();
     }
 
@@ -1297,6 +1315,19 @@ class Game {
             this._updateHorde(dt);
         }
 
+        // Multiplayer network tick
+        if (this.network) this.network.update(dt);
+
+        // Update multiplayer HUD
+        if (this.network && this.network.roomId) {
+            const mpHud = document.getElementById('mpHud');
+            if (mpHud && mpHud.classList.contains('hidden')) mpHud.classList.remove('hidden');
+            const countEl = document.getElementById('mpPlayerCount');
+            if (countEl) countEl.textContent = this.network.getPlayerCount();
+            const roomEl = document.getElementById('mpRoomId');
+            if (roomEl) roomEl.textContent = this.network.roomId;
+        }
+
         this.autoSaveTimer -= dt;
         if (this.autoSaveTimer <= 0) { this.autoSaveTimer = 60; Save.save(this); }
 
@@ -1645,6 +1676,11 @@ class Game {
             gfx.beginFill(hpColor);
             gfx.drawRect(px - hpW/2, py - 38, hpW * pct, hpH);
             gfx.endFill();
+        }
+
+        // Multiplayer peers
+        if (this.network && this.network.roomId) {
+            this.network.drawPeers(gfx);
         }
 
         // ── Overlay (screen-space) ──
@@ -2215,6 +2251,25 @@ class Game {
             }
         }
 
+        // Multiplayer peers on minimap
+        if (this.network && this.network.roomId) {
+            const PEER_COLORS = [0x66bb6a, 0xffa726, 0xab47bc, 0x29b6f6, 0xef5350];
+            let ci = 0;
+            for (const [, peer] of this.network.peers) {
+                const relX = peer.x / TILE_SIZE - playerTX;
+                const relY = peer.y / TILE_SIZE - playerTY;
+                if (Math.abs(relX) > tileRadius || Math.abs(relY) > tileRadius) { ci++; continue; }
+                const ppx = centerX + relX * tileScale;
+                const ppy = centerY + relY * tileScale;
+                if (ppx > mx && ppx < mx + ms && ppy > my && ppy < my + ms) {
+                    gfx.beginFill(PEER_COLORS[ci % PEER_COLORS.length]);
+                    gfx.drawCircle(ppx, ppy, 2.5);
+                    gfx.endFill();
+                }
+                ci++;
+            }
+        }
+
         // Player (center)
         gfx.beginFill(0x4FC3F7);
         gfx.drawCircle(centerX, centerY, 3);
@@ -2453,6 +2508,131 @@ class Game {
         UI.notify(`✨ ${critter.nickname}'s ${statKey} +5! (now ${critter.stats[statKey]})`, 4000);
         if (this.sounds) this.sounds.levelup?.();
         UI.update();
+    }
+
+    // ─── MULTIPLAYER ─────────────────────────────────────────
+    toggleMpLobby() {
+        const el = document.getElementById('mpLobby');
+        if (!el) return;
+        const showing = el.classList.contains('hidden');
+        el.classList.toggle('hidden', !showing);
+        if (showing) {
+            // Set default server URL
+            const serverInput = document.getElementById('mpServer');
+            if (serverInput && !serverInput.value) {
+                serverInput.value = window.location.origin;
+            }
+        }
+    }
+
+    closeMpLobby() {
+        const el = document.getElementById('mpLobby');
+        if (el) el.classList.add('hidden');
+    }
+
+    _getMpServerUrl() {
+        const input = document.getElementById('mpServer');
+        return (input && input.value.trim()) || window.location.origin;
+    }
+
+    _getMpName() {
+        const input = document.getElementById('mpName');
+        return (input && input.value.trim()) || 'Player';
+    }
+
+    _setMpStatus(msg, isError) {
+        const el = document.getElementById('mpStatus');
+        if (el) {
+            el.textContent = msg;
+            el.className = 'mp-status' + (isError ? ' error' : '');
+        }
+    }
+
+    async mpHost() {
+        try {
+            this._setMpStatus('Connecting...');
+            await this.network.connect(this._getMpServerUrl());
+            const res = await this.network.createRoom(this._getMpName());
+            this._setMpStatus(`Room created: ${res.roomId}`);
+            // Add host response to state request
+            this.network.socket.on('colony:request-state', (data, cb) => {
+                const gs = Save._buildGameState(this);
+                cb(gs);
+            });
+            setTimeout(() => this.closeMpLobby(), 800);
+        } catch (e) {
+            this._setMpStatus('Failed: ' + e.message, true);
+        }
+    }
+
+    async mpRefreshRooms() {
+        try {
+            this._setMpStatus('Connecting...');
+            if (!this.network.connected) {
+                await this.network.connect(this._getMpServerUrl());
+            }
+            const rooms = await this.network.listRooms();
+            const listEl = document.getElementById('mpRoomList');
+            if (!listEl) return;
+            if (rooms.length === 0) {
+                listEl.innerHTML = '<div style="color:#666;text-align:center;padding:12px;font-size:.85rem">No rooms found. Host a game to get started!</div>';
+            } else {
+                listEl.innerHTML = rooms.map(r => `
+                    <div class="mp-room-item">
+                        <div class="mp-room-info">
+                            <div class="mp-room-host">${this._escapeHtml(r.hostName)}'s Colony</div>
+                            <div class="mp-room-meta">Code: ${r.roomId} | ${r.playerCount}/${r.maxPlayers} players</div>
+                        </div>
+                        <button class="mp-room-join" onclick="game.mpJoin('${r.roomId}')">Join</button>
+                    </div>
+                `).join('');
+            }
+            this._setMpStatus(`Found ${rooms.length} room(s)`);
+        } catch (e) {
+            this._setMpStatus('Failed: ' + e.message, true);
+        }
+    }
+
+    async mpJoin(roomId) {
+        try {
+            this._setMpStatus('Joining...');
+            if (!this.network.connected) {
+                await this.network.connect(this._getMpServerUrl());
+            }
+            await this.network.joinRoom(roomId, this._getMpName());
+            this._setMpStatus('Joined!');
+            // If not started yet, start the game
+            if (this.titleScreen) {
+                this._startGame();
+            }
+            setTimeout(() => this.closeMpLobby(), 500);
+        } catch (e) {
+            this._setMpStatus('Failed: ' + e.message, true);
+        }
+    }
+
+    async mpJoinByCode() {
+        const codeInput = document.getElementById('mpJoinCode');
+        const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+        if (!code || code.length < 3) {
+            this._setMpStatus('Enter a valid room code', true);
+            return;
+        }
+        await this.mpJoin(code);
+    }
+
+    mpLeave() {
+        this.network.leaveRoom();
+        this.network.disconnect();
+        const mpHud = document.getElementById('mpHud');
+        if (mpHud) mpHud.classList.add('hidden');
+        UI.notify('Left multiplayer session.', 3000);
+    }
+
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     // ─── HORDE SYSTEM ──────────────────────────────────────
