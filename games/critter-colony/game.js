@@ -1576,32 +1576,55 @@ class Game {
         // Wild critters
         for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
 
-        // Horde critters (red-tinted)
+        // Horde critters (red-tinted, with sprites)
         for (const h of this.hordeCreatures) {
             if (h.stunned) continue;
             const sp = SPECIES[h.species];
-            const colorNum = parseInt(sp.color.replace('#', ''), 16);
-            const r = h.isHorde ? 10 * (sp.size || 1) : 8;
+            const sizeScale = sp.size || 1;
+            const r = Math.round(12 * sizeScale);
+            const bob = Math.sin(this.time * 3 + h.id) * 2;
 
             // Red glow ring
             gfx.lineStyle(2, 0xff0000, 0.6);
-            gfx.drawCircle(h.x, h.y, r + 4);
+            gfx.drawCircle(h.x, h.y + bob, r + 6);
             gfx.lineStyle(0);
 
-            // Body
-            gfx.beginFill(colorNum);
-            gfx.drawCircle(h.x, h.y, r);
+            // Shadow
+            gfx.beginFill(0x000000, 0.2);
+            gfx.drawEllipse(h.x, h.y + 12, 10, 4);
             gfx.endFill();
+
+            // Body — use sprite if available
+            const tex = this._getCritterTex(h.species);
+            if (tex) {
+                if (!h._pixiSprite) {
+                    h._pixiSprite = new PIXI.Sprite(tex);
+                    h._pixiSprite.anchor.set(0.5, 0.5);
+                    h._pixiSprite.tint = 0xff6666; // red tint for horde
+                    this.entityContainer.addChild(h._pixiSprite);
+                }
+                h._pixiSprite.width = r * 2;
+                h._pixiSprite.height = r * 2;
+                h._pixiSprite.x = h.x;
+                h._pixiSprite.y = h.y + bob;
+                h._pixiSprite.visible = true;
+            } else {
+                if (h._pixiSprite) h._pixiSprite.visible = false;
+                const colorNum = parseInt(sp.color.replace('#', ''), 16);
+                gfx.beginFill(colorNum);
+                gfx.drawCircle(h.x, h.y + bob, r);
+                gfx.endFill();
+            }
 
             // HP bar
             if (h.hp < h.maxHp) {
                 const bw = r * 2.5;
                 gfx.beginFill(0x333333);
-                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw, 3);
+                gfx.drawRect(h.x - bw / 2, h.y + bob - r - 8, bw, 3);
                 gfx.endFill();
                 const pct = h.hp / h.maxHp;
                 gfx.beginFill(pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171);
-                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw * pct, 3);
+                gfx.drawRect(h.x - bw / 2, h.y + bob - r - 8, bw * pct, 3);
                 gfx.endFill();
             }
         }
@@ -2853,6 +2876,7 @@ class Game {
                 h.stunTimer -= dt;
                 if (h.stunTimer <= 0) {
                     this.deathSkulls.push({ x: h.x, y: h.y, timer: 3 });
+                    if (h._pixiSprite) { h._pixiSprite.parent?.removeChild(h._pixiSprite); h._pixiSprite.destroy(); h._pixiSprite = null; }
                     this.hordeCreatures.splice(i, 1);
                 }
                 continue;

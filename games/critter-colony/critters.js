@@ -274,8 +274,8 @@ class Critters {
 
             const sp = SPECIES[c.species];
 
-            // Aggression — player takes priority over buildings
-            if ((sp.aggressive || c._aggroed) && player && !c.fleeing) {
+            // Aggression — player takes priority over buildings (skip if player dead)
+            if ((sp.aggressive || c._aggroed) && player && !player._dead && !c.fleeing) {
                 const pdx = player.x - c.x, pdy = player.y - c.y;
                 const pDist = Math.sqrt(pdx*pdx + pdy*pdy) / TILE_SIZE;
                 const aggroRange = c._aggroed ? Math.max(sp.aggroRange || 6, 12) : (sp.aggroRange || 6);
