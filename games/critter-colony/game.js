@@ -1814,10 +1814,17 @@ class Game {
         this._resetTextPool();
         this._resetWorldTextPool();
 
+        // World→screen helper for overlay elements
+        const zoom = this.zoomLevel || 1;
+        const zoomOffX = w * (1 - zoom) / 2;
+        const zoomOffY = h * (1 - zoom) / 2;
+        const w2sx = (wx) => (wx - camX) * zoom + zoomOffX;
+        const w2sy = (wy) => (wy - camY) * zoom + zoomOffY;
+
         // Mining progress bar
         if (this.miningHeld && this.miningTarget && this.miningProgress > 0) {
-            const mtx = this.miningTarget.tx * TILE_SIZE + TILE_SIZE / 2 - camX;
-            const mty = this.miningTarget.ty * TILE_SIZE - 4 - camY;
+            const mtx = w2sx(this.miningTarget.tx * TILE_SIZE + TILE_SIZE / 2);
+            const mty = w2sy(this.miningTarget.ty * TILE_SIZE - 4);
             const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : 1.2;
             const pct = Math.min(1, this.miningProgress / mineTime);
             const barW = 28;
@@ -1835,7 +1842,7 @@ class Game {
         // Gun aim line
         if (this.gunCooldown <= 0 && !this.placementMode) {
             ovr.lineStyle(1, 0xffd54f, 0.2);
-            const ppx = px - camX, ppy = py - camY;
+            const ppx = w2sx(px), ppy = w2sy(py);
             ovr.moveTo(ppx, ppy);
             ovr.lineTo(this.mouse.x, this.mouse.y);
             ovr.lineStyle(0);
@@ -1848,11 +1855,8 @@ class Game {
             const cp = def.isExtractor
                 ? Buildings.canPlaceExtractor(tx, ty, this.buildings, this.world, def.nodeType)
                 : Buildings.canPlace(tx, ty, def.size, this.buildings, this.world);
-            const zoom = this.zoomLevel || 1;
-            const zoomOffX = w * (1 - zoom) / 2;
-            const zoomOffY = h * (1 - zoom) / 2;
-            const sx = (tx * TILE_SIZE - camX) * zoom + zoomOffX;
-            const sy = (ty * TILE_SIZE - camY) * zoom + zoomOffY;
+            const sx = w2sx(tx * TILE_SIZE);
+            const sy = w2sy(ty * TILE_SIZE);
             const sz = def.size * TILE_SIZE * zoom;
             ovr.beginFill(cp ? 0x4ade80 : 0xf87171, 0.3);
             ovr.lineStyle(2, cp ? 0x4ade80 : 0xf87171);
@@ -1867,14 +1871,14 @@ class Game {
         for (const c of this.wildCritters) {
             const cd = Math.sqrt((c.x-this.player.x)**2+(c.y-this.player.y)**2)/TILE_SIZE;
             if (cd < CAPTURE_RANGE) {
-                const sx = c.x - camX, sy = c.y - camY;
+                const sx = w2sx(c.x), sy = w2sy(c.y);
                 const col = c.stunned ? 0xffd54f : 0x4ade80;
                 ovr.lineStyle(1.5, col, c.stunned ? 0.7 : 0.5);
-                ovr.drawCircle(sx, sy, 16);
+                ovr.drawCircle(sx, sy, 16 * zoom);
                 ovr.lineStyle(0);
                 const label = c.stunned ? `E: FREE! (${Math.ceil(c.stunTimer)}s)` : 'E: CAPTURE';
                 const t = this._getText(label, { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold', fill: col });
-                t.x = sx; t.y = sy - 22;
+                t.x = sx; t.y = sy - 22 * zoom;
             }
         }
 
@@ -1883,9 +1887,9 @@ class Game {
             if (wp.claimed) continue;
             const wd = Math.sqrt((this.player.x-(wp.x*TILE_SIZE+16))**2+(this.player.y-(wp.y*TILE_SIZE+16))**2);
             if (wd < TILE_SIZE*3) {
-                const sx = wp.x*TILE_SIZE+16-camX, sy = wp.y*TILE_SIZE+16-camY;
+                const sx = w2sx(wp.x*TILE_SIZE+16), sy = w2sy(wp.y*TILE_SIZE+16);
                 const t = this._getText('E: CLAIM WAYPOINT', { fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', fill: 0xfbbf24 });
-                t.x = sx; t.y = sy - 50;
+                t.x = sx; t.y = sy - 50 * zoom;
             }
         }
 
