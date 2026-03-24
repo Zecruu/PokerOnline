@@ -274,8 +274,8 @@ class Critters {
 
             const sp = SPECIES[c.species];
 
-            // Aggression — player takes priority over buildings
-            if ((sp.aggressive || c._aggroed) && player && !c.fleeing) {
+            // Aggression — player takes priority over buildings (skip if player dead)
+            if ((sp.aggressive || c._aggroed) && player && !player._dead && !c.fleeing) {
                 const pdx = player.x - c.x, pdy = player.y - c.y;
                 const pDist = Math.sqrt(pdx*pdx + pdy*pdy) / TILE_SIZE;
                 const aggroRange = c._aggroed ? Math.max(sp.aggroRange || 6, 12) : (sp.aggroRange || 6);
@@ -284,13 +284,19 @@ class Critters {
                     c.state = 'aggro';
                     const speed = 205; // slightly faster than player (200)
                     const len = Math.sqrt(pdx*pdx + pdy*pdy);
-                    if (len > 15) {
+                    const stopDist = TILE_SIZE * 1.2; // stop at attack range, don't overlap player
+                    if (len > stopDist) {
                         c.x += (pdx / len) * speed * dt;
                         c.y += (pdy / len) * speed * dt;
+                    } else if (len > 0) {
+                        // Push away slightly if too close (prevent stacking)
+                        const pushStr = (stopDist - len) * 2;
+                        c.x -= (pdx / len) * pushStr * dt;
+                        c.y -= (pdy / len) * pushStr * dt;
                     }
                     if (!c._attackTimer) c._attackTimer = 0;
                     c._attackTimer -= dt;
-                    if (pDist < 1.2 && c._attackTimer <= 0) {
+                    if (pDist < 1.5 && c._attackTimer <= 0) {
                         c._attackTimer = sp.attackCooldown || 1.5;
                         if (player.hp !== undefined) {
                             player.hp -= sp.attackDmg || 3;
@@ -357,7 +363,10 @@ class Critters {
                     } else if (c._bldgTimer <= 0) {
                         c._bldgTimer = sp.attackCooldown || 1.5;
                         const dmg = sp.attackDmg || 3;
-                        if (closestB.hp !== undefined) closestB.hp -= dmg;
+                        if (closestB.hp !== undefined) {
+                            closestB.hp -= dmg;
+                            if (typeof game !== 'undefined' && game.sounds) game.sounds.buildingHit();
+                        }
                         c._justAttacked = true;
                         setTimeout(() => { c._justAttacked = false; }, 300);
                     }

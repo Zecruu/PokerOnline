@@ -18,9 +18,37 @@ class GameSounds {
             this.masterGain.gain.value = this.volume;
             this.masterGain.connect(this.ctx.destination);
             this.initialized = true;
+            // Preload audio files
+            this._preloadAudioFiles();
         } catch (e) {
             console.warn('GameSounds: Web Audio API not available', e);
         }
+    }
+
+    _preloadAudioFiles() {
+        this._audioBuffers = {};
+        this._loadAudioFile('buildingHit', 'audio/Recording.m4a');
+    }
+
+    _loadAudioFile(name, url) {
+        fetch(url)
+            .then(res => res.arrayBuffer())
+            .then(buf => this.ctx.decodeAudioData(buf))
+            .then(decoded => {
+                this._audioBuffers[name] = decoded;
+                console.log(`[Sound] Loaded: ${name}`);
+            })
+            .catch(e => console.warn(`[Sound] Failed to load ${name}:`, e));
+    }
+
+    _playBuffer(name, volume = 0.5) {
+        if (!this._ensureContext()) return;
+        if (!this._audioBuffers || !this._audioBuffers[name]) return;
+        const source = this.ctx.createBufferSource();
+        source.buffer = this._audioBuffers[name];
+        const gain = this._createGain(volume);
+        source.connect(gain);
+        source.start(0);
     }
 
     _ensureContext() {
@@ -282,6 +310,11 @@ class GameSounds {
         const shimOsc = this._createOsc('triangle', 2093, shimGain);
         shimOsc.start(ringStart);
         shimOsc.stop(ringStart + ringDur);
+    }
+
+    /** Building hit by enemy — plays recorded audio */
+    buildingHit() {
+        this._playBuffer('buildingHit', 0.6);
     }
 
     /** Crash and crumble for building destruction */

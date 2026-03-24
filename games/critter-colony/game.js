@@ -45,6 +45,8 @@ class Game {
 
         // Death skulls (visual markers that despawn after 3s)
         this.deathSkulls = []; // { x, y, timer }
+        // Floating damage numbers
+        this.damageNumbers = []; // { x, y, text, timer, color, vy }
 
         // Horde system
         this.hordeTimer = 15 * 60; // 15 minutes default
@@ -73,6 +75,10 @@ class Game {
         this._fpsDisplay = 0;
         this.zoomLevel = 1;
         this.mouseSensitivity = 1;
+
+        // ─── MULTIPLAYER ───────────────────────────────────────
+        this.network = new Network(this);
+        this.mpServerUrl = ''; // auto-detect from current origin
 
         // ─── SOUND ──────────────────────────────────────────
         this.sounds = new GameSounds();
@@ -195,6 +201,7 @@ class Game {
         html += '<div class="title-buttons">';
         if (hasData) html += '<button class="title-btn title-continue" onclick="game.loadAndStart()">Continue</button>';
         html += '<button class="title-btn title-new" onclick="game.newGame()">New Game</button>';
+        html += '<button class="title-btn title-new" onclick="game.toggleMpLobby()" style="border-color:rgba(102,187,106,.4);color:#66bb6a">Multiplayer</button>';
         html += '</div>';
         if (!Save.isLoggedIn()) html += '<p class="title-hint">Progress saves locally. Log in for cloud saves!</p>';
         html += '</div>';
@@ -285,6 +292,7 @@ class Game {
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
             if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
             if (e.key.toLowerCase() === 'b') UI.toggleBuildMenu();
+            if (e.key.toLowerCase() === 'n') this.toggleMpLobby();
             if (e.key === 'Escape') {
                 if (this.paused) { this.togglePause(); }
                 else if (document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden')) { this.toggleSettings(); }
@@ -300,13 +308,21 @@ class Game {
         this.canvas.onmousemove = (e) => {
             const r = this.canvas.getBoundingClientRect();
             this.mouse.x = e.clientX - r.left; this.mouse.y = e.clientY - r.top;
-            this.mouse.worldX = this.mouse.x + this.cam.x; this.mouse.worldY = this.mouse.y + this.cam.y;
+            // Screen → world, accounting for zoom
+            const w = this.pixiApp.screen.width, h = this.pixiApp.screen.height;
+            const zoom = this.zoomLevel || 1;
+            this.mouse.worldX = (this.mouse.x - w * (1 - zoom) / 2) / zoom + this.cam.x;
+            this.mouse.worldY = (this.mouse.y - h * (1 - zoom) / 2) / zoom + this.cam.y;
         };
         this.canvas.onmousedown = (e) => {
             if (this.titleScreen || !this.started) return;
             const r = this.canvas.getBoundingClientRect();
             const mx = e.clientX - r.left, my = e.clientY - r.top;
-            const wx = mx + this.cam.x, wy = my + this.cam.y;
+            // Screen → world, accounting for zoom
+            const w = this.pixiApp.screen.width, hh = this.pixiApp.screen.height;
+            const zoom = this.zoomLevel || 1;
+            const wx = (mx - w * (1 - zoom) / 2) / zoom + this.cam.x;
+            const wy = (my - hh * (1 - zoom) / 2) / zoom + this.cam.y;
             if (UI.showWaypointMenu && this._waypointButtons) {
                 for (const btn of this._waypointButtons) {
                     if (mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h) {
@@ -348,6 +364,8 @@ class Game {
                 this.wildCritters = this.wildCritters.filter(c => c.id !== closest.id);
                 this.critters.push(result.captured);
                 this.sounds.capture();
+                // MP broadcast
+                this.network.sendAction('capture', { critter: result.captured });
                 UI.notify(`Captured ${SPECIES[result.captured.species].name}!`); UI.update();
             } else UI.notify(result.reason);
         }
@@ -414,10 +432,42 @@ class Game {
             this.gunCooldown = 0.6;
             const knifeDmg = 5 + (this.research.gunDamage || 0) * 2;
             const knifeRange = TILE_SIZE * 2;
+            const slashAngle = Math.atan2(wy - this.player.y, wx - this.player.x);
+            // Always show swing arc toward mouse
+            if (!this._knifeSwings) this._knifeSwings = [];
+            this._knifeSwings.push({ x: this.player.x, y: this.player.y, angle: slashAngle, timer: 0.25 });
+            let knifeHit = false;
+            // Hit wild critters
             for (const wc of this.wildCritters) {
                 const dx = wc.x - this.player.x, dy = wc.y - this.player.y;
                 if (Math.sqrt(dx*dx + dy*dy) < knifeRange) {
                     Critters.damageWild(wc, knifeDmg);
+                    this._spawnDmgNum(wc.x, wc.y, knifeDmg, 0xff8a65);
+                    this.sounds.hit();
+                    knifeHit = true;
+                    break;
+                }
+            }
+            // Also hit horde critters
+            if (!knifeHit) for (const h of this.hordeCreatures) {
+                if (h.stunned) continue;
+                const dx = h.x - this.player.x, dy = h.y - this.player.y;
+                if (Math.sqrt(dx*dx + dy*dy) < knifeRange) {
+                    h.hp -= knifeDmg;
+                    if (h.hp <= 0) { h.stunned = true; h.stunTimer = 3; }
+                    this._spawnDmgNum(h.x, h.y, knifeDmg, 0xff8a65);
+                    this.sounds.hit();
+                    knifeHit = true;
+                    break;
+                }
+            }
+            // Also hit world bosses
+            if (!knifeHit && this.worldBosses) for (const boss of this.worldBosses) {
+                if (boss.hp <= 0) continue;
+                const dx = boss.x - this.player.x, dy = boss.y - this.player.y;
+                if (Math.sqrt(dx*dx + dy*dy) < knifeRange * 1.5) {
+                    boss.hp -= knifeDmg;
+                    this._spawnDmgNum(boss.x, boss.y, knifeDmg, 0xff8a65);
                     this.sounds.hit();
                     break;
                 }
@@ -433,7 +483,9 @@ class Game {
         this.inventory.ammo--;
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
         const speed = 400, damage = this.gunDamage + (this.research.gunDamage || 0) * 5;
-        this.projectiles.push({ x: this.player.x, y: this.player.y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, damage, lifetime: 2, fromTurret: false });
+        const vx = Math.cos(angle)*speed, vy = Math.sin(angle)*speed;
+        this.projectiles.push({ x: this.player.x, y: this.player.y, vx, vy, damage, lifetime: 2, fromTurret: false });
+        this.network.sendProjectile(this.player.x, this.player.y, vx, vy, damage);
         this.sounds.shoot();
     }
 
@@ -461,6 +513,8 @@ class Game {
             }
 
             UI.notify(`Built ${def.name}! Outpost waypoint created.`);
+            // MP broadcast
+            this.network.sendAction('build', { buildingType: type, building: { ...b, workers: [] } });
             this.placementMode = null; UI.update(); return;
         }
 
@@ -472,12 +526,16 @@ class Game {
             this.world.expandColony(tx, ty, radius);
             // Invalidate affected chunk caches
             this._invalidateChunksNear(tx, ty, radius);
+            // MP broadcast
+            this.network.sendAction('colony-expand', { tx, ty, radius });
             UI.notify(`Colony expanded! (+${radius} tile radius)`);
             this.placementMode = null; UI.update(); return;
         }
         const b = Buildings.place(type, tx, ty, this.resources);
         this.buildings.push(b);
         this.sounds.build();
+        // MP broadcast
+        this.network.sendAction('build', { buildingType: type, building: { ...b, workers: [] } });
         UI.notify(`Built ${def.name}!`); this.placementMode = null; UI.update();
     }
 
@@ -746,6 +804,15 @@ class Game {
         if (btn) btn.textContent = this.paused ? '▶' : '⏸';
     }
 
+    returnToMenu() {
+        // Save before leaving
+        Save.save(this);
+        // Disconnect multiplayer if active
+        if (this.network && this.network.roomId) this.mpLeave();
+        // Reload the page to return to title screen
+        location.reload();
+    }
+
     toggleSettings() {
         const el = document.getElementById('settingsPanel');
         if (el) el.classList.toggle('hidden');
@@ -784,6 +851,8 @@ class Game {
         for (const [k,v] of Object.entries(cost)) { if ((this.resources[k]||0) < v) { UI.notify('Not enough resources!'); return; } }
         for (const [k,v] of Object.entries(cost)) this.resources[k] -= v;
         this.researchInProgress = { id: researchId, progress: 0 };
+        // MP broadcast
+        this.network.sendAction('research-start', { researchId });
         UI.notify(`Researching ${rd.name}...`); UI.update();
     }
 
@@ -913,6 +982,7 @@ class Game {
                 const hx = wc.x - p.x, hy = wc.y - p.y;
                 if (Math.sqrt(hx*hx + hy*hy) < 12) {
                     Critters.damageWild(wc, p.damage);
+                    this._spawnDmgNum(wc.x, wc.y, p.damage, 0xffd54f);
                     this.sounds.slash();
                     // Slash hit effect
                     if (!this._hitEffects) this._hitEffects = [];
@@ -945,11 +1015,27 @@ class Game {
             if (this.deathSkulls[i].timer <= 0) this.deathSkulls.splice(i, 1);
         }
 
+        // Update floating damage numbers
+        for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+            const dn = this.damageNumbers[i];
+            dn.timer -= dt;
+            dn.y += dn.vy * dt;
+            if (dn.timer <= 0) this.damageNumbers.splice(i, 1);
+        }
+
         // Update hit slash effects
         if (this._hitEffects) {
             for (let i = this._hitEffects.length - 1; i >= 0; i--) {
                 this._hitEffects[i].timer -= dt;
                 if (this._hitEffects[i].timer <= 0) this._hitEffects.splice(i, 1);
+            }
+        }
+
+        // Update knife swing arcs
+        if (this._knifeSwings) {
+            for (let i = this._knifeSwings.length - 1; i >= 0; i--) {
+                this._knifeSwings[i].timer -= dt;
+                if (this._knifeSwings[i].timer <= 0) this._knifeSwings.splice(i, 1);
             }
         }
 
@@ -1009,7 +1095,12 @@ class Game {
         Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
         for (const r of ['wood','stone','food','iron']) this.resources[r] = Math.min(this.resources[r], caps[r]);
 
-        Buildings.updateTurrets(dt, this.buildings, this.wildCritters, this.projectiles, this.research);
+        // Combine all turret targets: wild critters + world bosses
+        this._turretTargets = this.wildCritters;
+        if (this.worldBosses && this.worldBosses.length > 0) {
+            this._turretTargets = this.wildCritters.concat(this.worldBosses.filter(b => b.hp > 0));
+        }
+        Buildings.updateTurrets(dt, this.buildings, this._turretTargets, this.projectiles, this.research);
 
         for (let pi = this.critters.length - 1; pi >= 0; pi--) {
             const c = this.critters[pi];
@@ -1086,7 +1177,9 @@ class Game {
                 }
                 // Attack when close
                 if (chLen < TILE_SIZE * 1.5 && c._attackTimer <= 0) {
-                    Critters.damageWild(target, (c.stats.STR || 1) * 3);
+                    const patDmg = (c.stats.STR || 1) * 3;
+                    Critters.damageWild(target, patDmg);
+                    this._spawnDmgNum(target.x, target.y, patDmg, 0x81c784);
                     c._attackTimer = 1.0;
                     this.sounds.hit();
                 }
@@ -1133,6 +1226,7 @@ class Game {
                     const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
                         Critters.damageWild(wc, dmg);
+                        this._spawnDmgNum(wc.x, wc.y, dmg, 0x64b5f6);
                         c._attackTimer = 1.0; hit = true;
                         if (this.sounds) this.sounds.hit();
                         break;
@@ -1145,6 +1239,7 @@ class Game {
                     const ax = wc.x - c._patrolX, ay = wc.y - c._patrolY;
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
                         wc.hp -= dmg; if (wc.hp <= 0) { wc.stunned = true; wc.stunTimer = 3; }
+                        this._spawnDmgNum(wc.x, wc.y, dmg, 0x64b5f6);
                         c._attackTimer = 1.0; hit = true;
                         if (this.sounds) this.sounds.hit();
                         break;
@@ -1157,6 +1252,7 @@ class Game {
                     const ax = boss.x - c._patrolX, ay = boss.y - c._patrolY;
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
                         boss.hp -= dmg;
+                        this._spawnDmgNum(boss.x, boss.y, dmg, 0x64b5f6);
                         c._attackTimer = 1.0; hit = true;
                         if (this.sounds) this.sounds.hit();
                         break;
@@ -1295,6 +1391,19 @@ class Game {
         }
         if (this.hordeActive) {
             this._updateHorde(dt);
+        }
+
+        // Multiplayer network tick
+        if (this.network) this.network.update(dt);
+
+        // Update multiplayer HUD
+        if (this.network && this.network.roomId) {
+            const mpHud = document.getElementById('mpHud');
+            if (mpHud && mpHud.classList.contains('hidden')) mpHud.classList.remove('hidden');
+            const countEl = document.getElementById('mpPlayerCount');
+            if (countEl) countEl.textContent = this.network.getPlayerCount();
+            const roomEl = document.getElementById('mpRoomId');
+            if (roomEl) roomEl.textContent = this.network.roomId;
         }
 
         this.autoSaveTimer -= dt;
@@ -1467,32 +1576,55 @@ class Game {
         // Wild critters
         for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
 
-        // Horde critters (red-tinted)
+        // Horde critters (red-tinted, with sprites)
         for (const h of this.hordeCreatures) {
             if (h.stunned) continue;
             const sp = SPECIES[h.species];
-            const colorNum = parseInt(sp.color.replace('#', ''), 16);
-            const r = h.isHorde ? 10 * (sp.size || 1) : 8;
+            const sizeScale = sp.size || 1;
+            const r = Math.round(12 * sizeScale);
+            const bob = Math.sin(this.time * 3 + h.id) * 2;
 
             // Red glow ring
             gfx.lineStyle(2, 0xff0000, 0.6);
-            gfx.drawCircle(h.x, h.y, r + 4);
+            gfx.drawCircle(h.x, h.y + bob, r + 6);
             gfx.lineStyle(0);
 
-            // Body
-            gfx.beginFill(colorNum);
-            gfx.drawCircle(h.x, h.y, r);
+            // Shadow
+            gfx.beginFill(0x000000, 0.2);
+            gfx.drawEllipse(h.x, h.y + 12, 10, 4);
             gfx.endFill();
+
+            // Body — use sprite if available
+            const tex = this._getCritterTex(h.species);
+            if (tex) {
+                if (!h._pixiSprite) {
+                    h._pixiSprite = new PIXI.Sprite(tex);
+                    h._pixiSprite.anchor.set(0.5, 0.5);
+                    h._pixiSprite.tint = 0xff6666; // red tint for horde
+                    this.entityContainer.addChild(h._pixiSprite);
+                }
+                h._pixiSprite.width = r * 2;
+                h._pixiSprite.height = r * 2;
+                h._pixiSprite.x = h.x;
+                h._pixiSprite.y = h.y + bob;
+                h._pixiSprite.visible = true;
+            } else {
+                if (h._pixiSprite) h._pixiSprite.visible = false;
+                const colorNum = parseInt(sp.color.replace('#', ''), 16);
+                gfx.beginFill(colorNum);
+                gfx.drawCircle(h.x, h.y + bob, r);
+                gfx.endFill();
+            }
 
             // HP bar
             if (h.hp < h.maxHp) {
                 const bw = r * 2.5;
                 gfx.beginFill(0x333333);
-                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw, 3);
+                gfx.drawRect(h.x - bw / 2, h.y + bob - r - 8, bw, 3);
                 gfx.endFill();
                 const pct = h.hp / h.maxHp;
                 gfx.beginFill(pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfbbf24 : 0xf87171);
-                gfx.drawRect(h.x - bw / 2, h.y - r - 8, bw * pct, 3);
+                gfx.drawRect(h.x - bw / 2, h.y + bob - r - 8, bw * pct, 3);
                 gfx.endFill();
             }
         }
@@ -1599,12 +1731,59 @@ class Game {
             }
         }
 
+        // Knife swing arcs — wide sweeping arc from player
+        if (this._knifeSwings) {
+            for (const ks of this._knifeSwings) {
+                const progress = 1 - (ks.timer / 0.25); // 0→1
+                const alpha = 1 - progress;
+                const sweepAngle = 1.2; // radians of arc sweep
+                const startAngle = ks.angle - sweepAngle / 2;
+                const currentSweep = sweepAngle * progress;
+                const innerR = 10;
+                const outerR = 30 + progress * 8;
+
+                // Bright arc
+                gfx.lineStyle(3, 0xffcc80, alpha * 0.9);
+                gfx.arc(ks.x, ks.y, outerR, startAngle, startAngle + currentSweep);
+                gfx.lineStyle(0);
+
+                // Blade line at current sweep tip
+                const tipAngle = startAngle + currentSweep;
+                gfx.lineStyle(2, 0xffffff, alpha * 0.8);
+                gfx.moveTo(ks.x + Math.cos(tipAngle) * innerR, ks.y + Math.sin(tipAngle) * innerR);
+                gfx.lineTo(ks.x + Math.cos(tipAngle) * outerR, ks.y + Math.sin(tipAngle) * outerR);
+                gfx.lineStyle(0);
+
+                // Faint trail fill
+                gfx.beginFill(0xffcc80, alpha * 0.15);
+                gfx.moveTo(ks.x, ks.y);
+                const segments = 8;
+                for (let s = 0; s <= segments; s++) {
+                    const a = startAngle + (currentSweep * s / segments);
+                    gfx.lineTo(ks.x + Math.cos(a) * outerR, ks.y + Math.sin(a) * outerR);
+                }
+                gfx.lineTo(ks.x, ks.y);
+                gfx.endFill();
+            }
+        }
+
         // Death skulls (world space)
         for (const skull of this.deathSkulls) {
             const alpha = Math.min(1, skull.timer / 1);
             const floatY = (3 - skull.timer) * 10;
             const t = this._getWorldText('\uD83D\uDC80', { fontSize: 16 });
             t.x = skull.x; t.y = skull.y - floatY;
+            t.alpha = alpha;
+        }
+
+        // Floating damage numbers (world space)
+        for (const dn of this.damageNumbers) {
+            const alpha = Math.min(1, dn.timer / 0.3);
+            const t = this._getWorldText(dn.text, {
+                fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold',
+                fill: dn.color, stroke: 0x000000, strokeThickness: 3,
+            });
+            t.x = dn.x; t.y = dn.y;
             t.alpha = alpha;
         }
 
@@ -1647,16 +1826,28 @@ class Game {
             gfx.endFill();
         }
 
+        // Multiplayer peers
+        if (this.network && this.network.roomId) {
+            this.network.drawPeers(gfx);
+        }
+
         // ── Overlay (screen-space) ──
         const ovr = this._overlayGfx;
         ovr.clear();
         this._resetTextPool();
         this._resetWorldTextPool();
 
+        // World→screen helper for overlay elements
+        const zoom = this.zoomLevel || 1;
+        const zoomOffX = w * (1 - zoom) / 2;
+        const zoomOffY = h * (1 - zoom) / 2;
+        const w2sx = (wx) => (wx - camX) * zoom + zoomOffX;
+        const w2sy = (wy) => (wy - camY) * zoom + zoomOffY;
+
         // Mining progress bar
         if (this.miningHeld && this.miningTarget && this.miningProgress > 0) {
-            const mtx = this.miningTarget.tx * TILE_SIZE + TILE_SIZE / 2 - camX;
-            const mty = this.miningTarget.ty * TILE_SIZE - 4 - camY;
+            const mtx = w2sx(this.miningTarget.tx * TILE_SIZE + TILE_SIZE / 2);
+            const mty = w2sy(this.miningTarget.ty * TILE_SIZE - 4);
             const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : 1.2;
             const pct = Math.min(1, this.miningProgress / mineTime);
             const barW = 28;
@@ -1674,7 +1865,7 @@ class Game {
         // Gun aim line
         if (this.gunCooldown <= 0 && !this.placementMode) {
             ovr.lineStyle(1, 0xffd54f, 0.2);
-            const ppx = px - camX, ppy = py - camY;
+            const ppx = w2sx(px), ppy = w2sy(py);
             ovr.moveTo(ppx, ppy);
             ovr.lineTo(this.mouse.x, this.mouse.y);
             ovr.lineStyle(0);
@@ -1684,8 +1875,12 @@ class Game {
         if (this.placementMode) {
             const tx = Math.floor(this.mouse.worldX/TILE_SIZE), ty = Math.floor(this.mouse.worldY/TILE_SIZE);
             const def = BUILDING_DEFS[this.placementMode.type];
-            const cp = Buildings.canPlace(tx, ty, def.size, this.buildings, this.world);
-            const sx = tx*TILE_SIZE-camX, sy = ty*TILE_SIZE-camY, sz = def.size*TILE_SIZE;
+            const cp = def.isExtractor
+                ? Buildings.canPlaceExtractor(tx, ty, this.buildings, this.world, def.nodeType)
+                : Buildings.canPlace(tx, ty, def.size, this.buildings, this.world);
+            const sx = w2sx(tx * TILE_SIZE);
+            const sy = w2sy(ty * TILE_SIZE);
+            const sz = def.size * TILE_SIZE * zoom;
             ovr.beginFill(cp ? 0x4ade80 : 0xf87171, 0.3);
             ovr.lineStyle(2, cp ? 0x4ade80 : 0xf87171);
             ovr.drawRect(sx, sy, sz, sz);
@@ -1699,14 +1894,14 @@ class Game {
         for (const c of this.wildCritters) {
             const cd = Math.sqrt((c.x-this.player.x)**2+(c.y-this.player.y)**2)/TILE_SIZE;
             if (cd < CAPTURE_RANGE) {
-                const sx = c.x - camX, sy = c.y - camY;
+                const sx = w2sx(c.x), sy = w2sy(c.y);
                 const col = c.stunned ? 0xffd54f : 0x4ade80;
                 ovr.lineStyle(1.5, col, c.stunned ? 0.7 : 0.5);
-                ovr.drawCircle(sx, sy, 16);
+                ovr.drawCircle(sx, sy, 16 * zoom);
                 ovr.lineStyle(0);
                 const label = c.stunned ? `E: FREE! (${Math.ceil(c.stunTimer)}s)` : 'E: CAPTURE';
                 const t = this._getText(label, { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold', fill: col });
-                t.x = sx; t.y = sy - 22;
+                t.x = sx; t.y = sy - 22 * zoom;
             }
         }
 
@@ -1715,9 +1910,9 @@ class Game {
             if (wp.claimed) continue;
             const wd = Math.sqrt((this.player.x-(wp.x*TILE_SIZE+16))**2+(this.player.y-(wp.y*TILE_SIZE+16))**2);
             if (wd < TILE_SIZE*3) {
-                const sx = wp.x*TILE_SIZE+16-camX, sy = wp.y*TILE_SIZE+16-camY;
+                const sx = w2sx(wp.x*TILE_SIZE+16), sy = w2sy(wp.y*TILE_SIZE+16);
                 const t = this._getText('E: CLAIM WAYPOINT', { fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', fill: 0xfbbf24 });
-                t.x = sx; t.y = sy - 50;
+                t.x = sx; t.y = sy - 50 * zoom;
             }
         }
 
@@ -2215,6 +2410,25 @@ class Game {
             }
         }
 
+        // Multiplayer peers on minimap
+        if (this.network && this.network.roomId) {
+            const PEER_COLORS = [0x66bb6a, 0xffa726, 0xab47bc, 0x29b6f6, 0xef5350];
+            let ci = 0;
+            for (const [, peer] of this.network.peers) {
+                const relX = peer.x / TILE_SIZE - playerTX;
+                const relY = peer.y / TILE_SIZE - playerTY;
+                if (Math.abs(relX) > tileRadius || Math.abs(relY) > tileRadius) { ci++; continue; }
+                const ppx = centerX + relX * tileScale;
+                const ppy = centerY + relY * tileScale;
+                if (ppx > mx && ppx < mx + ms && ppy > my && ppy < my + ms) {
+                    gfx.beginFill(PEER_COLORS[ci % PEER_COLORS.length]);
+                    gfx.drawCircle(ppx, ppy, 2.5);
+                    gfx.endFill();
+                }
+                ci++;
+            }
+        }
+
         // Player (center)
         gfx.beginFill(0x4FC3F7);
         gfx.drawCircle(centerX, centerY, 3);
@@ -2433,6 +2647,7 @@ class Game {
                 const hx = boss.x - p.x, hy = boss.y - p.y;
                 if (Math.sqrt(hx * hx + hy * hy) < TILE_SIZE * boss.size * 0.5) {
                     boss.hp -= p.damage;
+                    this._spawnDmgNum(boss.x, boss.y, p.damage, 0xffd740);
                     this.projectiles.splice(pi, 1);
                 }
             }
@@ -2453,6 +2668,142 @@ class Game {
         UI.notify(`✨ ${critter.nickname}'s ${statKey} +5! (now ${critter.stats[statKey]})`, 4000);
         if (this.sounds) this.sounds.levelup?.();
         UI.update();
+    }
+
+    // ─── MULTIPLAYER ─────────────────────────────────────────
+    toggleMpLobby() {
+        const el = document.getElementById('mpLobby');
+        if (!el) return;
+        const showing = el.classList.contains('hidden');
+        el.classList.toggle('hidden', !showing);
+        if (showing) {
+            // Set default server URL
+            const serverInput = document.getElementById('mpServer');
+            if (serverInput && !serverInput.value) {
+                serverInput.value = window.location.origin;
+            }
+        }
+    }
+
+    closeMpLobby() {
+        const el = document.getElementById('mpLobby');
+        if (el) el.classList.add('hidden');
+    }
+
+    _getMpServerUrl() {
+        const input = document.getElementById('mpServer');
+        return (input && input.value.trim()) || window.location.origin;
+    }
+
+    _getMpName() {
+        const input = document.getElementById('mpName');
+        return (input && input.value.trim()) || 'Player';
+    }
+
+    _setMpStatus(msg, isError) {
+        const el = document.getElementById('mpStatus');
+        if (el) {
+            el.textContent = msg;
+            el.className = 'mp-status' + (isError ? ' error' : '');
+        }
+    }
+
+    async mpHost() {
+        try {
+            this._setMpStatus('Connecting...');
+            await this.network.connect(this._getMpServerUrl());
+            const res = await this.network.createRoom(this._getMpName());
+            this._setMpStatus(`Room created: ${res.roomId}`);
+            // Add host response to state request
+            this.network.socket.on('colony:request-state', (data, cb) => {
+                const gs = Save._buildGameState(this);
+                cb(gs);
+            });
+            setTimeout(() => this.closeMpLobby(), 800);
+        } catch (e) {
+            this._setMpStatus('Failed: ' + e.message, true);
+        }
+    }
+
+    async mpRefreshRooms() {
+        try {
+            this._setMpStatus('Connecting...');
+            if (!this.network.connected) {
+                await this.network.connect(this._getMpServerUrl());
+            }
+            const rooms = await this.network.listRooms();
+            const listEl = document.getElementById('mpRoomList');
+            if (!listEl) return;
+            if (rooms.length === 0) {
+                listEl.innerHTML = '<div style="color:#666;text-align:center;padding:12px;font-size:.85rem">No rooms found. Host a game to get started!</div>';
+            } else {
+                listEl.innerHTML = rooms.map(r => `
+                    <div class="mp-room-item">
+                        <div class="mp-room-info">
+                            <div class="mp-room-host">${this._escapeHtml(r.hostName)}'s Colony</div>
+                            <div class="mp-room-meta">Code: ${r.roomId} | ${r.playerCount}/${r.maxPlayers} players</div>
+                        </div>
+                        <button class="mp-room-join" onclick="game.mpJoin('${r.roomId}')">Join</button>
+                    </div>
+                `).join('');
+            }
+            this._setMpStatus(`Found ${rooms.length} room(s)`);
+        } catch (e) {
+            this._setMpStatus('Failed: ' + e.message, true);
+        }
+    }
+
+    async mpJoin(roomId) {
+        try {
+            this._setMpStatus('Joining...');
+            if (!this.network.connected) {
+                await this.network.connect(this._getMpServerUrl());
+            }
+            await this.network.joinRoom(roomId, this._getMpName());
+            this._setMpStatus('Joined!');
+            // If not started yet, start the game
+            if (this.titleScreen) {
+                this._startGame();
+            }
+            setTimeout(() => this.closeMpLobby(), 500);
+        } catch (e) {
+            this._setMpStatus('Failed: ' + e.message, true);
+        }
+    }
+
+    async mpJoinByCode() {
+        const codeInput = document.getElementById('mpJoinCode');
+        const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+        if (!code || code.length < 3) {
+            this._setMpStatus('Enter a valid room code', true);
+            return;
+        }
+        await this.mpJoin(code);
+    }
+
+    mpLeave() {
+        this.network.leaveRoom();
+        this.network.disconnect();
+        const mpHud = document.getElementById('mpHud');
+        if (mpHud) mpHud.classList.add('hidden');
+        UI.notify('Left multiplayer session.', 3000);
+    }
+
+    _spawnDmgNum(x, y, amount, color) {
+        this.damageNumbers.push({
+            x: x + (Math.random() - 0.5) * 12,
+            y: y - 8,
+            text: Math.floor(amount).toString(),
+            timer: 0.8,
+            color: color || 0xffffff,
+            vy: -40 - Math.random() * 20,
+        });
+    }
+
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     // ─── HORDE SYSTEM ──────────────────────────────────────
@@ -2525,6 +2876,7 @@ class Game {
                 h.stunTimer -= dt;
                 if (h.stunTimer <= 0) {
                     this.deathSkulls.push({ x: h.x, y: h.y, timer: 3 });
+                    if (h._pixiSprite) { h._pixiSprite.parent?.removeChild(h._pixiSprite); h._pixiSprite.destroy(); h._pixiSprite = null; }
                     this.hordeCreatures.splice(i, 1);
                 }
                 continue;
@@ -2551,7 +2903,10 @@ class Game {
                     const bdist = Math.sqrt((h.x - bcx) ** 2 + (h.y - bcy) ** 2);
                     if (bdist < TILE_SIZE * 2) {
                         const dmg = Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
-                        if (b.hp !== undefined) b.hp -= dmg;
+                        if (b.hp !== undefined) {
+                            b.hp -= dmg;
+                            if (this.sounds) this.sounds.buildingHit();
+                        }
                         h._attackTimer = sp.attackCooldown || 1.5;
                         break;
                     }
@@ -2575,6 +2930,7 @@ class Game {
                 const hx = h.x - p.x, hy = h.y - p.y;
                 if (Math.sqrt(hx * hx + hy * hy) < 14) {
                     h.hp -= p.damage;
+                    this._spawnDmgNum(h.x, h.y, p.damage, 0xff5252);
                     if (h.hp <= 0) {
                         h.stunned = true;
                         h.stunTimer = 3; // shorter stun, just for death animation
@@ -2598,7 +2954,9 @@ class Game {
                     if (h.stunned) continue;
                     const ax = h.x - (c._patrolX || 0), ay = h.y - (c._patrolY || 0);
                     if (Math.sqrt(ax * ax + ay * ay) < TILE_SIZE * 5) {
-                        h.hp -= (c.stats.STR || 1) * 2;
+                        const patDmg = (c.stats.STR || 1) * 2;
+                        h.hp -= patDmg;
+                        this._spawnDmgNum(h.x, h.y, patDmg, 0x81c784);
                         if (h.hp <= 0) { h.stunned = true; h.stunTimer = 3; }
                         c._attackTimer = 1.5;
                         break;

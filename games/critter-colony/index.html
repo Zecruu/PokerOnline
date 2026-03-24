@@ -6,6 +6,7 @@
   <title>Critter Colony</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.3.2/dist/pixi.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 </head>
 <body>
   <!-- TITLE SCREEN -->
@@ -56,6 +57,7 @@
         <h2>PAUSED</h2>
         <p>Press ESC or click Resume to continue</p>
         <button class="title-btn title-continue" onclick="game.togglePause()">Resume</button>
+        <button class="title-btn title-new" onclick="game.returnToMenu()" style="margin-top:6px">Return to Menu</button>
       </div>
     </div>
 
@@ -80,8 +82,47 @@
     <!-- Left side HUD — bodyguards + companions -->
     <div id="partyHud" class="party-hud"></div>
 
+    <!-- Multiplayer HUD (top-right, shows when connected) -->
+    <div id="mpHud" class="mp-hud hidden">
+      <div class="mp-room">Room: <span id="mpRoomId">—</span> (<span id="mpPlayerCount">1</span> players)</div>
+      <button class="mp-btn mp-leave" onclick="game.mpLeave()">Leave</button>
+    </div>
+
+    <!-- Multiplayer Lobby Modal -->
+    <div id="mpLobby" class="mp-lobby hidden">
+      <div class="mp-lobby-content">
+        <div class="mp-lobby-header">
+          <h2>Multiplayer</h2>
+          <button class="build-modal-close" onclick="game.closeMpLobby()">&times;</button>
+        </div>
+        <div class="mp-lobby-body">
+          <div class="mp-section">
+            <label>Your Name</label>
+            <input type="text" id="mpName" maxlength="16" value="Player" class="mp-input">
+          </div>
+          <div class="mp-section">
+            <label>Server URL</label>
+            <input type="text" id="mpServer" class="mp-input" value="" placeholder="Auto-detect">
+          </div>
+          <div class="mp-actions">
+            <button class="title-btn title-new" onclick="game.mpHost()">Host Game</button>
+            <button class="title-btn title-continue" onclick="game.mpRefreshRooms()">Refresh Rooms</button>
+          </div>
+          <div class="mp-section">
+            <label>Join by Code</label>
+            <div style="display:flex;gap:6px">
+              <input type="text" id="mpJoinCode" maxlength="5" class="mp-input" placeholder="ABCDE" style="width:100px;text-transform:uppercase">
+              <button class="title-btn title-continue" onclick="game.mpJoinByCode()">Join</button>
+            </div>
+          </div>
+          <div id="mpRoomList" class="mp-room-list"></div>
+          <div id="mpStatus" class="mp-status"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Controls hint -->
-    <div id="controlsHint">WASD move | Hold Click shoot | Hold Q mine/chop | E capture/claim | T waypoints | M map | B build | ESC cancel</div>
+    <div id="controlsHint">WASD move | Hold Click shoot | Hold Q mine/chop | E capture/claim | T waypoints | M map | B build | N multiplayer | ESC cancel</div>
   </div>
 
   <!-- CANVAS -->
@@ -94,6 +135,7 @@
   <script src="buildings.js"></script>
   <script src="ui.js"></script>
   <script src="save.js"></script>
+  <script src="network.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
