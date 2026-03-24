@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velthara's Dominion 3D</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+    canvas { display: block; }
+
+    /* HUD */
+    #hud { position: fixed; top: 0; left: 0; right: 0; padding: 12px 20px; display: flex; align-items: center; gap: 20px; z-index: 10; pointer-events: none; }
+    .hud-bar { height: 8px; background: #222; border-radius: 4px; flex: 1; max-width: 200px; overflow: hidden; position: relative; }
+    .hud-fill { height: 100%; border-radius: 4px; transition: width 0.2s; }
+    .hp-fill { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .xp-fill { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+    .hud-label { color: #fff; font-size: 0.75rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    .hud-wave { color: #ce93d8; font-size: 0.9rem; font-weight: 800; margin-left: auto; }
+
+    /* Crosshair */
+    #crosshair { position: fixed; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); pointer-events: none; z-index: 5; }
+    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.5); }
+    #crosshair::before { width: 2px; height: 20px; left: 9px; top: 0; }
+    #crosshair::after { width: 20px; height: 2px; top: 9px; left: 0; }
+
+    /* Wave notification */
+    #waveNotify { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; font-weight: 900; color: #fff; text-shadow: 0 0 40px rgba(206,147,216,0.6); z-index: 20; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+    #waveNotify.show { opacity: 1; }
+
+    #killCount { position: fixed; bottom: 16px; right: 20px; color: #888; font-size: 0.8rem; font-weight: 600; z-index: 10; }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <span class="hud-label">HP</span>
+    <div class="hud-bar"><div class="hud-fill hp-fill" id="hpBar" style="width:100%"></div></div>
+    <span class="hud-label">XP</span>
+    <div class="hud-bar"><div class="hud-fill xp-fill" id="xpBar" style="width:0%"></div></div>
+    <span class="hud-label" id="levelLabel">Lv.1</span>
+    <span class="hud-wave" id="waveLabel">Wave 1</span>
+  </div>
+  <div id="crosshair"></div>
+  <div id="waveNotify"></div>
+  <div id="killCount">Kills: 0</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
