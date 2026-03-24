@@ -238,7 +238,27 @@ function spawnEnemy(type) {
     state.enemiesAlive++;
 }
 
-// ─── PROJECTILE ─────────────────────────────────────────────
+// ─── PROJECTILE (POOLED) ────────────────────────────────────
+const PROJ_GEO = new THREE.SphereGeometry(0.12, 6, 6);
+const PROJ_MAT = new THREE.MeshBasicMaterial({ color: 0xbb66ff });
+const projectilePool = [];
+
+function getProjectile() {
+    let p = projectilePool.pop();
+    if (!p) {
+        const mesh = new THREE.Mesh(PROJ_GEO, PROJ_MAT);
+        scene.add(mesh);
+        p = { mesh };
+    }
+    p.mesh.visible = true;
+    return p;
+}
+
+function releaseProjectile(p) {
+    p.mesh.visible = false;
+    projectilePool.push(p);
+}
+
 function shoot() {
     if (state.shootCooldown > 0) return;
     state.shootCooldown = SHOOT_COOLDOWN;
@@ -247,46 +267,54 @@ function shoot() {
     const dir = new THREE.Vector3().subVectors(target, playerGroup.position).normalize();
     dir.y = 0;
 
-    const geo = new THREE.SphereGeometry(0.12, 6, 6);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xbb66ff });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(playerGroup.position);
-    mesh.position.y = 1.2;
-
-    // Trail light
-    const light = new THREE.PointLight(0xbb66ff, 0.8, 4);
-    mesh.add(light);
-
-    scene.add(mesh);
-    projectiles.push({ mesh, dir, speed: PROJECTILE_SPEED, lifetime: 2, damage: 15 + state.level * 2 });
+    const p = getProjectile();
+    p.mesh.position.copy(playerGroup.position);
+    p.mesh.position.y = 0.5; // ground level so it hits enemies
+    p.dir = dir;
+    p.speed = PROJECTILE_SPEED;
+    p.lifetime = 2;
+    p.damage = 15 + state.level * 2;
+    projectiles.push(p);
 }
 
-// ─── PARTICLES ──────────────────────────────────────────────
+// ─── PARTICLES (POOLED) ─────────────────────────────────────
+const PART_GEO = new THREE.SphereGeometry(0.06, 4, 4);
+const particleMatCache = {};
+const particlePool = [];
+
+function getParticleMat(color) {
+    if (!particleMatCache[color]) {
+        particleMatCache[color] = new THREE.MeshBasicMaterial({ color, transparent: true });
+    }
+    return particleMatCache[color];
+}
+
 function spawnParticles(pos, color, count = 5) {
     for (let i = 0; i < count; i++) {
-        const geo = new THREE.SphereGeometry(0.06, 4, 4);
-        const mat = new THREE.MeshBasicMaterial({ color, transparent: true });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.copy(pos);
-        scene.add(mesh);
-        particles.push({
-            mesh,
-            vel: new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6),
-            life: 0.4 + Math.random() * 0.3,
-        });
+        let p = particlePool.pop();
+        if (!p) {
+            const mesh = new THREE.Mesh(PART_GEO, getParticleMat(color));
+            scene.add(mesh);
+            p = { mesh };
+        }
+        p.mesh.material = getParticleMat(color);
+        p.mesh.visible = true;
+        p.mesh.material.opacity = 1;
+        p.mesh.position.copy(pos);
+        p.vel = new THREE.Vector3((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6);
+        p.life = 0.4 + Math.random() * 0.3;
+        particles.push(p);
     }
 }
 
 // ─── XP ORBS ────────────────────────────────────────────────
+const XP_GEO = new THREE.SphereGeometry(0.12, 6, 6);
+const XP_MAT = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+
 function spawnXpOrb(pos, amount) {
-    const geo = new THREE.SphereGeometry(0.1, 6, 6);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(XP_GEO, XP_MAT);
     mesh.position.copy(pos);
     mesh.position.y = 0.5;
-
-    const light = new THREE.PointLight(0xfbbf24, 0.5, 3);
-    mesh.add(light);
     scene.add(mesh);
     xpOrbs.push({ mesh, amount, life: 10 });
 }
@@ -353,12 +381,14 @@ function update() {
         p.mesh.position.addScaledVector(p.dir, p.speed * dt);
         p.lifetime -= dt;
 
-        // Check hit enemies
+        // Check hit enemies (XZ distance only — ignore Y)
         let hit = false;
         for (let j = enemies.length - 1; j >= 0; j--) {
             const e = enemies[j];
-            const dist = p.mesh.position.distanceTo(e.mesh.position);
-            if (dist < e.type.size + 0.2) {
+            const dx = p.mesh.position.x - e.mesh.position.x;
+            const dz = p.mesh.position.z - e.mesh.position.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < e.type.size + 0.5) {
                 e.hp -= p.damage;
                 e.hitFlash = 0.1;
                 spawnParticles(e.mesh.position, 0xbb66ff, 3);
@@ -378,7 +408,7 @@ function update() {
         }
 
         if (hit || p.lifetime <= 0 || Math.abs(p.mesh.position.x) > ARENA_SIZE || Math.abs(p.mesh.position.z) > ARENA_SIZE) {
-            scene.remove(p.mesh);
+            releaseProjectile(p);
             projectiles.splice(i, 1);
         }
     }
@@ -418,7 +448,8 @@ function update() {
         p.life -= dt;
         p.mesh.material.opacity = Math.max(0, p.life / 0.5);
         if (p.life <= 0) {
-            scene.remove(p.mesh);
+            p.mesh.visible = false;
+            particlePool.push(p);
             particles.splice(i, 1);
         }
     }
