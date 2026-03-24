@@ -29,6 +29,34 @@
     #waveNotify.show { opacity: 1; }
 
     #killCount { position: fixed; bottom: 16px; right: 20px; color: #888; font-size: 0.8rem; font-weight: 600; z-index: 10; }
+
+    /* Pause */
+    #pauseBtn { position: fixed; top: 12px; right: 20px; padding: 6px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.5); color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; z-index: 15; }
+    #pauseBtn:hover { background: rgba(255,255,255,0.1); }
+    #pauseOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 50; display: flex; justify-content: center; align-items: center; }
+    #pauseOverlay.hidden { display: none; }
+    .pause-box { text-align: center; }
+    .pause-box h2 { font-size: 3rem; font-weight: 900; color: #fff; letter-spacing: 4px; margin-bottom: 12px; }
+    .pause-box p { color: #888; margin-bottom: 20px; }
+    .pause-resume { padding: 14px 48px; border-radius: 12px; border: none; background: linear-gradient(135deg, #9966ff, #7744cc); color: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
+    .pause-resume:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(153,102,255,0.3); }
+
+    /* Level Up Sigil Selection */
+    #levelUpOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 40; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+    #levelUpOverlay.hidden { display: none; }
+    .lu-title { font-size: 2rem; font-weight: 900; color: #fbbf24; margin-bottom: 8px; text-shadow: 0 0 20px rgba(251,191,36,0.4); }
+    .lu-sub { color: #888; margin-bottom: 24px; font-size: 0.9rem; }
+    .lu-cards { display: flex; gap: 16px; }
+    .lu-card { width: 180px; padding: 20px 16px; border-radius: 14px; border: 2px solid rgba(255,255,255,0.1); background: rgba(20,20,40,0.95); cursor: pointer; transition: all 0.2s; text-align: center; }
+    .lu-card:hover { border-color: #9966ff; transform: translateY(-4px); box-shadow: 0 8px 30px rgba(153,102,255,0.3); }
+    .lu-card-icon { font-size: 2rem; margin-bottom: 8px; }
+    .lu-card-name { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .lu-card-desc { font-size: 0.75rem; color: #aaa; line-height: 1.4; }
+    .lu-card-rarity { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .lu-card.common { border-color: rgba(170,170,170,0.3); }
+    .lu-card.rare { border-color: rgba(255,193,7,0.3); }
+    .lu-card.epic { border-color: rgba(156,39,176,0.3); }
+    .lu-card.legendary { border-color: rgba(255,152,0,0.4); background: rgba(40,20,10,0.95); }
   </style>
 </head>
 <body>
@@ -43,6 +71,23 @@
   <div id="crosshair"></div>
   <div id="waveNotify"></div>
   <div id="killCount">Kills: 0</div>
+  <button id="pauseBtn" onclick="window.togglePause()">⏸ Pause</button>
+
+  <!-- Pause Overlay -->
+  <div id="pauseOverlay" class="hidden">
+    <div class="pause-box">
+      <h2>PAUSED</h2>
+      <p>Press ESC to resume</p>
+      <button class="pause-resume" onclick="window.togglePause()">Resume</button>
+    </div>
+  </div>
+
+  <!-- Level Up Sigil Selection -->
+  <div id="levelUpOverlay" class="hidden">
+    <div class="lu-title">LEVEL UP!</div>
+    <div class="lu-sub">Choose a sigil upgrade</div>
+    <div class="lu-cards" id="sigilCards"></div>
+  </div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

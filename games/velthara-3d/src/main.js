@@ -36,17 +36,17 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.8;
+renderer.toneMappingExposure = 1.4;
 document.body.appendChild(renderer.domElement);
 
 // ─── LIGHTING ───────────────────────────────────────────────
-const ambientLight = new THREE.AmbientLight(0x222244, 0.6);
+const ambientLight = new THREE.AmbientLight(0x444466, 1.2);
 scene.add(ambientLight);
 
-const mainLight = new THREE.DirectionalLight(0x8866cc, 1.2);
+const mainLight = new THREE.DirectionalLight(0x9977dd, 2.0);
 mainLight.position.set(10, 20, 10);
 mainLight.castShadow = true;
-mainLight.shadow.mapSize.set(2048, 2048);
+mainLight.shadow.mapSize.set(1024, 1024);
 mainLight.shadow.camera.left = -30;
 mainLight.shadow.camera.right = 30;
 mainLight.shadow.camera.top = 30;
@@ -385,11 +385,11 @@ function getMouseWorldPos() {
 
 // ─── ENEMY TYPES & CREATION ─────────────────────────────────
 const ENEMY_TYPES = [
-    { name: 'Swarm',  color: 0x66bb6a, size: 0.3,  hp: 15, dmg: 5,  speed: 1.0, xp: 5,  modelKey: 'zombie',   modelScale: 0.6 },
-    { name: 'Runner', color: 0xffd54f, size: 0.25, hp: 10, dmg: 3,  speed: 1.8, xp: 8,  modelKey: 'zombie',   modelScale: 0.5 },
-    { name: 'Tank',   color: 0x90a4ae, size: 0.6,  hp: 50, dmg: 10, speed: 0.6, xp: 15, modelKey: 'skeleton', modelScale: 1.0 },
-    { name: 'Bomber', color: 0xff7043, size: 0.4,  hp: 20, dmg: 15, speed: 0.9, xp: 12, modelKey: 'skeleton', modelScale: 0.8 },
-    { name: 'Shadow', color: 0x7e57c2, size: 0.35, hp: 25, dmg: 8,  speed: 1.3, xp: 10, modelKey: 'zombie',   modelScale: 0.7 },
+    { name: 'Swarm',  color: 0x66bb6a, size: 0.8,  hp: 15, dmg: 5,  speed: 1.0, xp: 5,  modelKey: 'zombie',   modelScale: 1.5 },
+    { name: 'Runner', color: 0xffd54f, size: 0.7,  hp: 10, dmg: 3,  speed: 1.8, xp: 8,  modelKey: 'zombie',   modelScale: 1.2 },
+    { name: 'Tank',   color: 0x90a4ae, size: 1.2,  hp: 50, dmg: 10, speed: 0.6, xp: 15, modelKey: 'skeleton', modelScale: 2.5 },
+    { name: 'Bomber', color: 0xff7043, size: 1.0,  hp: 20, dmg: 15, speed: 0.9, xp: 12, modelKey: 'skeleton', modelScale: 2.0 },
+    { name: 'Shadow', color: 0x7e57c2, size: 0.9,  hp: 25, dmg: 8,  speed: 1.3, xp: 10, modelKey: 'zombie',   modelScale: 1.8 },
 ];
 
 function cloneModel(source) {
@@ -399,8 +399,8 @@ function cloneModel(source) {
     clone.traverse(child => {
         if (child.isMesh) {
             child.material = child.material.clone();
-            child.castShadow = true;
-            child.receiveShadow = true;
+            child.castShadow = false; // perf: enemies don't cast shadows
+            child.receiveShadow = false;
         }
     });
     return clone;
@@ -497,7 +497,7 @@ function releaseProjectile(p) {
 
 function shoot() {
     if (state.shootCooldown > 0) return;
-    state.shootCooldown = SHOOT_COOLDOWN;
+    state.shootCooldown = SHOOT_COOLDOWN * (state.cooldownMult || 1);
 
     // Fire toward where the camera is looking through the mouse cursor
     const target = getMouseWorldPos();
@@ -511,7 +511,7 @@ function shoot() {
     p.dir = dir;
     p.speed = PROJECTILE_SPEED;
     p.lifetime = 2;
-    p.damage = 15 + state.level * 2;
+    p.damage = Math.floor((15 + state.level * 2) * (1 + (state.dmgBonus || 0)));
     projectiles.push(p);
 }
 
@@ -575,6 +575,7 @@ const _tmpVec3 = new THREE.Vector3();
 
 function update() {
     const dt = Math.min(clock.getDelta(), 0.1);
+    if (paused) return;
 
     // ── Camera orbit from mouse movement
     // Always rotate camera orbit when pointer is locked, or use raw movementX
@@ -594,8 +595,9 @@ function update() {
 
     if (moveDir.lengthSq() > 0) {
         moveDir.normalize();
-        playerGroup.position.x = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, playerGroup.position.x + moveDir.x * PLAYER_SPEED * dt));
-        playerGroup.position.z = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, playerGroup.position.z + moveDir.z * PLAYER_SPEED * dt));
+        const spd = PLAYER_SPEED * (1 + (state.speedBonus || 0));
+        playerGroup.position.x = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, playerGroup.position.x + moveDir.x * spd * dt));
+        playerGroup.position.z = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, playerGroup.position.z + moveDir.z * spd * dt));
         // Player faces movement direction
         const targetAngle = Math.atan2(moveDir.x, moveDir.z);
         // Smooth rotation
@@ -758,6 +760,7 @@ function update() {
                     state.maxHp += 10;
                     state.hp = state.maxHp;
                     document.getElementById('levelLabel').textContent = `Lv.${state.level}`;
+                    showLevelUp();
                 }
             }
             scene.remove(o.mesh);
@@ -807,6 +810,72 @@ function animate() {
     requestAnimationFrame(animate);
     update();
     renderer.render(scene, camera);
+}
+
+// ─── PAUSE SYSTEM ───────────────────────────────────────────
+let paused = false;
+window.togglePause = function() {
+    paused = !paused;
+    document.getElementById('pauseOverlay').classList.toggle('hidden', !paused);
+};
+window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        if (!document.getElementById('levelUpOverlay').classList.contains('hidden')) return;
+        window.togglePause();
+    }
+});
+
+// ─── SIGIL SYSTEM ───────────────────────────────────────────
+const SIGILS = [
+    { name: 'Soul Drain',       icon: '💀', desc: '+5% lifesteal on projectile hits', rarity: 'common',    effect: () => { state.lifesteal = (state.lifesteal || 0) + 0.05; } },
+    { name: 'Arcane Surge',     icon: '⚡', desc: '+20% projectile damage',           rarity: 'common',    effect: () => { state.dmgBonus = (state.dmgBonus || 0) + 0.2; } },
+    { name: 'Dark Vitality',    icon: '❤️', desc: '+25 max HP, heal to full',          rarity: 'common',    effect: () => { state.maxHp += 25; state.hp = state.maxHp; } },
+    { name: 'Swift Shadow',     icon: '👟', desc: '+15% movement speed',               rarity: 'common',    effect: () => { state.speedBonus = (state.speedBonus || 0) + 0.15; } },
+    { name: 'Rapid Fire',       icon: '🔥', desc: '-30% shoot cooldown',               rarity: 'rare',      effect: () => { state.cooldownMult = (state.cooldownMult || 1) * 0.7; } },
+    { name: 'Piercing Bolt',    icon: '🗡️', desc: 'Projectiles pierce 1 extra enemy',  rarity: 'rare',      effect: () => { state.pierce = (state.pierce || 0) + 1; } },
+    { name: 'XP Feast',         icon: '✨', desc: '+50% XP from kills',                rarity: 'rare',      effect: () => { state.xpMult = (state.xpMult || 1) + 0.5; } },
+    { name: 'Death Nova',       icon: '💥', desc: 'Enemies explode on death, dealing AOE', rarity: 'epic',  effect: () => { state.deathNova = true; } },
+    { name: 'Necro Shield',     icon: '🛡️', desc: 'Block 1 hit every 10 seconds',      rarity: 'epic',      effect: () => { state.shieldInterval = 10; state.shieldTimer = 0; } },
+    { name: 'Bone Army',        icon: '💀', desc: 'Summon 2 skeleton minions',          rarity: 'epic',      effect: () => { state.minions = (state.minions || 0) + 2; } },
+    { name: 'Void Embrace',     icon: '🌀', desc: '+100% damage, -20% max HP',         rarity: 'legendary', effect: () => { state.dmgBonus = (state.dmgBonus || 0) + 1.0; state.maxHp = Math.floor(state.maxHp * 0.8); state.hp = Math.min(state.hp, state.maxHp); } },
+    { name: 'Eternal Hunger',   icon: '🩸', desc: '+15% lifesteal, +30% damage',       rarity: 'legendary', effect: () => { state.lifesteal = (state.lifesteal || 0) + 0.15; state.dmgBonus = (state.dmgBonus || 0) + 0.3; } },
+];
+
+let levelUpPending = false;
+
+function showLevelUp() {
+    levelUpPending = true;
+    paused = true;
+    const overlay = document.getElementById('levelUpOverlay');
+    const container = document.getElementById('sigilCards');
+    overlay.classList.remove('hidden');
+
+    // Pick 3 random sigils
+    const picks = [];
+    const pool = [...SIGILS];
+    for (let i = 0; i < 3 && pool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        picks.push(pool.splice(idx, 1)[0]);
+    }
+
+    container.innerHTML = '';
+    for (const sigil of picks) {
+        const card = document.createElement('div');
+        card.className = `lu-card ${sigil.rarity}`;
+        card.innerHTML = `
+            <div class="lu-card-rarity" style="color:${sigil.rarity === 'legendary' ? '#ff9800' : sigil.rarity === 'epic' ? '#9c27b0' : sigil.rarity === 'rare' ? '#ffc107' : '#aaa'}">${sigil.rarity}</div>
+            <div class="lu-card-icon">${sigil.icon}</div>
+            <div class="lu-card-name">${sigil.name}</div>
+            <div class="lu-card-desc">${sigil.desc}</div>
+        `;
+        card.onclick = () => {
+            sigil.effect();
+            overlay.classList.add('hidden');
+            paused = false;
+            levelUpPending = false;
+        };
+        container.appendChild(card);
+    }
 }
 
 startWave();
