@@ -1614,7 +1614,7 @@ function sanitizeRoom(room) {
 
 // ================== USER AUTHENTICATION & DOTS SURVIVOR API ==================
 
-const { User, LeaderboardEntry, Session } = require('./userModels');
+const { User, LeaderboardEntry, Session, KCKingdom, KCCard, KCRaid, KCAlliance, KCMarketListing, KCSeason } = require('./userModels');
 
 // Generate session token (simple implementation)
 function generateToken() {
@@ -2686,6 +2686,301 @@ app.post('/api/games/webhook', express.raw({ type: 'application/json' }), async 
 // Health check
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 });
+});
+
+// ═══════════════════════════════════════════════════════════
+// KINGDOM CONQUEST API
+// ═══════════════════════════════════════════════════════════
+
+// Building definitions
+const KC_BUILDINGS = {
+    // Gold
+    dirt_road_market:    { name: 'Dirt Road Market',     tier: 1, resource: 'gold',     output: 20,   cost: { gold: 200 }, wallHP: 0 },
+    town_market:         { name: 'Town Market',          tier: 2, resource: 'gold',     output: 80,   cost: { gold: 800 }, wallHP: 0 },
+    trade_post:          { name: 'Trade Post',           tier: 3, resource: 'gold',     output: 200,  cost: { gold: 2500 }, wallHP: 0 },
+    royal_treasury:      { name: 'Royal Treasury',       tier: 4, resource: 'gold',     output: 500,  cost: { gold: 8000, stone: 200 }, wallHP: 0 },
+    imperial_bank:       { name: 'Imperial Bank',        tier: 5, resource: 'gold',     output: 1200, cost: { gold: 30000, stone: 500 }, wallHP: 0 },
+    // Food
+    thatched_farm:       { name: 'Thatched Farm',        tier: 1, resource: 'food',     output: 15,   cost: { gold: 150 }, wallHP: 0 },
+    windmill:            { name: 'Windmill',             tier: 2, resource: 'food',     output: 50,   cost: { gold: 600 }, wallHP: 0 },
+    granary:             { name: 'Granary',              tier: 3, resource: 'food',     output: 120,  cost: { gold: 2000 }, wallHP: 0 },
+    royal_granary:       { name: 'Royal Granary',        tier: 4, resource: 'food',     output: 300,  cost: { gold: 7000, wood: 150 }, wallHP: 0 },
+    divine_breadbasket:  { name: 'Divine Breadbasket',   tier: 5, resource: 'food',     output: 700,  cost: { gold: 25000, food: 300 }, wallHP: 0 },
+    // Wood
+    woodcutters_shack:   { name: "Woodcutter's Shack",  tier: 1, resource: 'wood',     output: 12,   cost: { gold: 120 }, wallHP: 0 },
+    lumber_camp:         { name: 'Lumber Camp',          tier: 2, resource: 'wood',     output: 40,   cost: { gold: 500 }, wallHP: 0 },
+    timber_mill:         { name: 'Timber Mill',          tier: 3, resource: 'wood',     output: 100,  cost: { gold: 1800 }, wallHP: 0 },
+    grand_sawmill:       { name: 'Grand Sawmill',        tier: 4, resource: 'wood',     output: 250,  cost: { gold: 6000, stone: 100 }, wallHP: 0 },
+    ancient_forest_claim:{ name: 'Ancient Forest Claim', tier: 5, resource: 'wood',     output: 600,  cost: { gold: 20000 }, wallHP: 0 },
+    // Stone
+    stone_pit:           { name: 'Stone Pit',            tier: 1, resource: 'stone',    output: 10,   cost: { gold: 100 }, wallHP: 0 },
+    quarry:              { name: 'Quarry',               tier: 2, resource: 'stone',    output: 35,   cost: { gold: 450 }, wallHP: 0 },
+    iron_mine:           { name: 'Iron Mine',            tier: 3, resource: 'stone',    output: 85,   cost: { gold: 1600 }, wallHP: 0 },
+    deep_quarry:         { name: 'Deep Quarry',          tier: 4, resource: 'stone',    output: 210,  cost: { gold: 5500, stone: 80 }, wallHP: 0 },
+    mountain_fortress_mine:{ name: 'Mountain Fortress Mine', tier: 5, resource: 'stone', output: 500, cost: { gold: 18000 }, wallHP: 0 },
+    // Faith
+    village_chapel:      { name: 'Village Chapel',       tier: 1, resource: 'faith',    output: 8,    cost: { gold: 80 }, wallHP: 0 },
+    parish_church:       { name: 'Parish Church',        tier: 2, resource: 'faith',    output: 25,   cost: { gold: 350 }, wallHP: 0 },
+    abbey:               { name: 'Abbey',                tier: 3, resource: 'faith',    output: 60,   cost: { gold: 1200 }, wallHP: 0 },
+    cathedral:           { name: 'Cathedral',            tier: 4, resource: 'faith',    output: 150,  cost: { gold: 4500, stone: 200 }, wallHP: 0 },
+    grand_cathedral:     { name: 'Grand Cathedral',      tier: 5, resource: 'faith',    output: 400,  cost: { gold: 15000, stone: 400 }, wallHP: 0 },
+    // Military
+    small_barracks:      { name: 'Small Barracks',       tier: 1, resource: 'manpower', output: 5,    cost: { gold: 200 }, wallHP: 50 },
+    garrison:            { name: 'Garrison',             tier: 2, resource: 'manpower', output: 15,   cost: { gold: 700 }, wallHP: 150 },
+    war_camp:            { name: 'War Camp',             tier: 3, resource: 'manpower', output: 35,   cost: { gold: 2200 }, wallHP: 300 },
+    knights_hall:        { name: "Knight's Hall",        tier: 4, resource: 'manpower', output: 80,   cost: { gold: 7500, stone: 200 }, wallHP: 600 },
+    legion_fortress:     { name: 'Legion Fortress',      tier: 5, resource: 'manpower', output: 200,  cost: { gold: 28000, stone: 500 }, wallHP: 1200 },
+};
+
+// Age tier limits
+const KC_AGE_MAX_TIER = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 5 };
+
+// ─── Create Kingdom (on first visit) ─────────────────────
+app.post('/api/kc/kingdom/create', authenticateToken, async (req, res) => {
+    try {
+        const existing = await KCKingdom.findOne({ playerId: req.userId });
+        if (existing) return res.json({ success: true, kingdom: existing });
+
+        // Find an unoccupied hex
+        const occupiedHexes = await KCKingdom.distinct('hexIndex');
+        let hexIndex = -1;
+        for (let i = 0; i < 50; i++) {
+            if (!occupiedHexes.includes(i)) { hexIndex = i; break; }
+        }
+        if (hexIndex === -1) hexIndex = Math.floor(Math.random() * 50);
+
+        const kingdom = new KCKingdom({
+            playerId: req.userId,
+            name: req.body.name || 'New Kingdom',
+            hexIndex,
+        });
+        await kingdom.save();
+
+        // Create 3 starter cards
+        const starterCards = [
+            { ownerId: req.userId, kingdomId: kingdom._id, cardType: 'unit', rarity: 'common', name: 'Peasant Militia', lore: 'Farmers with pitchforks. Not brave, but numerous.', stats: { atk: 12, def: 8, speed: 2, upkeepFood: 2 } },
+            { ownerId: req.userId, kingdomId: kingdom._id, cardType: 'spell', rarity: 'common', name: 'Flaming Arrow', lore: 'A crude but effective siege weapon.', stats: { wallDamage: 25, atkBonus: 5 } },
+            { ownerId: req.userId, kingdomId: kingdom._id, cardType: 'event', rarity: 'common', name: 'Harvest Moon', lore: 'The fields yield more under the autumn glow.', stats: { effectValue: 25, durationTicks: 5, targetResource: 'food', isPositive: true } },
+        ];
+        await KCCard.insertMany(starterCards);
+
+        res.json({ success: true, kingdom });
+    } catch (error) {
+        console.error('KC create kingdom error:', error);
+        res.status(500).json({ error: 'Failed to create kingdom' });
+    }
+});
+
+// ─── Get Kingdom ──────────────────────────────────────────
+app.get('/api/kc/kingdom', authenticateToken, async (req, res) => {
+    try {
+        const kingdom = await KCKingdom.findOne({ playerId: req.userId });
+        if (!kingdom) return res.status(404).json({ error: 'No kingdom found. Create one first.' });
+
+        const cards = await KCCard.find({ ownerId: req.userId, isListed: false });
+        res.json({ success: true, kingdom, cards });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load kingdom' });
+    }
+});
+
+// ─── Build / Place Building ──────────────────────────────
+app.post('/api/kc/buildings/build', authenticateToken, async (req, res) => {
+    try {
+        const { buildingId, slotIndex } = req.body;
+        const def = KC_BUILDINGS[buildingId];
+        if (!def) return res.status(400).json({ error: 'Invalid building' });
+
+        const kingdom = await KCKingdom.findOne({ playerId: req.userId });
+        if (!kingdom) return res.status(404).json({ error: 'No kingdom' });
+
+        // Check tier limit by age
+        const maxTier = KC_AGE_MAX_TIER[kingdom.age] || 2;
+        if (def.tier > maxTier) return res.status(400).json({ error: `Tier ${def.tier} requires Age ${def.tier <= 2 ? 'I' : def.tier === 3 ? 'II' : def.tier === 4 ? 'III' : 'IV'}` });
+
+        // Check slot not occupied
+        if (kingdom.buildings.some(b => b.slotIndex === slotIndex)) {
+            return res.status(400).json({ error: 'Slot already occupied' });
+        }
+
+        // Check slot range
+        if (slotIndex < 0 || slotIndex > 35) return res.status(400).json({ error: 'Invalid slot' });
+
+        // Check cost
+        for (const [res_type, amount] of Object.entries(def.cost)) {
+            if ((kingdom.resources[res_type] || 0) < amount) {
+                return res.status(400).json({ error: `Not enough ${res_type}` });
+            }
+        }
+
+        // Deduct cost
+        for (const [res_type, amount] of Object.entries(def.cost)) {
+            kingdom.resources[res_type] -= amount;
+        }
+
+        // Place building
+        kingdom.buildings.push({ slotIndex, buildingId, tier: def.tier });
+
+        // Recalculate tick rates
+        const rates = { gold: 10, food: 8, wood: 5, stone: 3, faith: 2, manpower: 2 }; // base rates
+        let totalWallHP = 100; // base
+        for (const b of kingdom.buildings) {
+            const bd = KC_BUILDINGS[b.buildingId];
+            if (bd) {
+                rates[bd.resource] = (rates[bd.resource] || 0) + bd.output;
+                totalWallHP += bd.wallHP || 0;
+            }
+        }
+        kingdom.tickRates = rates;
+        kingdom.maxWallHP = totalWallHP;
+        if (kingdom.wallHP > totalWallHP) kingdom.wallHP = totalWallHP;
+
+        // Recalculate level
+        const filledSlots = kingdom.buildings.length;
+        const avgTier = kingdom.buildings.reduce((s, b) => s + (KC_BUILDINGS[b.buildingId]?.tier || 1), 0) / Math.max(1, filledSlots);
+        const territories = kingdom.tributeFrom?.length || 0;
+        kingdom.level = Math.min(50, Math.floor(filledSlots * avgTier + territories * 5));
+        kingdom.age = kingdom.level <= 10 ? 1 : kingdom.level <= 20 ? 2 : kingdom.level <= 30 ? 3 : kingdom.level <= 40 ? 4 : 5;
+
+        kingdom.markModified('resources');
+        kingdom.markModified('tickRates');
+        await kingdom.save();
+
+        res.json({ success: true, kingdom });
+    } catch (error) {
+        console.error('KC build error:', error);
+        res.status(500).json({ error: 'Failed to build' });
+    }
+});
+
+// ─── Get World Map (all kingdoms) ────────────────────────
+app.get('/api/kc/world', authenticateToken, async (req, res) => {
+    try {
+        const kingdoms = await KCKingdom.find({}, 'name level age hexIndex wallHP maxWallHP garrisonPower isAI playerId tributeFrom').lean();
+        res.json({ success: true, kingdoms });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load world' });
+    }
+});
+
+// ─── Get Cards ───────────────────────────────────────────
+app.get('/api/kc/cards', authenticateToken, async (req, res) => {
+    try {
+        const cards = await KCCard.find({ ownerId: req.userId, isListed: false });
+        res.json({ success: true, cards });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load cards' });
+    }
+});
+
+// ─── Get Raid Log ────────────────────────────────────────
+app.get('/api/kc/raids', authenticateToken, async (req, res) => {
+    try {
+        const kingdom = await KCKingdom.findOne({ playerId: req.userId });
+        if (!kingdom) return res.status(404).json({ error: 'No kingdom' });
+
+        const raids = await KCRaid.find({
+            $or: [{ attackerId: kingdom._id }, { defenderId: kingdom._id }]
+        }).sort({ createdAt: -1 }).limit(20).lean();
+
+        res.json({ success: true, raids });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load raids' });
+    }
+});
+
+// ─── KC Tick Engine (called by setInterval) ──────────────
+async function kcTick() {
+    try {
+        const kingdoms = await KCKingdom.find({});
+        const now = new Date();
+        const bulkOps = [];
+
+        for (const k of kingdoms) {
+            // Skip if ticked too recently
+            if (k.lastTickAt && (now - k.lastTickAt) < 25000) continue;
+
+            // Apply tick rates (capped at storage)
+            for (const res of ['gold', 'food', 'wood', 'stone', 'faith', 'manpower']) {
+                k.resources[res] = Math.min(
+                    (k.resources[res] || 0) + (k.tickRates[res] || 0),
+                    k.storageCaps[res] || 50000
+                );
+            }
+
+            // Tribute income (3% of tributary gold per tick)
+            if (k.tributeFrom && k.tributeFrom.length > 0) {
+                // simplified — just add flat bonus per tributary
+                k.resources.gold = Math.min(
+                    k.resources.gold + k.tributeFrom.length * 50,
+                    k.storageCaps.gold
+                );
+            }
+
+            // AI wall regen (5% per tick)
+            if (k.isAI && k.wallHP < k.maxWallHP) {
+                k.wallHP = Math.min(k.maxWallHP, k.wallHP + Math.ceil(k.maxWallHP * 0.05));
+            }
+
+            // Military wall regen (10 HP/tick if 3+ military buildings)
+            const militaryCount = k.buildings.filter(b => {
+                const bd = KC_BUILDINGS[b.buildingId];
+                return bd && bd.resource === 'manpower';
+            }).length;
+            if (militaryCount >= 3 && k.wallHP < k.maxWallHP) {
+                k.wallHP = Math.min(k.maxWallHP, k.wallHP + 10);
+            }
+
+            k.lastTickAt = now;
+            k.totalTicks = (k.totalTicks || 0) + 1;
+            k.markModified('resources');
+
+            bulkOps.push({
+                updateOne: {
+                    filter: { _id: k._id },
+                    update: {
+                        $set: {
+                            resources: k.resources,
+                            wallHP: k.wallHP,
+                            lastTickAt: k.lastTickAt,
+                            totalTicks: k.totalTicks,
+                        }
+                    }
+                }
+            });
+        }
+
+        if (bulkOps.length > 0) {
+            await KCKingdom.bulkWrite(bulkOps);
+        }
+
+        // Broadcast to connected Socket.io clients
+        if (io) {
+            for (const k of kingdoms) {
+                io.to(`kc:${k._id}`).emit('kc:tick', {
+                    kingdomId: k._id,
+                    resources: k.resources,
+                    tickRates: k.tickRates,
+                    wallHP: k.wallHP,
+                });
+            }
+        }
+    } catch (error) {
+        console.error('KC tick error:', error);
+    }
+}
+
+// Run KC tick every 30 seconds
+setInterval(kcTick, 30000);
+
+// ─── KC Socket.io events ─────────────────────────────────
+io.on('connection', (socket) => {
+    socket.on('kc:subscribe', (data) => {
+        if (data.kingdomId) socket.join(`kc:${data.kingdomId}`);
+    });
+    socket.on('kc:unsubscribe', (data) => {
+        if (data.kingdomId) socket.leave(`kc:${data.kingdomId}`);
+    });
 });
 
 // Start server

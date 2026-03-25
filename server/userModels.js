@@ -117,8 +117,169 @@ const SessionSchema = new mongoose.Schema({
 // Auto-delete expired sessions with TTL index
 SessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
+// ═══════════════════════════════════════════════════════════
+// KINGDOM CONQUEST SCHEMAS
+// ═══════════════════════════════════════════════════════════
+
+const KCKingdomSchema = new mongoose.Schema({
+    playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    name: { type: String, default: 'New Kingdom', maxlength: 30 },
+    level: { type: Number, default: 1 },
+    age: { type: Number, default: 1 }, // 1=Dark Ages, 2=Feudal, 3=Crusade, 4=Renaissance, 5=Imperial
+    resources: {
+        gold: { type: Number, default: 500 },
+        food: { type: Number, default: 200 },
+        wood: { type: Number, default: 100 },
+        stone: { type: Number, default: 50 },
+        faith: { type: Number, default: 20 },
+        manpower: { type: Number, default: 100 },
+    },
+    tickRates: {
+        gold: { type: Number, default: 10 },
+        food: { type: Number, default: 8 },
+        wood: { type: Number, default: 5 },
+        stone: { type: Number, default: 3 },
+        faith: { type: Number, default: 2 },
+        manpower: { type: Number, default: 2 },
+    },
+    storageCaps: {
+        gold: { type: Number, default: 50000 },
+        food: { type: Number, default: 20000 },
+        wood: { type: Number, default: 10000 },
+        stone: { type: Number, default: 8000 },
+        faith: { type: Number, default: 5000 },
+        manpower: { type: Number, default: 2000 },
+    },
+    buildings: [{
+        slotIndex: { type: Number, required: true }, // 0-35 (6x6 grid)
+        buildingId: { type: String, required: true },
+        tier: { type: Number, default: 1 },
+        builtAt: { type: Date, default: Date.now },
+    }],
+    equippedRelics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'KCCard' }], // max 3
+    activeEvents: [{
+        cardId: { type: mongoose.Schema.Types.ObjectId, ref: 'KCCard' },
+        expiresAtTick: { type: Number },
+        effect: { type: Object },
+    }],
+    deployedUnits: [{ type: mongoose.Schema.Types.ObjectId, ref: 'KCCard' }],
+    wallHP: { type: Number, default: 100 },
+    maxWallHP: { type: Number, default: 100 },
+    garrisonPower: { type: Number, default: 0 },
+    tributeFrom: [{ type: mongoose.Schema.Types.ObjectId, ref: 'KCKingdom' }],
+    hexIndex: { type: Number, default: -1 }, // position on world map (0-49)
+    isAI: { type: Boolean, default: false },
+    aiDifficulty: { type: Number, default: 1 },
+    lastTickAt: { type: Date, default: Date.now },
+    totalPrestigePoints: { type: Number, default: 0 },
+    prestigeLevel: { type: Number, default: 0 },
+    raidCooldowns: { type: Map, of: Number, default: {} }, // kingdomId → tickExpiry
+    totalTicks: { type: Number, default: 0 },
+}, { timestamps: true });
+
+KCKingdomSchema.index({ playerId: 1 });
+KCKingdomSchema.index({ isAI: 1 });
+KCKingdomSchema.index({ hexIndex: 1 });
+
+const KCCardSchema = new mongoose.Schema({
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    kingdomId: { type: mongoose.Schema.Types.ObjectId, ref: 'KCKingdom', index: true },
+    cardType: { type: String, enum: ['unit', 'spell', 'event', 'relic', 'building'], required: true },
+    rarity: { type: String, enum: ['common', 'uncommon', 'rare', 'legendary'], required: true },
+    name: { type: String, required: true },
+    lore: { type: String, default: '' },
+    imagePrompt: { type: String, default: '' },
+    imageUrl: { type: String, default: '' },
+    stats: {
+        atk: Number,
+        def: Number,
+        speed: Number,
+        upkeepGold: Number,
+        upkeepFood: Number,
+        upkeepFaith: Number,
+        effectValue: Number,
+        durationTicks: Number,
+        wallDamage: Number,
+        atkBonus: Number,
+        targetResource: String,
+        isPositive: Boolean,
+        passiveBonus: String,
+        specialUnlock: String,
+        primaryResource: String,
+        outputPerTick: Number,
+        specialEffect: String,
+    },
+    isDeployed: { type: Boolean, default: false },
+    isEquipped: { type: Boolean, default: false },
+    isListed: { type: Boolean, default: false },
+    generatedAt: { type: Date, default: Date.now },
+});
+
+KCCardSchema.index({ ownerId: 1, cardType: 1 });
+KCCardSchema.index({ rarity: 1 });
+
+const KCRaidSchema = new mongoose.Schema({
+    attackerId: { type: mongoose.Schema.Types.ObjectId, ref: 'KCKingdom', required: true, index: true },
+    defenderId: { type: mongoose.Schema.Types.ObjectId, ref: 'KCKingdom', required: true, index: true },
+    attackerUnits: [{ type: mongoose.Schema.Types.ObjectId, ref: 'KCCard' }],
+    spellCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'KCCard' },
+    attackPower: { type: Number, default: 0 },
+    defensePower: { type: Number, default: 0 },
+    wallHP: { type: Number, default: 0 },
+    outcome: { type: String, enum: ['victory', 'defeat'], required: true },
+    raidType: { type: String, enum: ['pillage', 'capture'], default: 'pillage' },
+    lootGained: {
+        gold: { type: Number, default: 0 },
+        food: { type: Number, default: 0 },
+        wood: { type: Number, default: 0 },
+        stone: { type: Number, default: 0 },
+    },
+    unitCasualties: [{ type: mongoose.Schema.Types.ObjectId, ref: 'KCCard' }],
+    createdAt: { type: Date, default: Date.now },
+});
+
+KCRaidSchema.index({ attackerId: 1, createdAt: -1 });
+KCRaidSchema.index({ defenderId: 1, createdAt: -1 });
+
+const KCAllianceSchema = new mongoose.Schema({
+    name: { type: String, required: true, maxlength: 30 },
+    leaderId: { type: mongoose.Schema.Types.ObjectId, ref: 'KCKingdom' },
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'KCKingdom' }], // max 5
+    sharedGold: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now },
+});
+
+const KCMarketListingSchema = new mongoose.Schema({
+    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    cardId: { type: mongoose.Schema.Types.ObjectId, ref: 'KCCard', required: true },
+    priceGold: { type: Number, required: true },
+    listedAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date, required: true, index: true },
+});
+
+KCMarketListingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL
+KCMarketListingSchema.index({ 'cardType': 1, 'rarity': 1 });
+
+const KCSeasonSchema = new mongoose.Schema({
+    number: { type: Number, required: true, unique: true },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
+    topPlayers: [{
+        playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        rank: Number,
+        prestigePoints: Number,
+    }],
+    isActive: { type: Boolean, default: true },
+});
+
 const User = mongoose.model('User', UserSchema);
 const LeaderboardEntry = mongoose.model('LeaderboardEntry', LeaderboardEntrySchema);
 const Session = mongoose.model('Session', SessionSchema);
+const KCKingdom = mongoose.model('KCKingdom', KCKingdomSchema);
+const KCCard = mongoose.model('KCCard', KCCardSchema);
+const KCRaid = mongoose.model('KCRaid', KCRaidSchema);
+const KCAlliance = mongoose.model('KCAlliance', KCAllianceSchema);
+const KCMarketListing = mongoose.model('KCMarketListing', KCMarketListingSchema);
+const KCSeason = mongoose.model('KCSeason', KCSeasonSchema);
 
-module.exports = { User, LeaderboardEntry, Session };
+module.exports = { User, LeaderboardEntry, Session, KCKingdom, KCCard, KCRaid, KCAlliance, KCMarketListing, KCSeason };
