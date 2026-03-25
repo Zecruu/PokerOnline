@@ -462,6 +462,7 @@ function spawnEnemy(type) {
     enemies.push({
         mesh,
         isModel,
+        _baseY: mesh.position.y,
         type: t,
         hp: Math.floor(t.hp * hpScale),
         maxHp: Math.floor(t.hp * hpScale),
@@ -598,13 +599,19 @@ function update() {
         const spd = PLAYER_SPEED * (1 + (state.speedBonus || 0));
         playerGroup.position.x = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, playerGroup.position.x + moveDir.x * spd * dt));
         playerGroup.position.z = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, playerGroup.position.z + moveDir.z * spd * dt));
-        // Player faces movement direction
-        const targetAngle = Math.atan2(moveDir.x, moveDir.z);
-        // Smooth rotation
+    }
+
+    // Player always faces mouse cursor (not movement direction)
+    const cursorWorld = getMouseWorldPos();
+    if (cursorWorld) {
+        const targetAngle = Math.atan2(
+            cursorWorld.x - playerGroup.position.x,
+            cursorWorld.z - playerGroup.position.z
+        );
         let angleDiff = targetAngle - playerGroup.rotation.y;
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        playerGroup.rotation.y += angleDiff * 0.15;
+        playerGroup.rotation.y += angleDiff * 0.2;
     }
 
     // ── Camera follow (over-the-shoulder, orbiting around player)
@@ -684,17 +691,36 @@ function update() {
         );
         e.mesh.rotation.y = faceAngle;
 
+        // Walk animation — rock side to side while moving
+        const walkCycle = Math.sin(clock.elapsedTime * 6 + e.mesh.id * 2);
+        e.mesh.rotation.z = walkCycle * 0.08; // slight body rock
+        if (e.isModel) {
+            // Bounce up/down while walking
+            const baseY = e._baseY || 0;
+            e.mesh.position.y = baseY + Math.abs(Math.sin(clock.elapsedTime * 8 + e.mesh.id)) * 0.15;
+        }
+
         // Attack player
         e.attackCooldown -= dt;
         const distToPlayer = new THREE.Vector2(
             e.mesh.position.x - playerGroup.position.x,
             e.mesh.position.z - playerGroup.position.z
         ).length();
-        if (distToPlayer < e.type.size + 0.8 && e.attackCooldown <= 0) {
+        if (distToPlayer < e.type.size + 1.2 && e.attackCooldown <= 0) {
             state.hp -= e.dmg;
             e.attackCooldown = 1.0;
             spawnParticles(playerGroup.position, 0xf87171, 3);
             if (state.hp <= 0) state.hp = 0;
+            // Lunge animation — tilt forward on attack
+            e._lungeTimer = 0.3;
+        }
+
+        // Lunge tilt
+        if (e._lungeTimer > 0) {
+            e._lungeTimer -= dt;
+            e.mesh.rotation.x = -0.4 * (e._lungeTimer / 0.3); // tilt forward
+        } else {
+            e.mesh.rotation.x = 0;
         }
 
         // Hit flash
