@@ -316,7 +316,7 @@ gltfLoader.load('/models/skeleton.glb', (gltf) => {
 });
 
 // ─── CAMERA STATE ───────────────────────────────────────────
-const cameraOffset = new THREE.Vector3(0, 6, 8);
+const cameraOffset = new THREE.Vector3(2, 4, 6); // right shoulder, closer, lower
 let cameraAngle = 0;
 let mouseMovementX = 0;
 let pointerLocked = false;
@@ -618,7 +618,7 @@ function update() {
     const rotatedOffset = cameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngle);
     const desiredCamPos = playerGroup.position.clone().add(rotatedOffset);
     camera.position.lerp(desiredCamPos, 0.1);
-    camera.lookAt(playerGroup.position.x, 1.5, playerGroup.position.z);
+    camera.lookAt(playerGroup.position.x - 0.5, 1.8, playerGroup.position.z - 1);
 
     // Player light follow
     playerLight.position.set(playerGroup.position.x, 2, playerGroup.position.z);
@@ -794,30 +794,37 @@ function update() {
         }
     }
 
-    // ── Wave system
-    if (state.waveCooldown) {
-        state.waveTimer -= dt;
-        if (state.waveTimer <= 0) startWave();
-    } else {
-        // Spawn enemies gradually
-        if (state.enemiesToSpawn > 0) {
-            if (!state._spawnTimer) state._spawnTimer = 0;
-            state._spawnTimer -= dt;
-            if (state._spawnTimer <= 0) {
-                const type = Math.floor(Math.random() * Math.min(ENEMY_TYPES.length, 1 + Math.floor(state.wave / 3)));
-                spawnEnemy(type);
-                state.enemiesToSpawn--;
-                state._spawnTimer = 0.3;
-            }
-        }
+    // ── CONSTANT PRESSURE SPAWN SYSTEM ──
+    // Always spawning. Wave number increases over time = harder enemies.
+    // No downtime. Enemies come in bursts with small gaps.
+    if (!state._spawnTimer) state._spawnTimer = 0;
+    state._spawnTimer -= dt;
 
-        // Wave complete
-        if (state.enemiesToSpawn <= 0 && state.enemiesAlive <= 0) {
-            state.wave++;
-            document.getElementById('waveLabel').textContent = `Wave ${state.wave}`;
-            state.waveCooldown = true;
-            state.waveTimer = 3;
+    // Max alive enemies scales with wave (prevents lag from too many)
+    const maxAlive = 15 + state.wave * 3;
+
+    if (state._spawnTimer <= 0 && state.enemiesAlive < maxAlive) {
+        // Burst spawn: 1-3 enemies at once
+        const burst = 1 + Math.floor(Math.random() * Math.min(3, 1 + Math.floor(state.wave / 5)));
+        for (let b = 0; b < burst && state.enemiesAlive < maxAlive; b++) {
+            const type = Math.floor(Math.random() * Math.min(ENEMY_TYPES.length, 1 + Math.floor(state.wave / 3)));
+            spawnEnemy(type);
         }
+        // Spawn interval gets shorter as waves progress (more pressure)
+        const baseInterval = Math.max(0.3, 1.5 - state.wave * 0.08);
+        state._spawnTimer = baseInterval + Math.random() * 0.5;
+    }
+
+    // Wave increases every 30 kills
+    const waveFromKills = 1 + Math.floor(state.kills / 30);
+    if (waveFromKills > state.wave) {
+        state.wave = waveFromKills;
+        document.getElementById('waveLabel').textContent = `Wave ${state.wave}`;
+        // Flash wave notification
+        const el = document.getElementById('waveNotify');
+        el.textContent = `Wave ${state.wave}`;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 2000);
     }
 
     // ── Respawn
