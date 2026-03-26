@@ -835,13 +835,14 @@ function ipReveal() {
         roleEl.style.color = '#ff3333';
         wordEl.className = 'the-word imposter';
         wordEl.textContent = ipCurrentWord.hint;
+        catEl.textContent = '';
     } else {
         roleEl.textContent = 'The word is:';
         roleEl.style.color = '#88ff88';
         wordEl.className = 'the-word normal';
         wordEl.textContent = ipCurrentWord.word;
+        catEl.textContent = `Category: ${ipCurrentWord.category}`;
     }
-    catEl.textContent = `Category: ${ipCurrentWord.category}`;
 
     // Update button text
     const nextBtn = document.getElementById('ip-next-btn');
@@ -1014,7 +1015,7 @@ socket.on('imposter:round-start', (data) => {
         roleEl.style.color = '#ff3333';
         wordEl.className = 'the-word imposter';
         wordEl.textContent = data.hint;
-        catEl.textContent = `Category: ${data.category}`;
+        catEl.textContent = '';
     } else {
         roleEl.textContent = 'You are CREW. The word is:';
         roleEl.style.color = '#88ff88';

@@ -773,7 +773,6 @@ function startNewRound(roomId, room) {
             sock.emit('imposter:round-start', {
                 role: 'imposter',
                 hint: wordObj.hint,
-                category: wordObj.category,
                 round: room.round,
                 discussTime: room.discussTime,
             });
