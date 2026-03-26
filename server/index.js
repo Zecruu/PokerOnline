@@ -2921,7 +2921,7 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no backticks, no explanation.
 }`;
 
     try {
-        const model = kcGemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = kcGemini.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const result = await model.generateContent(prompt);
         const text = result.response.text().replace(/```json|```/g, '').trim();
         return JSON.parse(text);
@@ -2973,13 +2973,28 @@ app.post('/api/kc/cards/draw', authenticateToken, async (req, res) => {
         const cost = KC_DRAW_COSTS[rarity];
         if (kingdom.resources.gold < cost) return res.status(400).json({ error: `Not enough gold! Need ${cost}` });
 
-        // Roll card type
-        const typeRoll = Math.random();
-        let cardType = 'unit';
-        for (const w of KC_TYPE_WEIGHTS) { if (typeRoll < w.threshold) { cardType = w.type; break; } }
+        // Try pre-generated pool first, fallback to Gemini
+        let cardData;
+        const poolPath = require('path').join(__dirname, '..', 'games', 'kingdom-conquest', 'card-gen', 'card-pool.json');
+        try {
+            const pool = JSON.parse(require('fs').readFileSync(poolPath, 'utf8'));
+            // Filter pool by rarity, pick random
+            const matching = pool.filter(c => c.rarity === rarity);
+            if (matching.length > 0) {
+                const pick = matching[Math.floor(Math.random() * matching.length)];
+                const imageUrl = pick.imageFile ? `https://d2f5lfipdzhi8t.cloudfront.net/kingdom-conquest/cards/${pick.imageFile}` : '';
+                cardData = { ...pick, imageUrl };
+            }
+        } catch (e) { /* pool not found, use Gemini */ }
 
-        // Generate card
-        const generated = await generateCardWithGemini(cardType, rarity, kingdom.age);
+        if (!cardData) {
+            // Fallback: roll type and generate
+            const typeRoll = Math.random();
+            let cardType = 'unit';
+            for (const w of KC_TYPE_WEIGHTS) { if (typeRoll < w.threshold) { cardType = w.type; break; } }
+            const generated = await generateCardWithGemini(cardType, rarity, kingdom.age);
+            cardData = { cardType, rarity, name: generated.name, lore: generated.lore || '', stats: generated.stats || {}, imageUrl: '' };
+        }
 
         // Deduct gold
         kingdom.resources.gold -= cost;
@@ -2990,12 +3005,12 @@ app.post('/api/kc/cards/draw', authenticateToken, async (req, res) => {
         const card = new KCCard({
             ownerId: req.userId,
             kingdomId: kingdom._id,
-            cardType,
-            rarity,
-            name: generated.name,
-            lore: generated.lore || '',
-            imagePrompt: generated.imagePrompt || '',
-            stats: generated.stats || {},
+            cardType: cardData.cardType,
+            rarity: cardData.rarity,
+            name: cardData.name,
+            lore: cardData.lore || '',
+            imageUrl: cardData.imageUrl || '',
+            stats: cardData.stats || {},
         });
         await card.save();
 

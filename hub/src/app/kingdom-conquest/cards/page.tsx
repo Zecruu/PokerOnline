@@ -5,7 +5,16 @@ import { useEffect, useState } from "react";
 interface Card {
   _id: string; cardType: string; rarity: string; name: string; lore: string;
   stats: Record<string, any>; isDeployed: boolean; isEquipped: boolean;
+  imageUrl?: string;
 }
+
+const CDN = "https://d2f5lfipdzhi8t.cloudfront.net/kingdom-conquest";
+const BG_IMAGES: Record<string, string> = {
+  common: `${CDN}/backgrounds/bg-common.png`,
+  uncommon: `${CDN}/backgrounds/bg-uncommon.png`,
+  rare: `${CDN}/backgrounds/bg-rare.png`,
+  legendary: `${CDN}/backgrounds/bg-legendary.png`,
+};
 
 const RARITY_BG: Record<string, string> = { common: "#28241c", uncommon: "#1a3d28", rare: "#1a2a4a", legendary: "#3d2200" };
 const RARITY_TEXT: Record<string, string> = { common: "#8a7a62", uncommon: "#4dc880", rare: "#6aabf7", legendary: "#f5d070" };
@@ -132,16 +141,42 @@ export default function CardsPage() {
       <div className="kc-grid kc-grid-2">
         {filtered.map(card => (
           <div key={card._id} style={{
-            padding: 14, borderRadius: 10,
+            borderRadius: 10,
             background: RARITY_BG[card.rarity],
             border: `1px solid ${RARITY_BORDER[card.rarity]}`,
+            overflow: "hidden",
           }}>
+            {/* Card Art with Rarity Background */}
+            <div style={{
+              height: 140, position: "relative",
+              backgroundImage: `url(${BG_IMAGES[card.rarity]})`,
+              backgroundSize: "cover", backgroundPosition: "center",
+            }}>
+              {card.imageUrl && (
+                <img src={card.imageUrl} alt={card.name} style={{
+                  position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)",
+                  height: "130%", objectFit: "contain", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.6))",
+                }} />
+              )}
+              <div style={{
+                position: "absolute", bottom: 0, left: 0, right: 0, height: 40,
+                background: `linear-gradient(transparent, ${RARITY_BG[card.rarity]})`,
+              }} />
+              <span style={{
+                position: "absolute", top: 6, right: 8, fontSize: "0.6rem", fontWeight: 700,
+                textTransform: "uppercase", color: RARITY_TEXT[card.rarity], letterSpacing: 1,
+                background: "rgba(0,0,0,0.5)", padding: "2px 6px", borderRadius: 4,
+              }}>
+                {card.rarity}
+              </span>
+            </div>
+            <div style={{ padding: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
               <span style={{ fontFamily: "Cinzel", fontWeight: 700, color: RARITY_TEXT[card.rarity], fontSize: "0.95rem" }}>
                 {TYPE_ICONS[card.cardType]} {card.name}
               </span>
-              <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", color: RARITY_TEXT[card.rarity], letterSpacing: 1 }}>
-                {card.rarity}
+              <span style={{ fontSize: "0.65rem", color: "#8a7a62", textTransform: "uppercase" }}>
+                {card.cardType}
               </span>
             </div>
             {card.lore && <div style={{ fontSize: "0.75rem", color: "#8a7a62", fontStyle: "italic", marginBottom: 6, lineHeight: 1.4 }}>"{card.lore}"</div>}
@@ -175,6 +210,7 @@ export default function CardsPage() {
                 </span>
               )}
             </div>
+            </div>{/* close padding div */}
           </div>
         ))}
       </div>

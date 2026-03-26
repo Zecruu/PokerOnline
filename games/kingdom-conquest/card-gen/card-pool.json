@@ -1,0 +1,427 @@
+[
+  {
+    "id": "pool_0",
+    "cardType": "unit",
+    "rarity": "common",
+    "age": 1,
+    "name": "Village Militia",
+    "lore": "When the drums of war echo through the valleys, these common folk are wrenched from their fields and handed crude tools of battle. Though ill-trained and poorly equipped, their sheer numbers and desperate will can still prove a dangerous tide.",
+    "stats": {
+      "atk": 18,
+      "def": 12,
+      "speed": 3,
+      "upkeepFood": 2
+    },
+    "imageFile": "card-0.png",
+    "hint": "peasant militia with pitchforks"
+  },
+  {
+    "id": "pool_1",
+    "cardType": "unit",
+    "rarity": "common",
+    "age": 1,
+    "name": "Hamlet Guardian",
+    "lore": "These are the men who stand between their kin and the creeping shadows of the wild. Though their spears are rough-hewn, their resolve is hardened by the fear of what the long night brings.",
+    "stats": {
+      "atk": 18,
+      "def": 12,
+      "speed": 2,
+      "upkeepFood": 3
+    },
+    "imageFile": "card-1.png",
+    "hint": "village watchman with spear"
+  },
+  {
+    "id": "pool_2",
+    "cardType": "unit",
+    "rarity": "common",
+    "age": 1,
+    "name": "Border Scout",
+    "lore": "Ghosting through ancient woods and desolate plains, they are the fleeting eyes of the war host. What they glimpse beyond the horizon often spells the fate of kingdoms.",
+    "stats": {
+      "atk": 18,
+      "def": 10,
+      "speed": 4,
+      "upkeepFood": 4
+    },
+    "imageFile": "card-2.png",
+    "hint": "mounted scout on a horse"
+  },
+  {
+    "id": "pool_3",
+    "cardType": "unit",
+    "rarity": "common",
+    "age": 1,
+    "name": "Fyrd Longbowmen",
+    "lore": "From deep forests and misty fens, these yeomen answer the call, their sinews taut as their bows. With a whistling arrow's song, they sow panic and pierce armor, a relentless rain of death upon the enemy ranks.",
+    "stats": {
+      "atk": 28,
+      "def": 12,
+      "speed": 3,
+      "upkeepFood": 4
+    },
+    "imageFile": "card-3.png",
+    "hint": "archer with a longbow"
+  },
+  {
+    "id": "pool_4",
+    "cardType": "unit",
+    "rarity": "common",
+    "age": 1,
+    "name": "Rustic Shieldbearer",
+    "lore": "Drawn from the humble villages, these warriors wield wooden shields against the coming storm. They may lack fine armor, but their courage forms the foundation of any true warband.",
+    "stats": {
+      "atk": 18,
+      "def": 17,
+      "speed": 2,
+      "upkeepFood": 3
+    },
+    "imageFile": "card-4.png",
+    "hint": "shield bearer with wooden shield"
+  },
+  {
+    "id": "pool_5",
+    "cardType": "unit",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Grimlance Rider",
+    "lore": "They ride like specters through the morning fog, their lances poised for the reckoning. Beneath polished steel lies a spirit forged in endless war, forever bound to the saddle.",
+    "stats": {
+      "atk": 38,
+      "def": 32,
+      "speed": 3,
+      "upkeepFood": 6
+    },
+    "imageFile": "card-5.png",
+    "hint": "armored knight on horseback"
+  },
+  {
+    "id": "pool_6",
+    "cardType": "unit",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Pavise Bolt-Line",
+    "lore": "Behind a moving wall of timber and steel, these grim marksmen unleash a storm of bolts upon their foes. Few can withstand the relentless iron rain that shatters shields and spirits alike.",
+    "stats": {
+      "atk": 48,
+      "def": 32,
+      "speed": 1,
+      "upkeepFood": 5
+    },
+    "imageFile": "card-6.png",
+    "hint": "crossbow squad in formation"
+  },
+  {
+    "id": "pool_7",
+    "cardType": "unit",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Iron Disciplinant",
+    "lore": "Bound by iron oaths and a vow of righteous silence, these cloistered warriors wield their heavy maces with divine fury. Their penance is wrought upon the skulls of the faithless, leaving only shattered bone and a trail of grim resolve.",
+    "stats": {
+      "atk": 40,
+      "def": 28,
+      "speed": 2,
+      "upkeepFood": 4
+    },
+    "imageFile": "card-7.png",
+    "hint": "war monk with mace"
+  },
+  {
+    "id": "pool_8",
+    "cardType": "unit",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Ironhide Ramwrights",
+    "lore": "Their massive ram, a beast of timber and iron, pounds against stone with the rhythm of impending doom. These grim engineers care little for the carnage within, only for the shattering of the enemy's unyielding gates.",
+    "stats": {
+      "atk": 48,
+      "def": 25,
+      "speed": 1,
+      "upkeepFood": 6
+    },
+    "imageFile": "card-8.png",
+    "hint": "siege engineer with battering ram"
+  },
+  {
+    "id": "pool_9",
+    "cardType": "unit",
+    "rarity": "rare",
+    "age": 3,
+    "name": "Celestial Vindicator",
+    "lore": "A beacon of divine wrath, his sacred vow shines brighter than any star, yet the shadows of countless battles cling to his righteous blade. He walks a path paved with both miracles and screams, forever bound to the grim toll of holy war.",
+    "stats": {
+      "atk": 65,
+      "def": 48,
+      "speed": 3,
+      "upkeepFood": 7
+    },
+    "imageFile": "card-9.png",
+    "hint": "holy crusader paladin in shining armor"
+  },
+  {
+    "id": "pool_10",
+    "cardType": "unit",
+    "rarity": "rare",
+    "age": 3,
+    "name": "Stormgale Dragon-Knight",
+    "lore": "Forged in the heart of tempest, these knights bind their souls to ancient wyrms, riding the very lightning itself. Their descent from the shattered sky signals doom for all below, a dark harbinger amidst the holy war.",
+    "stats": {
+      "atk": 68,
+      "def": 42,
+      "speed": 5,
+      "upkeepFood": 7
+    },
+    "imageFile": "card-10.png",
+    "hint": "dragon rider soaring through storm"
+  },
+  {
+    "id": "pool_11",
+    "cardType": "unit",
+    "rarity": "rare",
+    "age": 3,
+    "name": "Emperor's Auric Blades",
+    "lore": "Clad in sun-forged gold, these elite protectors stand as the Emperor's final bulwark against the encroaching night, their radiant armor a beacon of both hope and the grim harvest of war. Each gilded helm conceals a soul bound by unbreakable oath, destined to guard thrones until the last light fades, often at the cost of their own.",
+    "stats": {
+      "atk": 68,
+      "def": 50,
+      "speed": 2,
+      "upkeepFood": 6
+    },
+    "imageFile": "card-11.png",
+    "hint": "elite royal guard with golden armor"
+  },
+  {
+    "id": "pool_12",
+    "cardType": "unit",
+    "rarity": "legendary",
+    "age": 5,
+    "name": "The Ossuary Sovereign",
+    "lore": "From a throne sculpted of ancient kings' bones, the Lich-King's unholy will extends like a frostbite across the land. His very presence drains life from the soil and courage from the hearts of mortals, paving the way for his eternal dominion.",
+    "stats": {
+      "atk": 118,
+      "def": 79,
+      "speed": 2,
+      "upkeepFood": 5
+    },
+    "imageFile": "card-12.png",
+    "hint": "ancient lich king on a bone throne"
+  },
+  {
+    "id": "pool_13",
+    "cardType": "unit",
+    "rarity": "legendary",
+    "age": 5,
+    "name": "Empyrean Flameblade",
+    "lore": "From the heavens it descends, a searing light amidst the encroaching shadows, its blade a roaring inferno. Though salvation may follow, the scorched earth and despairing cries of its foes echo long after its divine fury departs.",
+    "stats": {
+      "atk": 115,
+      "def": 78,
+      "speed": 4,
+      "upkeepFood": 7
+    },
+    "imageFile": "card-13.png",
+    "hint": "divine archangel with flaming sword"
+  },
+  {
+    "id": "pool_14",
+    "cardType": "spell",
+    "rarity": "common",
+    "age": 1,
+    "name": "Blazing Skyfall",
+    "lore": "Witness the wrath of the skies, as countless flaming shafts pierce the night, igniting despair. The very stone of their bulwarks weeps molten death, reduced to ash under the infernal deluge.",
+    "stats": {
+      "wallDamage": 70,
+      "atkBonus": 10
+    },
+    "imageFile": "card-14.png",
+    "hint": "flaming arrows raining from sky"
+  },
+  {
+    "id": "pool_15",
+    "cardType": "spell",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Thunderclap Breach",
+    "lore": "The heavens themselves betray the stone, shattering the stoutest defenses with a blinding flash. What once stood proud now crumbles to dust, a testament to the storm's unforgiving might.",
+    "stats": {
+      "wallDamage": 95,
+      "atkBonus": 30
+    },
+    "imageFile": "card-15.png",
+    "hint": "lightning bolt striking castle wall"
+  },
+  {
+    "id": "pool_16",
+    "cardType": "spell",
+    "rarity": "rare",
+    "age": 3,
+    "name": "Smite of the Seraphim",
+    "lore": "When the heavens split, not even the righteous can stand unblemished beneath its purifying fire. A searing pillar descends, scorching earth and soul, leaving only echoes of blasphemy in its wake.",
+    "stats": {
+      "wallDamage": 165,
+      "atkBonus": 55
+    },
+    "imageFile": "card-16.png",
+    "hint": "holy smite divine beam from heaven"
+  },
+  {
+    "id": "pool_17",
+    "cardType": "spell",
+    "rarity": "legendary",
+    "age": 5,
+    "name": "Celestial Cataclysm",
+    "lore": "The sky weeps fire upon the bastions of men, turning mighty walls to molten slag. From the void, a rain of destruction heralds the true end of empires.",
+    "stats": {
+      "wallDamage": 265,
+      "atkBonus": 80
+    },
+    "imageFile": "card-17.png",
+    "hint": "apocalyptic meteor shower destroying fortress"
+  },
+  {
+    "id": "pool_18",
+    "cardType": "event",
+    "rarity": "common",
+    "age": 1,
+    "name": "Golden Harvest",
+    "lore": "The celestial orb, full and ripe, bathes the autumn fields in a pale, ethereal light. Yet, even in abundance, the gnawing specter of winter's hunger looms, a reminder of fleeting plenty.",
+    "stats": {
+      "effectValue": 35,
+      "durationTicks": 6,
+      "targetResource": "food",
+      "isPositive": true
+    },
+    "imageFile": "card-18.png",
+    "hint": "bountiful harvest moon over fields"
+  },
+  {
+    "id": "pool_19",
+    "cardType": "event",
+    "rarity": "common",
+    "age": 1,
+    "name": "Merchant's Halt",
+    "lore": "Dust stirred on the horizon as a line of burdened carts approached, their creaking wheels a rare sound in these desolate lands. Though they bring exotic goods, the shadow of distant empires and their endless wars follows closely behind them.",
+    "stats": {
+      "effectValue": 30,
+      "durationTicks": 4,
+      "targetResource": "gold",
+      "isPositive": true
+    },
+    "imageFile": "card-19.png",
+    "hint": "traveling merchant caravan"
+  },
+  {
+    "id": "pool_20",
+    "cardType": "event",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Gnawing Pestilence",
+    "lore": "From shadowed alleys and crumbling sewers, a tide of twitching whiskers and beady eyes emerges. They carry a silent blight, whispering death through the city's very foundations and into its populace.",
+    "stats": {
+      "effectValue": 55,
+      "durationTicks": 7,
+      "targetResource": "manpower",
+      "isPositive": false
+    },
+    "imageFile": "card-20.png",
+    "hint": "plague rats in medieval city"
+  },
+  {
+    "id": "pool_21",
+    "cardType": "event",
+    "rarity": "rare",
+    "age": 3,
+    "name": "The Sun's Devouring Shadow",
+    "lore": "The sun, once a beacon of divine light, is consumed by an unseen maw, plunging the lands into an unnatural twilight. Whispers of God's wrath spread like wildfire through the crusader camps, chilling even the stoutest hearts.",
+    "stats": {
+      "effectValue": 65,
+      "durationTicks": 7,
+      "targetResource": "faith",
+      "isPositive": false
+    },
+    "imageFile": "card-21.png",
+    "hint": "solar eclipse omen"
+  },
+  {
+    "id": "pool_22",
+    "cardType": "relic",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Thorned Diadem of the Founder",
+    "lore": "Forged in the dawn of kingdoms, this crown once held the very will of the first sovereign, binding his subjects with unyielding loyalty. Now, its thorns prick the mind of any who wear it, whispering forgotten oaths and ancient, bloody ambitions.",
+    "stats": {
+      "passiveBonus": "+1 Max Loyalty in all provinces"
+    },
+    "imageFile": "card-22.png",
+    "hint": "ancient crown of the first king"
+  },
+  {
+    "id": "pool_23",
+    "cardType": "relic",
+    "rarity": "rare",
+    "age": 3,
+    "name": "Sanctus Lux Grail",
+    "lore": "Within its hallowed depths, the Grail pulses with a light not of this world, a beacon of purest grace for the faithful. Yet, its divine glow casts long shadows across the battlefields, demanding blood and sacrifice for every step towards its ethereal promise.",
+    "stats": {
+      "passiveBonus": "+15% Morale for all Units and +10% Combat Strength in Holy Land regions"
+    },
+    "imageFile": "card-23.png",
+    "hint": "holy grail glowing with divine light"
+  },
+  {
+    "id": "pool_24",
+    "cardType": "relic",
+    "rarity": "legendary",
+    "age": 5,
+    "name": "Dragon's Emberfang",
+    "lore": "Forged from the colossal tooth of a fire-drake slain in the Great Blight, this amulet pulses with the beast's eternal inferno. Its wearer feels the primal urge to dominate, burning away all who stand against the Imperial Dominion.",
+    "stats": {
+      "passiveBonus": "+15% Offensive Combat Strength and +10% Siege Efficiency"
+    },
+    "imageFile": "card-24.png",
+    "hint": "dragon tooth amulet wreathed in fire"
+  },
+  {
+    "id": "pool_25",
+    "cardType": "building",
+    "rarity": "common",
+    "age": 1,
+    "name": "Mystic Village Well",
+    "lore": "Beneath the village's ancient timbers, the well's depths reflect a sickly, shimmering light. Its icy waters are said to grant visions, yet few return from its edge with their sanity fully intact.",
+    "stats": {
+      "primaryResource": "faith",
+      "outputPerTick": 120
+    },
+    "imageFile": "card-25.png",
+    "hint": "mystical well in village square"
+  },
+  {
+    "id": "pool_26",
+    "cardType": "building",
+    "rarity": "uncommon",
+    "age": 2,
+    "name": "Feywatch Bastion",
+    "lore": "Perched high above mortal lands, the stones of this lonely bastion pulse with an ancient, ethereal light, guarding secrets unseen. Its crystalline gaze pierces all veils, revealing threats long before they coalesce, though many claim the tower's true masters never speak a word.",
+    "stats": {
+      "primaryResource": "faith",
+      "outputPerTick": 220
+    },
+    "imageFile": "card-26.png",
+    "hint": "enchanted watchtower on hill"
+  },
+  {
+    "id": "pool_27",
+    "cardType": "building",
+    "rarity": "rare",
+    "age": 3,
+    "name": "Silent Archives of Antioch",
+    "lore": "Deep beneath the crusader city, ancient scrolls whisper truths that defy the Holy Word, guarded by shadowed zealots of forgotten creeds. Its unholy wisdom promises power beyond mortal ken, but demands a terrible price in souls and unwavering devotion to darker truths.",
+    "stats": {
+      "primaryResource": "faith",
+      "outputPerTick": 380
+    },
+    "imageFile": "card-27.png",
+    "hint": "ancient library of forbidden knowledge"
+  }
+]
