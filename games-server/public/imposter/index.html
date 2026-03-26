@@ -531,10 +531,6 @@
         <div class="ip-all-done">
             <h2>Everyone has seen their word!</h2>
             <p>Discuss, ask questions, and figure out who the imposter is. The imposter only got a vague hint - they're bluffing!</p>
-            <div style="background:#111;border-radius:12px;padding:20px;margin:20px 0;">
-                <div style="color:#666;font-size:0.85em;margin-bottom:6px;">Category</div>
-                <div style="font-size:1.3em;font-weight:700;color:#ff8800;" id="ip-discuss-category"></div>
-            </div>
             <button class="btn-primary" onclick="ipRevealAnswer()" style="margin-top:10px;">
                 Reveal the Answer
             </button>
@@ -841,7 +837,7 @@ function ipReveal() {
         roleEl.style.color = '#88ff88';
         wordEl.className = 'the-word normal';
         wordEl.textContent = ipCurrentWord.word;
-        catEl.textContent = `Category: ${ipCurrentWord.category}`;
+        catEl.textContent = '';
     }
 
     // Update button text
@@ -860,7 +856,6 @@ function ipNext() {
     } else {
         // All players have seen their word — go to discussion
         showScreen('ip-discuss');
-        document.getElementById('ip-discuss-category').textContent = ipCurrentWord.category;
         document.getElementById('ip-discuss-round').textContent = `Round ${ipRound}`;
     }
 }
