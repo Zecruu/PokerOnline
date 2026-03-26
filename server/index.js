@@ -2873,6 +2873,199 @@ app.get('/api/kc/cards', authenticateToken, async (req, res) => {
     }
 });
 
+// ─── Draw Card (Gemini AI) ────────────────────────────────
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const kcGemini = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
+const KC_DRAW_COSTS = { common: 500, uncommon: 1500, rare: 4000, legendary: 12000 };
+const KC_RARITY_WEIGHTS = [ // cumulative
+    { rarity: 'legendary', threshold: 0.05 },
+    { rarity: 'rare', threshold: 0.20 },
+    { rarity: 'uncommon', threshold: 0.50 },
+    { rarity: 'common', threshold: 1.0 },
+];
+const KC_TYPE_WEIGHTS = [
+    { type: 'unit', threshold: 0.35 },
+    { type: 'spell', threshold: 0.55 },
+    { type: 'event', threshold: 0.75 },
+    { type: 'building', threshold: 0.90 },
+    { type: 'relic', threshold: 1.0 },
+];
+
+const AGE_TAGS = ['Dark Ages', 'Feudal Era', 'Crusade Age', 'Renaissance', 'Imperial Dominion'];
+const RARITY_POWER = { common: 1, uncommon: 1.5, rare: 2.2, legendary: 3.5 };
+
+async function generateCardWithGemini(cardType, rarity, age) {
+    if (!kcGemini) return generateFallbackCard(cardType, rarity, age);
+
+    const power = RARITY_POWER[rarity];
+    const ageName = AGE_TAGS[(age || 1) - 1];
+
+    let statsPrompt = '';
+    if (cardType === 'unit') statsPrompt = `"atk": number (${Math.floor(10*power)}-${Math.floor(35*power)}), "def": number (${Math.floor(8*power)}-${Math.floor(25*power)}), "speed": number (1-5), "upkeepFood": number (2-8)`;
+    else if (cardType === 'spell') statsPrompt = `"wallDamage": number (20-${Math.floor(80*power)}), "atkBonus": number (0-${Math.floor(30*power)})`;
+    else if (cardType === 'event') statsPrompt = `"effectValue": number (10-${Math.floor(40*power)}), "durationTicks": number (3-10), "targetResource": "gold|food|wood|stone|faith|manpower", "isPositive": boolean`;
+    else if (cardType === 'relic') statsPrompt = `"passiveBonus": "string — e.g. +15% gold income", "specialUnlock": "string or null"`;
+    else if (cardType === 'building') statsPrompt = `"primaryResource": "gold|food|wood|stone|faith|manpower", "outputPerTick": number (${Math.floor(50*power)}-${Math.floor(200*power)}), "specialEffect": "string — 1 sentence"`;
+
+    const prompt = `You are generating a card for a medieval conquest game called Kingdom Conquest.
+Generate a ${rarity} ${cardType} card set in the ${ageName}.
+
+IMPORTANT: Return ONLY valid JSON. No markdown, no backticks, no explanation.
+
+{
+  "name": "string — evocative medieval name, 2-4 words",
+  "lore": "string — exactly 2 sentences of dark/poetic flavor text",
+  "imagePrompt": "string — detailed art prompt: medieval fantasy, dark oil painting style, dramatic lighting",
+  "stats": { ${statsPrompt} }
+}`;
+
+    try {
+        const model = kcGemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().replace(/```json|```/g, '').trim();
+        return JSON.parse(text);
+    } catch (e) {
+        console.error('Gemini card gen failed, using fallback:', e.message);
+        return generateFallbackCard(cardType, rarity, age);
+    }
+}
+
+function generateFallbackCard(cardType, rarity, age) {
+    const power = RARITY_POWER[rarity];
+    const names = {
+        unit: ['Peasant Levy', 'Shield Bearer', 'Iron Knight', 'War Marshal', 'Doom Legion', 'Holy Templar', 'Shadow Assassin', 'Siege Breaker'],
+        spell: ['Flaming Arrow', 'Holy Smite', 'Wall Breaker', 'Dark Ritual', 'Thunder Strike', 'Plague Wind'],
+        event: ['Harvest Moon', 'Trade Caravan', 'Holy Festival', 'Bandit Raid', 'Plague', 'Gold Rush', 'Famine'],
+        relic: ['Crown of Ages', 'Warlord\'s Brand', 'Holy Grail', 'Dragon Tooth', 'Scepter of Command'],
+        building: ['Mystic Tower', 'War Forge', 'Sacred Grove', 'Dark Citadel', 'Golden Vault'],
+    };
+    const name = names[cardType][Math.floor(Math.random() * names[cardType].length)];
+    const stats = {};
+    if (cardType === 'unit') { stats.atk = Math.floor(15 * power + Math.random() * 20 * power); stats.def = Math.floor(10 * power + Math.random() * 15 * power); stats.speed = Math.ceil(Math.random() * 5); stats.upkeepFood = Math.ceil(2 + Math.random() * 6); }
+    else if (cardType === 'spell') { stats.wallDamage = Math.floor(20 + Math.random() * 60 * power); stats.atkBonus = Math.floor(Math.random() * 30 * power); }
+    else if (cardType === 'event') { stats.effectValue = Math.floor(10 + Math.random() * 30 * power); stats.durationTicks = Math.floor(3 + Math.random() * 7); stats.targetResource = ['gold','food','wood','stone','faith','manpower'][Math.floor(Math.random()*6)]; stats.isPositive = Math.random() > 0.3; }
+    else if (cardType === 'relic') { stats.passiveBonus = `+${Math.floor(5 + Math.random() * 20)}% ${['gold','food','wood','stone','faith'][Math.floor(Math.random()*5)]} income`; }
+    else if (cardType === 'building') { stats.primaryResource = ['gold','food','wood','stone','faith','manpower'][Math.floor(Math.random()*6)]; stats.outputPerTick = Math.floor(50 * power + Math.random() * 150 * power); stats.specialEffect = 'Provides a passive bonus to nearby buildings.'; }
+
+    return { name, lore: `Forged in the ${AGE_TAGS[(age||1)-1]}. Its power echoes through the ages.`, imagePrompt: '', stats };
+}
+
+app.post('/api/kc/cards/draw', authenticateToken, async (req, res) => {
+    try {
+        const kingdom = await KCKingdom.findOne({ playerId: req.userId });
+        if (!kingdom) return res.status(404).json({ error: 'No kingdom' });
+
+        // Check card limit
+        const cardCount = await KCCard.countDocuments({ ownerId: req.userId, isListed: false });
+        if (cardCount >= 40) return res.status(400).json({ error: 'Card hand full (40/40)!' });
+
+        // Roll rarity
+        const roll = Math.random();
+        let rarity = 'common';
+        for (const w of KC_RARITY_WEIGHTS) { if (roll < w.threshold) { rarity = w.rarity; break; } }
+
+        // Age-gated rarities
+        if (rarity === 'legendary' && kingdom.age < 5) rarity = 'rare';
+        if (rarity === 'rare' && kingdom.age < 2) rarity = 'uncommon';
+
+        // Check cost
+        const cost = KC_DRAW_COSTS[rarity];
+        if (kingdom.resources.gold < cost) return res.status(400).json({ error: `Not enough gold! Need ${cost}` });
+
+        // Roll card type
+        const typeRoll = Math.random();
+        let cardType = 'unit';
+        for (const w of KC_TYPE_WEIGHTS) { if (typeRoll < w.threshold) { cardType = w.type; break; } }
+
+        // Generate card
+        const generated = await generateCardWithGemini(cardType, rarity, kingdom.age);
+
+        // Deduct gold
+        kingdom.resources.gold -= cost;
+        kingdom.markModified('resources');
+        await kingdom.save();
+
+        // Save card
+        const card = new KCCard({
+            ownerId: req.userId,
+            kingdomId: kingdom._id,
+            cardType,
+            rarity,
+            name: generated.name,
+            lore: generated.lore || '',
+            imagePrompt: generated.imagePrompt || '',
+            stats: generated.stats || {},
+        });
+        await card.save();
+
+        res.json({ success: true, card, goldSpent: cost, remainingGold: kingdom.resources.gold });
+    } catch (error) {
+        console.error('KC card draw error:', error);
+        res.status(500).json({ error: 'Failed to draw card' });
+    }
+});
+
+// ─── Deploy/Unplay Card ──────────────────────────────────
+app.post('/api/kc/cards/play', authenticateToken, async (req, res) => {
+    try {
+        const { cardId, action } = req.body; // action: 'deploy' | 'undeploy' | 'equip' | 'unequip' | 'activate' | 'discard'
+        const card = await KCCard.findOne({ _id: cardId, ownerId: req.userId });
+        if (!card) return res.status(404).json({ error: 'Card not found' });
+
+        const kingdom = await KCKingdom.findOne({ playerId: req.userId });
+        if (!kingdom) return res.status(404).json({ error: 'No kingdom' });
+
+        if (action === 'deploy' && card.cardType === 'unit') {
+            card.isDeployed = true;
+            kingdom.deployedUnits.push(card._id);
+            kingdom.garrisonPower += (card.stats.def || 0);
+            await card.save();
+            await kingdom.save();
+        } else if (action === 'undeploy' && card.cardType === 'unit') {
+            card.isDeployed = false;
+            kingdom.deployedUnits = kingdom.deployedUnits.filter(id => id.toString() !== cardId);
+            kingdom.garrisonPower = Math.max(0, kingdom.garrisonPower - (card.stats.def || 0));
+            await card.save();
+            await kingdom.save();
+        } else if (action === 'equip' && card.cardType === 'relic') {
+            if (kingdom.equippedRelics.length >= 3) return res.status(400).json({ error: 'Max 3 relics equipped' });
+            card.isEquipped = true;
+            kingdom.equippedRelics.push(card._id);
+            await card.save();
+            await kingdom.save();
+        } else if (action === 'unequip' && card.cardType === 'relic') {
+            card.isEquipped = false;
+            kingdom.equippedRelics = kingdom.equippedRelics.filter(id => id.toString() !== cardId);
+            await card.save();
+            await kingdom.save();
+        } else if (action === 'activate' && card.cardType === 'event') {
+            kingdom.activeEvents.push({
+                cardId: card._id,
+                expiresAtTick: (kingdom.totalTicks || 0) + (card.stats.durationTicks || 5),
+                effect: card.stats,
+            });
+            await KCCard.deleteOne({ _id: card._id }); // consumed
+            await kingdom.save();
+        } else if (action === 'discard') {
+            // Discard for 10% gold refund
+            const refund = Math.floor(KC_DRAW_COSTS[card.rarity] * 0.1);
+            kingdom.resources.gold = Math.min(kingdom.resources.gold + refund, kingdom.storageCaps.gold);
+            kingdom.markModified('resources');
+            await KCCard.deleteOne({ _id: card._id });
+            await kingdom.save();
+            return res.json({ success: true, refund });
+        } else {
+            return res.status(400).json({ error: 'Invalid action' });
+        }
+
+        res.json({ success: true, card, kingdom });
+    } catch (error) {
+        console.error('KC card play error:', error);
+        res.status(500).json({ error: 'Failed to play card' });
+    }
+});
+
 // ─── Get Raid Log ────────────────────────────────────────
 app.get('/api/kc/raids', authenticateToken, async (req, res) => {
     try {
