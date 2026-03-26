@@ -3436,24 +3436,24 @@ function getDifficultyTier(wave) {
 // Get spawn rate multiplier by wave (lower = more frequent spawns)
 // Base spawn rate = 500ms * this multiplier
 function getSpawnRateMultByWave(wave) {
-    if (wave <= 1) return 0.60;   // Wave 1: fast from the start (~3.3/s)
-    if (wave <= 3) return 0.50;   // Waves 2-3: pressure early (~4/s)
-    if (wave <= 6) return 0.40;   // Waves 4-6: intense (~5/s)
-    if (wave <= 9) return 0.30;   // Waves 7-9: swarming
-    if (wave <= 12) return 0.22;  // Waves 10-12: overwhelming
-    if (wave <= 15) return 0.16;  // Waves 13-15: chaotic hordes
-    return 0.12;                  // Waves 16+: max pressure
+    if (wave <= 1) return 0.35;   // Wave 1: aggressive (~5.7/s)
+    if (wave <= 3) return 0.28;   // Waves 2-3: intense (~7/s)
+    if (wave <= 6) return 0.22;   // Waves 4-6: swarming (~9/s)
+    if (wave <= 9) return 0.16;   // Waves 7-9: overwhelming
+    if (wave <= 12) return 0.12;  // Waves 10-12: chaos
+    if (wave <= 15) return 0.09;  // Waves 13-15: max pressure
+    return 0.07;                  // Waves 16+: insane
 }
 
 // Get max alive enemy cap by wave
 function getMaxAliveByWave(wave) {
-    if (wave <= 3) return 60;
-    if (wave <= 6) return 100;
-    if (wave <= 9) return 180;
-    if (wave <= 12) return 300;
-    if (wave <= 15) return 420;
-    if (wave <= 20) return 550;
-    return 650;
+    if (wave <= 3) return 80;
+    if (wave <= 6) return 150;
+    if (wave <= 9) return 250;
+    if (wave <= 12) return 400;
+    if (wave <= 15) return 550;
+    if (wave <= 20) return 700;
+    return 800;
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
@@ -14720,7 +14720,7 @@ class DotsSurvivor {
             choices.push(rune);
         }
 
-        // ─── PASSIVE ABILITY SIGIL SLOT (guaranteed in slot 1) ─────────────
+        // ─── PASSIVE ABILITY SIGIL SLOT (25% chance to appear in slot 1) ─────────────
         const ownedSigilSet = new Set(this.boundSigils || []);
         const abilityBases = PASSIVE_ABILITY_SIGILS.filter(s => !s.req);
         const abilityUpgrades = PASSIVE_ABILITY_SIGILS.filter(s => !!s.req);
@@ -14728,15 +14728,18 @@ class DotsSurvivor {
         const availableUpgrades = abilityUpgrades.filter(s =>
             !ownedSigilSet.has(s.id) && !usedIds.has(s.id) && s.req && ownedSigilSet.has(s.req)
         );
-        let abilitySigilToOffer = null;
-        if (availableBases.length > 0) {
-            abilitySigilToOffer = availableBases[Math.floor(Math.random() * availableBases.length)];
-        } else if (availableUpgrades.length > 0) {
-            abilitySigilToOffer = availableUpgrades[Math.floor(Math.random() * availableUpgrades.length)];
-        }
-        if (abilitySigilToOffer) {
-            choices[1] = abilitySigilToOffer;
-            usedIds.add(abilitySigilToOffer.id);
+        // Only 25% chance to offer an ability sigil (not guaranteed every level)
+        if (Math.random() < 0.25) {
+            let abilitySigilToOffer = null;
+            if (availableBases.length > 0) {
+                abilitySigilToOffer = availableBases[Math.floor(Math.random() * availableBases.length)];
+            } else if (availableUpgrades.length > 0) {
+                abilitySigilToOffer = availableUpgrades[Math.floor(Math.random() * availableUpgrades.length)];
+            }
+            if (abilitySigilToOffer) {
+                choices[1] = abilitySigilToOffer;
+                usedIds.add(abilitySigilToOffer.id);
+            }
         }
 
         // Chaos Sigil: 20% chance to replace one slot (wave 5+), or always on guaranteed high roll waves
