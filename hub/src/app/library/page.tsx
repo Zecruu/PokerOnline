@@ -71,7 +71,7 @@ const ALL_GAMES = [
     id: "critter-colony",
     title: "Critter Colony",
     description: "Capture critters, build workstations, and automate your colony! AFK gains keep your critters working while you're away.",
-    thumbnail: "/games/critter-colony/thumbnail.webp",
+    thumbnail: "https://d2f5lfipdzhi8t.cloudfront.net/critter-colony/thumbnail.webp",
     href: "/games/critter-colony/index.html",
     badge: "NEW",
     badgeColor: "green" as const,
