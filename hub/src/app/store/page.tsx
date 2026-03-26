@@ -88,7 +88,7 @@ const ALL_GAMES = [
     id: "imposter",
     title: "Who's The Imposter?",
     description: "One word. One liar. Play in person or online — everyone gets the word except the imposter, who only gets a hint. Find the faker!",
-    thumbnail: "/games/imposter/thumbnail.png",
+    thumbnail: "https://games.zecrugames.com/imposter/thumbnail.png",
     href: "https://games.zecrugames.com/imposter/",
     badge: "NEW",
     badgeColor: "gold" as const,
