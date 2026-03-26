@@ -84,6 +84,17 @@ const ALL_GAMES = [
     isFree: true,
     category: "strategy",
   },
+  {
+    id: "imposter",
+    title: "Who's The Imposter?",
+    description: "One word. One liar. Play in person or online — everyone gets the word except the imposter, who only gets a hint. Find the faker!",
+    thumbnail: "/games/imposter/thumbnail.png",
+    href: "https://games.zecrugames.com/imposter/",
+    badge: "NEW",
+    badgeColor: "gold" as const,
+    isFree: true,
+    category: "party",
+  },
 ];
 
 const CATEGORIES = [
@@ -92,6 +103,7 @@ const CATEGORIES = [
   { id: "action", label: "Action" },
   { id: "card", label: "Card Games" },
   { id: "strategy", label: "Strategy" },
+  { id: "party", label: "Party" },
 ];
 
 export default function StorePage() {

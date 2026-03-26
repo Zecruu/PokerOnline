@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Who's The Imposter Among Us?</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #app {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #ff4444, #ff8800);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        input, button, select {
+            font-family: inherit;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 20px;
+            width: 100%;
+            outline: none;
+        }
+
+        input {
+            background: #1a1a2e;
+            color: #fff;
+            border: 1px solid #333;
+            margin-bottom: 12px;
+        }
+
+        input:focus { border-color: #ff4444; }
+        input::placeholder { color: #555; }
+
+        select {
+            background: #1a1a2e;
+            color: #fff;
+            border: 1px solid #333;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff4444, #cc2200);
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .btn-secondary {
+            background: #1a1a2e;
+            color: #ccc;
+            border: 1px solid #333;
+            margin-bottom: 10px;
+        }
+
+        .btn-secondary:hover { border-color: #ff4444; color: #fff; }
+
+        .btn-small {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 0.85em;
+            display: inline-block;
+        }
+
+        /* Mode Selection */
+        .mode-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        .mode-card {
+            background: #1a1a2e;
+            border: 2px solid #333;
+            border-radius: 16px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-card:hover { border-color: #ff4444; background: #221122; }
+        .mode-card.selected { border-color: #ff4444; background: #2a1122; box-shadow: 0 0 20px rgba(255, 68, 68, 0.15); }
+
+        .mode-icon { font-size: 2.5em; margin-bottom: 10px; display: block; }
+        .mode-title { font-size: 1.1em; font-weight: 700; margin-bottom: 4px; }
+        .mode-desc { font-size: 0.75em; color: #888; }
+
+        /* Room code */
+        .room-code {
+            text-align: center;
+            font-size: 3em;
+            font-weight: 800;
+            letter-spacing: 12px;
+            color: #ff4444;
+            margin: 20px 0;
+            text-shadow: 0 0 30px rgba(255, 68, 68, 0.3);
+        }
+
+        .player-list {
+            list-style: none;
+            margin: 15px 0;
+        }
+
+        .player-list li {
+            background: #1a1a2e;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .player-name { flex: 1; }
+
+        .host-badge {
+            font-size: 0.7em;
+            background: #ff8800;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .you-badge {
+            font-size: 0.7em;
+            background: #444;
+            color: #ccc;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* Word display */
+        .word-display {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .your-role {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .the-word {
+            font-size: 3em;
+            font-weight: 800;
+            padding: 20px;
+            border-radius: 16px;
+            background: #111;
+        }
+
+        .the-word.normal {
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .the-word.imposter {
+            color: #ff3333;
+            text-shadow: 0 0 30px rgba(255, 0, 0, 0.4);
+        }
+
+        .category-label {
+            margin-top: 12px;
+            color: #666;
+            font-size: 0.85em;
+        }
+
+        /* In-Person: tap to reveal */
+        .reveal-area {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .reveal-btn {
+            background: linear-gradient(135deg, #333, #222);
+            border: 2px dashed #555;
+            color: #aaa;
+            padding: 40px 20px;
+            border-radius: 16px;
+            font-size: 1.2em;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .reveal-btn:hover { border-color: #ff4444; color: #fff; }
+
+        .player-turn-label {
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #ff8800;
+            margin-bottom: 12px;
+        }
+
+        .pass-notice {
+            text-align: center;
+            color: #666;
+            font-size: 0.85em;
+            margin-top: 12px;
+        }
+
+        /* Timer */
+        .timer {
+            text-align: center;
+            font-size: 2em;
+            font-weight: 700;
+            color: #ff8800;
+            margin: 10px 0;
+        }
+
+        .timer.urgent { color: #ff2222; animation: pulse 0.5s infinite alternate; }
+
+        @keyframes pulse { to { opacity: 0.5; } }
+
+        .phase-label {
+            text-align: center;
+            font-size: 1.1em;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        /* Vote Grid */
+        .vote-section { margin-top: 20px; }
+
+        .vote-section h3 {
+            text-align: center;
+            margin-bottom: 12px;
+            color: #ff8800;
+        }
+
+        .vote-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .vote-btn {
+            background: #1a1a2e;
+            border: 2px solid #333;
+            color: #fff;
+            padding: 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .vote-btn:hover { border-color: #ff4444; background: #221122; }
+        .vote-btn.voted { border-color: #ff4444; background: #331111; }
+        .vote-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+        .vote-count {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Results */
+        .results-box {
+            text-align: center;
+            padding: 30px;
+            border-radius: 16px;
+            margin: 20px 0;
+        }
+
+        .results-box.crew-wins {
+            background: linear-gradient(135deg, #112211, #0a1a0a);
+            border: 2px solid #44ff44;
+        }
+
+        .results-box.imposter-wins {
+            background: linear-gradient(135deg, #221111, #1a0a0a);
+            border: 2px solid #ff4444;
+        }
+
+        .results-title {
+            font-size: 1.8em;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .results-box.crew-wins .results-title { color: #44ff44; }
+        .results-box.imposter-wins .results-title { color: #ff4444; }
+
+        .results-detail { color: #aaa; margin-bottom: 6px; }
+
+        .results-word {
+            font-size: 1.3em;
+            color: #fff;
+            margin-top: 15px;
+        }
+
+        /* Chat */
+        .chat-box {
+            background: #111;
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .chat-msg {
+            font-size: 0.85em;
+            padding: 3px 0;
+            color: #bbb;
+        }
+
+        .chat-msg .name { font-weight: 600; }
+
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .chat-input-row input { flex: 1; margin: 0; }
+        .chat-input-row button { width: auto; padding: 10px 18px; }
+
+        /* Settings */
+        .settings-row {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            align-items: center;
+        }
+
+        .settings-row label {
+            color: #888;
+            font-size: 0.85em;
+            white-space: nowrap;
+        }
+
+        .settings-row select {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .status-msg {
+            text-align: center;
+            color: #888;
+            font-size: 0.9em;
+            margin: 10px 0;
+        }
+
+        .round-info {
+            text-align: center;
+            color: #666;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+
+        .scoreboard { margin: 15px 0; }
+
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            margin-bottom: 4px;
+        }
+
+        .score-pts { color: #ff8800; font-weight: 700; }
+
+        /* In-person player setup */
+        .ip-player-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .ip-player-row input { flex: 1; margin: 0; }
+
+        .ip-player-row .remove-btn {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            background: #331111;
+            color: #ff4444;
+            border-radius: 8px;
+            font-size: 1.2em;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-player-btn {
+            background: none;
+            border: 1px dashed #555;
+            color: #888;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .add-player-btn:hover { border-color: #ff4444; color: #fff; }
+
+        /* In-person all-revealed screen */
+        .ip-all-done {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .ip-all-done h2 {
+            color: #ff8800;
+            margin-bottom: 10px;
+        }
+
+        .ip-all-done p {
+            color: #888;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h1>Who's The Imposter?</h1>
+    <p class="subtitle">Find the imposter among your friends</p>
+
+    <!-- MODE SELECT SCREEN -->
+    <div id="screen-mode" class="screen active">
+        <div class="mode-cards">
+            <div class="mode-card" id="mode-inperson" onclick="selectMode('inperson')">
+                <span class="mode-icon">&#x1F3E0;</span>
+                <div class="mode-title">In Person</div>
+                <div class="mode-desc">Pass the phone around. Everyone peeks at their word.</div>
+            </div>
+            <div class="mode-card" id="mode-online" onclick="selectMode('online')">
+                <span class="mode-icon">&#x1F310;</span>
+                <div class="mode-title">Online</div>
+                <div class="mode-desc">Play remotely with chat and voting.</div>
+            </div>
+        </div>
+        <p class="status-msg" id="mode-status"></p>
+    </div>
+
+    <!-- ======================== -->
+    <!-- IN-PERSON FLOW           -->
+    <!-- ======================== -->
+
+    <!-- In-Person Setup -->
+    <div id="screen-ip-setup" class="screen">
+        <h2 style="text-align:center;margin-bottom:15px;color:#ff8800;">In-Person Setup</h2>
+        <p class="status-msg">Enter all player names (3-12 players)</p>
+        <div id="ip-player-inputs"></div>
+        <button class="add-player-btn" onclick="ipAddPlayer()">+ Add Player</button>
+        <button class="btn-primary" id="ip-start-btn" onclick="ipStartRound()" disabled>Start Round</button>
+        <button class="btn-secondary" onclick="showScreen('mode')">Back</button>
+    </div>
+
+    <!-- In-Person Reveal (pass-the-phone) -->
+    <div id="screen-ip-reveal" class="screen">
+        <div class="player-turn-label" id="ip-turn-label"></div>
+        <div class="reveal-area">
+            <!-- Before reveal -->
+            <div id="ip-hidden">
+                <button class="reveal-btn" onclick="ipReveal()">
+                    Tap to see your word
+                </button>
+                <p class="pass-notice">Only the current player should look!</p>
+            </div>
+            <!-- After reveal -->
+            <div id="ip-shown" style="display:none;">
+                <div class="word-display">
+                    <div class="your-role" id="ip-role"></div>
+                    <div class="the-word" id="ip-word"></div>
+                    <div class="category-label" id="ip-category"></div>
+                </div>
+                <button class="btn-primary" onclick="ipNext()" style="margin-top:20px;" id="ip-next-btn">
+                    Got it! Pass the phone
+                </button>
+            </div>
+        </div>
+        <div class="round-info" id="ip-round-info"></div>
+    </div>
+
+    <!-- In-Person: All revealed, discuss! -->
+    <div id="screen-ip-discuss" class="screen">
+        <div class="ip-all-done">
+            <h2>Everyone has seen their word!</h2>
+            <p>Discuss, ask questions, and figure out who the imposter is. The imposter only got a vague hint - they're bluffing!</p>
+            <div style="background:#111;border-radius:12px;padding:20px;margin:20px 0;">
+                <div style="color:#666;font-size:0.85em;margin-bottom:6px;">Category</div>
+                <div style="font-size:1.3em;font-weight:700;color:#ff8800;" id="ip-discuss-category"></div>
+            </div>
+            <button class="btn-primary" onclick="ipRevealAnswer()" style="margin-top:10px;">
+                Reveal the Answer
+            </button>
+            <button class="btn-secondary" onclick="ipStartRound()">
+                Skip - New Round
+            </button>
+        </div>
+        <div class="round-info" id="ip-discuss-round"></div>
+    </div>
+
+    <!-- In-Person: Answer Reveal -->
+    <div id="screen-ip-results" class="screen">
+        <div class="results-box" id="ip-results-box">
+            <div class="results-title" id="ip-results-title">The Imposter Was...</div>
+            <div class="results-detail" id="ip-results-imposter" style="font-size:1.4em;font-weight:700;color:#ff4444;margin:10px 0;"></div>
+            <div class="results-word" id="ip-results-word"></div>
+        </div>
+        <button class="btn-primary" onclick="ipStartRound()">Next Round</button>
+        <button class="btn-secondary" onclick="ipBackToSetup()">Change Players</button>
+    </div>
+
+    <!-- ======================== -->
+    <!-- ONLINE FLOW              -->
+    <!-- ======================== -->
+
+    <!-- Online Menu -->
+    <div id="screen-menu" class="screen">
+        <input type="text" id="input-name" placeholder="Your name" maxlength="16" autocomplete="off">
+        <button class="btn-primary" onclick="createRoom()">Create Room</button>
+        <button class="btn-secondary" onclick="showJoin()">Join Room</button>
+        <div id="join-section" style="display:none; margin-top: 12px;">
+            <input type="text" id="input-room" placeholder="Room code" maxlength="5"
+                   style="text-transform:uppercase; text-align:center; letter-spacing:6px; font-size:1.3em;"
+                   autocomplete="off">
+            <button class="btn-primary" onclick="joinRoom()">Join</button>
+        </div>
+        <button class="btn-secondary" onclick="showScreen('mode')" style="margin-top:8px;">Back</button>
+        <p class="status-msg" id="menu-status"></p>
+    </div>
+
+    <!-- Online Lobby -->
+    <div id="screen-lobby" class="screen">
+        <div class="room-code" id="lobby-code"></div>
+        <p class="status-msg">Share this code with friends</p>
+        <ul class="player-list" id="lobby-players"></ul>
+        <div id="host-controls" style="display:none;">
+            <div class="settings-row">
+                <label>Discussion:</label>
+                <select id="setting-discuss-time">
+                    <option value="30">30s</option>
+                    <option value="60" selected>60s</option>
+                    <option value="90">90s</option>
+                    <option value="120">120s</option>
+                </select>
+                <label>Voting:</label>
+                <select id="setting-vote-time">
+                    <option value="15">15s</option>
+                    <option value="20" selected>20s</option>
+                    <option value="30">30s</option>
+                </select>
+            </div>
+            <button class="btn-primary" id="btn-start" onclick="startGame()" disabled>
+                Start Game (need 3+ players)
+            </button>
+        </div>
+        <p class="status-msg" id="lobby-status">Waiting for host to start...</p>
+    </div>
+
+    <!-- Online Game -->
+    <div id="screen-game" class="screen">
+        <div class="phase-label" id="phase-label">Discussion</div>
+        <div class="timer" id="timer">60</div>
+
+        <div class="word-display">
+            <div class="your-role" id="your-role"></div>
+            <div class="the-word" id="the-word"></div>
+            <div class="category-label" id="category-label"></div>
+        </div>
+
+        <div class="vote-section" id="vote-section" style="display:none;">
+            <h3>Vote for the Imposter</h3>
+            <div class="vote-grid" id="vote-grid"></div>
+        </div>
+
+        <div class="chat-box" id="chat-box"></div>
+        <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Type a message..." maxlength="200" autocomplete="off">
+            <button class="btn-primary btn-small" onclick="sendChat()">Send</button>
+        </div>
+
+        <div class="round-info" id="round-info"></div>
+    </div>
+
+    <!-- Online Results -->
+    <div id="screen-results" class="screen">
+        <div class="results-box" id="results-box">
+            <div class="results-title" id="results-title"></div>
+            <div class="results-detail" id="results-imposter"></div>
+            <div class="results-detail" id="results-votes"></div>
+            <div class="results-word" id="results-word"></div>
+        </div>
+
+        <div class="scoreboard" id="scoreboard"></div>
+
+        <button class="btn-primary" id="btn-next" onclick="nextRound()" style="display:none;">
+            Next Round
+        </button>
+        <p class="status-msg" id="results-status">Waiting for host...</p>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// ============================================
+// WORD BANK (shared for in-person mode)
+// ============================================
+const WORD_BANK = [
+    { category: 'Animals', word: 'Elephant', hint: 'Big' },
+    { category: 'Animals', word: 'Flamingo', hint: 'Pink' },
+    { category: 'Animals', word: 'Chameleon', hint: 'Colorful' },
+    { category: 'Animals', word: 'Penguin', hint: 'Cold' },
+    { category: 'Animals', word: 'Dolphin', hint: 'Playful' },
+    { category: 'Animals', word: 'Owl', hint: 'Nocturnal' },
+    { category: 'Animals', word: 'Cheetah', hint: 'Fast' },
+    { category: 'Animals', word: 'Turtle', hint: 'Slow' },
+    { category: 'Animals', word: 'Parrot', hint: 'Talkative' },
+    { category: 'Animals', word: 'Shark', hint: 'Scary' },
+    { category: 'Food', word: 'Pizza', hint: 'Round' },
+    { category: 'Food', word: 'Sushi', hint: 'Japanese' },
+    { category: 'Food', word: 'Watermelon', hint: 'Green' },
+    { category: 'Food', word: 'Chocolate', hint: 'Sweet' },
+    { category: 'Food', word: 'Taco', hint: 'Crunchy' },
+    { category: 'Food', word: 'Ice Cream', hint: 'Cold' },
+    { category: 'Food', word: 'Pancake', hint: 'Flat' },
+    { category: 'Food', word: 'Avocado', hint: 'Trendy' },
+    { category: 'Food', word: 'Popcorn', hint: 'Movie' },
+    { category: 'Food', word: 'Donut', hint: 'Hole' },
+    { category: 'Places', word: 'Beach', hint: 'Sandy' },
+    { category: 'Places', word: 'Library', hint: 'Quiet' },
+    { category: 'Places', word: 'Hospital', hint: 'White' },
+    { category: 'Places', word: 'Volcano', hint: 'Hot' },
+    { category: 'Places', word: 'Castle', hint: 'Medieval' },
+    { category: 'Places', word: 'Airport', hint: 'Busy' },
+    { category: 'Places', word: 'Cave', hint: 'Dark' },
+    { category: 'Places', word: 'Gym', hint: 'Strong' },
+    { category: 'Places', word: 'Museum', hint: 'Old' },
+    { category: 'Places', word: 'Carnival', hint: 'Fun' },
+    { category: 'Objects', word: 'Umbrella', hint: 'Rainy' },
+    { category: 'Objects', word: 'Guitar', hint: 'Musical' },
+    { category: 'Objects', word: 'Telescope', hint: 'Far' },
+    { category: 'Objects', word: 'Candle', hint: 'Warm' },
+    { category: 'Objects', word: 'Balloon', hint: 'Light' },
+    { category: 'Objects', word: 'Clock', hint: 'Ticking' },
+    { category: 'Objects', word: 'Mirror', hint: 'Reflective' },
+    { category: 'Objects', word: 'Diamond', hint: 'Shiny' },
+    { category: 'Objects', word: 'Backpack', hint: 'Heavy' },
+    { category: 'Objects', word: 'Compass', hint: 'North' },
+    { category: 'Activities', word: 'Swimming', hint: 'Wet' },
+    { category: 'Activities', word: 'Dancing', hint: 'Rhythmic' },
+    { category: 'Activities', word: 'Camping', hint: 'Outdoors' },
+    { category: 'Activities', word: 'Cooking', hint: 'Hot' },
+    { category: 'Activities', word: 'Painting', hint: 'Colorful' },
+    { category: 'Activities', word: 'Skateboarding', hint: 'Wheeled' },
+    { category: 'Activities', word: 'Fishing', hint: 'Patient' },
+    { category: 'Activities', word: 'Karaoke', hint: 'Loud' },
+    { category: 'Activities', word: 'Yoga', hint: 'Flexible' },
+    { category: 'Activities', word: 'Gaming', hint: 'Digital' },
+];
+
+// ============================================
+// SCREEN MANAGEMENT
+// ============================================
+let gameMode = null; // 'inperson' or 'online'
+
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+}
+
+function selectMode(mode) {
+    gameMode = mode;
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('mode-' + mode).classList.add('selected');
+
+    setTimeout(() => {
+        if (mode === 'inperson') {
+            ipInit();
+            showScreen('ip-setup');
+        } else {
+            showScreen('menu');
+        }
+    }, 200);
+}
+
+// ============================================
+// IN-PERSON MODE
+// ============================================
+let ipPlayers = [];       // array of player name strings
+let ipRound = 0;
+let ipUsedWords = new Set();
+let ipCurrentWord = null; // { category, word, hint }
+let ipImposterId = -1;    // index into ipPlayers
+let ipRevealIdx = 0;      // which player is currently revealing
+
+function ipInit() {
+    // Start with 3 empty player slots
+    ipPlayers = ['', '', ''];
+    ipRenderPlayerInputs();
+}
+
+function ipRenderPlayerInputs() {
+    const container = document.getElementById('ip-player-inputs');
+    container.innerHTML = '';
+    ipPlayers.forEach((name, i) => {
+        const row = document.createElement('div');
+        row.className = 'ip-player-row';
+        row.innerHTML = `
+            <input type="text" placeholder="Player ${i + 1}" value="${esc(name)}"
+                   maxlength="16" autocomplete="off"
+                   oninput="ipUpdateName(${i}, this.value)">
+            ${ipPlayers.length > 3 ? `<button class="remove-btn" onclick="ipRemovePlayer(${i})">x</button>` : ''}
+        `;
+        container.appendChild(row);
+    });
+    ipUpdateStartBtn();
+}
+
+function ipUpdateName(idx, val) {
+    ipPlayers[idx] = val.trim();
+    ipUpdateStartBtn();
+}
+
+function ipRemovePlayer(idx) {
+    ipPlayers.splice(idx, 1);
+    ipRenderPlayerInputs();
+}
+
+function ipAddPlayer() {
+    if (ipPlayers.length >= 12) return;
+    ipPlayers.push('');
+    ipRenderPlayerInputs();
+    // Focus the new input
+    const inputs = document.querySelectorAll('#ip-player-inputs input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function ipUpdateStartBtn() {
+    const filledCount = ipPlayers.filter(n => n.length > 0).length;
+    const btn = document.getElementById('ip-start-btn');
+    if (filledCount >= 3) {
+        btn.disabled = false;
+        btn.textContent = `Start Round (${filledCount} players)`;
+    } else {
+        btn.disabled = true;
+        btn.textContent = `Start Round (need ${3 - filledCount} more names)`;
+    }
+}
+
+function ipStartRound() {
+    // Filter out empty names
+    ipPlayers = ipPlayers.filter(n => n.length > 0);
+    if (ipPlayers.length < 3) return;
+
+    ipRound++;
+    ipRevealIdx = 0;
+
+    // Pick word
+    const available = WORD_BANK.filter(w => !ipUsedWords.has(w.word));
+    const pool = available.length > 0 ? available : WORD_BANK;
+    ipCurrentWord = pool[Math.floor(Math.random() * pool.length)];
+    ipUsedWords.add(ipCurrentWord.word);
+
+    // Pick imposter
+    ipImposterId = Math.floor(Math.random() * ipPlayers.length);
+
+    // Show first player's reveal screen
+    ipShowReveal();
+}
+
+function ipShowReveal() {
+    showScreen('ip-reveal');
+    document.getElementById('ip-hidden').style.display = 'block';
+    document.getElementById('ip-shown').style.display = 'none';
+    document.getElementById('ip-turn-label').textContent = `${ipPlayers[ipRevealIdx]}'s Turn`;
+    document.getElementById('ip-round-info').textContent = `Round ${ipRound} - Player ${ipRevealIdx + 1} of ${ipPlayers.length}`;
+}
+
+function ipReveal() {
+    document.getElementById('ip-hidden').style.display = 'none';
+    document.getElementById('ip-shown').style.display = 'block';
+
+    const roleEl = document.getElementById('ip-role');
+    const wordEl = document.getElementById('ip-word');
+    const catEl = document.getElementById('ip-category');
+
+    if (ipRevealIdx === ipImposterId) {
+        roleEl.textContent = 'You are the IMPOSTER! Your hint:';
+        roleEl.style.color = '#ff3333';
+        wordEl.className = 'the-word imposter';
+        wordEl.textContent = ipCurrentWord.hint;
+    } else {
+        roleEl.textContent = 'The word is:';
+        roleEl.style.color = '#88ff88';
+        wordEl.className = 'the-word normal';
+        wordEl.textContent = ipCurrentWord.word;
+    }
+    catEl.textContent = `Category: ${ipCurrentWord.category}`;
+
+    // Update button text
+    const nextBtn = document.getElementById('ip-next-btn');
+    if (ipRevealIdx < ipPlayers.length - 1) {
+        nextBtn.textContent = 'Got it! Pass the phone';
+    } else {
+        nextBtn.textContent = 'Got it! Start Discussion';
+    }
+}
+
+function ipNext() {
+    ipRevealIdx++;
+    if (ipRevealIdx < ipPlayers.length) {
+        ipShowReveal();
+    } else {
+        // All players have seen their word — go to discussion
+        showScreen('ip-discuss');
+        document.getElementById('ip-discuss-category').textContent = ipCurrentWord.category;
+        document.getElementById('ip-discuss-round').textContent = `Round ${ipRound}`;
+    }
+}
+
+function ipRevealAnswer() {
+    showScreen('ip-results');
+    const box = document.getElementById('ip-results-box');
+    box.className = 'results-box imposter-wins';
+    document.getElementById('ip-results-title').textContent = 'The Imposter Was...';
+    document.getElementById('ip-results-imposter').textContent = ipPlayers[ipImposterId];
+    document.getElementById('ip-results-word').innerHTML =
+        `The word was: <strong>${esc(ipCurrentWord.word)}</strong><br>
+         <span style="color:#888;">The imposter's hint was: <span style="color:#ff4444;">${esc(ipCurrentWord.hint)}</span></span>`;
+}
+
+function ipBackToSetup() {
+    ipRound = 0;
+    ipUsedWords.clear();
+    ipRenderPlayerInputs();
+    showScreen('ip-setup');
+}
+
+// ============================================
+// ONLINE MODE — Socket.IO
+// ============================================
+const socket = io({ path: '/imposter-mp' });
+
+let myId = null;
+let roomId = null;
+let isHost = false;
+let players = [];
+let myRole = null;
+let myVote = null;
+let gamePhase = null;
+
+socket.on('connect', () => { myId = socket.id; });
+
+function showJoin() {
+    document.getElementById('join-section').style.display = 'block';
+    document.getElementById('input-room').focus();
+}
+
+function getName() {
+    const name = document.getElementById('input-name').value.trim();
+    if (!name) { setMenuStatus('Enter your name first'); return null; }
+    return name;
+}
+
+function setMenuStatus(msg) {
+    document.getElementById('menu-status').textContent = msg;
+}
+
+function createRoom() {
+    const name = getName();
+    if (!name) return;
+    setMenuStatus('Creating room...');
+    socket.emit('imposter:create', { name }, (res) => {
+        if (res.error) { setMenuStatus(res.error); return; }
+        roomId = res.roomId;
+        isHost = true;
+        players = res.players;
+        enterLobby();
+    });
+}
+
+function joinRoom() {
+    const name = getName();
+    if (!name) return;
+    const code = document.getElementById('input-room').value.trim().toUpperCase();
+    if (code.length < 4) { setMenuStatus('Enter a valid room code'); return; }
+    setMenuStatus('Joining...');
+    socket.emit('imposter:join', { name, roomId: code }, (res) => {
+        if (res.error) { setMenuStatus(res.error); return; }
+        roomId = code;
+        isHost = false;
+        players = res.players;
+        enterLobby();
+    });
+}
+
+function enterLobby() {
+    showScreen('lobby');
+    document.getElementById('lobby-code').textContent = roomId;
+    document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+    document.getElementById('lobby-status').textContent = isHost ? '' : 'Waiting for host to start...';
+    renderLobbyPlayers();
+}
+
+function renderLobbyPlayers() {
+    const ul = document.getElementById('lobby-players');
+    ul.innerHTML = '';
+    players.forEach(p => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span class="player-dot" style="background:${p.color}"></span>
+            <span class="player-name">${esc(p.name)}</span>
+            ${p.isHost ? '<span class="host-badge">HOST</span>' : ''}
+            ${p.id === myId ? '<span class="you-badge">YOU</span>' : ''}
+        `;
+        ul.appendChild(li);
+    });
+
+    if (isHost) {
+        const btn = document.getElementById('btn-start');
+        if (players.length >= 3) {
+            btn.disabled = false;
+            btn.textContent = `Start Game (${players.length} players)`;
+        } else {
+            btn.disabled = true;
+            btn.textContent = `Start Game (need ${3 - players.length} more)`;
+        }
+    }
+}
+
+// Lobby events
+socket.on('imposter:player-joined', (data) => {
+    players = data.players;
+    renderLobbyPlayers();
+});
+
+socket.on('imposter:player-left', (data) => {
+    players = data.players;
+    if (data.newHost === myId) isHost = true;
+    renderLobbyPlayers();
+    if (isHost) {
+        document.getElementById('host-controls').style.display = 'block';
+        document.getElementById('lobby-status').textContent = '';
+    }
+});
+
+// Start game
+function startGame() {
+    if (!isHost) return;
+    const discussTime = parseInt(document.getElementById('setting-discuss-time').value);
+    const voteTime = parseInt(document.getElementById('setting-vote-time').value);
+    socket.emit('imposter:start', { discussTime, voteTime });
+}
+
+socket.on('imposter:round-start', (data) => {
+    myRole = data.role;
+    myVote = null;
+    gamePhase = 'discuss';
+
+    showScreen('game');
+
+    const roleEl = document.getElementById('your-role');
+    const wordEl = document.getElementById('the-word');
+    const catEl = document.getElementById('category-label');
+
+    if (data.role === 'imposter') {
+        roleEl.textContent = 'You are the IMPOSTER! You got a hint:';
+        roleEl.style.color = '#ff3333';
+        wordEl.className = 'the-word imposter';
+        wordEl.textContent = data.hint;
+        catEl.textContent = `Category: ${data.category}`;
+    } else {
+        roleEl.textContent = 'You are CREW. The word is:';
+        roleEl.style.color = '#88ff88';
+        wordEl.className = 'the-word normal';
+        wordEl.textContent = data.word;
+        catEl.textContent = `Category: ${data.category}`;
+    }
+
+    document.getElementById('phase-label').textContent = 'Discussion Phase - Talk it out!';
+    document.getElementById('vote-section').style.display = 'none';
+    document.getElementById('round-info').textContent = `Round ${data.round}`;
+    document.getElementById('chat-box').innerHTML = '';
+
+    startTimer(data.discussTime);
+});
+
+// Timer
+let timerInterval = null;
+
+function startTimer(seconds) {
+    clearInterval(timerInterval);
+    const timerEl = document.getElementById('timer');
+    let remaining = seconds;
+    timerEl.textContent = remaining;
+    timerEl.classList.remove('urgent');
+
+    timerInterval = setInterval(() => {
+        remaining--;
+        timerEl.textContent = remaining;
+        if (remaining <= 10) timerEl.classList.add('urgent');
+        if (remaining <= 0) clearInterval(timerInterval);
+    }, 1000);
+}
+
+// Voting
+socket.on('imposter:vote-phase', (data) => {
+    gamePhase = 'vote';
+    document.getElementById('phase-label').textContent = 'Voting Phase - Who is the imposter?';
+    startTimer(data.voteTime);
+
+    const voteSection = document.getElementById('vote-section');
+    const voteGrid = document.getElementById('vote-grid');
+
+    if (myRole === 'imposter') {
+        voteSection.style.display = 'block';
+        voteGrid.innerHTML = '<p class="status-msg">You\'re the imposter - wait for the votes!</p>';
+        return;
+    }
+
+    voteSection.style.display = 'block';
+    voteGrid.innerHTML = '';
+
+    players.forEach(p => {
+        if (p.id === myId) return;
+        const btn = document.createElement('div');
+        btn.className = 'vote-btn';
+        btn.dataset.id = p.id;
+        btn.innerHTML = `<div>${esc(p.name)}</div><div class="vote-count"></div>`;
+        btn.onclick = () => castVote(p.id, btn);
+        voteGrid.appendChild(btn);
+    });
+});
+
+function castVote(targetId, btn) {
+    if (myVote || myRole === 'imposter') return;
+    myVote = targetId;
+    document.querySelectorAll('.vote-btn').forEach(b => b.classList.add('disabled'));
+    btn.classList.add('voted');
+    btn.classList.remove('disabled');
+    socket.emit('imposter:vote', { target: targetId });
+}
+
+socket.on('imposter:vote-update', (data) => {
+    document.querySelectorAll('.vote-btn').forEach(btn => {
+        const count = data.votes[btn.dataset.id] || 0;
+        const countEl = btn.querySelector('.vote-count');
+        if (countEl) countEl.textContent = count > 0 ? `${count} vote${count > 1 ? 's' : ''}` : '';
+    });
+});
+
+// Results
+socket.on('imposter:results', (data) => {
+    gamePhase = 'results';
+    clearInterval(timerInterval);
+    showScreen('results');
+
+    const box = document.getElementById('results-box');
+    const title = document.getElementById('results-title');
+    const imposterEl = document.getElementById('results-imposter');
+    const votesEl = document.getElementById('results-votes');
+    const wordEl = document.getElementById('results-word');
+
+    if (data.crewWins) {
+        box.className = 'results-box crew-wins';
+        title.textContent = 'Crew Wins!';
+    } else {
+        box.className = 'results-box imposter-wins';
+        title.textContent = 'Imposter Wins!';
+    }
+
+    const imposterName = players.find(p => p.id === data.imposterId)?.name || 'Unknown';
+    imposterEl.textContent = `The imposter was: ${imposterName}`;
+
+    if (data.votedOut) {
+        const votedName = players.find(p => p.id === data.votedOut)?.name || 'Nobody';
+        votesEl.textContent = `Most voted: ${votedName}`;
+    } else {
+        votesEl.textContent = 'No majority - imposter escapes!';
+    }
+
+    wordEl.innerHTML = `The word was: <strong>${esc(data.word)}</strong> (hint: ${esc(data.hint)})`;
+
+    const sb = document.getElementById('scoreboard');
+    sb.innerHTML = '<h3 style="text-align:center;margin-bottom:10px;">Scores</h3>';
+    data.scores.sort((a, b) => b.score - a.score).forEach(s => {
+        sb.innerHTML += `<div class="score-row">
+            <span>${esc(s.name)} ${s.id === data.imposterId ? '(imposter)' : ''}</span>
+            <span class="score-pts">${s.score} pts</span>
+        </div>`;
+    });
+
+    document.getElementById('btn-next').style.display = isHost ? 'block' : 'none';
+    document.getElementById('results-status').textContent = isHost ? '' : 'Waiting for host to start next round...';
+});
+
+function nextRound() {
+    if (!isHost) return;
+    socket.emit('imposter:next-round');
+}
+
+socket.on('imposter:back-to-lobby', (data) => {
+    players = data.players;
+    showScreen('lobby');
+    renderLobbyPlayers();
+});
+
+// Chat
+function sendChat() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    socket.emit('imposter:chat', { msg });
+    input.value = '';
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement === document.getElementById('chat-input')) {
+        sendChat();
+    }
+});
+
+socket.on('imposter:chat', (data) => {
+    const box = document.getElementById('chat-box');
+    const div = document.createElement('div');
+    div.className = 'chat-msg';
+    div.innerHTML = `<span class="name" style="color:${data.color}">${esc(data.name)}:</span> ${esc(data.msg)}`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+});
+
+// Disconnect
+socket.on('disconnect', () => {
+    if (gameMode === 'online') {
+        showScreen('menu');
+        setMenuStatus('Disconnected from server');
+    }
+    roomId = null;
+    isHost = false;
+});
+
+socket.on('imposter:error', (data) => {
+    setMenuStatus(data.msg || 'Something went wrong');
+});
+
+// Util
+function esc(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -77,6 +77,16 @@ const ALL_GAMES = [
     badgeColor: "green" as const,
     isFree: true,
   },
+  {
+    id: "imposter",
+    title: "Who's The Imposter?",
+    description: "One word. One liar. Play in person or online — everyone gets the word except the imposter, who only gets a hint. Find the faker!",
+    thumbnail: "/games/imposter/thumbnail.png",
+    href: "https://games.zecrugames.com/imposter/",
+    badge: "NEW",
+    badgeColor: "gold" as const,
+    isFree: true,
+  },
 ];
 
 export default function LibraryPage() {

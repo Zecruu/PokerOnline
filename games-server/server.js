@@ -100,6 +100,12 @@ app.get('/sitemap.xml', (req, res) => {
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
+    <url>
+        <loc>https://games.zecrugames.com/imposter/</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
 </urlset>
 `);
 });
@@ -488,6 +494,385 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
+// ============================================
+// WHO'S THE IMPOSTER — MULTIPLAYER (Socket.IO)
+// ============================================
+const imposterIo = new SocketServer(server, {
+    path: '/imposter-mp',
+    cors: { origin: '*', methods: ['GET', 'POST'] },
+    pingInterval: 10000,
+    pingTimeout: 5000,
+});
+
+const imposterRooms = new Map();
+
+// Word bank: { category, word, hint }
+const WORD_BANK = [
+    { category: 'Animals', word: 'Elephant', hint: 'Big' },
+    { category: 'Animals', word: 'Flamingo', hint: 'Pink' },
+    { category: 'Animals', word: 'Chameleon', hint: 'Colorful' },
+    { category: 'Animals', word: 'Penguin', hint: 'Cold' },
+    { category: 'Animals', word: 'Dolphin', hint: 'Playful' },
+    { category: 'Animals', word: 'Owl', hint: 'Nocturnal' },
+    { category: 'Animals', word: 'Cheetah', hint: 'Fast' },
+    { category: 'Animals', word: 'Turtle', hint: 'Slow' },
+    { category: 'Animals', word: 'Parrot', hint: 'Talkative' },
+    { category: 'Animals', word: 'Shark', hint: 'Scary' },
+    { category: 'Food', word: 'Pizza', hint: 'Round' },
+    { category: 'Food', word: 'Sushi', hint: 'Japanese' },
+    { category: 'Food', word: 'Watermelon', hint: 'Green' },
+    { category: 'Food', word: 'Chocolate', hint: 'Sweet' },
+    { category: 'Food', word: 'Taco', hint: 'Crunchy' },
+    { category: 'Food', word: 'Ice Cream', hint: 'Cold' },
+    { category: 'Food', word: 'Pancake', hint: 'Flat' },
+    { category: 'Food', word: 'Avocado', hint: 'Trendy' },
+    { category: 'Food', word: 'Popcorn', hint: 'Movie' },
+    { category: 'Food', word: 'Donut', hint: 'Hole' },
+    { category: 'Places', word: 'Beach', hint: 'Sandy' },
+    { category: 'Places', word: 'Library', hint: 'Quiet' },
+    { category: 'Places', word: 'Hospital', hint: 'White' },
+    { category: 'Places', word: 'Volcano', hint: 'Hot' },
+    { category: 'Places', word: 'Castle', hint: 'Medieval' },
+    { category: 'Places', word: 'Airport', hint: 'Busy' },
+    { category: 'Places', word: 'Cave', hint: 'Dark' },
+    { category: 'Places', word: 'Gym', hint: 'Strong' },
+    { category: 'Places', word: 'Museum', hint: 'Old' },
+    { category: 'Places', word: 'Carnival', hint: 'Fun' },
+    { category: 'Objects', word: 'Umbrella', hint: 'Rainy' },
+    { category: 'Objects', word: 'Guitar', hint: 'Musical' },
+    { category: 'Objects', word: 'Telescope', hint: 'Far' },
+    { category: 'Objects', word: 'Candle', hint: 'Warm' },
+    { category: 'Objects', word: 'Balloon', hint: 'Light' },
+    { category: 'Objects', word: 'Clock', hint: 'Ticking' },
+    { category: 'Objects', word: 'Mirror', hint: 'Reflective' },
+    { category: 'Objects', word: 'Diamond', hint: 'Shiny' },
+    { category: 'Objects', word: 'Backpack', hint: 'Heavy' },
+    { category: 'Objects', word: 'Compass', hint: 'North' },
+    { category: 'Activities', word: 'Swimming', hint: 'Wet' },
+    { category: 'Activities', word: 'Dancing', hint: 'Rhythmic' },
+    { category: 'Activities', word: 'Camping', hint: 'Outdoors' },
+    { category: 'Activities', word: 'Cooking', hint: 'Hot' },
+    { category: 'Activities', word: 'Painting', hint: 'Colorful' },
+    { category: 'Activities', word: 'Skateboarding', hint: 'Wheeled' },
+    { category: 'Activities', word: 'Fishing', hint: 'Patient' },
+    { category: 'Activities', word: 'Karaoke', hint: 'Loud' },
+    { category: 'Activities', word: 'Yoga', hint: 'Flexible' },
+    { category: 'Activities', word: 'Gaming', hint: 'Digital' },
+];
+
+const IMP_COLORS = ['#4fc3f7', '#81c784', '#ffb74d', '#e57373', '#ba68c8', '#4db6ac', '#fff176', '#f06292'];
+
+function generateImposterRoomId() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let id = '';
+    for (let i = 0; i < 5; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+}
+
+function pickRandomWord(usedWords) {
+    const available = WORD_BANK.filter(w => !usedWords.has(w.word));
+    const pool = available.length > 0 ? available : WORD_BANK;
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function buildPlayerList(room) {
+    const list = [];
+    for (const [id, p] of room.players) {
+        list.push({ id, name: p.name, color: p.color, isHost: id === room.hostId });
+    }
+    return list;
+}
+
+imposterIo.on('connection', (socket) => {
+    console.log(`[Imposter] Player connected: ${socket.id}`);
+    let currentRoom = null;
+
+    // Create room
+    socket.on('imposter:create', (data, cb) => {
+        const roomId = generateImposterRoomId();
+        const room = {
+            hostId: socket.id,
+            players: new Map(),
+            round: 0,
+            usedWords: new Set(),
+            scores: new Map(),
+            createdAt: Date.now(),
+            phase: 'lobby',
+            discussTime: 60,
+            voteTime: 20,
+            currentWord: null,
+            imposterId: null,
+            votes: new Map(),
+            timers: [],
+        };
+        room.players.set(socket.id, {
+            name: (data.name || 'Host').substring(0, 16),
+            color: IMP_COLORS[0],
+        });
+        room.scores.set(socket.id, 0);
+        imposterRooms.set(roomId, room);
+        socket.join(roomId);
+        currentRoom = roomId;
+
+        console.log(`[Imposter] Room ${roomId} created by ${data.name}`);
+        cb({ roomId, success: true, players: buildPlayerList(room) });
+    });
+
+    // Join room
+    socket.on('imposter:join', (data, cb) => {
+        const room = imposterRooms.get(data.roomId);
+        if (!room) { cb({ error: 'Room not found' }); return; }
+        if (room.players.size >= 12) { cb({ error: 'Room is full (max 12)' }); return; }
+        if (room.phase !== 'lobby') { cb({ error: 'Game already in progress' }); return; }
+
+        const colorIdx = room.players.size % IMP_COLORS.length;
+        room.players.set(socket.id, {
+            name: (data.name || 'Player').substring(0, 16),
+            color: IMP_COLORS[colorIdx],
+        });
+        room.scores.set(socket.id, 0);
+        socket.join(data.roomId);
+        currentRoom = data.roomId;
+
+        const playerList = buildPlayerList(room);
+
+        // Notify everyone
+        imposterIo.to(data.roomId).emit('imposter:player-joined', { players: playerList });
+
+        console.log(`[Imposter] ${data.name} joined room ${data.roomId} (${room.players.size} players)`);
+        cb({ success: true, players: playerList });
+    });
+
+    // Start game
+    socket.on('imposter:start', (data) => {
+        if (!currentRoom) return;
+        const room = imposterRooms.get(currentRoom);
+        if (!room || room.hostId !== socket.id) return;
+        if (room.players.size < 3) return;
+
+        room.discussTime = Math.min(Math.max(data.discussTime || 60, 15), 180);
+        room.voteTime = Math.min(Math.max(data.voteTime || 20, 10), 60);
+        startNewRound(currentRoom, room);
+    });
+
+    // Next round
+    socket.on('imposter:next-round', () => {
+        if (!currentRoom) return;
+        const room = imposterRooms.get(currentRoom);
+        if (!room || room.hostId !== socket.id) return;
+        startNewRound(currentRoom, room);
+    });
+
+    // Vote
+    socket.on('imposter:vote', (data) => {
+        if (!currentRoom) return;
+        const room = imposterRooms.get(currentRoom);
+        if (!room || room.phase !== 'vote') return;
+        if (socket.id === room.imposterId) return; // imposter can't vote
+        if (room.votes.has(socket.id)) return; // already voted
+
+        room.votes.set(socket.id, data.target);
+
+        // Broadcast vote counts (anonymous — just totals per player)
+        const voteCounts = {};
+        for (const [, target] of room.votes) {
+            voteCounts[target] = (voteCounts[target] || 0) + 1;
+        }
+        imposterIo.to(currentRoom).emit('imposter:vote-update', { votes: voteCounts });
+
+        // Check if all non-imposter players voted
+        let allVoted = true;
+        for (const [id] of room.players) {
+            if (id !== room.imposterId && !room.votes.has(id)) {
+                allVoted = false;
+                break;
+            }
+        }
+        if (allVoted) {
+            clearRoomTimers(room);
+            resolveVotes(currentRoom, room);
+        }
+    });
+
+    // Chat
+    socket.on('imposter:chat', (data) => {
+        if (!currentRoom) return;
+        const room = imposterRooms.get(currentRoom);
+        if (!room) return;
+        const player = room.players.get(socket.id);
+        if (!player) return;
+        const msg = (data.msg || '').substring(0, 200).trim();
+        if (!msg) return;
+        imposterIo.to(currentRoom).emit('imposter:chat', {
+            name: player.name,
+            color: player.color,
+            msg,
+        });
+    });
+
+    // Disconnect
+    socket.on('disconnect', () => {
+        console.log(`[Imposter] Player disconnected: ${socket.id}`);
+        if (currentRoom) leaveRoom();
+    });
+
+    function leaveRoom() {
+        const room = imposterRooms.get(currentRoom);
+        if (!room) { currentRoom = null; return; }
+
+        room.players.delete(socket.id);
+        room.scores.delete(socket.id);
+        socket.leave(currentRoom);
+
+        if (room.players.size === 0) {
+            clearRoomTimers(room);
+            imposterRooms.delete(currentRoom);
+            console.log(`[Imposter] Room ${currentRoom} deleted (empty)`);
+        } else {
+            // If host left, promote
+            if (room.hostId === socket.id) {
+                room.hostId = room.players.keys().next().value;
+            }
+            const playerList = buildPlayerList(room);
+            imposterIo.to(currentRoom).emit('imposter:player-left', {
+                players: playerList,
+                newHost: room.hostId,
+            });
+        }
+        currentRoom = null;
+    }
+});
+
+function clearRoomTimers(room) {
+    for (const t of room.timers) clearTimeout(t);
+    room.timers = [];
+}
+
+function startNewRound(roomId, room) {
+    clearRoomTimers(room);
+    room.round++;
+    room.phase = 'discuss';
+    room.votes = new Map();
+
+    // Pick word
+    const wordObj = pickRandomWord(room.usedWords);
+    room.usedWords.add(wordObj.word);
+    room.currentWord = wordObj;
+
+    // Pick imposter
+    const playerIds = [...room.players.keys()];
+    room.imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
+
+    console.log(`[Imposter] Room ${roomId} round ${room.round}: word="${wordObj.word}", imposter=${room.imposterId}`);
+
+    // Send to each player
+    for (const [id] of room.players) {
+        const sock = imposterIo.sockets.sockets.get(id);
+        if (!sock) continue;
+        if (id === room.imposterId) {
+            sock.emit('imposter:round-start', {
+                role: 'imposter',
+                hint: wordObj.hint,
+                category: wordObj.category,
+                round: room.round,
+                discussTime: room.discussTime,
+            });
+        } else {
+            sock.emit('imposter:round-start', {
+                role: 'crew',
+                word: wordObj.word,
+                category: wordObj.category,
+                round: room.round,
+                discussTime: room.discussTime,
+            });
+        }
+    }
+
+    // After discussion time → vote phase
+    const discussTimer = setTimeout(() => {
+        room.phase = 'vote';
+        imposterIo.to(roomId).emit('imposter:vote-phase', { voteTime: room.voteTime });
+
+        // After vote time → resolve
+        const voteTimer = setTimeout(() => {
+            resolveVotes(roomId, room);
+        }, room.voteTime * 1000);
+        room.timers.push(voteTimer);
+    }, room.discussTime * 1000);
+    room.timers.push(discussTimer);
+}
+
+function resolveVotes(roomId, room) {
+    if (room.phase === 'results') return; // already resolved
+    room.phase = 'results';
+
+    // Tally votes
+    const tally = {};
+    for (const [, target] of room.votes) {
+        tally[target] = (tally[target] || 0) + 1;
+    }
+
+    // Find most voted
+    let maxVotes = 0;
+    let votedOut = null;
+    let tie = false;
+    for (const [id, count] of Object.entries(tally)) {
+        if (count > maxVotes) {
+            maxVotes = count;
+            votedOut = id;
+            tie = false;
+        } else if (count === maxVotes) {
+            tie = true;
+        }
+    }
+
+    if (tie) votedOut = null; // ties mean nobody is voted out
+
+    const crewWins = votedOut === room.imposterId;
+
+    // Award points
+    if (crewWins) {
+        // Each crew member who voted correctly gets 2 pts
+        for (const [voter, target] of room.votes) {
+            if (target === room.imposterId) {
+                room.scores.set(voter, (room.scores.get(voter) || 0) + 2);
+            }
+        }
+    } else {
+        // Imposter gets 3 pts for surviving
+        room.scores.set(room.imposterId, (room.scores.get(room.imposterId) || 0) + 3);
+    }
+
+    // Build scores array
+    const scores = [];
+    for (const [id, p] of room.players) {
+        scores.push({ id, name: p.name, score: room.scores.get(id) || 0 });
+    }
+
+    imposterIo.to(roomId).emit('imposter:results', {
+        crewWins,
+        imposterId: room.imposterId,
+        votedOut,
+        word: room.currentWord.word,
+        hint: room.currentWord.hint,
+        scores,
+    });
+
+    // Go back to lobby phase so host can start next round
+    room.phase = 'lobby';
+}
+
+// Cleanup stale imposter rooms every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, room] of imposterRooms) {
+        if (room.players.size === 0 || now - room.createdAt > 6 * 60 * 60 * 1000) {
+            clearRoomTimers(room);
+            imposterRooms.delete(id);
+        }
+    }
+}, 5 * 60 * 1000);
+
 // Bind to 0.0.0.0 explicitly for Railway
 const HOST = '0.0.0.0';
 
@@ -495,6 +880,7 @@ server.listen(PORT, HOST, () => {
     console.log(`🎮 Games server running on http://${HOST}:${PORT}`);
     console.log(`   Serving games from: ${path.join(__dirname, 'public')}`);
     console.log(`   🌐 Colony Multiplayer: Socket.IO on /colony-mp`);
+    console.log(`   🕵️ Imposter Game: Socket.IO on /imposter-mp`);
 }).on('error', (err) => {
     console.error('❌ Server failed to start:', err);
     process.exit(1);
