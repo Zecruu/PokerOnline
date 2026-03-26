@@ -90,6 +90,16 @@ const GAMES: Array<{
     badgeColor: "green" as const,
     isFree: true,
   },
+  {
+    id: "kingdom-conquest",
+    title: "Kingdom Conquest",
+    description: "Medieval AFK tycoon meets card game. Build your kingdom, draw AI-generated cards, raid rivals, and conquer the world map.",
+    thumbnail: "/games/kingdom-conquest/thumbnail.svg",
+    href: "/kingdom-conquest",
+    badge: "NEW",
+    badgeColor: "gold" as const,
+    isFree: true,
+  },
 ];
 
 export default function Home() {

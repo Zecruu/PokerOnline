@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="16" fill="#0e0d0b"/>
+  <rect x="60" y="80" width="80" height="70" rx="4" fill="#1e1b15" stroke="#c8972a" stroke-width="1.5" opacity="0.8"/>
+  <polygon points="100,40 60,80 140,80" fill="#1e1b15" stroke="#c8972a" stroke-width="1.5"/>
+  <rect x="88" y="110" width="24" height="40" rx="2" fill="#c8972a" opacity="0.3"/>
+  <circle cx="100" cy="65" r="8" fill="#c8972a" opacity="0.6"/>
+  <text x="100" y="28" font-size="16" font-weight="900" fill="#c8972a" text-anchor="middle" font-family="serif">Kingdom</text>
+  <text x="100" y="175" font-size="16" font-weight="900" fill="#e8b84b" text-anchor="middle" font-family="serif">Conquest</text>
+  <text x="100" y="190" font-size="8" fill="#8a7a62" text-anchor="middle" font-family="serif">AFK Tycoon + Cards</text>
+</svg>
