@@ -564,11 +564,43 @@
     <!-- In-Person Setup -->
     <div id="screen-ip-setup" class="screen">
         <h2 style="text-align:center;margin-bottom:15px;color:#ff8800;">In-Person Setup</h2>
+        <div style="margin-bottom:12px;">
+            <label style="color:#888;font-size:.8em;text-transform:uppercase;letter-spacing:.5px;">Game Mode</label>
+            <div class="game-mode-row">
+                <div class="game-mode-btn active" id="ip-gm-word" onclick="ipSetGameMode('word')">&#x1F4AC; Classic Word</div>
+                <div class="game-mode-btn" id="ip-gm-question" onclick="ipSetGameMode('question')">&#x2753; Question</div>
+            </div>
+        </div>
         <p class="status-msg">Enter all player names (3-12 players)</p>
         <div id="ip-player-inputs"></div>
         <button class="add-player-btn" onclick="ipAddPlayer()">+ Add Player</button>
         <button class="btn-primary" id="ip-start-btn" onclick="ipStartRound()" disabled>Start Round</button>
         <button class="btn-secondary" onclick="showScreen('mode')">Back</button>
+    </div>
+
+    <!-- In-Person Question: Answer collection (pass-the-phone) -->
+    <div id="screen-ip-answer" class="screen">
+        <div class="player-turn-label" id="ip-answer-turn"></div>
+        <div id="ip-answer-hidden">
+            <div class="the-word normal" id="ip-answer-question" style="font-size:1.2em;margin:20px 0;"></div>
+            <div class="answer-area">
+                <textarea id="ip-answer-input" placeholder="Type your answer..." maxlength="300"></textarea>
+                <button class="btn-primary" onclick="ipSubmitAnswer()" style="margin-top:8px;">Submit &amp; Pass Phone</button>
+            </div>
+        </div>
+        <div class="round-info" id="ip-answer-round"></div>
+    </div>
+
+    <!-- In-Person Question: All answers, discuss -->
+    <div id="screen-ip-answers-discuss" class="screen">
+        <div class="ip-all-done">
+            <h2>Everyone has answered!</h2>
+            <p>Read the answers below and figure out who got a different question.</p>
+        </div>
+        <div class="answers-list" id="ip-answers-list"></div>
+        <button class="btn-primary" onclick="ipRevealAnswer()" style="margin-top:12px;">Reveal the Imposter</button>
+        <button class="btn-secondary" onclick="ipStartRound()">Skip - New Round</button>
+        <div class="round-info" id="ip-answers-discuss-round"></div>
     </div>
 
     <!-- In-Person Reveal (pass-the-phone) -->
@@ -730,7 +762,7 @@
     </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 <script>
 // ============================================
 // WORD BANK (shared for in-person mode)
@@ -788,6 +820,70 @@ const WORD_BANK = [
     { category: 'Activities', word: 'Gaming', hint: 'Digital' },
 ];
 
+// Question bank for Question mode (in-person + online)
+const QUESTION_BANK = [
+    { question: 'What is your favorite pizza topping?', imposterQuestion: 'What is your favorite sandwich filling?' },
+    { question: 'What would you do if you won the lottery?', imposterQuestion: 'What would you do if you got a big promotion?' },
+    { question: 'What is your biggest pet peeve?', imposterQuestion: 'What is your biggest fear?' },
+    { question: 'Describe your ideal vacation destination.', imposterQuestion: 'Describe your ideal weekend at home.' },
+    { question: 'What superpower would you want?', imposterQuestion: 'What skill would you want to master instantly?' },
+    { question: 'What is the worst movie you have ever seen?', imposterQuestion: 'What is the worst book you have ever read?' },
+    { question: 'If you could have dinner with anyone, who?', imposterQuestion: 'If you could swap lives with anyone for a day, who?' },
+    { question: 'What would your last meal on Earth be?', imposterQuestion: 'What would your first meal on Mars be?' },
+    { question: 'What is the most embarrassing thing that happened to you in school?', imposterQuestion: 'What is the most embarrassing thing that happened to you at work?' },
+    { question: 'What is your guilty pleasure TV show?', imposterQuestion: 'What is your guilty pleasure snack?' },
+    { question: 'If you could live in any time period, when?', imposterQuestion: 'If you could live in any country, where?' },
+    { question: 'What is the strangest food you have ever tried?', imposterQuestion: 'What is the strangest hobby you have ever tried?' },
+    { question: 'What is one thing you cannot live without?', imposterQuestion: 'What is one thing you wish you could get rid of?' },
+    { question: 'What was your childhood dream job?', imposterQuestion: 'What is your current dream job?' },
+    { question: 'If you were an animal, what would you be?', imposterQuestion: 'If you were a fictional character, who would you be?' },
+    { question: 'What is the best gift you have ever received?', imposterQuestion: 'What is the best gift you have ever given?' },
+    { question: 'What scares you most about the ocean?', imposterQuestion: 'What scares you most about space?' },
+    { question: 'Describe your morning routine.', imposterQuestion: 'Describe your bedtime routine.' },
+    { question: 'What song do you secretly love?', imposterQuestion: 'What movie do you secretly love?' },
+    { question: 'What is the most useless talent you have?', imposterQuestion: 'What is the most useful talent you have?' },
+    { question: 'If you could only eat one cuisine forever, what?', imposterQuestion: 'If you could only drink one beverage forever, what?' },
+    { question: 'What is the worst advice you have received?', imposterQuestion: 'What is the best advice you have received?' },
+    { question: 'What would you do during a zombie apocalypse?', imposterQuestion: 'What would you do during an alien invasion?' },
+    { question: 'What is your unpopular opinion about food?', imposterQuestion: 'What is your unpopular opinion about music?' },
+    { question: 'If your life was a movie genre, what would it be?', imposterQuestion: 'If your life was a book genre, what would it be?' },
+    { question: 'What is the hardest thing you have ever done?', imposterQuestion: 'What is the bravest thing you have ever done?' },
+    { question: 'What do you think happens after you die?', imposterQuestion: 'What do you think happened before you were born?' },
+    { question: 'What hill are you willing to die on?', imposterQuestion: 'What argument do you always avoid?' },
+    { question: 'Describe the perfect date night.', imposterQuestion: 'Describe the perfect friend hangout.' },
+    { question: 'What is the worst haircut you have ever had?', imposterQuestion: 'What is the worst outfit you have ever worn?' },
+    { question: 'What celebrity do people say you look like?', imposterQuestion: 'What celebrity do you wish you looked like?' },
+    { question: 'What is the most overrated thing in life?', imposterQuestion: 'What is the most underrated thing in life?' },
+    { question: 'If you had to delete one app from your phone, which?', imposterQuestion: 'If you had to keep only one app on your phone, which?' },
+    { question: 'What is the weirdest dream you have had?', imposterQuestion: 'What is the best dream you have had?' },
+    { question: 'What would you name your pet dragon?', imposterQuestion: 'What would you name your pet robot?' },
+    { question: 'What is your go-to comfort food?', imposterQuestion: 'What is your go-to comfort activity?' },
+    { question: 'What is the most illegal thing you have done?', imposterQuestion: 'What is the most daring thing you have done?' },
+    { question: 'What would you do if you were invisible for a day?', imposterQuestion: 'What would you do if you could fly for a day?' },
+    { question: 'What is the funniest thing a kid has said to you?', imposterQuestion: 'What is the funniest thing a stranger has said to you?' },
+    { question: 'What would be the worst job in the world?', imposterQuestion: 'What would be the best job in the world?' },
+    { question: 'If you could witness any historical event, which?', imposterQuestion: 'If you could prevent any historical event, which?' },
+    { question: 'What is the best prank you have pulled?', imposterQuestion: 'What is the worst prank someone pulled on you?' },
+    { question: 'Describe your perfect Saturday morning.', imposterQuestion: 'Describe your perfect Friday night.' },
+    { question: 'What is a trend you wish would come back?', imposterQuestion: 'What is a trend you wish would disappear?' },
+    { question: 'What movie made you cry the most?', imposterQuestion: 'What movie made you laugh the most?' },
+    { question: 'If you could only listen to one artist forever, who?', imposterQuestion: 'If you could only watch one director forever, who?' },
+    { question: 'What is the pettiest thing you have done?', imposterQuestion: 'What is the kindest thing you have done?' },
+    { question: 'What would you do with an extra hour every day?', imposterQuestion: 'What would you do with an extra $100 every day?' },
+    { question: 'What is the worst lie you have ever told?', imposterQuestion: 'What is the best excuse you have ever made up?' },
+    { question: 'If you opened a restaurant, what kind?', imposterQuestion: 'If you opened a store, what kind?' },
+    { question: 'What is a skill that is attractive in others?', imposterQuestion: 'What is a habit that is annoying in others?' },
+    { question: 'What childhood show do you still remember?', imposterQuestion: 'What childhood game do you still remember?' },
+    { question: 'What is the longest you have gone without sleep?', imposterQuestion: 'What is the longest you have gone without eating?' },
+    { question: 'If you wrote a book, what would the title be?', imposterQuestion: 'If you made a movie, what would the title be?' },
+    { question: 'What do you always procrastinate on?', imposterQuestion: 'What do you always do immediately?' },
+    { question: 'What is the most money you have wasted?', imposterQuestion: 'What is the best money you have spent?' },
+    { question: 'What would you change about your hometown?', imposterQuestion: 'What would you keep about your hometown?' },
+    { question: 'What was the last thing you Googled?', imposterQuestion: 'What was the last thing you bought online?' },
+    { question: 'If you were famous, what would it be for?', imposterQuestion: 'If you were infamous, what would it be for?' },
+    { question: 'What is something everyone loves but you hate?', imposterQuestion: 'What is something everyone hates but you love?' },
+];
+
 // ============================================
 // SCREEN MANAGEMENT
 // ============================================
@@ -819,9 +915,19 @@ function selectMode(mode) {
 let ipPlayers = [];       // array of player name strings
 let ipRound = 0;
 let ipUsedWords = new Set();
+let ipUsedQuestions = new Set();
 let ipCurrentWord = null; // { category, word, hint }
+let ipCurrentQuestion = null; // { question, imposterQuestion }
 let ipImposterId = -1;    // index into ipPlayers
 let ipRevealIdx = 0;      // which player is currently revealing
+let ipGameMode = 'word';  // 'word' or 'question'
+let ipAnswers = [];       // [{ name, answer }] for question mode
+
+function ipSetGameMode(mode) {
+    ipGameMode = mode;
+    document.querySelectorAll('#screen-ip-setup .game-mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('ip-gm-' + mode).classList.add('active');
+}
 
 function ipInit() {
     // Start with 3 empty player slots
@@ -885,17 +991,25 @@ function ipStartRound() {
     ipRound++;
     ipRevealIdx = 0;
 
-    // Pick word
-    const available = WORD_BANK.filter(w => !ipUsedWords.has(w.word));
-    const pool = available.length > 0 ? available : WORD_BANK;
-    ipCurrentWord = pool[Math.floor(Math.random() * pool.length)];
-    ipUsedWords.add(ipCurrentWord.word);
-
     // Pick imposter
     ipImposterId = Math.floor(Math.random() * ipPlayers.length);
 
-    // Show first player's reveal screen
-    ipShowReveal();
+    if (ipGameMode === 'question') {
+        // QUESTION MODE
+        ipAnswers = [];
+        const available = QUESTION_BANK.filter(q => !ipUsedQuestions.has(q.question));
+        const pool = available.length > 0 ? available : QUESTION_BANK;
+        ipCurrentQuestion = pool[Math.floor(Math.random() * pool.length)];
+        ipUsedQuestions.add(ipCurrentQuestion.question);
+        ipShowAnswerTurn();
+    } else {
+        // CLASSIC WORD MODE
+        const available = WORD_BANK.filter(w => !ipUsedWords.has(w.word));
+        const pool = available.length > 0 ? available : WORD_BANK;
+        ipCurrentWord = pool[Math.floor(Math.random() * pool.length)];
+        ipUsedWords.add(ipCurrentWord.word);
+        ipShowReveal();
+    }
 }
 
 function ipShowReveal() {
@@ -942,7 +1056,7 @@ function ipNext() {
     if (ipRevealIdx < ipPlayers.length) {
         ipShowReveal();
     } else {
-        // All players have seen their word — go to discussion
+        // All players have seen their word — go to discussion (word mode only)
         showScreen('ip-discuss');
         document.getElementById('ip-discuss-round').textContent = `Round ${ipRound}`;
     }
@@ -954,16 +1068,71 @@ function ipRevealAnswer() {
     box.className = 'results-box imposter-wins';
     document.getElementById('ip-results-title').textContent = 'The Imposter Was...';
     document.getElementById('ip-results-imposter').textContent = ipPlayers[ipImposterId];
-    document.getElementById('ip-results-word').innerHTML =
-        `The word was: <strong>${esc(ipCurrentWord.word)}</strong><br>
-         <span style="color:#888;">The imposter's hint was: <span style="color:#ff4444;">${esc(ipCurrentWord.hint)}</span></span>`;
+
+    if (ipGameMode === 'question' && ipCurrentQuestion) {
+        document.getElementById('ip-results-word').innerHTML =
+            `Crew question: <strong>${esc(ipCurrentQuestion.question)}</strong><br>
+             <span style="color:#ff4444;">Imposter question: <strong>${esc(ipCurrentQuestion.imposterQuestion)}</strong></span>`;
+    } else {
+        document.getElementById('ip-results-word').innerHTML =
+            `The word was: <strong>${esc(ipCurrentWord.word)}</strong><br>
+             <span style="color:#888;">The imposter's hint was: <span style="color:#ff4444;">${esc(ipCurrentWord.hint)}</span></span>`;
+    }
 }
 
 function ipBackToSetup() {
     ipRound = 0;
     ipUsedWords.clear();
+    ipUsedQuestions.clear();
     ipRenderPlayerInputs();
     showScreen('ip-setup');
+}
+
+// ── In-Person Question Mode ──
+function ipShowAnswerTurn() {
+    showScreen('ip-answer');
+    document.getElementById('ip-answer-turn').textContent = `${ipPlayers[ipRevealIdx]}'s Turn — Answer the question!`;
+    const q = ipRevealIdx === ipImposterId ? ipCurrentQuestion.imposterQuestion : ipCurrentQuestion.question;
+    document.getElementById('ip-answer-question').textContent = q;
+    document.getElementById('ip-answer-input').value = '';
+    document.getElementById('ip-answer-input').disabled = false;
+    document.getElementById('ip-answer-round').textContent = `Round ${ipRound} — Player ${ipRevealIdx + 1} of ${ipPlayers.length}`;
+}
+
+function ipSubmitAnswer() {
+    const input = document.getElementById('ip-answer-input');
+    const answer = input.value.trim();
+    if (!answer) return;
+
+    ipAnswers.push({ name: ipPlayers[ipRevealIdx], answer, idx: ipRevealIdx });
+    input.disabled = true;
+
+    ipRevealIdx++;
+    if (ipRevealIdx < ipPlayers.length) {
+        // Brief "pass the phone" message, then next
+        document.getElementById('ip-answer-turn').textContent = 'Pass the phone to the next player!';
+        document.getElementById('ip-answer-question').textContent = '...';
+        setTimeout(() => ipShowAnswerTurn(), 1200);
+    } else {
+        // All answered — show all answers for discussion
+        ipShowAnswersDiscuss();
+    }
+}
+
+function ipShowAnswersDiscuss() {
+    showScreen('ip-answers-discuss');
+    document.getElementById('ip-answers-discuss-round').textContent = `Round ${ipRound}`;
+    const list = document.getElementById('ip-answers-list');
+    list.innerHTML = '';
+    for (const a of ipAnswers) {
+        const card = document.createElement('div');
+        card.className = 'answer-card';
+        card.innerHTML = `
+            <div class="answer-player" style="color:#ff8800;">${esc(a.name)}</div>
+            <div class="answer-text">${esc(a.answer)}</div>
+        `;
+        list.appendChild(card);
+    }
 }
 
 // ============================================
