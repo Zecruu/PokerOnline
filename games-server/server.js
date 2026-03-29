@@ -959,6 +959,7 @@ function revealAnswers(roomId, room) {
 
     imposterIo.to(roomId).emit('imposter:answers-revealed', {
         answers: answerList,
+        crewQuestion: room.currentQuestion ? room.currentQuestion.question : null,
         discussTime: room.discussTime,
     });
 

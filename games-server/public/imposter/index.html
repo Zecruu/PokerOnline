@@ -1091,8 +1091,14 @@ function ipBackToSetup() {
 // ── In-Person Question Mode ──
 function ipShowAnswerTurn() {
     showScreen('ip-answer');
-    document.getElementById('ip-answer-turn').textContent = `${ipPlayers[ipRevealIdx]}'s Turn — Answer the question!`;
-    const q = ipRevealIdx === ipImposterId ? ipCurrentQuestion.imposterQuestion : ipCurrentQuestion.question;
+    const isImposter = ipRevealIdx === ipImposterId;
+    const turnLabel = document.getElementById('ip-answer-turn');
+    if (isImposter) {
+        turnLabel.innerHTML = `${esc(ipPlayers[ipRevealIdx])}'s Turn — <span style="color:#ff3333;">You are the IMPOSTER!</span>`;
+    } else {
+        turnLabel.textContent = `${ipPlayers[ipRevealIdx]}'s Turn — Answer the question!`;
+    }
+    const q = isImposter ? ipCurrentQuestion.imposterQuestion : ipCurrentQuestion.question;
     document.getElementById('ip-answer-question').textContent = q;
     document.getElementById('ip-answer-input').value = '';
     document.getElementById('ip-answer-input').disabled = false;
@@ -1123,7 +1129,11 @@ function ipShowAnswersDiscuss() {
     showScreen('ip-answers-discuss');
     document.getElementById('ip-answers-discuss-round').textContent = `Round ${ipRound}`;
     const list = document.getElementById('ip-answers-list');
-    list.innerHTML = '';
+    list.innerHTML = `<div style="text-align:center;margin-bottom:14px;padding:12px;background:#111;border-radius:10px;">
+        <div style="color:#888;font-size:.8em;margin-bottom:4px;">THE QUESTION WAS:</div>
+        <div style="color:#fff;font-size:1.1em;font-weight:700;">${esc(ipCurrentQuestion.question)}</div>
+        <div style="color:#666;font-size:.75em;margin-top:4px;">The imposter got a different question...</div>
+    </div>`;
     for (const a of ipAnswers) {
         const card = document.createElement('div');
         card.className = 'answer-card';
@@ -1404,7 +1414,16 @@ socket.on('imposter:answers-revealed', (data) => {
     document.getElementById('answer-area').style.display = 'none';
     const list = document.getElementById('answers-list');
     list.style.display = 'block';
-    list.innerHTML = '<h3 style="text-align:center;color:#ff8800;margin-bottom:10px;">Everyone\'s Answers</h3>';
+    list.innerHTML = '';
+
+    // Show the crew question at the top
+    if (data.crewQuestion) {
+        list.innerHTML = `<div style="text-align:center;margin-bottom:14px;padding:12px;background:#111;border-radius:10px;">
+            <div style="color:#888;font-size:.8em;margin-bottom:4px;">THE QUESTION WAS:</div>
+            <div style="color:#fff;font-size:1.1em;font-weight:700;">${esc(data.crewQuestion)}</div>
+            <div style="color:#666;font-size:.75em;margin-top:4px;">The imposter got a different question...</div>
+        </div>`;
+    }
 
     data.answers.forEach(a => {
         const card = document.createElement('div');
