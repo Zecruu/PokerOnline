@@ -581,8 +581,17 @@
     <!-- In-Person Question: Answer collection (pass-the-phone) -->
     <div id="screen-ip-answer" class="screen">
         <div class="player-turn-label" id="ip-answer-turn"></div>
-        <div id="ip-answer-hidden">
-            <div class="the-word normal" id="ip-answer-question" style="font-size:1.2em;margin:20px 0;"></div>
+        <!-- Tap to reveal (before showing question) -->
+        <div id="ip-answer-cover">
+            <button class="reveal-btn" onclick="ipRevealQuestion()">
+                Tap to see your question
+            </button>
+            <p class="pass-notice">Only the current player should look!</p>
+        </div>
+        <!-- Question + answer input (after reveal) -->
+        <div id="ip-answer-content" style="display:none;">
+            <div id="ip-answer-role" style="text-align:center;margin-bottom:8px;font-size:.9em;"></div>
+            <div class="the-word normal" id="ip-answer-question" style="font-size:1.2em;margin:12px 0;"></div>
             <div class="answer-area">
                 <textarea id="ip-answer-input" placeholder="Type your answer..." maxlength="300"></textarea>
                 <button class="btn-primary" onclick="ipSubmitAnswer()" style="margin-top:8px;">Submit &amp; Pass Phone</button>
@@ -1091,18 +1100,29 @@ function ipBackToSetup() {
 // ── In-Person Question Mode ──
 function ipShowAnswerTurn() {
     showScreen('ip-answer');
+    document.getElementById('ip-answer-turn').textContent = `${ipPlayers[ipRevealIdx]}'s Turn`;
+    // Show cover, hide content
+    document.getElementById('ip-answer-cover').style.display = 'block';
+    document.getElementById('ip-answer-content').style.display = 'none';
+    document.getElementById('ip-answer-round').textContent = `Round ${ipRound} — Player ${ipRevealIdx + 1} of ${ipPlayers.length}`;
+}
+
+function ipRevealQuestion() {
+    document.getElementById('ip-answer-cover').style.display = 'none';
+    document.getElementById('ip-answer-content').style.display = 'block';
+
     const isImposter = ipRevealIdx === ipImposterId;
-    const turnLabel = document.getElementById('ip-answer-turn');
+    const roleEl = document.getElementById('ip-answer-role');
     if (isImposter) {
-        turnLabel.innerHTML = `${esc(ipPlayers[ipRevealIdx])}'s Turn — <span style="color:#ff3333;">You are the IMPOSTER!</span>`;
+        roleEl.innerHTML = '<span style="color:#ff3333;font-weight:700;">You are the IMPOSTER!</span>';
     } else {
-        turnLabel.textContent = `${ipPlayers[ipRevealIdx]}'s Turn — Answer the question!`;
+        roleEl.innerHTML = '<span style="color:#88ff88;">Answer the question below:</span>';
     }
     const q = isImposter ? ipCurrentQuestion.imposterQuestion : ipCurrentQuestion.question;
     document.getElementById('ip-answer-question').textContent = q;
     document.getElementById('ip-answer-input').value = '';
     document.getElementById('ip-answer-input').disabled = false;
-    document.getElementById('ip-answer-round').textContent = `Round ${ipRound} — Player ${ipRevealIdx + 1} of ${ipPlayers.length}`;
+    document.getElementById('ip-answer-input').focus();
 }
 
 function ipSubmitAnswer() {
@@ -1115,10 +1135,8 @@ function ipSubmitAnswer() {
 
     ipRevealIdx++;
     if (ipRevealIdx < ipPlayers.length) {
-        // Brief "pass the phone" message, then next
-        document.getElementById('ip-answer-turn').textContent = 'Pass the phone to the next player!';
-        document.getElementById('ip-answer-question').textContent = '...';
-        setTimeout(() => ipShowAnswerTurn(), 1200);
+        // Go straight to next player's cover screen
+        ipShowAnswerTurn();
     } else {
         // All answered — show all answers for discussion
         ipShowAnswersDiscuss();
