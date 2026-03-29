@@ -385,6 +385,77 @@
             border-radius: 8px;
         }
 
+        /* Answer submission (question mode) */
+        .answer-area { margin: 20px 0; }
+
+        .answer-area textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 14px;
+            border-radius: 12px;
+            background: #1a1a2e;
+            color: #fff;
+            border: 1px solid #333;
+            font-family: inherit;
+            font-size: 1em;
+            resize: vertical;
+            outline: none;
+        }
+
+        .answer-area textarea:focus { border-color: #ff4444; }
+
+        .answers-list { margin: 15px 0; }
+
+        .answer-card {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+
+        .answer-card .answer-player {
+            font-weight: 700;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+        }
+
+        .answer-card .answer-text {
+            color: #ccc;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        .answer-count-bar {
+            text-align: center;
+            color: #888;
+            font-size: 0.9em;
+            margin: 10px 0;
+        }
+
+        .game-mode-row {
+            display: flex;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .game-mode-btn {
+            flex: 1;
+            background: #1a1a2e;
+            border: 2px solid #333;
+            color: #aaa;
+            padding: 10px 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+
+        .game-mode-btn:hover { border-color: #ff4444; color: #fff; }
+        .game-mode-btn.active { border-color: #ff4444; background: #2a1122; color: #ff4444; }
+
         .status-msg {
             text-align: center;
             color: #888;
@@ -577,6 +648,13 @@
         <p class="status-msg">Share this code with friends</p>
         <ul class="player-list" id="lobby-players"></ul>
         <div id="host-controls" style="display:none;">
+            <div style="margin-bottom:10px;">
+                <label style="color:#888;font-size:.8em;text-transform:uppercase;letter-spacing:.5px;">Game Mode</label>
+                <div class="game-mode-row">
+                    <div class="game-mode-btn active" id="gm-word" onclick="setGameMode('word')">&#x1F4AC; Classic Word</div>
+                    <div class="game-mode-btn" id="gm-question" onclick="setGameMode('question')">&#x2753; Question</div>
+                </div>
+            </div>
             <div class="settings-row">
                 <label>Discussion:</label>
                 <select id="setting-discuss-time">
@@ -609,6 +687,16 @@
             <div class="the-word" id="the-word"></div>
             <div class="category-label" id="category-label"></div>
         </div>
+
+        <!-- Answer area (question mode only) -->
+        <div class="answer-area" id="answer-area" style="display:none;">
+            <textarea id="answer-input" placeholder="Type your answer..." maxlength="300"></textarea>
+            <button class="btn-primary" onclick="submitAnswer()" id="btn-submit-answer" style="margin-top:8px;">Submit Answer</button>
+            <div class="answer-count-bar" id="answer-count"></div>
+        </div>
+
+        <!-- Answers revealed (question mode) -->
+        <div class="answers-list" id="answers-list" style="display:none;"></div>
 
         <div class="vote-section" id="vote-section" style="display:none;">
             <h3>Vote for the Imposter</h3>
@@ -889,7 +977,16 @@ let isHost = false;
 let players = [];
 let myRole = null;
 let myVote = null;
+let myAnswerSubmitted = false;
 let gamePhase = null;
+let selectedGameMode = 'word'; // 'word' or 'question'
+let currentGameMode = 'word'; // actual mode for current round
+
+function setGameMode(mode) {
+    selectedGameMode = mode;
+    document.querySelectorAll('.game-mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('gm-' + mode).classList.add('active');
+}
 
 socket.on('connect', () => { myId = socket.id; });
 
@@ -991,40 +1088,78 @@ function startGame() {
     if (!isHost) return;
     const discussTime = parseInt(document.getElementById('setting-discuss-time').value);
     const voteTime = parseInt(document.getElementById('setting-vote-time').value);
-    socket.emit('imposter:start', { discussTime, voteTime });
+    socket.emit('imposter:start', { discussTime, voteTime, gameMode: selectedGameMode });
 }
 
 socket.on('imposter:round-start', (data) => {
     myRole = data.role;
     myVote = null;
-    gamePhase = 'discuss';
+    myAnswerSubmitted = false;
+    currentGameMode = data.gameMode || 'word';
 
     showScreen('game');
 
     const roleEl = document.getElementById('your-role');
     const wordEl = document.getElementById('the-word');
     const catEl = document.getElementById('category-label');
+    const answerArea = document.getElementById('answer-area');
+    const answersList = document.getElementById('answers-list');
 
-    if (data.role === 'imposter') {
-        roleEl.textContent = 'You are the IMPOSTER! You got a hint:';
-        roleEl.style.color = '#ff3333';
-        wordEl.className = 'the-word imposter';
-        wordEl.textContent = data.hint;
-        catEl.textContent = '';
-    } else {
-        roleEl.textContent = 'You are CREW. The word is:';
-        roleEl.style.color = '#88ff88';
-        wordEl.className = 'the-word normal';
-        wordEl.textContent = data.word;
-        catEl.textContent = `Category: ${data.category}`;
-    }
-
-    document.getElementById('phase-label').textContent = 'Discussion Phase - Talk it out!';
+    // Reset UI
     document.getElementById('vote-section').style.display = 'none';
+    answerArea.style.display = 'none';
+    answersList.style.display = 'none';
     document.getElementById('round-info').textContent = `Round ${data.round}`;
     document.getElementById('chat-box').innerHTML = '';
+    document.getElementById('answer-count').textContent = '';
 
-    startTimer(data.discussTime);
+    if (currentGameMode === 'question') {
+        // QUESTION MODE
+        gamePhase = 'answering';
+
+        if (data.role === 'imposter') {
+            roleEl.textContent = 'You are the IMPOSTER! Answer this question:';
+            roleEl.style.color = '#ff3333';
+        } else {
+            roleEl.textContent = 'Answer this question:';
+            roleEl.style.color = '#88ff88';
+        }
+        wordEl.className = 'the-word normal';
+        wordEl.textContent = data.question;
+        wordEl.style.fontSize = '1.4em';
+        catEl.textContent = 'Everyone answers — then find the imposter!';
+
+        // Show answer input
+        answerArea.style.display = 'block';
+        document.getElementById('answer-input').value = '';
+        document.getElementById('btn-submit-answer').disabled = false;
+        document.getElementById('btn-submit-answer').textContent = 'Submit Answer';
+
+        document.getElementById('phase-label').textContent = 'Answer Phase - Type your answer!';
+        startTimer(data.answerTime || 60);
+
+    } else {
+        // CLASSIC WORD MODE
+        gamePhase = 'discuss';
+        wordEl.style.fontSize = '';
+
+        if (data.role === 'imposter') {
+            roleEl.textContent = 'You are the IMPOSTER! You got a hint:';
+            roleEl.style.color = '#ff3333';
+            wordEl.className = 'the-word imposter';
+            wordEl.textContent = data.hint;
+            catEl.textContent = '';
+        } else {
+            roleEl.textContent = 'You are CREW. The word is:';
+            roleEl.style.color = '#88ff88';
+            wordEl.className = 'the-word normal';
+            wordEl.textContent = data.word;
+            catEl.textContent = `Category: ${data.category}`;
+        }
+
+        document.getElementById('phase-label').textContent = 'Discussion Phase - Talk it out!';
+        startTimer(data.discussTime);
+    }
 });
 
 // Timer
@@ -1074,6 +1209,49 @@ socket.on('imposter:vote-phase', (data) => {
     });
 });
 
+// ── QUESTION MODE: Submit answer ──
+function submitAnswer() {
+    if (myAnswerSubmitted) return;
+    const input = document.getElementById('answer-input');
+    const answer = input.value.trim();
+    if (!answer) return;
+
+    myAnswerSubmitted = true;
+    socket.emit('imposter:submit-answer', { answer });
+
+    document.getElementById('btn-submit-answer').disabled = true;
+    document.getElementById('btn-submit-answer').textContent = 'Submitted!';
+    input.disabled = true;
+}
+
+socket.on('imposter:answer-count', (data) => {
+    document.getElementById('answer-count').textContent = `${data.answered} / ${data.total} answered`;
+});
+
+socket.on('imposter:answers-revealed', (data) => {
+    gamePhase = 'discuss';
+
+    // Hide answer input, show answers
+    document.getElementById('answer-area').style.display = 'none';
+    const list = document.getElementById('answers-list');
+    list.style.display = 'block';
+    list.innerHTML = '<h3 style="text-align:center;color:#ff8800;margin-bottom:10px;">Everyone\'s Answers</h3>';
+
+    data.answers.forEach(a => {
+        const card = document.createElement('div');
+        card.className = 'answer-card';
+        const color = players.find(p => p.id === a.id)?.color || '#888';
+        card.innerHTML = `
+            <div class="answer-player" style="color:${color}">${esc(a.name)} ${a.id === myId ? '<span class="you-badge">YOU</span>' : ''}</div>
+            <div class="answer-text">${esc(a.answer)}</div>
+        `;
+        list.appendChild(card);
+    });
+
+    document.getElementById('phase-label').textContent = 'Discussion Phase - Who gave a suspicious answer?';
+    startTimer(data.discussTime);
+});
+
 function castVote(targetId, btn) {
     if (myVote || myRole === 'imposter') return;
     myVote = targetId;
@@ -1121,7 +1299,12 @@ socket.on('imposter:results', (data) => {
         votesEl.textContent = 'No majority - imposter escapes!';
     }
 
-    wordEl.innerHTML = `The word was: <strong>${esc(data.word)}</strong> (hint: ${esc(data.hint)})`;
+    if (data.gameMode === 'question') {
+        wordEl.innerHTML = `Crew question: <strong>${esc(data.crewQuestion)}</strong><br>
+            <span style="color:#ff4444;">Imposter question: <strong>${esc(data.imposterQuestion)}</strong></span>`;
+    } else {
+        wordEl.innerHTML = `The word was: <strong>${esc(data.word)}</strong> (hint: ${esc(data.hint)})`;
+    }
 
     const sb = document.getElementById('scoreboard');
     sb.innerHTML = '<h3 style="text-align:center;margin-bottom:10px;">Scores</h3>';

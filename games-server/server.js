@@ -560,6 +560,46 @@ const WORD_BANK = [
     { category: 'Activities', word: 'Gaming', hint: 'Digital' },
 ];
 
+// Question bank: crew gets `question`, imposter gets `imposterQuestion`
+const QUESTION_BANK = [
+    { question: 'What is your favorite pizza topping?', imposterQuestion: 'What is your favorite sandwich filling?' },
+    { question: 'What would you do if you won the lottery?', imposterQuestion: 'What would you do if you got a big promotion?' },
+    { question: 'What is your biggest pet peeve?', imposterQuestion: 'What is your biggest fear?' },
+    { question: 'Describe your ideal vacation destination.', imposterQuestion: 'Describe your ideal weekend at home.' },
+    { question: 'What superpower would you want?', imposterQuestion: 'What skill would you want to master instantly?' },
+    { question: 'What is the worst movie you have ever seen?', imposterQuestion: 'What is the worst book you have ever read?' },
+    { question: 'If you could have dinner with anyone, who?', imposterQuestion: 'If you could swap lives with anyone for a day, who?' },
+    { question: 'What would your last meal on Earth be?', imposterQuestion: 'What would your first meal on Mars be?' },
+    { question: 'What is the most embarrassing thing that happened to you in school?', imposterQuestion: 'What is the most embarrassing thing that happened to you at work?' },
+    { question: 'What is your guilty pleasure TV show?', imposterQuestion: 'What is your guilty pleasure snack?' },
+    { question: 'If you could live in any time period, when?', imposterQuestion: 'If you could live in any country, where?' },
+    { question: 'What is the strangest food you have ever tried?', imposterQuestion: 'What is the strangest hobby you have ever tried?' },
+    { question: 'What is one thing you cannot live without?', imposterQuestion: 'What is one thing you wish you could get rid of?' },
+    { question: 'What was your childhood dream job?', imposterQuestion: 'What is your current dream job?' },
+    { question: 'If you were an animal, what would you be?', imposterQuestion: 'If you were a fictional character, who would you be?' },
+    { question: 'What is the best gift you have ever received?', imposterQuestion: 'What is the best gift you have ever given?' },
+    { question: 'What scares you most about the ocean?', imposterQuestion: 'What scares you most about space?' },
+    { question: 'Describe your morning routine.', imposterQuestion: 'Describe your bedtime routine.' },
+    { question: 'What song do you secretly love?', imposterQuestion: 'What movie do you secretly love?' },
+    { question: 'What is the most useless talent you have?', imposterQuestion: 'What is the most useful talent you have?' },
+    { question: 'If you could only eat one cuisine forever, what?', imposterQuestion: 'If you could only drink one beverage forever, what?' },
+    { question: 'What is the worst advice you have received?', imposterQuestion: 'What is the best advice you have received?' },
+    { question: 'What would you do during a zombie apocalypse?', imposterQuestion: 'What would you do during an alien invasion?' },
+    { question: 'What is your unpopular opinion about food?', imposterQuestion: 'What is your unpopular opinion about music?' },
+    { question: 'If your life was a movie genre, what would it be?', imposterQuestion: 'If your life was a book genre, what would it be?' },
+    { question: 'What is the hardest thing you have ever done?', imposterQuestion: 'What is the bravest thing you have ever done?' },
+    { question: 'What do you think happens after you die?', imposterQuestion: 'What do you think happened before you were born?' },
+    { question: 'What hill are you willing to die on?', imposterQuestion: 'What argument do you always avoid?' },
+    { question: 'Describe the perfect date night.', imposterQuestion: 'Describe the perfect friend hangout.' },
+    { question: 'What is the worst haircut you have ever had?', imposterQuestion: 'What is the worst outfit you have ever worn?' },
+];
+
+function pickRandomQuestion(usedQuestions) {
+    const available = QUESTION_BANK.filter(q => !usedQuestions.has(q.question));
+    const pool = available.length > 0 ? available : QUESTION_BANK;
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
 const IMP_COLORS = ['#4fc3f7', '#81c784', '#ffb74d', '#e57373', '#ba68c8', '#4db6ac', '#fff176', '#f06292'];
 
 function generateImposterRoomId() {
@@ -595,14 +635,18 @@ imposterIo.on('connection', (socket) => {
             players: new Map(),
             round: 0,
             usedWords: new Set(),
+            usedQuestions: new Set(),
             scores: new Map(),
             createdAt: Date.now(),
             phase: 'lobby',
+            gameMode: 'word', // 'word' or 'question'
             discussTime: 60,
             voteTime: 20,
             currentWord: null,
+            currentQuestion: null,
             imposterId: null,
             votes: new Map(),
+            answers: new Map(), // playerId → answer string (question mode)
             timers: [],
         };
         room.players.set(socket.id, {
@@ -652,7 +696,32 @@ imposterIo.on('connection', (socket) => {
 
         room.discussTime = Math.min(Math.max(data.discussTime || 60, 15), 180);
         room.voteTime = Math.min(Math.max(data.voteTime || 20, 10), 60);
+        if (data.gameMode === 'question' || data.gameMode === 'word') {
+            room.gameMode = data.gameMode;
+        }
         startNewRound(currentRoom, room);
+    });
+
+    // Submit answer (question mode)
+    socket.on('imposter:submit-answer', (data) => {
+        if (!currentRoom) return;
+        const room = imposterRooms.get(currentRoom);
+        if (!room || room.phase !== 'answering') return;
+        if (room.answers.has(socket.id)) return; // already answered
+
+        room.answers.set(socket.id, (data.answer || '').substring(0, 300).trim());
+
+        // Broadcast answer count
+        imposterIo.to(currentRoom).emit('imposter:answer-count', {
+            answered: room.answers.size,
+            total: room.players.size,
+        });
+
+        // Check if all answered
+        if (room.answers.size >= room.players.size) {
+            clearRoomTimers(room);
+            revealAnswers(currentRoom, room);
+        }
     });
 
     // Next round
@@ -751,48 +820,124 @@ function clearRoomTimers(room) {
 function startNewRound(roomId, room) {
     clearRoomTimers(room);
     room.round++;
-    room.phase = 'discuss';
     room.votes = new Map();
-
-    // Pick word
-    const wordObj = pickRandomWord(room.usedWords);
-    room.usedWords.add(wordObj.word);
-    room.currentWord = wordObj;
+    room.answers = new Map();
 
     // Pick imposter
     const playerIds = [...room.players.keys()];
     room.imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
 
-    console.log(`[Imposter] Room ${roomId} round ${room.round}: word="${wordObj.word}", imposter=${room.imposterId}`);
+    if (room.gameMode === 'question') {
+        // ── QUESTION MODE ──
+        room.phase = 'answering';
+        const qObj = pickRandomQuestion(room.usedQuestions);
+        room.usedQuestions.add(qObj.question);
+        room.currentQuestion = qObj;
+        room.currentWord = null;
 
-    // Send to each player
-    for (const [id] of room.players) {
-        const sock = imposterIo.sockets.sockets.get(id);
-        if (!sock) continue;
-        if (id === room.imposterId) {
-            sock.emit('imposter:round-start', {
-                role: 'imposter',
-                hint: wordObj.hint,
-                round: room.round,
-                discussTime: room.discussTime,
-            });
-        } else {
-            sock.emit('imposter:round-start', {
-                role: 'crew',
-                word: wordObj.word,
-                category: wordObj.category,
-                round: room.round,
-                discussTime: room.discussTime,
-            });
+        console.log(`[Imposter] Room ${roomId} round ${room.round} (question): crew="${qObj.question}", imposter="${qObj.imposterQuestion}", imp=${room.imposterId}`);
+
+        for (const [id] of room.players) {
+            const sock = imposterIo.sockets.sockets.get(id);
+            if (!sock) continue;
+            if (id === room.imposterId) {
+                sock.emit('imposter:round-start', {
+                    role: 'imposter',
+                    gameMode: 'question',
+                    question: qObj.imposterQuestion,
+                    round: room.round,
+                    answerTime: 60,
+                });
+            } else {
+                sock.emit('imposter:round-start', {
+                    role: 'crew',
+                    gameMode: 'question',
+                    question: qObj.question,
+                    round: room.round,
+                    answerTime: 60,
+                });
+            }
         }
+
+        // Auto-advance after answer time
+        const answerTimer = setTimeout(() => {
+            if (room.phase === 'answering') {
+                // Fill in blank answers for anyone who didn't respond
+                for (const [id] of room.players) {
+                    if (!room.answers.has(id)) room.answers.set(id, '(no answer)');
+                }
+                revealAnswers(roomId, room);
+            }
+        }, 60 * 1000);
+        room.timers.push(answerTimer);
+
+    } else {
+        // ── CLASSIC WORD MODE ──
+        room.phase = 'discuss';
+        const wordObj = pickRandomWord(room.usedWords);
+        room.usedWords.add(wordObj.word);
+        room.currentWord = wordObj;
+        room.currentQuestion = null;
+
+        console.log(`[Imposter] Room ${roomId} round ${room.round}: word="${wordObj.word}", imposter=${room.imposterId}`);
+
+        for (const [id] of room.players) {
+            const sock = imposterIo.sockets.sockets.get(id);
+            if (!sock) continue;
+            if (id === room.imposterId) {
+                sock.emit('imposter:round-start', {
+                    role: 'imposter',
+                    gameMode: 'word',
+                    hint: wordObj.hint,
+                    round: room.round,
+                    discussTime: room.discussTime,
+                });
+            } else {
+                sock.emit('imposter:round-start', {
+                    role: 'crew',
+                    gameMode: 'word',
+                    word: wordObj.word,
+                    category: wordObj.category,
+                    round: room.round,
+                    discussTime: room.discussTime,
+                });
+            }
+        }
+
+        // After discussion time → vote phase
+        const discussTimer = setTimeout(() => {
+            room.phase = 'vote';
+            imposterIo.to(roomId).emit('imposter:vote-phase', { voteTime: room.voteTime });
+
+            const voteTimer = setTimeout(() => {
+                resolveVotes(roomId, room);
+            }, room.voteTime * 1000);
+            room.timers.push(voteTimer);
+        }, room.discussTime * 1000);
+        room.timers.push(discussTimer);
+    }
+}
+
+function revealAnswers(roomId, room) {
+    room.phase = 'discuss';
+
+    // Build answers list (shuffled order for extra deception)
+    const answerList = [];
+    for (const [id, answer] of room.answers) {
+        const player = room.players.get(id);
+        answerList.push({ id, name: player?.name || 'Player', answer });
     }
 
-    // After discussion time → vote phase
+    imposterIo.to(roomId).emit('imposter:answers-revealed', {
+        answers: answerList,
+        discussTime: room.discussTime,
+    });
+
+    // After discussion → vote
     const discussTimer = setTimeout(() => {
         room.phase = 'vote';
         imposterIo.to(roomId).emit('imposter:vote-phase', { voteTime: room.voteTime });
 
-        // After vote time → resolve
         const voteTimer = setTimeout(() => {
             resolveVotes(roomId, room);
         }, room.voteTime * 1000);
@@ -848,14 +993,21 @@ function resolveVotes(roomId, room) {
         scores.push({ id, name: p.name, score: room.scores.get(id) || 0 });
     }
 
-    imposterIo.to(roomId).emit('imposter:results', {
+    const resultData = {
         crewWins,
         imposterId: room.imposterId,
         votedOut,
-        word: room.currentWord.word,
-        hint: room.currentWord.hint,
+        gameMode: room.gameMode,
         scores,
-    });
+    };
+    if (room.gameMode === 'question' && room.currentQuestion) {
+        resultData.crewQuestion = room.currentQuestion.question;
+        resultData.imposterQuestion = room.currentQuestion.imposterQuestion;
+    } else if (room.currentWord) {
+        resultData.word = room.currentWord.word;
+        resultData.hint = room.currentWord.hint;
+    }
+    imposterIo.to(roomId).emit('imposter:results', resultData);
 
     // Go back to lobby phase so host can start next round
     room.phase = 'lobby';
