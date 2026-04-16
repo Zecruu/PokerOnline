@@ -28,7 +28,7 @@ const GameConfig = {
     async loadAll() {
         const files = [
             'species', 'critter-types', 'passives', 'buildings',
-            'research', 'equipment', 'snares', 'world', 'balance'
+            'research', 'equipment', 'snares', 'world', 'balance', 'biomes'
         ];
 
         const results = await Promise.all(
@@ -132,6 +132,11 @@ const GameConfig = {
             window.WILD_MIN_COUNT = b.wildCritters.minCount;
             window.WILD_MAX_COUNT = b.wildCritters.maxCount;
             window.CAPTURE_RANGE = b.capture.captureRange;
+        }
+
+        // ── BIOMES ──
+        if (d.biomes) {
+            window.BIOMES = d.biomes;
         }
 
         // ── SNARES ──

@@ -569,6 +569,13 @@ class UI {
             let html = '';
             const maxW = Buildings.getMaxWorkersPerBuilding(g.research);
 
+            // Auto-assign button
+            const idleCount = g.critters.filter(c => !c.assignment && !c.injured).length;
+            html += `<div class="manage-top-bar">`;
+            html += `<button class="auto-assign-btn" onclick="game.autoAssignCritters()" ${idleCount === 0 ? 'disabled' : ''}>⚡ Auto-Assign Best Fit (${idleCount} idle)</button>`;
+            html += `<button class="auto-unassign-btn" onclick="game.unassignAllWorkers()">↩ Unassign All Workers</button>`;
+            html += `</div>`;
+
             if (g.buildings.length === 0) {
                 html = '<div class="panel-empty">No buildings yet. Build some first!</div>';
             } else {

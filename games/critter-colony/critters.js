@@ -77,7 +77,8 @@ class Critters {
 
     // Pick a species weighted by distance from colony center (0,0 in tiles)
     // Inner zones → mostly common; outer zones → higher rarities.
-    static pickSpeciesByDistance(distTiles) {
+    // If biome is provided, 40% chance to pick from biome-boosted species.
+    static pickSpeciesByDistance(distTiles, biome) {
         const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
         const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
         const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
@@ -97,6 +98,14 @@ class Critters {
             else if (distTiles < 100) w = { legendary: 0.00, rare: 0.05, uncommon: 0.30, common: 0.65 };
             else if (distTiles < 160) w = { legendary: 0.03, rare: 0.22, uncommon: 0.40, common: 0.35 };
             else                      w = { legendary: 0.15, rare: 0.40, uncommon: 0.30, common: 0.15 };
+        }
+
+        // Biome bonus: 40% chance to force a biome-native species
+        if (biome && typeof BIOMES !== 'undefined' && BIOMES[biome] && BIOMES[biome].critterBonus && BIOMES[biome].critterBonus.length > 0) {
+            if (Math.random() < 0.40) {
+                const pool = BIOMES[biome].critterBonus.filter(k => SPECIES[k]);
+                if (pool.length > 0) return pool[Math.floor(Math.random() * pool.length)];
+            }
         }
 
         const roll = Math.random();
@@ -126,21 +135,33 @@ class Critters {
         const count = WILD_MIN_COUNT + Math.floor(Math.random() * (WILD_MAX_COUNT - WILD_MIN_COUNT + 1));
 
         for (let i = 0; i < count; i++) {
-            // Spread spawns across all zones so every rarity tier is represented
             const pos = Critters.pickSpawnTile(world, 55, 210);
             const distTiles = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
-            const species = Critters.pickSpeciesByDistance(distTiles);
+            const biome = world.getBiome ? world.getBiome(pos.x, pos.y) : 'plains';
+            const species = Critters.pickSpeciesByDistance(distTiles, biome);
             const sp = SPECIES[species];
             const level = Critters.levelFromDistance(distTiles, sp.rarity);
-            const baseHp = RARITY_HP[sp.rarity] || 30;
+
+            // Boss chance: 3% in far zones (dist > 130), must be uncommon+
+            const isBoss = distTiles > 130 && sp.rarity !== 'common' && Math.random() < 0.03;
+            const bossMul = isBoss ? 2 : 1;
+
+            const baseHp = (RARITY_HP[sp.rarity] || 30) * bossMul;
             const maxHp = Math.floor(baseHp * Critters.enemyHpMul(level));
-            const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level));
+            const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level) * bossMul);
+
+            const stats = Critters.rollStats(species);
+            if (isBoss) {
+                for (const k of Object.keys(stats)) stats[k] = Math.floor(stats[k] * 2);
+            }
+
             wilds.push({
                 id: _nextCritterId++,
                 species, level, attackDmg,
+                isBoss,
                 x: pos.x * TILE_SIZE + TILE_SIZE / 2,
                 y: pos.y * TILE_SIZE + TILE_SIZE / 2,
-                stats: Critters.rollStats(species),
+                stats,
                 hp: maxHp,
                 maxHp,
                 stunned: false,
@@ -445,16 +466,27 @@ class Critters {
         const sx = critter.x - camX;
         const sy = critter.y - camY;
         const bob = Math.sin(time * 3 + critter.id) * 2;
+        const boss = critter.isBoss;
+        const scale = boss ? 2.0 : 1.0;
 
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        // Shadow — bigger for bosses
+        ctx.fillStyle = boss ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.2)';
         ctx.beginPath();
-        ctx.ellipse(sx, sy + 12, 10, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(sx, sy + 12 * scale, 10 * scale, 4 * scale, 0, 0, Math.PI * 2);
         ctx.fill();
+
+        // Boss glow ring
+        if (boss) {
+            ctx.strokeStyle = `rgba(255,215,0,${0.3 + Math.sin(time * 4) * 0.2})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sx, sy + bob, 18, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         // Body — use sprite if available
         const sprite = typeof CRITTER_SPRITES !== 'undefined' ? CRITTER_SPRITES[critter.species] : null;
-        const r = 12;
+        const r = 12 * scale;
         if (sprite && sprite.complete && sprite.naturalWidth > 0) {
             ctx.save();
             ctx.beginPath();
@@ -481,6 +513,17 @@ class Critters {
             ctx.fill();
         }
 
+        // Boss crown + name plate
+        if (boss) {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u{1F451}', sx, sy + bob - r - 8);
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 8px monospace';
+            ctx.fillText('BOSS', sx, sy + bob - r - 18);
+        }
+
         // Stunned visual
         if (critter.stunned) {
             ctx.globalAlpha = 0.5 + Math.sin(time * 10) * 0.3;
@@ -488,29 +531,35 @@ class Critters {
             ctx.lineWidth = 2;
             ctx.setLineDash([3, 3]);
             ctx.beginPath();
-            ctx.arc(sx, sy + bob, 12, 0, Math.PI * 2);
+            ctx.arc(sx, sy + bob, r + 2, 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.globalAlpha = 1;
-            // Stars above head
             ctx.fillStyle = '#ffd54f';
             ctx.font = '10px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('\u2605', sx - 6, sy + bob - 14);
-            ctx.fillText('\u2605', sx + 6, sy + bob - 14);
+            ctx.fillText('\u2605', sx - 6 * scale, sy + bob - r - 2);
+            ctx.fillText('\u2605', sx + 6 * scale, sy + bob - r - 2);
         }
 
-        // HP bar (show when damaged)
+        // HP bar (show when damaged) — wider for bosses
         if (critter.hp < critter.maxHp && !critter.stunned) {
-            const barW = 20;
-            const barH = 3;
+            const barW = boss ? 40 : 20;
+            const barH = boss ? 5 : 3;
             const bx = sx - barW / 2;
-            const by = sy + bob - 16;
+            const by = sy + bob - r - 6;
             ctx.fillStyle = '#333';
             ctx.fillRect(bx, by, barW, barH);
             const pct = critter.hp / critter.maxHp;
             ctx.fillStyle = pct > 0.5 ? '#4ade80' : pct > 0.25 ? '#fbbf24' : '#f87171';
             ctx.fillRect(bx, by, barW * pct, barH);
+            // HP text for bosses
+            if (boss) {
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 7px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${Math.floor(critter.hp)}/${critter.maxHp}`, sx, by - 2);
+            }
         }
 
         // Aggro indicator
@@ -581,19 +630,28 @@ class Critters {
     static recycle(critter, world) {
         const pos = Critters.pickSpawnTile(world, 55, 210);
         const distTiles = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
-        const species = Critters.pickSpeciesByDistance(distTiles);
+        const biome = world.getBiome ? world.getBiome(pos.x, pos.y) : 'plains';
+        const species = Critters.pickSpeciesByDistance(distTiles, biome);
         const sp = SPECIES[species];
         const level = Critters.levelFromDistance(distTiles, sp.rarity);
-        const baseHp = RARITY_HP[sp.rarity] || 30;
+
+        const isBoss = distTiles > 130 && sp.rarity !== 'common' && Math.random() < 0.03;
+        const bossMul = isBoss ? 2 : 1;
+
+        const baseHp = (RARITY_HP[sp.rarity] || 30) * bossMul;
         const maxHp = Math.floor(baseHp * Critters.enemyHpMul(level));
-        const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level));
+        const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level) * bossMul);
+
+        const stats = Critters.rollStats(species);
+        if (isBoss) { for (const k of Object.keys(stats)) stats[k] = Math.floor(stats[k] * 2); }
 
         critter.species = species;
         critter.level = level;
         critter.attackDmg = attackDmg;
+        critter.isBoss = isBoss;
         critter.x = pos.x * TILE_SIZE + TILE_SIZE / 2;
         critter.y = pos.y * TILE_SIZE + TILE_SIZE / 2;
-        critter.stats = Critters.rollStats(species);
+        critter.stats = stats;
         critter.hp = maxHp;
         critter.maxHp = maxHp;
         critter.stunned = false;

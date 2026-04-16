@@ -1,0 +1,70 @@
+{
+    "_README": "Biome definitions. Each biome has unique tile colors, tree/rock styles, and critter spawn weights. Colony center is always 'plains'. Biomes are picked by angle+distance noise.",
+
+    "plains": {
+        "name": "Plains",
+        "icon": "\ud83c\udf3f",
+        "grass":  ["#4a7c3f","#4e8243","#46763b","#528647"],
+        "tree":   ["#2d5a1e"],
+        "rock":   ["#6b6b6b"],
+        "water":  ["#2a6faa","#2d74b0","#2768a2"],
+        "treeDetail": { "trunk": "#5c3d1e", "canopy": "#3a7a28" },
+        "critterBonus": [],
+        "ambientColor": null
+    },
+    "desert": {
+        "name": "Desert",
+        "icon": "\ud83c\udfdc\ufe0f",
+        "grass":  ["#c2a84d","#b89e45","#d4b85a","#caad4f"],
+        "tree":   ["#8b7332"],
+        "rock":   ["#a89070","#9c8460"],
+        "water":  ["#3a8a6a","#358565","#40906f"],
+        "treeDetail": { "trunk": "#7a6030", "canopy": "#6b8a30" },
+        "critterBonus": ["emberfox","pebblit","dustmite"],
+        "ambientColor": "rgba(180,140,60,0.06)"
+    },
+    "snow": {
+        "name": "Frozen Tundra",
+        "icon": "\u2744\ufe0f",
+        "grass":  ["#c8d8e0","#bfd0d8","#d0e0e8","#b8c8d0"],
+        "tree":   ["#4a6a5a"],
+        "rock":   ["#8a9aa0","#7e8e94"],
+        "water":  ["#5a8aaa","#5080a0","#6090b0"],
+        "treeDetail": { "trunk": "#5a4a3a", "canopy": "#4a7a5a" },
+        "critterBonus": ["ironshell","crystalhorn","sparkfly"],
+        "ambientColor": "rgba(150,180,220,0.08)"
+    },
+    "swamp": {
+        "name": "Toxic Swamp",
+        "icon": "\ud83e\udddf",
+        "grass":  ["#3a5a2a","#344f24","#40602e","#385528"],
+        "tree":   ["#2a4020"],
+        "rock":   ["#4a5a40","#3e4e36"],
+        "water":  ["#2a5040","#254a3a","#305545"],
+        "treeDetail": { "trunk": "#3a3020", "canopy": "#3a5a2a" },
+        "critterBonus": ["bogwalker","rotjaw","venomaw","mudgrub"],
+        "ambientColor": "rgba(40,80,30,0.08)"
+    },
+    "volcanic": {
+        "name": "Volcanic Wastes",
+        "icon": "\ud83c\udf0b",
+        "grass":  ["#3a3030","#433535","#383030","#4a3838"],
+        "tree":   ["#2a1a1a"],
+        "rock":   ["#5a3030","#6a3a3a"],
+        "water":  ["#8a3020","#7a2a1a","#943828"],
+        "treeDetail": { "trunk": "#2a1a10", "canopy": "#5a2a1a" },
+        "critterBonus": ["emberfox","goretusk","dreadmaw"],
+        "ambientColor": "rgba(160,40,20,0.06)"
+    },
+    "crystal": {
+        "name": "Crystal Caverns",
+        "icon": "\ud83d\udd2e",
+        "grass":  ["#3a3a5a","#404060","#353555","#454568"],
+        "tree":   ["#4a3a6a"],
+        "rock":   ["#6a5a8a","#7a6a9a"],
+        "water":  ["#4a4a8a","#3a3a7a","#5050a0"],
+        "treeDetail": { "trunk": "#4a3a5a", "canopy": "#7a5aaa" },
+        "critterBonus": ["glowmite","stormwing","celestine","faewisp","pixibell"],
+        "ambientColor": "rgba(120,80,200,0.06)"
+    }
+}

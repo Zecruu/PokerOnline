@@ -208,6 +208,12 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .title-hint{color:#666;font-size:.8rem;margin-top:16px}
 
 /* ========== MANAGE TAB ========== */
+.manage-top-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.auto-assign-btn{flex:1;padding:10px 16px;border-radius:8px;border:1px solid rgba(102,187,106,.4);background:linear-gradient(135deg,rgba(102,187,106,.15),rgba(102,187,106,.05));color:#66bb6a;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s}
+.auto-assign-btn:hover:not(:disabled){background:linear-gradient(135deg,rgba(102,187,106,.25),rgba(102,187,106,.12));box-shadow:0 0 12px rgba(102,187,106,.2)}
+.auto-assign-btn:disabled{opacity:.35;cursor:not-allowed}
+.auto-unassign-btn{padding:10px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#aaa;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s}
+.auto-unassign-btn:hover{background:rgba(255,255,255,.1);color:#fff}
 .manage-building{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:12px;margin-bottom:10px}
 .mb-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .mb-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:#fff;flex-shrink:0}

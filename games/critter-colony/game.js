@@ -638,6 +638,88 @@ class Game {
         UI.updatePanel();
     }
 
+    // Auto-assign idle critters to best-fit buildings based on type match + stat
+    autoAssignCritters() {
+        const maxW = Buildings.getMaxWorkersPerBuilding(this.research);
+        // Get idle critters — skip patrol, companion, bodyguard (player's party)
+        const idle = this.critters.filter(c =>
+            !c.assignment && !c.injured
+        );
+        if (idle.length === 0) { UI.notify('No idle critters to assign!'); return; }
+
+        // Get buildings with open worker slots (skip non-assignable types)
+        const openBuildings = this.buildings.filter(b => {
+            const def = BUILDING_DEFS[b.type];
+            if (def.turret || def.expander || def.capacity || def.isHQ || def.isWall || def.isGate || def.isGenerator) return false;
+            return b.workers.length < maxW;
+        });
+
+        if (openBuildings.length === 0) { UI.notify('All buildings are fully staffed!'); return; }
+
+        let assigned = 0;
+        // Sort idle critters by total stats descending (best critters first)
+        idle.sort((a, b) => {
+            const sa = Object.values(a.stats).reduce((s, v) => s + v, 0);
+            const sb = Object.values(b.stats).reduce((s, v) => s + v, 0);
+            return sb - sa;
+        });
+
+        for (const critter of idle) {
+            // Find best building for this critter (type match + relevant stat)
+            let bestBuilding = null, bestScore = -Infinity;
+            const sp = SPECIES[critter.species];
+
+            for (const b of openBuildings) {
+                if (b.workers.length >= maxW) continue;
+                const def = BUILDING_DEFS[b.type];
+
+                // Score: type match bonus + relevant stat value
+                let score = 0;
+                const typeBonus = Critters.getTypeBonus(critter, b.type);
+                score += typeBonus * 100; // type match is very important
+
+                // Add the building's scaling stat value
+                if (def.statKey && critter.stats[def.statKey]) {
+                    score += critter.stats[def.statKey] * 5;
+                }
+
+                // Penalize buildings that already have workers (spread workers out)
+                score -= b.workers.length * 20;
+
+                if (score > bestScore) { bestScore = score; bestBuilding = b; }
+            }
+
+            if (bestBuilding) {
+                critter.assignment = bestBuilding.id;
+                bestBuilding.workers.push(critter.id);
+                assigned++;
+            }
+        }
+
+        if (assigned > 0) {
+            UI.notify(`⚡ Auto-assigned ${assigned} critter${assigned > 1 ? 's' : ''} to buildings!`, 4000);
+        } else {
+            UI.notify('No suitable assignments found.');
+        }
+        UI.updatePanel();
+    }
+
+    unassignAllWorkers() {
+        let count = 0;
+        for (const c of this.critters) {
+            // Skip patrol, companion, bodyguard — only unassign building workers
+            if (c.assignment && c.assignment !== 'patrol' && c.assignment !== 'companion' && c.assignment !== 'bodyguard') {
+                const b = this.buildings.find(bl => bl.id == c.assignment);
+                if (b) b.workers = b.workers.filter(w => w !== c.id);
+                c.assignment = null;
+                count++;
+            }
+        }
+        if (count > 0) UI.notify(`↩ Unassigned ${count} worker${count > 1 ? 's' : ''} from buildings.`, 3000);
+        else UI.notify('No workers to unassign.');
+        UI.updatePanel();
+    }
+
     // Get combined companion effects
     _setResIcons() {
         const map = {
@@ -1142,6 +1224,26 @@ class Game {
         if (this.paused) return;
 
         this.gameTimeSec += dt;
+
+        // ── Day/Night Cycle ──
+        const dn = this.world.dayNightCycle;
+        const fullCycle = dn.dayLength + dn.nightLength; // 480s = 8min total
+        dn.time = (dn.time + dt) % fullCycle;
+        dn.isNight = dn.time >= dn.dayLength;
+        // Smooth darkness transition (0=day, 1=full night)
+        if (!dn.isNight) {
+            // Day: darkness ramps down at dawn, stays 0 in daytime
+            const dawnEnd = 30; // 30s dawn transition
+            const duskStart = dn.dayLength - 30;
+            if (dn.time < dawnEnd) dn.darkness = 1 - (dn.time / dawnEnd);
+            else if (dn.time > duskStart) dn.darkness = (dn.time - duskStart) / 30;
+            else dn.darkness = 0;
+        } else {
+            // Night: ramp up quickly then hold
+            const nightTime = dn.time - dn.dayLength;
+            const nightFadeIn = 20;
+            dn.darkness = Math.min(1, nightTime / nightFadeIn);
+        }
 
         // Track resource rates (sample every 2 seconds)
         this._rateSampleTimer += dt;
@@ -2279,6 +2381,27 @@ class Game {
             fps.x = w - 310; fps.y = 48;
         }
 
+        // ── Night overlay ──
+        const dn = this.world.dayNightCycle;
+        if (dn.darkness > 0.01) {
+            const alpha = dn.darkness * 0.55; // max 55% darkness
+            ovr.beginFill(0x080820, alpha);
+            ovr.drawRect(0, 0, w, h);
+            ovr.endFill();
+        }
+        // Day/Night indicator
+        const dnIcon = dn.isNight ? '\u{1F319}' : '\u{2600}\uFE0F';
+        const cycleTotal = dn.dayLength + dn.nightLength;
+        const cycleRemain = dn.isNight ? (cycleTotal - dn.time) : (dn.dayLength - dn.time);
+        const dnMins = Math.floor(cycleRemain / 60);
+        const dnSecs = Math.floor(cycleRemain % 60);
+        const dnText = this._getText(`${dnIcon} ${dnMins}:${dnSecs < 10 ? '0' : ''}${dnSecs}`, {
+            fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold',
+            fill: dn.isNight ? 0x6688cc : 0xffd54f
+        });
+        dnText.anchor.set(1, 0);
+        dnText.x = w - 10; dnText.y = 48;
+
         // Minimap / Full Map
         if (this.showFullMap) {
             this._renderFullMap(ovr, w, h);
@@ -3278,42 +3401,106 @@ class Game {
                 continue;
             }
 
-            // Charge toward HQ (0,0)
-            const dx = -h.x, dy = -h.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const speed = 80;
-            if (dist > TILE_SIZE * 2) {
-                h.x += (dx / dist) * speed * dt;
-                h.y += (dy / dist) * speed * dt;
+            // Charge toward HQ — but walls block, gates attract
+            let targetX = 0, targetY = 0;
+
+            // Find nearest gate to path through (if walls exist)
+            if (!h._gateTarget) {
+                let nearestGate = null, nearestGateDist = Infinity;
+                for (const b of this.buildings) {
+                    const def = BUILDING_DEFS[b.type];
+                    if (!def.isGate) continue;
+                    const gx = (b.gridX + 0.5) * TILE_SIZE;
+                    const gy = (b.gridY + 0.5) * TILE_SIZE;
+                    const gd = Math.sqrt((h.x - gx) ** 2 + (h.y - gy) ** 2);
+                    if (gd < nearestGateDist) { nearestGateDist = gd; nearestGate = b; }
+                }
+                // If a gate is closer than HQ, path through it first
+                if (nearestGate) {
+                    const gx = (nearestGate.gridX + 0.5) * TILE_SIZE;
+                    const gy = (nearestGate.gridY + 0.5) * TILE_SIZE;
+                    const distToHQ = Math.sqrt(h.x * h.x + h.y * h.y);
+                    if (nearestGateDist < distToHQ * 0.8) h._gateTarget = nearestGate;
+                }
             }
 
-            // Attack buildings near them
+            // If heading toward a gate, target it until close, then switch to HQ
+            if (h._gateTarget) {
+                const g = h._gateTarget;
+                const gx = (g.gridX + 0.5) * TILE_SIZE;
+                const gy = (g.gridY + 0.5) * TILE_SIZE;
+                const gd = Math.sqrt((h.x - gx) ** 2 + (h.y - gy) ** 2);
+                if (gd < TILE_SIZE * 2) h._gateTarget = null; // passed through
+                else { targetX = gx; targetY = gy; }
+            }
+
+            const dx = targetX - h.x, dy = targetY - h.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const speed = 80;
+
+            // Check for wall collision — if next position hits a wall, stop and attack it
+            let blockedByWall = null;
+            if (dist > TILE_SIZE * 2) {
+                const nextX = h.x + (dx / dist) * speed * dt;
+                const nextY = h.y + (dy / dist) * speed * dt;
+                for (const b of this.buildings) {
+                    const def = BUILDING_DEFS[b.type];
+                    if (!def.isWall && !def.isGate) continue;
+                    if (b.hp <= 0) continue; // destroyed
+                    const wx = b.gridX * TILE_SIZE, wy = b.gridY * TILE_SIZE;
+                    const ws = def.size * TILE_SIZE;
+                    // Simple AABB check
+                    if (nextX > wx - 8 && nextX < wx + ws + 8 && nextY > wy - 8 && nextY < wy + ws + 8) {
+                        blockedByWall = b;
+                        break;
+                    }
+                }
+
+                if (!blockedByWall) {
+                    h.x = nextX;
+                    h.y = nextY;
+                }
+            }
+
+            // Attack buildings near them (prioritize walls blocking them)
             if (!h._attackTimer) h._attackTimer = 0;
             h._attackTimer -= dt;
             if (h._attackTimer <= 0) {
                 const sp = SPECIES[h.species];
-                for (const b of this.buildings) {
-                    const def = BUILDING_DEFS[b.type];
-                    const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
-                    const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
-                    const bdist = Math.sqrt((h.x - bcx) ** 2 + (h.y - bcy) ** 2);
-                    if (bdist < TILE_SIZE * 2) {
-                        const dmg = Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
-                        if (b.hp !== undefined) {
-                            b.hp -= dmg;
-                            if (this.sounds) this.sounds.buildingHit();
+
+                // If blocked by a wall, attack it
+                if (blockedByWall) {
+                    const dmg = Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
+                    if (blockedByWall.hp !== undefined) {
+                        blockedByWall.hp -= dmg;
+                        if (this.sounds) this.sounds.buildingHit();
+                    }
+                    h._attackTimer = sp.attackCooldown || 1.5;
+                } else {
+                    // Attack any building in range
+                    for (const b of this.buildings) {
+                        const def = BUILDING_DEFS[b.type];
+                        const bcx = (b.gridX + def.size / 2) * TILE_SIZE;
+                        const bcy = (b.gridY + def.size / 2) * TILE_SIZE;
+                        const bdist = Math.sqrt((h.x - bcx) ** 2 + (h.y - bcy) ** 2);
+                        if (bdist < TILE_SIZE * 2) {
+                            const dmg = Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
+                            if (b.hp !== undefined) {
+                                b.hp -= dmg;
+                                if (this.sounds) this.sounds.buildingHit();
+                            }
+                            h._attackTimer = sp.attackCooldown || 1.5;
+                            break;
                         }
-                        h._attackTimer = sp.attackCooldown || 1.5;
-                        break;
                     }
                 }
 
                 // Also attack player if close
                 const pdist = Math.sqrt((h.x - this.player.x) ** 2 + (h.y - this.player.y) ** 2);
                 if (pdist < TILE_SIZE * 1.5 && h._attackTimer <= 0) {
-                    const sp = SPECIES[h.species];
-                    this.playerTakeDamage(Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1)));
-                    h._attackTimer = sp.attackCooldown || 1.5;
+                    const sp2 = SPECIES[h.species];
+                    this.playerTakeDamage(Math.floor((sp2.attackDmg || 3) * (h.dmgMult || 1)));
+                    h._attackTimer = sp2.attackCooldown || 1.5;
                 }
             }
         }

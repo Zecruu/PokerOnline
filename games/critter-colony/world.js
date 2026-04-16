@@ -9,11 +9,49 @@
 
 class World {
     constructor() {
-        this.chunks = new Map();   // key: "cx,cy" → { tiles: Uint8Array, cx, cy }
+        this.chunks = new Map();   // key: "cx,cy" → { tiles: Uint8Array, cx, cy, biome: string }
         this.seed = 0;
         this.waypoints = [];       // [{ name, x, y, claimed }]
         this._noiseCache = new Map();
         this._gradients = null;
+        this.dayNightCycle = { time: 0, dayLength: 300, nightLength: 180, isNight: false, darkness: 0 };
+    }
+
+    /* ----------------------------------------------------------
+       Biome determination — based on angle + distance from origin
+       Uses a large-scale noise to create organic biome boundaries.
+       Colony center is always 'plains'.
+       ---------------------------------------------------------- */
+    getBiome(wx, wy) {
+        if (typeof BIOMES === 'undefined') return 'plains';
+        const dist = Math.sqrt(wx * wx + wy * wy);
+        if (dist < 50) return 'plains'; // colony area always plains
+
+        // Use low-frequency noise + angle to pick biome
+        const angle = Math.atan2(wy, wx); // -PI..PI
+        const biomeNoise = this._noise2D(wx * 0.006 + 3000, wy * 0.006 + 3000);
+        const biomeNoise2 = this._noise2D(wx * 0.01 + 4000, wy * 0.01 + 4000);
+
+        // Normalize angle to 0..1
+        const a = (angle + Math.PI) / (2 * Math.PI);
+
+        // Blend angle + noise for organic boundaries
+        const val = (a * 0.4 + biomeNoise * 0.4 + biomeNoise2 * 0.2);
+
+        // Distance also matters — volcanic/crystal only far out
+        if (dist > 150 && val < 0.18) return 'volcanic';
+        if (dist > 120 && val >= 0.18 && val < 0.35) return 'crystal';
+        if (val >= 0.35 && val < 0.52) return 'desert';
+        if (val >= 0.52 && val < 0.70) return 'snow';
+        if (val >= 0.70 && val < 0.85) return 'swamp';
+        return 'plains';
+    }
+
+    // Get biome for a chunk (uses center tile of chunk)
+    getChunkBiome(cx, cy) {
+        const centerX = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+        const centerY = cy * CHUNK_SIZE + CHUNK_SIZE / 2;
+        return this.getBiome(centerX, centerY);
     }
 
     /* ----------------------------------------------------------
@@ -65,7 +103,8 @@ class World {
 
         chunk = {
             cx, cy,
-            tiles: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE)
+            tiles: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE),
+            biome: this.getChunkBiome(cx, cy)
         };
 
         this._generateChunkTiles(chunk);
@@ -330,6 +369,9 @@ class World {
         const chunkWorldTX = chunk.cx * CHUNK_SIZE;
         const chunkWorldTY = chunk.cy * CHUNK_SIZE;
 
+        // Get biome colors for this chunk
+        const biome = (typeof BIOMES !== 'undefined' && chunk.biome) ? BIOMES[chunk.biome] : null;
+
         // Clamp local tile range to visible area
         const lx0 = Math.max(0, visTX0 - chunkWorldTX);
         const ly0 = Math.max(0, visTY0 - chunkWorldTY);
@@ -342,7 +384,14 @@ class World {
                 const wx = chunkWorldTX + lx;
                 const wy = chunkWorldTY + ly;
 
-                const colors = TILE_COLORS[t];
+                // Pick biome-specific colors if available
+                let colors;
+                if (biome && t === TILE.GRASS) colors = biome.grass;
+                else if (biome && t === TILE.TREE) colors = biome.tree;
+                else if (biome && t === TILE.ROCK) colors = biome.rock;
+                else if (biome && t === TILE.WATER) colors = biome.water;
+                else colors = TILE_COLORS[t];
+
                 if (!colors) continue;
                 const ci = ((wx & 0x7FFFFFFF) * 7 + (wy & 0x7FFFFFFF) * 13) % colors.length;
                 ctx.fillStyle = colors[ci];
@@ -351,11 +400,12 @@ class World {
                 const sy = wy * TILE_SIZE - camY;
                 ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
 
-                // Tree detail
+                // Tree detail — biome-colored
                 if (t === TILE.TREE) {
-                    ctx.fillStyle = '#5c3d1e';
+                    const td = (biome && biome.treeDetail) ? biome.treeDetail : { trunk: '#5c3d1e', canopy: '#3a7a28' };
+                    ctx.fillStyle = td.trunk;
                     ctx.fillRect(sx + 12, sy + 12, 8, 8);
-                    ctx.fillStyle = '#3a7a28';
+                    ctx.fillStyle = td.canopy;
                     ctx.beginPath();
                     ctx.arc(sx + 16, sy + 12, 10, 0, Math.PI * 2);
                     ctx.fill();
@@ -363,7 +413,8 @@ class World {
 
                 // Rock detail
                 if (t === TILE.ROCK) {
-                    ctx.fillStyle = '#888';
+                    const rc = (biome && biome.rock) ? biome.rock[0] : '#888';
+                    ctx.fillStyle = rc;
                     ctx.beginPath();
                     ctx.arc(sx + 16, sy + 18, 9, 0, Math.PI * 2);
                     ctx.fill();
