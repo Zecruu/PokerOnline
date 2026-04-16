@@ -134,8 +134,8 @@ const SNARE_TIERS = {
     gold_snare:    { name: 'Gold Snare',     tier: 3, color: '#ffd700', captures: ['common','uncommon','rare'],   craftCost: { iron: 3, gold: 2 }, desc: 'Enchanted snare. Catches rare.', researchReq: 'goldSnare' },
     diamond_snare: { name: 'Diamond Snare',  tier: 4, color: '#81d4fa', captures: ['common','uncommon','rare','legendary'], craftCost: { gold: 2, diamond: 1 }, desc: 'Perfect snare. Catches legendary.', researchReq: 'diamondSnare' },
 };
-const WILD_MIN_COUNT = 16;
-const WILD_MAX_COUNT = 24;
+const WILD_MIN_COUNT = 50;
+const WILD_MAX_COUNT = 70;
 const CAPTURE_RANGE = 2.5; // in tiles
 
 let _nextCritterId = 1;

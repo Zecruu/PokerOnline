@@ -78,7 +78,7 @@ class Game {
 
         // Timers
         this.autoSaveTimer = 60;
-        this.respawnTimer = 30;
+        this.respawnTimer = 10;
         this.time = 0;
         this.lastTimestamp = 0;
         this.panelUpdateTimer = 0;
@@ -1668,7 +1668,7 @@ class Game {
 
         this.respawnTimer -= dt;
         if (this.respawnTimer <= 0) {
-            this.respawnTimer = 30;
+            this.respawnTimer = 10;
             // Top up wild critters if below min (reuse pool, don't regenerate)
             while (this.wildCritters.length < WILD_MIN_COUNT) {
                 const pos = Critters.pickSpawnTile(this.world, 55, 210);
