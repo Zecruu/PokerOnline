@@ -249,12 +249,35 @@ class UI {
             if (g.critters.length === 0) {
                 html = '<div class="panel-empty">No critters captured yet.<br>Explore and press E near wild critters!</div>';
             } else {
+                const mergeSel = g._mergeSelection;
+                const mergeSrc = mergeSel ? g.critters.find(cr => cr.id === mergeSel.sourceId) : null;
+                const pickedIds = mergeSel ? mergeSel.pickedIds : [];
+                if (mergeSrc) {
+                    const picked = pickedIds.length;
+                    html += `<div class="cc-merge-banner">Merging <b>${mergeSrc.nickname}</b> (${mergeSrc.stars||0}★) — pick ${2 - picked} more identical pal${2 - picked === 1 ? '' : 's'} (${1 + picked}/3) <button onclick="game.cancelMerge()">Cancel</button></div>`;
+                }
                 for (const c of g.critters) {
                     const sp = SPECIES[c.species];
                     const critterImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[c.species] && CRITTER_SPRITES[c.species].complete
                         ? `<img class="cc-icon" src="${CRITTER_SPRITES[c.species].src}">` : `<span class="cc-dot" style="background:${sp.color}"></span>`;
                     const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
                     const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[sp.type] : null;
+                    const stars = c.stars || 0;
+                    const starsHtml = stars > 0 ? `<span class="cc-stars">${'★'.repeat(stars)}</span>` : '';
+                    // Merge selection state
+                    let mergeClass = '', mergeClick = '';
+                    if (mergeSrc) {
+                        if (c.id === mergeSrc.id) mergeClass = ' cc-merge-src';
+                        else if (pickedIds.includes(c.id)) {
+                            mergeClass = ' cc-merge-picked';
+                            mergeClick = ` onclick="game.pickMergeTarget(${c.id})"`;
+                        } else if (c.species === mergeSrc.species && (c.stars||0) === (mergeSrc.stars||0)) {
+                            mergeClass = ' cc-merge-eligible';
+                            mergeClick = ` onclick="game.pickMergeTarget(${c.id})"`;
+                        } else {
+                            mergeClass = ' cc-merge-disabled';
+                        }
+                    }
 
                     // Assignment status
                     let statusText = 'Idle', statusColor = '#888';
@@ -266,14 +289,15 @@ class UI {
                         if (bld) { statusText = `⚙️ ${BUILDING_DEFS[bld.type].name}`; statusColor = '#4ade80'; }
                     }
 
-                    html += `<div class="critter-card${c.injured ? ' cc-card-injured' : ''}">`;
+                    html += `<div class="critter-card${c.injured ? ' cc-card-injured' : ''}${mergeClass}"${mergeClick}>`;
 
                     // Top row: icon + name + level + type + rarity
                     html += `<div class="cc-top">`;
                     html += critterImg;
                     html += `<div class="cc-top-info">`;
                     html += `<div class="cc-name-row">`;
-                    html += `<span class="cc-name" onclick="game.renameCritter(${c.id})" title="Click to rename">${c.nickname}</span>`;
+                    html += `<span class="cc-name" onclick="event.stopPropagation(); game.renameCritter(${c.id})" title="Click to rename">${c.nickname}</span>`;
+                    if (starsHtml) html += starsHtml;
                     html += `<span class="cc-level">Lv.${c.level}${c.level >= maxLv ? ' MAX' : ''}</span>`;
                     html += `</div>`;
                     html += `<div class="cc-meta-row">`;
@@ -369,8 +393,13 @@ class UI {
                     html += `</select>`;
                     html += `<span class="cc-assign-hint">Assign to buildings in Manage tab</span>`;
                     html += `</div>`;
-                    // Sacrifice button
-                    html += `<button class="cc-sacrifice" onclick="game.sacrificeCritter(${c.id})">🩸 Sacrifice</button>`;
+                    // Merge + Sacrifice buttons
+                    html += `<div class="cc-actions">`;
+                    if (stars < 5) {
+                        html += `<button class="cc-merge" onclick="event.stopPropagation(); game.startMerge(${c.id})">⭐ Merge</button>`;
+                    }
+                    html += `<button class="cc-sacrifice" onclick="event.stopPropagation(); game.sacrificeCritter(${c.id})">🩸 Sacrifice</button>`;
+                    html += `</div>`;
                     html += `</div>`;
                 }
             }
@@ -382,39 +411,129 @@ class UI {
             if (researchSpeed <= 0) {
                 html = '<div class="panel-empty">Build a Research Lab and assign INT critters to start researching!</div>';
             } else {
-                html += `<div class="panel-section-label">Research Speed: ${researchSpeed.toFixed(2)}/s</div>`;
-
-                // In-progress research
+                // Research speed + in-progress bar
+                html += `<div class="tt-header">`;
+                html += `<span class="tt-speed">Research Speed: <b>${researchSpeed.toFixed(2)}/s</b></span>`;
                 if (g.researchInProgress) {
                     const rd = RESEARCH_DEFS[g.researchInProgress.id];
                     const pct = Math.min(100, (g.researchInProgress.progress / rd.time) * 100);
-                    html += `<div class="research-progress">`;
-                    html += `<span class="rp-name">${rd.name}</span>`;
-                    html += `<div class="rp-bar"><div class="rp-fill" style="width:${pct}%"></div></div>`;
-                    html += `<span class="rp-pct">${Math.floor(pct)}%</span>`;
+                    html += `<div class="tt-prog">`;
+                    html += `<span class="tt-prog-name">${rd.name}</span>`;
+                    html += `<div class="tt-prog-bar"><div class="tt-prog-fill" style="width:${pct}%"></div></div>`;
+                    html += `<span class="tt-prog-pct">${Math.floor(pct)}%</span>`;
                     html += `</div>`;
                 }
+                html += `</div>`;
 
-                html += '<div class="panel-section-label" style="margin-top:8px">Available Research</div>';
-                for (const [id, rd] of Object.entries(RESEARCH_DEFS)) {
-                    const level = g.research[id] || 0;
-                    if (level >= rd.maxLevel) {
-                        html += `<div class="research-item done"><span class="ri-name">${rd.name}</span><span class="ri-max">MAX</span></div>`;
-                        continue;
+                // ─── TECH TREE BRANCHES ──────────────────────
+                const branches = [
+                    { name: 'Combat', icon: '⚔️', color: '#f87171', rows: [
+                        ['gunDamage'],
+                        ['turretDamage', 'turretRange'],
+                        ['baseTurret', 'barracks'],
+                    ]},
+                    { name: 'Economy', icon: '🏗️', color: '#4ade80', rows: [
+                        ['storageCap', 'storageBuilding'],
+                        ['smelting', 'greenhouse'],
+                        ['gasRefining', 'generators'],
+                        ['colonyRadius', 'afkCap'],
+                    ]},
+                    { name: 'Capture', icon: '🎯', color: '#4fc3f7', rows: [
+                        ['captureBonus', 'critterCap'],
+                        ['ironSnare', 'workersPerB'],
+                        ['goldSnare', 'companionSlots'],
+                        ['diamondSnare', 'bodyguardSlots'],
+                        ['passiveLab'],
+                    ]},
+                    { name: 'Extraction', icon: '⛏️', color: '#ce93d8', rows: [
+                        ['oilDrilling', 'crystalExtract'],
+                        ['goldMining', 'refinery'],
+                        ['diamondDrill'],
+                    ]},
+                    { name: 'Defense', icon: '🛡️', color: '#fbbf24', rows: [
+                        ['baseHp'],
+                        ['healingHut'],
+                    ]},
+                ];
+
+                html += `<div class="tt-tree">`;
+                for (const branch of branches) {
+                    // Count completions for branch progress
+                    let branchTotal = 0, branchDone = 0;
+                    for (const row of branch.rows) {
+                        for (const id of row) {
+                            const rd = RESEARCH_DEFS[id]; if (!rd) continue;
+                            branchTotal += rd.maxLevel;
+                            branchDone += Math.min(g.research[id] || 0, rd.maxLevel);
+                        }
                     }
-                    const cost = rd.cost(level);
-                    const costStr = Object.entries(cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
-                    const canAfford = Object.entries(cost).every(([k,v]) => (g.resources[k]||0) >= v);
-                    const inProgress = g.researchInProgress?.id === id;
-                    html += `<div class="research-item ${!canAfford && !inProgress ? 'disabled' : ''} ${inProgress ? 'active' : ''}">`;
-                    html += `<span class="ri-name">${rd.name} (${level}/${rd.maxLevel})</span>`;
-                    html += `<span class="ri-desc">${rd.desc}</span>`;
-                    html += `<span class="ri-cost">${costStr}</span>`;
-                    if (!inProgress && !g.researchInProgress) {
-                        html += `<button class="ri-btn" onclick="game.startResearch('${id}')" ${!canAfford ? 'disabled' : ''}>Research</button>`;
+                    const branchPct = branchTotal > 0 ? Math.floor((branchDone / branchTotal) * 100) : 0;
+
+                    html += `<div class="tt-branch" style="--branch-color:${branch.color}">`;
+                    html += `<div class="tt-branch-head">`;
+                    html += `<span class="tt-branch-icon">${branch.icon}</span>`;
+                    html += `<span class="tt-branch-name">${branch.name}</span>`;
+                    html += `<span class="tt-branch-pct">${branchPct}%</span>`;
+                    html += `<div class="tt-branch-bar"><div class="tt-branch-fill" style="width:${branchPct}%"></div></div>`;
+                    html += `</div>`;
+
+                    for (let ri = 0; ri < branch.rows.length; ri++) {
+                        const row = branch.rows[ri];
+                        // Connector line between rows
+                        if (ri > 0) html += `<div class="tt-connector" style="border-color:${branch.color}40"></div>`;
+                        html += `<div class="tt-row">`;
+                        for (const id of row) {
+                            const rd = RESEARCH_DEFS[id];
+                            if (!rd) continue;
+                            const level = g.research[id] || 0;
+                            const maxed = level >= rd.maxLevel;
+                            const inProg = g.researchInProgress?.id === id;
+                            const cost = maxed ? null : rd.cost(level);
+                            const canAfford = cost ? Object.entries(cost).every(([k,v]) => (g.resources[k]||0) >= v) : false;
+                            const canClick = !maxed && !inProg && !g.researchInProgress && canAfford;
+
+                            let stateClass = 'tt-locked';
+                            if (maxed) stateClass = 'tt-done';
+                            else if (inProg) stateClass = 'tt-active';
+                            else if (canAfford) stateClass = 'tt-available';
+
+                            // Level pips
+                            let pipsHtml = '';
+                            if (rd.maxLevel > 1) {
+                                pipsHtml = `<div class="tt-pips">`;
+                                for (let p = 0; p < rd.maxLevel; p++) {
+                                    pipsHtml += `<span class="tt-pip${p < level ? ' tt-pip-on' : ''}"></span>`;
+                                }
+                                pipsHtml += `</div>`;
+                            }
+
+                            html += `<div class="tt-node ${stateClass}" ${canClick ? `onclick="game.startResearch('${id}')"` : ''}>`;
+                            html += `<div class="tt-node-name">${rd.name}</div>`;
+                            html += `<div class="tt-node-desc">${rd.desc}</div>`;
+                            if (rd.maxLevel > 1) {
+                                html += `<div class="tt-node-level">${level}/${rd.maxLevel}</div>`;
+                                html += pipsHtml;
+                            } else {
+                                html += `<div class="tt-node-level">${maxed ? '✓' : '○'}</div>`;
+                            }
+                            if (cost) {
+                                const costBits = Object.entries(cost).filter(([,v]) => v > 0).map(([k,v]) => {
+                                    const have = Math.floor(g.resources[k] || 0);
+                                    return `<span class="${have >= v ? 'tt-cost-ok' : 'tt-cost-need'}">${v} ${k}</span>`;
+                                }).join(' ');
+                                html += `<div class="tt-node-cost">${costBits}</div>`;
+                            }
+                            if (inProg) {
+                                const pct = Math.min(100, (g.researchInProgress.progress / rd.time) * 100);
+                                html += `<div class="tt-node-bar"><div class="tt-node-fill" style="width:${pct}%"></div></div>`;
+                            }
+                            html += `</div>`;
+                        }
+                        html += `</div>`;
                     }
                     html += `</div>`;
                 }
+                html += `</div>`;
             }
             body.innerHTML = html;
 
@@ -610,6 +729,75 @@ class UI {
                     html += `</div>`;
                 }
             }
+            body.innerHTML = html;
+
+        } else if (this.activeTab === 'equip') {
+            let html = '';
+            html += `<div class="eq-panel">`;
+
+            // GUN section
+            const gt = GUN_TIERS[g.gunTier] || GUN_TIERS[1];
+            const nextGun = g.gunTier < 5 ? GUN_TIERS[g.gunTier + 1] : null;
+            html += `<div class="eq-section">`;
+            html += `<div class="eq-header">🔫 Gun</div>`;
+            html += `<div class="eq-current">`;
+            html += `<span class="eq-tier-badge eq-t${g.gunTier}">T${g.gunTier}</span>`;
+            html += `<span class="eq-name">${gt.name}</span>`;
+            html += `</div>`;
+            html += `<div class="eq-desc">${gt.desc}</div>`;
+            html += `<div class="eq-stats">`;
+            html += `<span>Damage: <b>${gt.dmgMul}x</b></span>`;
+            html += `<span>Fire rate: <b>${gt.cooldown}s</b></span>`;
+            html += `</div>`;
+            if (nextGun) {
+                const costStr = Object.entries(nextGun.cost).map(([k,v]) => {
+                    const have = Math.floor(g.resources[k] || 0);
+                    const ok = have >= v;
+                    return `<span class="${ok ? 'eq-cost-ok' : 'eq-cost-need'}">${v} ${k} (${have})</span>`;
+                }).join(' + ');
+                const canUpgrade = Object.entries(nextGun.cost).every(([k,v]) => (g.resources[k]||0) >= v);
+                html += `<div class="eq-upgrade">`;
+                html += `<div class="eq-next-name">⬆ <span class="eq-tier-badge eq-t${nextGun.tier}">T${nextGun.tier}</span> ${nextGun.name} — ${nextGun.dmgMul}x dmg, ${nextGun.cooldown}s</div>`;
+                html += `<div class="eq-cost">${costStr}</div>`;
+                html += `<button class="eq-btn" onclick="game.upgradeGun()" ${canUpgrade ? '' : 'disabled'}>Upgrade Gun</button>`;
+                html += `</div>`;
+            } else {
+                html += `<div class="eq-maxed">★ MAX TIER ★</div>`;
+            }
+            html += `</div>`;
+
+            // ARMOR section
+            const at = ARMOR_TIERS[g.armorTier] || ARMOR_TIERS[1];
+            const nextArmor = g.armorTier < 5 ? ARMOR_TIERS[g.armorTier + 1] : null;
+            html += `<div class="eq-section">`;
+            html += `<div class="eq-header">🛡️ Armor</div>`;
+            html += `<div class="eq-current">`;
+            html += `<span class="eq-tier-badge eq-t${g.armorTier}">T${g.armorTier}</span>`;
+            html += `<span class="eq-name">${at.name}</span>`;
+            html += `</div>`;
+            html += `<div class="eq-desc">${at.desc}</div>`;
+            html += `<div class="eq-stats">`;
+            html += `<span>Bonus HP: <b>+${at.hpBonus}</b></span>`;
+            html += `<span>Damage reduction: <b>${Math.round(at.dr * 100)}%</b></span>`;
+            html += `</div>`;
+            if (nextArmor) {
+                const costStr = Object.entries(nextArmor.cost).map(([k,v]) => {
+                    const have = Math.floor(g.resources[k] || 0);
+                    const ok = have >= v;
+                    return `<span class="${ok ? 'eq-cost-ok' : 'eq-cost-need'}">${v} ${k} (${have})</span>`;
+                }).join(' + ');
+                const canUpgrade = Object.entries(nextArmor.cost).every(([k,v]) => (g.resources[k]||0) >= v);
+                html += `<div class="eq-upgrade">`;
+                html += `<div class="eq-next-name">⬆ <span class="eq-tier-badge eq-t${nextArmor.tier}">T${nextArmor.tier}</span> ${nextArmor.name} — +${nextArmor.hpBonus} HP, ${Math.round(nextArmor.dr*100)}% DR</div>`;
+                html += `<div class="eq-cost">${costStr}</div>`;
+                html += `<button class="eq-btn" onclick="game.upgradeArmor()" ${canUpgrade ? '' : 'disabled'}>Upgrade Armor</button>`;
+                html += `</div>`;
+            } else {
+                html += `<div class="eq-maxed">★ MAX TIER ★</div>`;
+            }
+            html += `</div>`;
+
+            html += `</div>`;
             body.innerHTML = html;
         }
     }

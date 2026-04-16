@@ -204,30 +204,59 @@ class Critters {
         });
     }
 
-    static spawnWild(world) {
-        const wilds = [];
-        const rng = world._seededRng(world.seed + 7777);
-        const count = WILD_MIN_COUNT + Math.floor(Math.random() * (WILD_MAX_COUNT - WILD_MIN_COUNT + 1));
-
+    // Pick a species weighted by distance from colony center (0,0 in tiles)
+    // Inner zones → mostly common; outer zones → higher rarities.
+    static pickSpeciesByDistance(distTiles) {
         const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
         const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
         const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
         const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
 
-        for (let i = 0; i < count; i++) {
-            const pos = world.randomGrassTile(rng);
-            // Weight by rarity: 50% common, 25% uncommon, 18% rare, 7% legendary
-            let species;
-            const roll = Math.random();
-            if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
-            else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
-            else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
-            else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
+        let w;
+        if (distTiles < 55)       w = { legendary: 0.00, rare: 0.00, uncommon: 0.05, common: 0.95 };
+        else if (distTiles < 100) w = { legendary: 0.00, rare: 0.05, uncommon: 0.30, common: 0.65 };
+        else if (distTiles < 160) w = { legendary: 0.03, rare: 0.22, uncommon: 0.40, common: 0.35 };
+        else                      w = { legendary: 0.15, rare: 0.40, uncommon: 0.30, common: 0.15 };
 
-            const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
+        const roll = Math.random();
+        let acc = 0;
+        acc += w.legendary; if (roll < acc && legendaryKeys.length) return legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
+        acc += w.rare;      if (roll < acc && rareKeys.length)      return rareKeys[Math.floor(Math.random() * rareKeys.length)];
+        acc += w.uncommon;  if (roll < acc && uncommonKeys.length)  return uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
+        return commonKeys[Math.floor(Math.random() * commonKeys.length)];
+    }
+
+    // Pick a random spawn tile distributed across a range of distances from origin.
+    // minDist/maxDist in tiles.
+    static pickSpawnTile(world, minDist, maxDist) {
+        for (let attempts = 0; attempts < 40; attempts++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = minDist + Math.random() * (maxDist - minDist);
+            const tx = Math.round(Math.cos(angle) * dist);
+            const ty = Math.round(Math.sin(angle) * dist);
+            const pos = world.randomGrassTile(tx, ty, 8);
+            if (!world.isColony(pos.x, pos.y)) return pos;
+        }
+        return { x: minDist | 0, y: 0 };
+    }
+
+    static spawnWild(world) {
+        const wilds = [];
+        const count = WILD_MIN_COUNT + Math.floor(Math.random() * (WILD_MAX_COUNT - WILD_MIN_COUNT + 1));
+
+        for (let i = 0; i < count; i++) {
+            // Spread spawns across all zones so every rarity tier is represented
+            const pos = Critters.pickSpawnTile(world, 55, 210);
+            const distTiles = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+            const species = Critters.pickSpeciesByDistance(distTiles);
+            const sp = SPECIES[species];
+            const level = Critters.levelFromDistance(distTiles, sp.rarity);
+            const baseHp = RARITY_HP[sp.rarity] || 30;
+            const maxHp = Math.floor(baseHp * Critters.enemyHpMul(level));
+            const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level));
             wilds.push({
                 id: _nextCritterId++,
-                species,
+                species, level, attackDmg,
                 x: pos.x * TILE_SIZE + TILE_SIZE / 2,
                 y: pos.y * TILE_SIZE + TILE_SIZE / 2,
                 stats: Critters.rollStats(species),
@@ -299,7 +328,9 @@ class Critters {
                     if (pDist < 1.5 && c._attackTimer <= 0) {
                         c._attackTimer = sp.attackCooldown || 1.5;
                         if (player.hp !== undefined) {
-                            player.hp -= sp.attackDmg || 3;
+                            const rawDmg = c.attackDmg || sp.attackDmg || 3;
+                            if (typeof game !== 'undefined' && game.playerTakeDamage) game.playerTakeDamage(rawDmg);
+                            else player.hp -= rawDmg;
                             c._justAttacked = true;
                             c._playSlash = true;
                             setTimeout(() => { c._justAttacked = false; }, 300);
@@ -325,7 +356,7 @@ class Critters {
                         c._attackTimer -= dt;
                         if (bgDist < 1.5 && c._attackTimer <= 0) {
                             c._attackTimer = sp.attackCooldown || 1.5;
-                            if (bg.patrolHp !== undefined) bg.patrolHp -= (sp.attackDmg || 3);
+                            if (bg.patrolHp !== undefined) bg.patrolHp -= (c.attackDmg || sp.attackDmg || 3);
                             c._justAttacked = true;
                             c._playSlash = true;
                             setTimeout(() => { c._justAttacked = false; }, 300);
@@ -362,7 +393,7 @@ class Critters {
                         c.y += (bdy / bd) * 60 * dt;
                     } else if (c._bldgTimer <= 0) {
                         c._bldgTimer = sp.attackCooldown || 1.5;
-                        const dmg = sp.attackDmg || 3;
+                        const dmg = c.attackDmg || sp.attackDmg || 3;
                         if (closestB.hp !== undefined) {
                             closestB.hp -= dmg;
                             if (typeof game !== 'undefined' && game.sounds) game.sounds.buildingHit();
@@ -472,6 +503,7 @@ class Critters {
                 stats: critter.stats, level: 1, xp: 0, assignment: null,
                 passives: Critters.rollPassives(SPECIES[critter.species].rarity),
                 patrolHp: 50, patrolMaxHp: 50,
+                stars: 0,
             };
             return { success: true, captured };
         }
@@ -495,6 +527,7 @@ class Critters {
                 assignment: null,
                 passives: Critters.rollPassives(SPECIES[critter.species].rarity),
                 patrolHp: 50, patrolMaxHp: 50,
+                stars: 0,
             };
             return { success: true, captured };
         } else {
@@ -620,27 +653,44 @@ class Critters {
         ctx.fill();
     }
 
-    static MAX_LEVEL = 20;
+    static MAX_LEVEL = 100;
+
+    // ─── SHARED LEVELING ─────────────────────────────────────
+    // Enemy level based on distance from colony (tiles) + rarity tier bonus.
+    // Adds some variance so two enemies next to each other can differ slightly.
+    static RARITY_LEVEL_BONUS = { common: 0, uncommon: 8, rare: 18, legendary: 30 };
+
+    static levelFromDistance(distTiles, rarity) {
+        const base = Math.max(1, Math.floor(distTiles / 4));
+        const bonus = Critters.RARITY_LEVEL_BONUS[rarity] || 0;
+        const variance = Math.floor(Math.random() * 5);
+        return Math.max(1, Math.min(100, base + bonus + variance));
+    }
+
+    // HP multiplier for a given enemy level. Keeps L1 at 1x, ramps to ~13x by L100.
+    static enemyHpMul(level) {
+        return 1 + (level - 1) * 0.12;
+    }
+
+    // Damage multiplier — gentler than HP so late-game isn't one-shotty.
+    static enemyDmgMul(level) {
+        return 1 + (level - 1) * 0.05;
+    }
 
     // Recycle a dead critter — reset it and teleport to a new spawn location
     static recycle(critter, world) {
-        const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
-        const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
-        const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
-        const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
-
-        const roll = Math.random();
-        let species;
-        if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
-        else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
-        else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
-        else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
-
-        const rng = world._seededRng(Date.now() + critter.id);
-        const pos = world.randomGrassTile(rng);
-        const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
+        const pos = Critters.pickSpawnTile(world, 55, 210);
+        const distTiles = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+        const species = Critters.pickSpeciesByDistance(distTiles);
+        const sp = SPECIES[species];
+        const level = Critters.levelFromDistance(distTiles, sp.rarity);
+        const baseHp = RARITY_HP[sp.rarity] || 30;
+        const maxHp = Math.floor(baseHp * Critters.enemyHpMul(level));
+        const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level));
 
         critter.species = species;
+        critter.level = level;
+        critter.attackDmg = attackDmg;
         critter.x = pos.x * TILE_SIZE + TILE_SIZE / 2;
         critter.y = pos.y * TILE_SIZE + TILE_SIZE / 2;
         critter.stats = Critters.rollStats(species);

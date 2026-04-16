@@ -25,6 +25,8 @@
       <div class="res-item" id="resDiamondWrap" style="display:none"><img class="res-img" id="riDiamond" src="" alt=""><span id="resDiamond">0</span> Diamond</div>
       <div class="res-item" id="resGasWrap" style="display:none"><img class="res-img" id="riGas" src="" alt=""><span id="resGas">0</span> Gas</div>
       <div class="res-divider"></div>
+      <div class="res-item player-level" id="plvlWrap" title="Player level"><span class="plvl-badge">Lv<span id="plvlNum">1</span></span><div class="plvl-bar"><div class="plvl-fill" id="plvlFill"></div></div></div>
+      <div class="res-divider"></div>
       <div class="res-item"><img class="res-img" id="riTrap" src="" alt=""><span id="trapCount">0</span> Traps</div>
       <div class="res-item"><img class="res-img" id="riAmmo" src="" alt=""><span id="ammoCount">30</span> Ammo</div>
       <div class="res-item critter-counter"><span id="critterCount">0/4</span> Critters</div>
@@ -74,6 +76,7 @@
           <button class="bm-tab" data-tab="manage" onclick="game.switchBuildTab('manage')">Manage</button>
           <button class="bm-tab" data-tab="workbench" onclick="game.switchBuildTab('workbench')">Workbench</button>
           <button class="bm-tab" data-tab="research" onclick="game.switchBuildTab('research')">Research</button>
+          <button class="bm-tab" data-tab="equip" onclick="game.switchBuildTab('equip')">Equip</button>
         </div>
         <div id="buildModalBody" class="build-modal-body"></div>
       </div>

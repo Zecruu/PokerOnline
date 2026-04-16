@@ -2,12 +2,33 @@
    Critter Colony — Main Game Engine (PixiJS Renderer)
    ============================================================ */
 
+// ─── EQUIPMENT TIERS ────────────────────────────────────────
+const GUN_TIERS = [
+    null, // index 0 unused
+    { name: 'Pistol',       tier: 1, dmgMul: 1.0,  cooldown: 0.50, desc: 'Starter sidearm.',                           cost: null },
+    { name: 'Rifle',        tier: 2, dmgMul: 1.8,  cooldown: 0.40, desc: 'Longer barrel, hits harder.',                 cost: { iron: 10, gold: 3 } },
+    { name: 'Shotgun',      tier: 3, dmgMul: 2.8,  cooldown: 0.50, desc: 'Devastating at close range.',                 cost: { gold: 5, diamond: 2 } },
+    { name: 'Plasma Rifle', tier: 4, dmgMul: 4.5,  cooldown: 0.35, desc: 'Superheated plasma bolts.',                   cost: { diamond: 5, crystal: 3 } },
+    { name: 'Annihilator',  tier: 5, dmgMul: 8.0,  cooldown: 0.28, desc: 'Obliterates anything. Endgame.',              cost: { diamond: 10, crystal: 8 } },
+];
+
+const ARMOR_TIERS = [
+    null, // index 0 unused
+    { name: 'None',           tier: 1, hpBonus: 0,   dr: 0.00, desc: 'No protection.',                                 cost: null },
+    { name: 'Leather Vest',   tier: 2, hpBonus: 30,  dr: 0.08, desc: 'Light hide armor. Basic protection.',             cost: { wood: 20, iron: 5 } },
+    { name: 'Iron Plate',     tier: 3, hpBonus: 70,  dr: 0.15, desc: 'Heavy iron plates. Durable.',                     cost: { iron: 15, gold: 5 } },
+    { name: 'Diamond Aegis',  tier: 4, hpBonus: 150, dr: 0.25, desc: 'Diamond-reinforced suit. Serious defense.',       cost: { gold: 10, diamond: 5 } },
+    { name: 'Aether Ward',    tier: 5, hpBonus: 300, dr: 0.40, desc: 'Crystal-woven ward. Near invincible.',            cost: { diamond: 10, crystal: 10 } },
+];
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.world = new World();
 
-        this.player = { x: 0, y: 0, speed: 200, hp: 100, maxHp: 100 };
+        this.player = { x: 0, y: 0, speed: 200, hp: 100, maxHp: 100, level: 1, xp: 0 };
+        this.gunTier = 1;
+        this.armorTier = 1;
         this.cam = { x: 0, y: 0 };
 
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
@@ -288,6 +309,7 @@ class Game {
             this.keys[e.key.toLowerCase()] = true;
             if (!this.started) return;
             if (e.key.toLowerCase() === 'e') this._handleEKey();
+            if (e.key.toLowerCase() === 'x') this._handleExecute();
             if (e.key.toLowerCase() === 'q') this.miningHeld = true;
             if (e.key.toLowerCase() === 't') UI.showWaypointMenu = !UI.showWaypointMenu;
             if (e.key.toLowerCase() === 'm') this.showFullMap = !this.showFullMap;
@@ -362,7 +384,13 @@ class Game {
             if (result.success) {
                 this._cleanupCritterSprite(closest);
                 this.wildCritters = this.wildCritters.filter(c => c.id !== closest.id);
+                // Preserve wild level on the captured pal so late-game captures aren't reset
+                result.captured.level = Math.max(1, closest.level || 1);
                 this.critters.push(result.captured);
+                // Capture XP bonus — bigger than kill, scales with wild level + rarity
+                const rarity = SPECIES[closest.species]?.rarity || 'common';
+                const rarityMul = { common: 1.2, uncommon: 1.8, rare: 2.6, legendary: 4.5 }[rarity] || 1;
+                this.grantPlayerXp(Math.floor((10 + (closest.level || 1) * 2) * rarityMul));
                 this.sounds.capture();
                 // MP broadcast
                 this.network.sendAction('capture', { critter: result.captured });
@@ -428,6 +456,8 @@ class Game {
     _shoot(wx, wy) {
         if (this.gunCooldown > 0) return;
         if ((this.inventory.ammo || 0) <= 0) {
+            // Dry-fire stump thud on every attempt — player hears they have no ammo
+            if (this.sounds) this.sounds.ammoLow?.();
             // Knife slash — melee attack, no ammo needed
             this.gunCooldown = 0.6;
             const knifeDmg = 5 + (this.research.gunDamage || 0) * 2;
@@ -443,6 +473,7 @@ class Game {
                 if (Math.sqrt(dx*dx + dy*dy) < knifeRange) {
                     Critters.damageWild(wc, knifeDmg);
                     this._spawnDmgNum(wc.x, wc.y, knifeDmg, 0xff8a65);
+                    this._awardKillXp(wc);
                     this.sounds.hit();
                     knifeHit = true;
                     break;
@@ -479,10 +510,18 @@ class Game {
             }
             return;
         }
-        this.gunCooldown = 0.5;
+        const gt = GUN_TIERS[this.gunTier] || GUN_TIERS[1];
+        this.gunCooldown = gt.cooldown;
         this.inventory.ammo--;
+        // Low-ammo warning thresholds — stump sound once when crossing each line
+        const ammoNow = this.inventory.ammo;
+        if ([10, 5, 1].includes(ammoNow) && this._lastAmmoThreshold !== ammoNow) {
+            this._lastAmmoThreshold = ammoNow;
+            if (this.sounds) this.sounds.ammoLow?.();
+        }
+        if (ammoNow > 10) this._lastAmmoThreshold = null;
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
-        const speed = 400, damage = this.gunDamage + (this.research.gunDamage || 0) * 5;
+        const speed = 400, damage = Math.floor((this.gunDamage + (this.research.gunDamage || 0) * 5) * gt.dmgMul);
         const vx = Math.cos(angle)*speed, vy = Math.sin(angle)*speed;
         this.projectiles.push({ x: this.player.x, y: this.player.y, vx, vy, damage, lifetime: 2, fromTurret: false });
         this.network.sendProjectile(this.player.x, this.player.y, vx, vy, damage);
@@ -780,6 +819,277 @@ class Game {
         }
     }
 
+    // ─── EQUIPMENT ─────────────────────────────────────────────
+    _getArmorDR() {
+        return (ARMOR_TIERS[this.armorTier] || ARMOR_TIERS[1]).dr;
+    }
+
+    // Reduces incoming damage by armor DR, applies to player.hp
+    playerTakeDamage(rawDmg) {
+        const dr = this._getArmorDR();
+        const finalDmg = Math.max(1, Math.floor(rawDmg * (1 - dr)));
+        this.player.hp -= finalDmg;
+        return finalDmg;
+    }
+
+    upgradeGun() {
+        if (this.gunTier >= 5) { UI.notify('Gun already max tier!'); return; }
+        const next = GUN_TIERS[this.gunTier + 1];
+        if (!next.cost) return;
+        for (const [res, amt] of Object.entries(next.cost)) {
+            if ((this.resources[res] || 0) < amt) {
+                UI.notify(`Need ${amt} ${res} to upgrade to ${next.name}!`); return;
+            }
+        }
+        for (const [res, amt] of Object.entries(next.cost)) this.resources[res] -= amt;
+        this.gunTier++;
+        UI.notify(`🔫 Gun upgraded to T${this.gunTier}: ${GUN_TIERS[this.gunTier].name}!`, 4000);
+        if (this.sounds) this.sounds.levelup?.();
+        UI.update();
+    }
+
+    upgradeArmor() {
+        if (this.armorTier >= 5) { UI.notify('Armor already max tier!'); return; }
+        const next = ARMOR_TIERS[this.armorTier + 1];
+        if (!next.cost) return;
+        for (const [res, amt] of Object.entries(next.cost)) {
+            if ((this.resources[res] || 0) < amt) {
+                UI.notify(`Need ${amt} ${res} to upgrade to ${next.name}!`); return;
+            }
+        }
+        for (const [res, amt] of Object.entries(next.cost)) this.resources[res] -= amt;
+        // Remove old armor HP bonus, apply new
+        const oldBonus = (ARMOR_TIERS[this.armorTier] || ARMOR_TIERS[1]).hpBonus;
+        this.armorTier++;
+        const newBonus = ARMOR_TIERS[this.armorTier].hpBonus;
+        this.player.maxHp += (newBonus - oldBonus);
+        this.player.hp = Math.min(this.player.hp + (newBonus - oldBonus), this.player.maxHp);
+        UI.notify(`🛡️ Armor upgraded to T${this.armorTier}: ${ARMOR_TIERS[this.armorTier].name}!`, 4000);
+        if (this.sounds) this.sounds.levelup?.();
+        UI.update();
+    }
+
+    // ─── EXECUTE + LOOT SYSTEM ─────────────────────────────────
+    // X key near a stunned wild critter: kill it for loot drops instead of capture
+    _handleExecute() {
+        let closest = null, closestDist = Infinity;
+        for (const c of this.wildCritters) {
+            if (!c.stunned) continue;
+            const dx = c.x - this.player.x, dy = c.y - this.player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) / TILE_SIZE;
+            if (dist < CAPTURE_RANGE && dist < closestDist) { closestDist = dist; closest = c; }
+        }
+        if (!closest) return;
+        // Kill it
+        const sp = SPECIES[closest.species];
+        this._cleanupCritterSprite(closest);
+        this.wildCritters = this.wildCritters.filter(c => c.id !== closest.id);
+        // Grant XP
+        const lvl = closest.level || 1;
+        const rarityMul = { common: 1, uncommon: 1.4, rare: 2, legendary: 3.5 }[sp.rarity] || 1;
+        this.grantPlayerXp(Math.floor((8 + lvl * 1.2) * rarityMul));
+        // Drop loot
+        this._dropLoot(closest.x, closest.y, sp.rarity, lvl);
+        this.sounds.sacrifice?.() || this.sounds.hit?.();
+        UI.notify(`Executed ${sp.name} — loot dropped!`, 3000);
+    }
+
+    _dropLoot(x, y, rarity, level) {
+        if (!this._lootPickups) this._lootPickups = [];
+        const drops = [];
+        const lootRng = () => Math.random();
+
+        // Base drops: wood/stone/food (all rarities)
+        if (lootRng() < 0.8) drops.push({ resource: 'wood', amount: 2 + Math.floor(level * 0.3) });
+        if (lootRng() < 0.6) drops.push({ resource: 'stone', amount: 1 + Math.floor(level * 0.25) });
+        if (lootRng() < 0.5) drops.push({ resource: 'food', amount: 2 + Math.floor(level * 0.2) });
+
+        // Rarity-gated drops
+        if (rarity !== 'common') {
+            if (lootRng() < 0.7) drops.push({ resource: 'iron', amount: 1 + Math.floor(level * 0.15) });
+        }
+        if (rarity === 'rare' || rarity === 'legendary') {
+            if (lootRng() < 0.4) drops.push({ resource: 'gold', amount: 1 + Math.floor(level * 0.08) });
+            if (lootRng() < 0.15) drops.push({ resource: 'diamond', amount: 1 });
+        }
+        if (rarity === 'legendary') {
+            if (lootRng() < 0.35) drops.push({ resource: 'crystal', amount: 1 + Math.floor(level * 0.04) });
+            if (lootRng() < 0.5) drops.push({ resource: 'diamond', amount: 1 + Math.floor(level * 0.05) });
+        }
+
+        // Spawn as pickup entities around the kill position
+        for (const drop of drops) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 10 + Math.random() * 20;
+            this._lootPickups.push({
+                x: x + Math.cos(angle) * dist,
+                y: y + Math.sin(angle) * dist,
+                resource: drop.resource,
+                amount: drop.amount,
+                timer: 30, // despawn after 30s
+                bobPhase: Math.random() * 6.28,
+            });
+        }
+    }
+
+    _updateLootPickups(dt) {
+        if (!this._lootPickups) return;
+        const caps = this.resourceCaps;
+        const capBonus = (this.research.storageCap || 0) * 100;
+        for (let i = this._lootPickups.length - 1; i >= 0; i--) {
+            const lp = this._lootPickups[i];
+            lp.timer -= dt;
+            if (lp.timer <= 0) { this._lootPickups.splice(i, 1); continue; }
+            // Auto-collect when player walks near
+            const dx = lp.x - this.player.x, dy = lp.y - this.player.y;
+            if (Math.sqrt(dx * dx + dy * dy) < TILE_SIZE * 1.5) {
+                const cap = (caps[lp.resource] || 200) + capBonus;
+                this.resources[lp.resource] = Math.min((this.resources[lp.resource] || 0) + lp.amount, cap);
+                this._spawnDmgNum(lp.x, lp.y, '+' + lp.amount + ' ' + lp.resource, 0x4ade80);
+                if (this.sounds) this.sounds.collect?.();
+                this._lootPickups.splice(i, 1);
+            }
+        }
+    }
+
+    // ─── PLAYER LEVELING ─────────────────────────────────────
+    static playerXpForLevel(level) {
+        // 50 * n^1.5 matches pal curve; L1→L2 needs 50, L99→L100 needs ~49k
+        return Math.floor(50 * Math.pow(level, 1.5));
+    }
+
+    grantPlayerXp(amount) {
+        if (!amount) return;
+        if (!this.player.level) this.player.level = 1;
+        if (!this.player.xp) this.player.xp = 0;
+        if (this.player.level >= 100) return;
+        this.player.xp += amount;
+        let leveled = false;
+        while (this.player.level < 100 && this.player.xp >= Game.playerXpForLevel(this.player.level)) {
+            this.player.xp -= Game.playerXpForLevel(this.player.level);
+            this.player.level++;
+            // Per-level reward: +5 maxHp, +1 gun damage, heal to full
+            this.player.maxHp = (this.player.maxHp || 100) + 5;
+            this.gunDamage = (this.gunDamage || 10) + 1;
+            this.player.hp = this.player.maxHp;
+            leveled = true;
+        }
+        if (leveled) {
+            UI.notify(`🎉 Leveled up! You are now Lv.${this.player.level}`, 4000);
+            if (this.sounds) this.sounds.levelup?.();
+        }
+    }
+
+    // Called after damaging a wild critter; grants XP on the killing blow.
+    _awardKillXp(critter) {
+        if (!critter || critter._xpGranted) return;
+        if (!critter.stunned) return;
+        critter._xpGranted = true;
+        const lvl = critter.level || 1;
+        const rarity = SPECIES[critter.species]?.rarity || 'common';
+        const rarityMul = { common: 1, uncommon: 1.4, rare: 2.0, legendary: 3.5 }[rarity] || 1;
+        const xp = Math.floor((6 + lvl * 1.5) * rarityMul);
+        this.grantPlayerXp(xp);
+        this._spawnDmgNum(critter.x, critter.y - 16, '+' + xp + ' XP', 0x4fc3f7);
+    }
+
+    // ─── MERGE SYSTEM ────────────────────────────────────────
+    // Two pals of same species + same star tier merge into one
+    // with +1 star (max 5). Stars grant permanent stat bonuses.
+    static MERGE_MAX_STARS = 5;
+
+    startMerge(critterId) {
+        const c = this.critters.find(cr => cr.id === critterId);
+        if (!c) return;
+        if ((c.stars || 0) >= 5) { UI.notify('Already max stars (5★)!'); return; }
+        const eligible = this.critters.filter(o =>
+            o.id !== critterId &&
+            o.species === c.species &&
+            (o.stars || 0) === (c.stars || 0)
+        );
+        if (eligible.length < 2) {
+            UI.notify(`Need 3 identical ${SPECIES[c.species].name} at ${c.stars||0}★ (have ${eligible.length + 1}/3)`, 4000);
+            return;
+        }
+        this._mergeSelection = { sourceId: critterId, pickedIds: [] };
+        UI.update();
+    }
+
+    cancelMerge() {
+        this._mergeSelection = null;
+        UI.update();
+    }
+
+    pickMergeTarget(targetId) {
+        const sel = this._mergeSelection;
+        if (!sel) return;
+        if (targetId === sel.sourceId) return;
+        if (sel.pickedIds.includes(targetId)) {
+            // Unselect
+            sel.pickedIds = sel.pickedIds.filter(id => id !== targetId);
+            UI.update();
+            return;
+        }
+        const source = this.critters.find(c => c.id === sel.sourceId);
+        const target = this.critters.find(c => c.id === targetId);
+        if (!source || !target) return;
+        if (source.species !== target.species || (source.stars||0) !== (target.stars||0)) return;
+
+        sel.pickedIds.push(targetId);
+        if (sel.pickedIds.length >= 2) {
+            this._completeMerge();
+        } else {
+            UI.update();
+        }
+    }
+
+    _completeMerge() {
+        const sel = this._mergeSelection;
+        this._mergeSelection = null;
+        if (!sel || sel.pickedIds.length < 2) { UI.update(); return; }
+        const ids = [sel.sourceId, ...sel.pickedIds];
+        const pals = ids.map(id => this.critters.find(c => c.id === id)).filter(Boolean);
+        if (pals.length !== 3) { UI.update(); return; }
+        const sp = pals[0].species, st = pals[0].stars || 0;
+        if (!pals.every(p => p.species === sp && (p.stars||0) === st)) { UI.update(); return; }
+
+        // Pick highest-level pal as the base so XP isn't wasted
+        pals.sort((a, b) => (b.level || 1) - (a.level || 1));
+        const base = pals[0];
+        const consumed = pals.slice(1);
+
+        for (const c of consumed) {
+            if (c.assignment && c.assignment !== 'patrol' && c.assignment !== 'companion' && c.assignment !== 'bodyguard') {
+                const bld = this.buildings.find(bd => bd.id === c.assignment);
+                if (bld) bld.workers = bld.workers.filter(w => w !== c.id);
+            }
+        }
+        const consumedIds = new Set(consumed.map(c => c.id));
+        this.critters = this.critters.filter(c => !consumedIds.has(c.id));
+
+        // Apply star — bake flat stat bonus so downstream code doesn't need updates
+        base.stars = (base.stars || 0) + 1;
+        for (const key of Object.keys(base.stats)) base.stats[key] += 2;
+        base.patrolMaxHp = (base.patrolMaxHp || 50) + 10;
+        base.patrolHp = Math.min((base.patrolHp || 0) + 10, base.patrolMaxHp);
+
+        // Inherit up to 1 passive from consumed pool (25% chance per candidate)
+        if (base.passives && base.passives.length < 5) {
+            const pool = [];
+            for (const c of consumed) if (c.passives) pool.push(...c.passives);
+            for (const pid of pool) {
+                if (!base.passives.includes(pid) && Math.random() < 0.25) {
+                    base.passives.push(pid);
+                    break;
+                }
+            }
+        }
+
+        UI.notify(`⭐ ${base.nickname} ascended to ${base.stars}★!`, 4000);
+        if (this.sounds) this.sounds.levelup?.() || this.sounds.build?.();
+        UI.update();
+    }
+
     _triggerGameOver() {
         this.gameOver = true;
         this.paused = true;
@@ -983,6 +1293,7 @@ class Game {
                 if (Math.sqrt(hx*hx + hy*hy) < 12) {
                     Critters.damageWild(wc, p.damage);
                     this._spawnDmgNum(wc.x, wc.y, p.damage, 0xffd54f);
+                    if (!p.fromTurret) this._awardKillXp(wc);
                     this.sounds.slash();
                     // Slash hit effect
                     if (!this._hitEffects) this._hitEffects = [];
@@ -1360,21 +1671,16 @@ class Game {
             this.respawnTimer = 30;
             // Top up wild critters if below min (reuse pool, don't regenerate)
             while (this.wildCritters.length < WILD_MIN_COUNT) {
-                const rng = this.world._seededRng(Date.now() + this.wildCritters.length);
-                const pos = this.world.randomGrassTile(rng);
-                const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
-                const uncommonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'uncommon');
-                const rareKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'rare');
-                const legendaryKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'legendary');
-                const roll = Math.random();
-                let species;
-                if (roll < 0.07 && legendaryKeys.length > 0) species = legendaryKeys[Math.floor(Math.random() * legendaryKeys.length)];
-                else if (roll < 0.25 && rareKeys.length > 0) species = rareKeys[Math.floor(Math.random() * rareKeys.length)];
-                else if (roll < 0.50 && uncommonKeys.length > 0) species = uncommonKeys[Math.floor(Math.random() * uncommonKeys.length)];
-                else species = commonKeys[Math.floor(Math.random() * commonKeys.length)];
-                const maxHp = RARITY_HP[SPECIES[species].rarity] || 30;
+                const pos = Critters.pickSpawnTile(this.world, 55, 210);
+                const distTiles = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+                const species = Critters.pickSpeciesByDistance(distTiles);
+                const sp = SPECIES[species];
+                const level = Critters.levelFromDistance(distTiles, sp.rarity);
+                const baseHp = RARITY_HP[sp.rarity] || 30;
+                const maxHp = Math.floor(baseHp * Critters.enemyHpMul(level));
+                const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level));
                 this.wildCritters.push({
-                    id: _nextCritterId++, species,
+                    id: _nextCritterId++, species, level, attackDmg,
                     x: pos.x * TILE_SIZE + TILE_SIZE / 2, y: pos.y * TILE_SIZE + TILE_SIZE / 2,
                     stats: Critters.rollStats(species), hp: maxHp, maxHp,
                     stunned: false, stunTimer: 0, state: 'idle',
@@ -1392,6 +1698,9 @@ class Game {
         if (this.hordeActive) {
             this._updateHorde(dt);
         }
+
+        // Loot pickups
+        this._updateLootPickups(dt);
 
         // Multiplayer network tick
         if (this.network) this.network.update(dt);
@@ -1423,6 +1732,20 @@ class Game {
             document.getElementById('resIron').textContent = `${Math.floor(this.resources.iron||0)}/${gc('iron')}`;
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('ammoCount').textContent = this.inventory.ammo || 0;
+            // Player level HUD
+            const plvlNum = document.getElementById('plvlNum');
+            const plvlFill = document.getElementById('plvlFill');
+            if (plvlNum && plvlFill) {
+                const plvl = this.player.level || 1;
+                plvlNum.textContent = plvl;
+                if (plvl >= 100) {
+                    plvlFill.style.width = '100%';
+                } else {
+                    const need = Game.playerXpForLevel(plvl);
+                    const pct = Math.max(0, Math.min(100, ((this.player.xp || 0) / need) * 100));
+                    plvlFill.style.width = pct + '%';
+                }
+            }
             document.getElementById('aethershardCount').textContent = this.inventory.aethershards || 0;
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
             const deadEl = document.getElementById('deadCount');
@@ -1575,6 +1898,22 @@ class Game {
 
         // Wild critters
         for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
+
+        // Loot pickups
+        if (this._lootPickups) {
+            const lootColors = { wood: 0x8d6e63, stone: 0x90a4ae, food: 0x9ccc65, iron: 0x78909c, gold: 0xffd700, diamond: 0x81d4fa, crystal: 0xce93d8, oil: 0x333333 };
+            for (const lp of this._lootPickups) {
+                const bob = Math.sin(this.time * 4 + lp.bobPhase) * 3;
+                const color = lootColors[lp.resource] || 0xffffff;
+                gfx.beginFill(color, 0.9);
+                gfx.drawRoundedRect(lp.x - 5, lp.y + bob - 5, 10, 10, 3);
+                gfx.endFill();
+                // White outline glow
+                gfx.lineStyle(1, 0xffffff, 0.4);
+                gfx.drawRoundedRect(lp.x - 5, lp.y + bob - 5, 10, 10, 3);
+                gfx.lineStyle(0);
+            }
+        }
 
         // Horde critters (red-tinted, with sprites)
         for (const h of this.hordeCreatures) {
@@ -2207,10 +2546,16 @@ class Game {
             gfx.endFill();
         }
 
-        // Stunned — stars above head (world space)
+        // Stunned — stars above head + action hints (world space)
         if (critter.stunned) {
             const t = this._getWorldText('★ ★', { fontFamily: 'monospace', fontSize: 10, fill: 0xffd54f });
             t.x = sx; t.y = sy + bob - r - 10;
+            // Check if player is close enough for action prompts
+            const distToPlayer = Math.sqrt((critter.x - this.player.x) ** 2 + (critter.y - this.player.y) ** 2) / TILE_SIZE;
+            if (distToPlayer < CAPTURE_RANGE) {
+                const hint = this._getWorldText('[E] Capture  [X] Execute', { fontFamily: 'sans-serif', fontSize: 9, fill: 0xffffff, stroke: 0x000000, strokeThickness: 2 });
+                hint.x = sx; hint.y = sy + bob + r + 10;
+            }
         }
 
         // HP bar (scales with critter size)
@@ -2251,6 +2596,40 @@ class Game {
             gfx.lineTo(sx + Math.cos(angle + 0.8) * r, sy + bob + Math.sin(angle + 0.8) * r);
             gfx.lineStyle(0);
         }
+
+        // Name label with capture-aware color
+        if (!critter.stunned) {
+            const snareKey = Critters.getBestSnare(this.inventory || {}, sp.rarity);
+            let fillColor;
+            if (sp.rarity === 'legendary') {
+                const hue = (this.time * 80) % 360;
+                fillColor = this._hslToHex(hue, 100, 60);
+            } else if (snareKey) {
+                fillColor = 0x4ade80; // green — can capture
+            } else {
+                fillColor = 0xfacc15; // yellow — missing snare
+            }
+            const hasHpBar = critter.hp < critter.maxHp;
+            const nameY = sy + bob - r - (hasHpBar ? 16 : 10);
+            const lvl = critter.level || 1;
+            const nameStr = `[L${lvl}] ${sp.name}`;
+            const nameT = this._getWorldText(nameStr, {
+                fontFamily: 'sans-serif', fontSize: 11, fontWeight: 'bold',
+                fill: fillColor, stroke: 0x000000, strokeThickness: 3,
+            });
+            nameT.x = sx; nameT.y = nameY;
+        }
+    }
+
+    _hslToHex(h, s, l) {
+        s /= 100; l /= 100;
+        const k = n => (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+        const r = Math.round(f(0) * 255);
+        const g = Math.round(f(8) * 255);
+        const b = Math.round(f(4) * 255);
+        return (r << 16) | (g << 8) | b;
     }
 
     // ─── NOTIFICATIONS ──────────────────────────────────────
@@ -2637,7 +3016,7 @@ class Game {
             // Attack player
             boss._attackTimer -= dt;
             if (pDist < TILE_SIZE * 2 && boss._attackTimer <= 0) {
-                this.player.hp -= boss.dmg;
+                this.playerTakeDamage(boss.dmg);
                 boss._attackTimer = 2;
             }
 
@@ -2793,7 +3172,7 @@ class Game {
         this.damageNumbers.push({
             x: x + (Math.random() - 0.5) * 12,
             y: y - 8,
-            text: Math.floor(amount).toString(),
+            text: (typeof amount === 'string') ? amount : Math.floor(amount).toString(),
             timer: 0.8,
             color: color || 0xffffff,
             vy: -40 - Math.random() * 20,
@@ -2916,7 +3295,7 @@ class Game {
                 const pdist = Math.sqrt((h.x - this.player.x) ** 2 + (h.y - this.player.y) ** 2);
                 if (pdist < TILE_SIZE * 1.5 && h._attackTimer <= 0) {
                     const sp = SPECIES[h.species];
-                    this.player.hp -= Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1));
+                    this.playerTakeDamage(Math.floor((sp.attackDmg || 3) * (h.dmgMult || 1)));
                     h._attackTimer = sp.attackCooldown || 1.5;
                 }
             }

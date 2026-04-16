@@ -505,6 +505,43 @@ class GameSounds {
         thumpOsc.stop(t + 0.06);
     }
 
+    /** Dry "stump" thud — played when out of ammo */
+    ammoLow() {
+        if (!this._ensureContext()) return;
+        const t = this.ctx.currentTime;
+        const dur = 0.14;
+
+        // Dull low thud (muted bass)
+        const gain = this._createGain(0);
+        gain.gain.setValueAtTime(0.55, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        const osc = this._createOsc('sine', 140, gain);
+        osc.frequency.setValueAtTime(140, t);
+        osc.frequency.exponentialRampToValueAtTime(55, t + dur);
+        osc.start(t); osc.stop(t + dur);
+
+        // Wooden knock (bandpassed noise — like hammer on log)
+        const knockGain = this._createGain(0);
+        knockGain.gain.setValueAtTime(0.35, t);
+        knockGain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+        const knockFilter = this._createFilter('bandpass', 500);
+        knockFilter.Q.value = 6;
+        knockFilter.connect(knockGain);
+        const knockNoise = this._createNoise(0.07);
+        knockNoise.connect(knockFilter);
+        knockNoise.start(t); knockNoise.stop(t + 0.07);
+
+        // Tiny dry "click" click at the front for hammer-on-empty feel
+        const clickG = this._createGain(0);
+        clickG.gain.setValueAtTime(0.3, t);
+        clickG.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        const clickFilter = this._createFilter('highpass', 2500);
+        clickFilter.connect(clickG);
+        const clickN = this._createNoise(0.03);
+        clickN.connect(clickFilter);
+        clickN.start(t); clickN.stop(t + 0.03);
+    }
+
     /** UI click sound - bonus utility */
     click() {
         if (!this._ensureContext()) return;
