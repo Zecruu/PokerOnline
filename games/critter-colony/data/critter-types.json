@@ -1,0 +1,11 @@
+{
+    "_README": "Critter type definitions. Each type has buildings it gets a bonus at. canSwim allows water traversal.",
+
+    "grass":  { "name": "Grass",  "icon": "\ud83c\udf3f", "color": "#66bb6a", "desc": "Farming & food production", "buildings": ["farm","greenhouse"] },
+    "fire":   { "name": "Fire",   "icon": "\ud83d\udd25", "color": "#ff7043", "desc": "Smelting & fuel processing", "buildings": ["smelter","gas_refinery"] },
+    "muscle": { "name": "Muscle", "icon": "\ud83d\udcaa", "color": "#90a4ae", "desc": "Mining, lumber & combat",    "buildings": ["mine","lumber_mill","iron_mine","oil_pump","gold_mine","diamond_drill"] },
+    "arcane": { "name": "Arcane", "icon": "\ud83d\udd2e", "color": "#ce93d8", "desc": "Research, crafting & extractors", "buildings": ["research_lab","workbench","crystal_extractor","refinery"] },
+    "beast":  { "name": "Beast",  "icon": "\ud83d\udc3e", "color": "#8d6e63", "desc": "Patrol & bodyguard specialist", "buildings": [] },
+    "water":  { "name": "Water",  "icon": "\ud83d\udca7", "color": "#42a5f5", "desc": "Can swim. Companion grants water walk", "buildings": ["greenhouse"], "canSwim": true },
+    "fairy":  { "name": "Fairy",  "icon": "\u2728", "color": "#fff176", "desc": "Lucky crafter & healer",    "buildings": ["workbench","healer"] }
+}

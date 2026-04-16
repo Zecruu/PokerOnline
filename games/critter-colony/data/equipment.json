@@ -1,0 +1,21 @@
+{
+    "_README": "Gun and armor tier definitions. Tier 1 is starter (no cost). dmgMul=damage multiplier, cooldown=seconds between shots, dr=damage reduction fraction.",
+
+    "guns": [
+        null,
+        { "name": "Pistol",       "tier": 1, "dmgMul": 1.0,  "cooldown": 0.50, "desc": "Starter sidearm.",                  "cost": null },
+        { "name": "Rifle",        "tier": 2, "dmgMul": 1.8,  "cooldown": 0.40, "desc": "Longer barrel, hits harder.",        "cost": { "iron": 10, "gold": 3 } },
+        { "name": "Shotgun",      "tier": 3, "dmgMul": 2.8,  "cooldown": 0.50, "desc": "Devastating at close range.",        "cost": { "gold": 5, "diamond": 2 } },
+        { "name": "Plasma Rifle", "tier": 4, "dmgMul": 4.5,  "cooldown": 0.35, "desc": "Superheated plasma bolts.",          "cost": { "diamond": 5, "crystal": 3 } },
+        { "name": "Annihilator",  "tier": 5, "dmgMul": 8.0,  "cooldown": 0.28, "desc": "Obliterates anything. Endgame.",     "cost": { "diamond": 10, "crystal": 8 } }
+    ],
+
+    "armor": [
+        null,
+        { "name": "None",           "tier": 1, "hpBonus": 0,   "dr": 0.00, "desc": "No protection.",                            "cost": null },
+        { "name": "Leather Vest",   "tier": 2, "hpBonus": 30,  "dr": 0.08, "desc": "Light hide armor. Basic protection.",       "cost": { "wood": 20, "iron": 5 } },
+        { "name": "Iron Plate",     "tier": 3, "hpBonus": 70,  "dr": 0.15, "desc": "Heavy iron plates. Durable.",               "cost": { "iron": 15, "gold": 5 } },
+        { "name": "Diamond Aegis",  "tier": 4, "hpBonus": 150, "dr": 0.25, "desc": "Diamond-reinforced suit. Serious defense.", "cost": { "gold": 10, "diamond": 5 } },
+        { "name": "Aether Ward",    "tier": 5, "hpBonus": 300, "dr": 0.40, "desc": "Crystal-woven ward. Near invincible.",      "cost": { "diamond": 10, "crystal": 10 } }
+    ]
+}

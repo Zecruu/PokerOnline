@@ -1,0 +1,73 @@
+{
+    "_README": "Game balance values. Tweak these to change difficulty, pacing, economy, combat, and spawning.",
+
+    "player": {
+        "speed": 200,
+        "startHp": 100,
+        "startResources": { "wood": 50, "stone": 50, "food": 30, "iron": 0 },
+        "startInventory": { "traps": 5, "ammo": 120 },
+        "baseDamage": 10
+    },
+
+    "resourceCaps": {
+        "wood": 200, "stone": 200, "food": 150, "iron": 100,
+        "oil": 50, "gold": 30, "diamond": 15, "crystal": 50, "metal": 50
+    },
+
+    "capture": {
+        "catchRates": { "common": 0.70, "uncommon": 0.40, "rare": 0.20, "legendary": 0.05 },
+        "captureRange": 2.5,
+        "stunDuration": 15,
+        "typeMatchBonus": 0.50,
+        "typeMismatchPenalty": -0.30
+    },
+
+    "wildCritters": {
+        "minCount": 50,
+        "maxCount": 70,
+        "aiRange": 30,
+        "spawnMinDist": 55,
+        "spawnMaxDist": 210,
+        "rarityByDistance": {
+            "inner":  { "maxDist": 55,  "legendary": 0.00, "rare": 0.00, "uncommon": 0.05, "common": 0.95 },
+            "mid":    { "maxDist": 100, "legendary": 0.00, "rare": 0.05, "uncommon": 0.30, "common": 0.65 },
+            "outer":  { "maxDist": 160, "legendary": 0.03, "rare": 0.22, "uncommon": 0.40, "common": 0.35 },
+            "far":    { "maxDist": 99999,"legendary": 0.15, "rare": 0.40, "uncommon": 0.30, "common": 0.15 }
+        },
+        "rarityHp":  { "common": 30, "uncommon": 50, "rare": 80, "legendary": 150 },
+        "rarityColors": { "common": "#aaa", "uncommon": "#8bc34a", "rare": "#ffc107", "legendary": "#e040fb" }
+    },
+
+    "leveling": {
+        "maxLevel": 100,
+        "xpFormula": { "base": 50, "exponent": 1.5 },
+        "rarityLevelBonus": { "common": 0, "uncommon": 8, "rare": 18, "legendary": 30 },
+        "enemyHpScale": 0.12,
+        "enemyDmgScale": 0.05,
+        "levelUpStatBoostChance": 0.50
+    },
+
+    "passiveRolls": {
+        "countByRarity": { "common": 1, "uncommon": 2, "rare": 2, "legendary": 3 },
+        "bonusChance": { "common": 0.15, "uncommon": 0.15, "rare": 0.30, "legendary": 0.50 },
+        "tierWeights": { "legendary": 0.03, "rare": 0.09, "uncommon": 0.23, "common": 0.65 }
+    },
+
+    "horde": {
+        "intervalSeconds": 900,
+        "waveScaling": 1.15
+    },
+
+    "production": {
+        "statScale": 0.05,
+        "hungryPenalty": 0.50,
+        "baseCraftTime": 5,
+        "dexCraftReduction": 0.02,
+        "minCraftTime": 1,
+        "researchBaseSpeed": 0.075,
+        "researchIntScale": 0.08
+    },
+
+    "autoSaveInterval": 60,
+    "afkMaxHours": 8
+}

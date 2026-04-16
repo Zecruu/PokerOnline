@@ -1,46 +1,11 @@
 /* ============================================================
    Critter Colony — Infinite Chunk-Based World
+   ============================================================
+   TILE, TILE_SIZE, CHUNK_SIZE, TILE_COLORS, NODE_COLORS, NODE_INFO,
+   RENDER_DISTANCE, MAP_W, MAP_H, COLONY_MIN, COLONY_MAX
+   are all loaded from data/world.json by config.js.
+   Edit that file to mod tile colors, world size, render distance, etc.
    ============================================================ */
-
-const TILE = { GRASS: 0, TREE: 1, ROCK: 2, WATER: 3, COLONY: 4, PATH: 5, NODE_OIL: 6, NODE_GOLD: 7, NODE_DIAMOND: 8, NODE_CRYSTAL: 9 };
-
-const NODE_COLORS = {
-    [TILE.NODE_OIL]:     ['#1a1a1a', '#222'],
-    [TILE.NODE_GOLD]:    ['#ffd700', '#e6c200'],
-    [TILE.NODE_DIAMOND]: ['#b3e5fc', '#81d4fa'],
-    [TILE.NODE_CRYSTAL]: ['#ce93d8', '#ba68c8'],
-};
-
-const NODE_INFO = {
-    [TILE.NODE_OIL]:     { name: 'Oil Deposit',     resource: 'oil',     color: '#1a1a1a', icon: '🛢️' },
-    [TILE.NODE_GOLD]:    { name: 'Gold Vein',        resource: 'gold',    color: '#ffd700', icon: '✨' },
-    [TILE.NODE_DIAMOND]: { name: 'Diamond Cluster',  resource: 'diamond', color: '#81d4fa', icon: '💎' },
-    [TILE.NODE_CRYSTAL]: { name: 'Arcane Crystal',   resource: 'crystal', color: '#ce93d8', icon: '🔮' },
-};
-const TILE_SIZE = 32;
-const CHUNK_SIZE = 16;
-
-// Legacy compat — other files reference these for initial player placement
-const MAP_W = 100;
-const MAP_H = 100;
-const COLONY_MIN = -16; // colony spans chunks (0,0),(0,-1),(-1,0),(-1,-1) → tiles -32..-1 to 31..0? No — see below
-const COLONY_MAX = 15;  // Colony is tiles -32..31 in world coords (4 chunks centered on origin)
-
-// Render distance in chunks around the player
-const RENDER_DISTANCE = 3; // 7x7 grid = -3..+3
-
-const TILE_COLORS = {
-    [TILE.GRASS]:  ['#4a7c3f','#4e8243','#46763b','#528647'],
-    [TILE.TREE]:   ['#2d5a1e'],
-    [TILE.ROCK]:   ['#6b6b6b'],
-    [TILE.WATER]:  ['#2a6faa','#2d74b0','#2768a2'],
-    [TILE.COLONY]: ['#8a7a52','#8e7e56','#867650'],
-    [TILE.PATH]:   ['#a89060','#a48a5c','#ac9464'],
-    [TILE.NODE_OIL]:     ['#1a1a1a','#222'],
-    [TILE.NODE_GOLD]:    ['#8a7a30','#7a6a28'],
-    [TILE.NODE_DIAMOND]: ['#5a7a8a','#4a6a7a'],
-    [TILE.NODE_CRYSTAL]: ['#6a4a7a','#5a3a6a'],
-};
 
 class World {
     constructor() {

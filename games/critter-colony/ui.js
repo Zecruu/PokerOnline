@@ -1,45 +1,9 @@
 /* ============================================================
    Critter Colony — UI System
+   ============================================================
+   RESEARCH_DEFS is loaded from data/research.json by config.js.
+   Edit that file to mod research costs, times, and max levels.
    ============================================================ */
-
-// Research definitions
-const RESEARCH_DEFS = {
-    gunDamage:    { name: 'Tamer Gun Power',   desc: '+5 gun damage',         maxLevel: 10, cost: (l) => ({ wood: 30*(l+1), stone: 20*(l+1), food: 10*(l+1) }), time: 30 },
-    storageCap:   { name: 'Storage Expansion',  desc: '+100 resource cap',     maxLevel: 10, cost: (l) => ({ wood: 40*(l+1), stone: 40*(l+1), food: 0 }),        time: 25 },
-    captureBonus: { name: 'Capture Mastery',    desc: '+10% capture rate',     maxLevel: 5,  cost: (l) => ({ wood: 20*(l+1), stone: 20*(l+1), food: 20*(l+1) }), time: 40 },
-    turretDamage: { name: 'Turret Calibration', desc: '+3 turret damage',      maxLevel: 8,  cost: (l) => ({ wood: 25*(l+1), stone: 35*(l+1), food: 0 }),        time: 35 },
-    turretRange:  { name: 'Turret Optics',      desc: '+1 tile turret range',  maxLevel: 5,  cost: (l) => ({ wood: 30*(l+1), stone: 30*(l+1), food: 0 }),        time: 30 },
-    afkCap:       { name: 'Extended AFK',       desc: '+2 hours offline cap',  maxLevel: 4,  cost: (l) => ({ wood: 50*(l+1), stone: 50*(l+1), food: 30*(l+1) }), time: 60 },
-    colonyRadius: { name: 'Colony Reach',       desc: 'Bigger expander radius',maxLevel: 3,  cost: (l) => ({ wood: 60*(l+1), stone: 60*(l+1), food: 40*(l+1) }), time: 50 },
-    critterCap:   { name: 'Critter Capacity',   desc: '+4 max critters',       maxLevel: 10, cost: (l) => ({ wood: 25*(l+1), stone: 25*(l+1), food: 15*(l+1) }), time: 20 },
-    workersPerB:  { name: 'Workforce Training', desc: '+1 worker per building', maxLevel: 4,  cost: (l) => ({ wood: 35*(l+1), stone: 35*(l+1), food: 20*(l+1) }), time: 35 },
-    // Base upgrades
-    baseHp:       { name: 'Fortification',     desc: '+50 HP to all buildings', maxLevel: 8,  cost: (l) => ({ wood: 40*(l+1), stone: 50*(l+1), food: 0 }),        time: 30 },
-    baseTurret:   { name: 'HQ Auto-Turret',    desc: 'HQ fires at enemies (stacks)', maxLevel: 3, cost: (l) => ({ wood: 50*(l+1), stone: 60*(l+1), iron: 20*(l+1) }), time: 50 },
-    bodyguardSlots:{ name: 'Bodyguard Training',desc: '+1 bodyguard slot (max 4)', maxLevel: 3, cost: (l) => ({ wood: 40*(l+1), stone: 30*(l+1), food: 30*(l+1) }), time: 40 },
-    // Building unlocks
-    storageBuilding:{ name: 'Storage Tech',    desc: 'Unlocks Storage building (+150 cap each)', maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, food: 20 }), time: 30 },
-    smelting:     { name: 'Smelting',          desc: 'Unlocks Smelter (ore → metal)',    maxLevel: 1, cost: (l) => ({ wood: 50, stone: 80, food: 0 }),        time: 45 },
-    greenhouse:   { name: 'Greenhouse Tech',   desc: 'Unlocks Greenhouse (2x food)',    maxLevel: 1, cost: (l) => ({ wood: 60, stone: 40, food: 30 }),       time: 35 },
-    barracks:     { name: 'Barracks',          desc: 'Unlocks Barracks (+30% patrol dmg)', maxLevel: 1, cost: (l) => ({ wood: 50, stone: 70, food: 20 }),    time: 40 },
-    refinery:     { name: 'Crystal Refinery',  desc: 'Unlocks Refinery (produces crystal)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 80, food: 40 }),   time: 60 },
-    healingHut:   { name: 'Healing Arts',      desc: 'Unlocks Healing Hut (auto-heal injured)', maxLevel: 1, cost: (l) => ({ wood: 40, stone: 30, food: 40 }), time: 35 },
-    // Extractors
-    oilDrilling:  { name: 'Oil Drilling',      desc: 'Unlocks Oil Pump (place on oil nodes)',   maxLevel: 1, cost: (l) => ({ wood: 60, stone: 80, food: 0 }),       time: 50 },
-    goldMining:   { name: 'Gold Mining',       desc: 'Unlocks Gold Mine (place on gold nodes)', maxLevel: 1, cost: (l) => ({ wood: 80, stone: 100, iron: 20 }),     time: 60 },
-    diamondDrill: { name: 'Diamond Drilling',  desc: 'Unlocks Diamond Drill (diamond nodes)',   maxLevel: 1, cost: (l) => ({ wood: 100, stone: 120, iron: 40 }),    time: 80 },
-    crystalExtract:{ name: 'Crystal Extraction',desc: 'Unlocks Crystal Extractor',              maxLevel: 1, cost: (l) => ({ wood: 70, stone: 90, iron: 15 }),      time: 55 },
-    // Power chain
-    gasRefining:  { name: 'Gas Refining',      desc: 'Unlocks Gas Refinery (oil → gasoline)',  maxLevel: 1, cost: (l) => ({ wood: 50, stone: 60, iron: 15 }),      time: 40 },
-    generators:   { name: 'Power Generators',  desc: 'Unlocks Generator (powers extractors)',  maxLevel: 1, cost: (l) => ({ wood: 60, stone: 70, iron: 25 }),      time: 50 },
-    // Companion & passive
-    companionSlots:{ name: 'Companion Bond',   desc: '+1 companion slot (max 4)',       maxLevel: 3, cost: (l) => ({ wood: 40*(l+1), stone: 30*(l+1), food: 30*(l+1) }), time: 40 },
-    passiveLab:   { name: 'Passive Lab',       desc: 'Unlocks Passive Lab (transfer passives)', maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, gold: 5 }), time: 50 },
-    // Snare tiers
-    ironSnare:    { name: 'Iron Snares',       desc: 'Craft Iron Snares (catches uncommon)',    maxLevel: 1, cost: (l) => ({ wood: 40, stone: 40, iron: 10 }),      time: 30 },
-    goldSnare:    { name: 'Gold Snares',       desc: 'Craft Gold Snares (catches rare)',        maxLevel: 1, cost: (l) => ({ wood: 50, stone: 50, gold: 5 }),       time: 45 },
-    diamondSnare: { name: 'Diamond Snares',    desc: 'Craft Diamond Snares (catches legendary)',maxLevel: 1, cost: (l) => ({ wood: 60, stone: 60, diamond: 3 }),    time: 60 },
-};
 
 class UI {
     static init(game) {
@@ -256,6 +220,7 @@ class UI {
                     const picked = pickedIds.length;
                     html += `<div class="cc-merge-banner">Merging <b>${mergeSrc.nickname}</b> (${mergeSrc.stars||0}★) — pick ${2 - picked} more identical pal${2 - picked === 1 ? '' : 's'} (${1 + picked}/3) <button onclick="game.cancelMerge()">Cancel</button></div>`;
                 }
+                html += '<div class="critter-grid">';
                 for (const c of g.critters) {
                     const sp = SPECIES[c.species];
                     const critterImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[c.species] && CRITTER_SPRITES[c.species].complete
@@ -402,6 +367,7 @@ class UI {
                     html += `</div>`;
                     html += `</div>`;
                 }
+                html += '</div>'; // close critter-grid
             }
             body.innerHTML = html;
 

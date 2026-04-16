@@ -1,0 +1,43 @@
+{
+    "_README": "World generation and tile config. TILE_SIZE=pixels per tile, CHUNK_SIZE=tiles per chunk, RENDER_DISTANCE=chunks around player to load.",
+
+    "TILE_SIZE": 32,
+    "CHUNK_SIZE": 16,
+    "RENDER_DISTANCE": 3,
+    "MAP_W": 100,
+    "MAP_H": 100,
+    "COLONY_MIN": -16,
+    "COLONY_MAX": 15,
+
+    "tiles": {
+        "GRASS": 0, "TREE": 1, "ROCK": 2, "WATER": 3, "COLONY": 4, "PATH": 5,
+        "NODE_OIL": 6, "NODE_GOLD": 7, "NODE_DIAMOND": 8, "NODE_CRYSTAL": 9
+    },
+
+    "tileColors": {
+        "0": ["#4a7c3f","#4e8243","#46763b","#528647"],
+        "1": ["#2d5a1e"],
+        "2": ["#6b6b6b"],
+        "3": ["#2a6faa","#2d74b0","#2768a2"],
+        "4": ["#8a7a52","#8e7e56","#867650"],
+        "5": ["#a89060","#a48a5c","#ac9464"],
+        "6": ["#1a1a1a","#222"],
+        "7": ["#8a7a30","#7a6a28"],
+        "8": ["#5a7a8a","#4a6a7a"],
+        "9": ["#6a4a7a","#5a3a6a"]
+    },
+
+    "nodeColors": {
+        "6": ["#1a1a1a", "#222"],
+        "7": ["#ffd700", "#e6c200"],
+        "8": ["#b3e5fc", "#81d4fa"],
+        "9": ["#ce93d8", "#ba68c8"]
+    },
+
+    "nodeInfo": {
+        "6": { "name": "Oil Deposit",     "resource": "oil",     "color": "#1a1a1a", "icon": "\ud83d\udee2\ufe0f" },
+        "7": { "name": "Gold Vein",        "resource": "gold",    "color": "#ffd700", "icon": "\u2728" },
+        "8": { "name": "Diamond Cluster",  "resource": "diamond", "color": "#81d4fa", "icon": "\ud83d\udc8e" },
+        "9": { "name": "Arcane Crystal",   "resource": "crystal", "color": "#ce93d8", "icon": "\ud83d\udd2e" }
+    }
+}
