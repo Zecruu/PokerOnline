@@ -455,6 +455,7 @@ class Game {
 
     _shoot(wx, wy) {
         if (this.gunCooldown > 0) return;
+        if (this.player._stunned) return;
         if ((this.inventory.ammo || 0) <= 0) {
             // Dry-fire stump thud on every attempt — player hears they have no ammo
             if (this.sounds) this.sounds.ammoLow?.();
@@ -1197,7 +1198,9 @@ class Game {
         // Companion speed bonus
         const compSpeed = this.getCompanionEffect('companionSpeed');
         const canWaterWalk = this.hasCompanionEffect('companionWaterWalk');
-        const moveSpeed = this.player.speed * (1 + compSpeed);
+        let moveSpeed = this.player.speed * (1 + compSpeed);
+        if (this.player._slowed) moveSpeed *= 0.35;
+        if (this.player._stunned) moveSpeed = 0;
 
         // Companion mining speed bonus cached
         this.player._compMineBonus = this.getCompanionEffect('companionMine');
@@ -2003,7 +2006,53 @@ class Game {
                 gfx.beginFill(pct > 0.5 ? 0xff6600 : pct > 0.25 ? 0xff0000 : 0x880000);
                 gfx.drawRect(boss.x - bw / 2, boss.y - r - 14, bw * pct, 6);
                 gfx.endFill();
+
+                // Charging trail
+                if (boss._charging) {
+                    gfx.lineStyle(4, bc, 0.4);
+                    gfx.moveTo(boss.x - boss._chargeVx * 0.15, boss.y - boss._chargeVy * 0.15);
+                    gfx.lineTo(boss.x, boss.y);
+                    gfx.lineStyle(0);
+                }
+
+                // Name + ability warning
+                const nameT = this._getWorldText(boss.name, { fontFamily: 'sans-serif', fontSize: 12, fontWeight: 'bold', fill: 0xffd700, stroke: 0x000000, strokeThickness: 3 });
+                nameT.x = boss.x; nameT.y = boss.y - r - 22;
             }
+        }
+
+        // Boss projectiles
+        if (this._bossProjectiles) {
+            for (const bp of this._bossProjectiles) {
+                gfx.beginFill(bp.color || 0xff5252, 0.9);
+                gfx.drawCircle(bp.x, bp.y, bp.size || 6);
+                gfx.endFill();
+                // Glow
+                gfx.lineStyle(2, bp.color || 0xff5252, 0.3);
+                gfx.drawCircle(bp.x, bp.y, (bp.size || 6) + 4);
+                gfx.lineStyle(0);
+            }
+        }
+
+        // Boss shockwaves
+        if (this._bossShockwaves) {
+            for (const sw of this._bossShockwaves) {
+                const alpha = Math.max(0.1, sw.timer / 1.5);
+                gfx.lineStyle(4, sw.color, alpha);
+                gfx.drawCircle(sw.x, sw.y, sw.radius);
+                gfx.lineStyle(2, sw.color, alpha * 0.4);
+                gfx.drawCircle(sw.x, sw.y, sw.radius + 8);
+                gfx.lineStyle(0);
+            }
+        }
+
+        // Player stun/slow indicators
+        if (this.player._stunned) {
+            const t = this._getWorldText('STUNNED', { fontFamily: 'sans-serif', fontSize: 14, fontWeight: 'bold', fill: 0xffd54f, stroke: 0x000000, strokeThickness: 3 });
+            t.x = this.player.x; t.y = this.player.y - 46;
+        } else if (this.player._slowed) {
+            const t = this._getWorldText('SLOWED', { fontFamily: 'sans-serif', fontSize: 12, fontWeight: 'bold', fill: 0x66bb6a, stroke: 0x000000, strokeThickness: 3 });
+            t.x = this.player.x; t.y = this.player.y - 46;
         }
 
         // Bodyguard critters — use actual sprite
@@ -2981,11 +3030,11 @@ class Game {
     // Bosses drop "Aethershard" — rare ore that boosts a stat by 5
     _spawnWorldBoss() {
         const bossTypes = [
-            { name: 'Stonecrusher', color: '#616161', hp: 500, dmg: 20, speed: 40, size: 3, drops: 2 },
-            { name: 'Infernal Wyrm', color: '#d32f2f', hp: 400, dmg: 25, speed: 60, size: 2.5, drops: 2 },
-            { name: 'Crystal Titan', color: '#7c4dff', hp: 700, dmg: 15, speed: 30, size: 3.5, drops: 3 },
-            { name: 'Void Stalker', color: '#1a1a2e', hp: 350, dmg: 30, speed: 80, size: 2, drops: 2 },
-            { name: 'Ancient Treant', color: '#2e7d32', hp: 800, dmg: 12, speed: 20, size: 4, drops: 4 },
+            { name: 'Stonecrusher',   color: '#616161', hp: 500, dmg: 20, speed: 55,  size: 3,   drops: 2, abilities: ['stomp','charge'] },
+            { name: 'Infernal Wyrm',  color: '#d32f2f', hp: 400, dmg: 25, speed: 70,  size: 2.5, drops: 2, abilities: ['fireball','charge'] },
+            { name: 'Crystal Titan',  color: '#7c4dff', hp: 700, dmg: 15, speed: 45,  size: 3.5, drops: 3, abilities: ['stomp','fireball','slow_aura'] },
+            { name: 'Void Stalker',   color: '#1a1a2e', hp: 350, dmg: 30, speed: 90,  size: 2,   drops: 2, abilities: ['teleport','fireball'] },
+            { name: 'Ancient Treant', color: '#2e7d32', hp: 800, dmg: 12, speed: 35,  size: 4,   drops: 4, abilities: ['stomp','root'] },
         ];
         const type = bossTypes[Math.floor(Math.random() * bossTypes.length)];
         const angle = Math.random() * Math.PI * 2;
@@ -2998,42 +3047,183 @@ class Game {
             y: Math.sin(angle) * dist,
             maxHp: type.hp,
             _attackTimer: 0,
-            _phase: 0, // bosses have attack phases
-            _phaseTimer: 0,
+            _abilityTimer: 3 + Math.random() * 2,
+            _abilityIdx: 0,
+            _charging: false,
+            _chargeTimer: 0,
+            _chargeVx: 0,
+            _chargeVy: 0,
         });
+
+        if (!this._bossProjectiles) this._bossProjectiles = [];
+        if (!this._bossShockwaves) this._bossShockwaves = [];
 
         UI.notify(`🔱 WORLD BOSS: ${type.name} has appeared!`, 6000);
         if (this.sounds) this.sounds.alert?.();
     }
 
     _updateWorldBosses(dt) {
+        // Update boss projectiles
+        if (!this._bossProjectiles) this._bossProjectiles = [];
+        if (!this._bossShockwaves) this._bossShockwaves = [];
+
+        for (let i = this._bossProjectiles.length - 1; i >= 0; i--) {
+            const bp = this._bossProjectiles[i];
+            bp.x += bp.vx * dt; bp.y += bp.vy * dt; bp.lifetime -= dt;
+            if (bp.lifetime <= 0) { this._bossProjectiles.splice(i, 1); continue; }
+            const dx = bp.x - this.player.x, dy = bp.y - this.player.y;
+            if (dx * dx + dy * dy < (TILE_SIZE * 0.8) ** 2) {
+                this.playerTakeDamage(bp.dmg);
+                this._spawnDmgNum(this.player.x, this.player.y, bp.dmg, 0xff5252);
+                this._bossProjectiles.splice(i, 1);
+            }
+        }
+
+        // Update shockwaves
+        for (let i = this._bossShockwaves.length - 1; i >= 0; i--) {
+            const sw = this._bossShockwaves[i];
+            sw.radius += sw.expandSpeed * dt;
+            sw.timer -= dt;
+            if (sw.timer <= 0) { this._bossShockwaves.splice(i, 1); continue; }
+            // Check if player is caught in the ring (between inner and outer edge)
+            if (!sw._hitPlayer) {
+                const dx = this.player.x - sw.x, dy = this.player.y - sw.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const ringInner = sw.radius - 20, ringOuter = sw.radius + 20;
+                if (dist > ringInner && dist < ringOuter) {
+                    sw._hitPlayer = true;
+                    if (sw.type === 'stomp') {
+                        this.playerTakeDamage(sw.dmg);
+                        this.player._stunned = true;
+                        this.player._stunnedTimer = 1.5;
+                        this._spawnDmgNum(this.player.x, this.player.y, 'STUNNED', 0xffd54f);
+                    } else if (sw.type === 'root') {
+                        this.player._slowed = true;
+                        this.player._slowTimer = 3;
+                        this._spawnDmgNum(this.player.x, this.player.y, 'ROOTED', 0x66bb6a);
+                    }
+                }
+            }
+        }
+
+        // Player slow/stun effect
+        if (this.player._slowed) {
+            this.player._slowTimer -= dt;
+            if (this.player._slowTimer <= 0) { this.player._slowed = false; }
+        }
+        if (this.player._stunned) {
+            this.player._stunnedTimer -= dt;
+            if (this.player._stunnedTimer <= 0) { this.player._stunned = false; }
+        }
+
         for (let i = this.worldBosses.length - 1; i >= 0; i--) {
             const boss = this.worldBosses[i];
 
-            // Boss is dead
+            // Boss is dead — drop loot
             if (boss.hp <= 0) {
-                // Drop Aethershards
                 if (!this.inventory.aethershards) this.inventory.aethershards = 0;
                 this.inventory.aethershards += boss.drops;
+                this._dropLoot(boss.x, boss.y, 'legendary', 50);
                 UI.notify(`🔱 ${boss.name} defeated! +${boss.drops} Aethershards!`, 5000);
                 if (this.sounds) this.sounds.levelup?.();
+                this.grantPlayerXp(Math.floor(100 + boss.maxHp * 0.3));
                 this.worldBosses.splice(i, 1);
                 continue;
             }
 
-            // Chase player if within 15 tiles
             const pdx = this.player.x - boss.x, pdy = this.player.y - boss.y;
             const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
-            if (pDist < TILE_SIZE * 15 && pDist > TILE_SIZE * 1.5) {
-                boss.x += (pdx / pDist) * boss.speed * dt;
-                boss.y += (pdy / pDist) * boss.speed * dt;
+
+            // Charging — lunge at high speed
+            if (boss._charging) {
+                boss._chargeTimer -= dt;
+                boss.x += boss._chargeVx * dt;
+                boss.y += boss._chargeVy * dt;
+                if (boss._chargeTimer <= 0) boss._charging = false;
+                // Hit player during charge
+                if (pDist < TILE_SIZE * 2) {
+                    this.playerTakeDamage(Math.floor(boss.dmg * 1.5));
+                    this._spawnDmgNum(this.player.x, this.player.y, '💥', 0xff5252);
+                    boss._charging = false;
+                }
+            } else {
+                // Chase player if within 20 tiles (increased from 15)
+                if (pDist < TILE_SIZE * 20 && pDist > TILE_SIZE * 1.5) {
+                    boss.x += (pdx / pDist) * boss.speed * dt;
+                    boss.y += (pdy / pDist) * boss.speed * dt;
+                }
             }
 
-            // Attack player
+            // Melee attack
             boss._attackTimer -= dt;
-            if (pDist < TILE_SIZE * 2 && boss._attackTimer <= 0) {
+            if (pDist < TILE_SIZE * 2 && boss._attackTimer <= 0 && !boss._charging) {
                 this.playerTakeDamage(boss.dmg);
-                boss._attackTimer = 2;
+                boss._attackTimer = 1.5;
+            }
+
+            // ── BOSS ABILITIES ──────────────────────────────
+            if (pDist < TILE_SIZE * 18) {
+                boss._abilityTimer -= dt;
+                if (boss._abilityTimer <= 0 && boss.abilities && boss.abilities.length > 0) {
+                    const ability = boss.abilities[boss._abilityIdx % boss.abilities.length];
+                    boss._abilityIdx++;
+                    boss._abilityTimer = 3.5 + Math.random() * 2;
+
+                    if (ability === 'fireball') {
+                        // Fire 3 spread projectiles at player
+                        const baseAngle = Math.atan2(pdy, pdx);
+                        for (let s = -1; s <= 1; s++) {
+                            const a = baseAngle + s * 0.25;
+                            this._bossProjectiles.push({
+                                x: boss.x, y: boss.y,
+                                vx: Math.cos(a) * 180, vy: Math.sin(a) * 180,
+                                dmg: Math.floor(boss.dmg * 0.7),
+                                lifetime: 2.5,
+                                color: boss.color === '#d32f2f' ? 0xff5252 : boss.color === '#1a1a2e' ? 0x7c4dff : 0xffd740,
+                                size: 6,
+                            });
+                        }
+                    } else if (ability === 'charge') {
+                        // Lunge at player's current position at 3x speed
+                        boss._charging = true;
+                        boss._chargeTimer = 0.6;
+                        const chargeSpeed = boss.speed * 4;
+                        boss._chargeVx = (pdx / pDist) * chargeSpeed;
+                        boss._chargeVy = (pdy / pDist) * chargeSpeed;
+                    } else if (ability === 'stomp') {
+                        // Expanding shockwave ring — stuns on hit
+                        this._bossShockwaves.push({
+                            x: boss.x, y: boss.y,
+                            radius: 0, expandSpeed: 250,
+                            timer: 1.2, type: 'stomp',
+                            dmg: Math.floor(boss.dmg * 0.5),
+                            color: 0xffd54f,
+                            _hitPlayer: false,
+                        });
+                    } else if (ability === 'root') {
+                        // Vine ring — slows player for 3s
+                        this._bossShockwaves.push({
+                            x: boss.x, y: boss.y,
+                            radius: 0, expandSpeed: 200,
+                            timer: 1.5, type: 'root',
+                            dmg: 0,
+                            color: 0x66bb6a,
+                            _hitPlayer: false,
+                        });
+                    } else if (ability === 'teleport') {
+                        // Blink behind the player
+                        const behindAngle = Math.atan2(-pdy, -pdx);
+                        boss.x = this.player.x + Math.cos(behindAngle) * TILE_SIZE * 2;
+                        boss.y = this.player.y + Math.sin(behindAngle) * TILE_SIZE * 2;
+                        this._spawnDmgNum(boss.x, boss.y, '!', 0x7c4dff);
+                    } else if (ability === 'slow_aura') {
+                        // Constant slow when near boss
+                        if (pDist < TILE_SIZE * 5) {
+                            this.player._slowed = true;
+                            this.player._slowTimer = 2;
+                        }
+                    }
+                }
             }
 
             // Take projectile damage
