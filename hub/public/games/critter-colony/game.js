@@ -573,7 +573,7 @@ class Game {
     _setResIcons() {
         const map = {
             riWood: 'wood', riStone: 'stone', riFood: 'food', riIron: 'iron',
-            riOil: 'oil', riGold: 'gold', riDiamond: 'diamond', riGas: 'gasoline',
+            riOil: 'oil', riGold: 'gold', riDiamond: 'diamond', riCrystal: 'crystal', riMetal: 'metal', riGas: 'gasoline',
             riTrap: 'trap', riAmmo: 'ammo', riAether: 'aethershard',
         };
         for (const [elId, key] of Object.entries(map)) {
@@ -1305,6 +1305,7 @@ class Game {
         this.panelUpdateTimer -= dt;
         if (this.panelUpdateTimer <= 0) {
             this.panelUpdateTimer = 0.5;
+            UI.updateResourceHud(this, caps);
             const gc = (r) => caps[r]||200;
             document.getElementById('resWood').textContent = `${Math.floor(this.resources.wood)}/${gc('wood')}`;
             document.getElementById('resStone').textContent = `${Math.floor(this.resources.stone)}/${gc('stone')}`;

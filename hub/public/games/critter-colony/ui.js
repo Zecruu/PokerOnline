@@ -69,15 +69,110 @@ class UI {
 
     static update() {
         const g = this.game;
-        const getCap = (r) => (g.resourceCaps[r] || 200) + (g.research.storageCap || 0) * 100;
-
-        document.getElementById('resWood').textContent = `${Math.floor(g.resources.wood)}/${getCap('wood')}`;
-        document.getElementById('resStone').textContent = `${Math.floor(g.resources.stone)}/${getCap('stone')}`;
-        document.getElementById('resFood').textContent = `${Math.floor(g.resources.food)}/${getCap('food')}`;
-        document.getElementById('trapCount').textContent = g.inventory.traps;
-        document.getElementById('critterCount').textContent = `${g.critters.length}/${Buildings.getMaxCritters(g.buildings, g.research)}`;
-
+        this.updateResourceHud(g);
         this.updatePanel();
+    }
+
+    static getResourceCap(game, resource, capsOverride) {
+        if (capsOverride && capsOverride[resource] != null) return capsOverride[resource];
+        return (game.resourceCaps[resource] || 200) + (game.research.storageCap || 0) * 100;
+    }
+
+    static formatRate(value) {
+        if (value >= 0.01) return `+${value.toFixed(1)}/s`;
+        if (value <= -0.01) return `${value.toFixed(1)}/s`;
+        return '';
+    }
+
+    static setPrimaryResource(game, resource, capsOverride) {
+        const amount = Math.floor(game.resources[resource] || 0);
+        const cap = this.getResourceCap(game, resource, capsOverride);
+        const pct = cap > 0 ? Math.max(0, Math.min(100, (amount / cap) * 100)) : 0;
+        const textEl = document.getElementById(`res${resource[0].toUpperCase()}${resource.slice(1)}`);
+        const fillEl = document.getElementById(`res${resource[0].toUpperCase()}${resource.slice(1)}Fill`);
+        const cardEl = document.getElementById(`resCard${resource[0].toUpperCase()}${resource.slice(1)}`);
+        const rateEl = document.getElementById(`rate${resource[0].toUpperCase()}${resource.slice(1)}`);
+        if (textEl) textEl.textContent = `${amount}/${cap}`;
+        if (fillEl) fillEl.style.width = `${pct}%`;
+        if (cardEl) {
+            cardEl.classList.toggle('is-low', resource === 'food' ? (game.hungry || pct <= 25) : pct <= 18);
+            cardEl.classList.toggle('is-full', pct >= 96);
+        }
+        if (rateEl) {
+            const rate = this.formatRate((game._resourceRates && game._resourceRates[resource]) || 0);
+            rateEl.textContent = rate;
+            rateEl.classList.toggle('is-negative', rate.startsWith('-'));
+        }
+    }
+
+    static setSecondaryResource(id, value, visible, cap) {
+        const wrap = document.getElementById(`${id}Wrap`);
+        const text = document.getElementById(id);
+        if (wrap) wrap.style.display = visible ? '' : 'none';
+        if (text) text.textContent = cap != null ? `${Math.floor(value || 0)}/${cap}` : Math.floor(value || 0);
+    }
+
+    static updateResourceHud(game, capsOverride) {
+        for (const resource of ['wood', 'stone', 'food', 'iron']) {
+            this.setPrimaryResource(game, resource, capsOverride);
+        }
+
+        const maxCritters = Buildings.getMaxCritters(game.buildings, game.research);
+        const trapEl = document.getElementById('trapCount');
+        const ammoEl = document.getElementById('ammoCount');
+        const critterEl = document.getElementById('critterCount');
+        const aetherEl = document.getElementById('aethershardCount');
+        if (trapEl) trapEl.textContent = game.inventory.traps || 0;
+        if (ammoEl) ammoEl.textContent = game.inventory.ammo || 0;
+        if (critterEl) critterEl.textContent = `${game.critters.length}/${maxCritters}`;
+        if (aetherEl) aetherEl.textContent = game.inventory.aethershards || 0;
+
+        const advancedResources = [
+            { id: 'resOil', key: 'oil', show: () => (game.research.oilDrilling || 0) > 0 || (game.resources.oil || 0) > 0 },
+            { id: 'resGold', key: 'gold', show: () => (game.research.goldMining || 0) > 0 || (game.resources.gold || 0) > 0 },
+            { id: 'resDiamond', key: 'diamond', show: () => (game.research.diamondDrill || 0) > 0 || (game.resources.diamond || 0) > 0 },
+            { id: 'resCrystal', key: 'crystal', show: () => (game.research.refinery || 0) > 0 || (game.resources.crystal || 0) > 0 },
+            { id: 'resMetal', key: 'metal', show: () => (game.research.smelting || 0) > 0 || (game.resources.metal || 0) > 0 },
+            { id: 'resGas', key: 'gasoline', show: () => (game.research.gasRefining || 0) > 0 || (game.resources.gasoline || 0) > 0 },
+        ];
+        for (const entry of advancedResources) {
+            this.setSecondaryResource(entry.id, game.resources[entry.key] || 0, entry.show(), this.getResourceCap(game, entry.key, capsOverride));
+        }
+
+        const deadEl = document.getElementById('deadCount');
+        if (deadEl) {
+            if ((game.deadCritters || []).length > 0) {
+                deadEl.style.display = '';
+                const countEl = deadEl.querySelector('span');
+                if (countEl) countEl.textContent = game.deadCritters.length;
+                deadEl.title = game.deadCritters.map(d => `${d.nickname} Lv${d.level} (${SPECIES[d.species].name})`).join('\n');
+            } else {
+                deadEl.style.display = 'none';
+            }
+        }
+
+        const mins = Math.floor(game.gameTimeSec / 60);
+        const secs = Math.floor(game.gameTimeSec % 60);
+        const hrs = Math.floor(mins / 60);
+        const timeEl = document.getElementById('gameTime');
+        if (timeEl) {
+            timeEl.textContent = hrs > 0
+                ? `${hrs}:${(mins % 60).toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+                : `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        const hordeEl = document.getElementById('hordeTimer');
+        if (hordeEl) {
+            if (game.hordeActive) {
+                hordeEl.textContent = `⚔️ HORDE! (${game.hordeCreatures.length})`;
+                hordeEl.style.color = '#ff5f5f';
+            } else {
+                const hm = Math.floor(game.hordeTimer / 60);
+                const hs = Math.floor(game.hordeTimer % 60);
+                hordeEl.textContent = `⚔️ ${hm}:${hs.toString().padStart(2, '0')}`;
+                hordeEl.style.color = game.hordeTimer < 60 ? '#ff5f5f' : '#f87171';
+            }
+        }
     }
 
     static _critterIconHtml(species, cssClass) {

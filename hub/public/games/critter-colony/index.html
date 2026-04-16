@@ -15,23 +15,60 @@
   <div id="gameUI" class="hidden">
     <!-- Resource Bar -->
     <div id="resourceBar">
-      <div class="res-item"><img class="res-img" id="riWood" src="" alt=""><span id="resWood">0</span> Wood <span class="res-rate" id="rateWood"></span></div>
-      <div class="res-item"><img class="res-img" id="riStone" src="" alt=""><span id="resStone">0</span> Stone <span class="res-rate" id="rateStone"></span></div>
-      <div class="res-item"><img class="res-img" id="riFood" src="" alt=""><span id="resFood">0</span> Food <span class="res-rate" id="rateFood"></span></div>
-      <div class="res-item"><img class="res-img" id="riIron" src="" alt=""><span id="resIron">0</span> Iron <span class="res-rate" id="rateIron"></span></div>
-      <div class="res-item" id="resOilWrap" style="display:none"><img class="res-img" id="riOil" src="" alt=""><span id="resOil">0</span> Oil</div>
-      <div class="res-item" id="resGoldWrap" style="display:none"><img class="res-img" id="riGold" src="" alt=""><span id="resGold">0</span> Gold</div>
-      <div class="res-item" id="resDiamondWrap" style="display:none"><img class="res-img" id="riDiamond" src="" alt=""><span id="resDiamond">0</span> Diamond</div>
-      <div class="res-item" id="resGasWrap" style="display:none"><img class="res-img" id="riGas" src="" alt=""><span id="resGas">0</span> Gas</div>
-      <div class="res-divider"></div>
-      <div class="res-item"><img class="res-img" id="riTrap" src="" alt=""><span id="trapCount">0</span> Traps</div>
-      <div class="res-item"><img class="res-img" id="riAmmo" src="" alt=""><span id="ammoCount">30</span> Ammo</div>
-      <div class="res-item critter-counter"><span id="critterCount">0/4</span> Critters</div>
-      <div class="res-item" style="color:#ffd700"><img class="res-img" id="riAether" src="" alt=""><span id="aethershardCount">0</span> Aethershards</div>
-      <div class="res-divider"></div>
-      <div class="res-item res-dead" id="deadCount" title="Fallen critters" style="display:none">💀 <span>0</span></div>
-      <div class="res-item res-horde" id="hordeTimer" title="Next horde attack">⚔️ 15:00</div>
-      <div class="res-item res-time" id="gameTime">0:00</div>
+      <div class="resource-primary">
+        <div class="res-card" id="resCardWood" data-resource="wood">
+          <div class="res-card-top">
+            <div class="res-card-label"><img class="res-img" id="riWood" src="" alt=""><span>Wood</span></div>
+            <span class="res-rate" id="rateWood"></span>
+          </div>
+          <div class="res-card-value" id="resWood">0/0</div>
+          <div class="res-meter"><div class="res-meter-fill" id="resWoodFill"></div></div>
+        </div>
+        <div class="res-card" id="resCardStone" data-resource="stone">
+          <div class="res-card-top">
+            <div class="res-card-label"><img class="res-img" id="riStone" src="" alt=""><span>Stone</span></div>
+            <span class="res-rate" id="rateStone"></span>
+          </div>
+          <div class="res-card-value" id="resStone">0/0</div>
+          <div class="res-meter"><div class="res-meter-fill" id="resStoneFill"></div></div>
+        </div>
+        <div class="res-card" id="resCardFood" data-resource="food">
+          <div class="res-card-top">
+            <div class="res-card-label"><img class="res-img" id="riFood" src="" alt=""><span>Food</span></div>
+            <span class="res-rate" id="rateFood"></span>
+          </div>
+          <div class="res-card-value" id="resFood">0/0</div>
+          <div class="res-meter"><div class="res-meter-fill" id="resFoodFill"></div></div>
+        </div>
+        <div class="res-card" id="resCardIron" data-resource="iron">
+          <div class="res-card-top">
+            <div class="res-card-label"><img class="res-img" id="riIron" src="" alt=""><span>Iron</span></div>
+            <span class="res-rate" id="rateIron"></span>
+          </div>
+          <div class="res-card-value" id="resIron">0/0</div>
+          <div class="res-meter"><div class="res-meter-fill" id="resIronFill"></div></div>
+        </div>
+      </div>
+
+      <div class="resource-secondary">
+        <div class="res-chip" id="resOilWrap" style="display:none"><img class="res-img" id="riOil" src="" alt=""><span class="res-chip-name">Oil</span><span class="res-chip-value" id="resOil">0</span></div>
+        <div class="res-chip" id="resGoldWrap" style="display:none"><img class="res-img" id="riGold" src="" alt=""><span class="res-chip-name">Gold</span><span class="res-chip-value" id="resGold">0</span></div>
+        <div class="res-chip" id="resDiamondWrap" style="display:none"><img class="res-img" id="riDiamond" src="" alt=""><span class="res-chip-name">Diamond</span><span class="res-chip-value" id="resDiamond">0</span></div>
+        <div class="res-chip" id="resCrystalWrap" style="display:none"><img class="res-img" id="riCrystal" src="" alt=""><span class="res-chip-name">Crystal</span><span class="res-chip-value" id="resCrystal">0</span></div>
+        <div class="res-chip" id="resMetalWrap" style="display:none"><img class="res-img" id="riMetal" src="" alt=""><span class="res-chip-name">Metal</span><span class="res-chip-value" id="resMetal">0</span></div>
+        <div class="res-chip" id="resGasWrap" style="display:none"><img class="res-img" id="riGas" src="" alt=""><span class="res-chip-name">Gas</span><span class="res-chip-value" id="resGas">0</span></div>
+        <div class="res-chip utility-chip"><img class="res-img" id="riTrap" src="" alt=""><span class="res-chip-name">Traps</span><span class="res-chip-value" id="trapCount">0</span></div>
+        <div class="res-chip utility-chip"><img class="res-img" id="riAmmo" src="" alt=""><span class="res-chip-name">Ammo</span><span class="res-chip-value" id="ammoCount">30</span></div>
+        <div class="res-chip utility-chip critter-counter"><span class="res-chip-name">Critters</span><span class="res-chip-value" id="critterCount">0/4</span></div>
+        <div class="res-chip utility-chip res-aether"><img class="res-img" id="riAether" src="" alt=""><span class="res-chip-name">Aethershards</span><span class="res-chip-value" id="aethershardCount">0</span></div>
+      </div>
+
+      <div class="resource-status">
+        <div class="status-pill res-dead" id="deadCount" title="Fallen critters" style="display:none">💀 <span>0</span></div>
+        <div class="status-pill res-horde" id="hordeTimer" title="Next horde attack">⚔️ 15:00</div>
+        <div class="status-pill res-time" id="gameTime">0:00</div>
+      </div>
+
       <div class="res-actions">
         <button class="res-btn" id="pauseBtn" onclick="game.togglePause()" title="Pause">⏸</button>
         <button class="res-btn" id="settingsBtn" onclick="game.toggleSettings()" title="Settings">⚙</button>
@@ -77,7 +114,7 @@
       </div>
     </div>
 
-    <!-- Left side HUD — bodyguards + companions -->
+    <!-- Left side HUD - bodyguards + companions -->
     <div id="partyHud" class="party-hud"></div>
 
     <!-- Controls hint -->
