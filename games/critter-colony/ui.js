@@ -140,7 +140,7 @@ class UI {
                 if (def.unbuildable) continue;
                 const canAfford = Buildings.canAfford(type, g.resources);
                 const isLocked = def.researchReq && !(g.research[def.researchReq] > 0);
-                const costStr = Object.entries(def.cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k}`).join(', ');
+                const costStr = Object.entries(def.cost).filter(([,v]) => v > 0).map(([k,v]) => `${v} ${k === 'food' ? 'forage' : k}`).join(', ');
                 const bSprite = typeof BUILDING_SPRITES !== 'undefined' && BUILDING_SPRITES[type] && BUILDING_SPRITES[type].complete && BUILDING_SPRITES[type].naturalWidth > 0
                     ? BUILDING_SPRITES[type] : null;
 
@@ -156,15 +156,15 @@ class UI {
                 html += `<div class="build-header-text">`;
                 html += `<span class="build-name">${def.name}</span>`;
                 if (isLocked) {
-                    const rd = RESEARCH_DEFS[def.researchReq];
-                    html += `<span class="build-locked-text">Requires: ${rd ? rd.name : def.researchReq}</span>`;
+                    const rd = (typeof TECH_DEFS !== 'undefined' && TECH_DEFS[def.researchReq]) || RESEARCH_DEFS[def.researchReq];
+                    html += `<span class="build-locked-text">🔒 Tech: ${rd ? rd.name : def.researchReq}</span>`;
                 } else {
                     html += `<span class="build-cost">${costStr || 'Free'}</span>`;
                 }
                 html += `</div>`;
                 html += `</div>`;
                 if (!isLocked) {
-                    if (def.produces) html += `<span class="build-desc">Produces ${def.produces}</span>`;
+                    if (def.produces) html += `<span class="build-desc">Produces ${def.produces === 'food' ? 'forage' : def.produces}</span>`;
                     else if (def.capacity) html += `<span class="build-desc">+${def.capacity} critter capacity</span>`;
                     else if (def.turret) html += `<span class="build-desc">Auto-attacks enemies</span>`;
                     else if (def.expander) html += `<span class="build-desc">Expands colony zone</span>`;
@@ -322,11 +322,15 @@ class UI {
                         html += `<div class="cc-patrol-hp-bar"><div class="cc-php-fill" style="width:${hpPct}%"></div><span>❤️ ${php}/${pmhp}</span></div>`;
                     }
 
-                    // Hunger bar (for assigned critters)
-                    if (c.assignment) {
-                        const hungerPct = g.hungry ? 0 : 100;
-                        const hungerColor = g.hungry ? '#f87171' : '#4ade80';
-                        html += `<div class="cc-hunger-bar"><div class="cc-hunger-fill" style="width:${hungerPct}%;background:${hungerColor}"></div><span>${g.hungry ? '🍖 Starving!' : '🍖 Fed'}</span></div>`;
+                    // Per-critter hunger bar
+                    {
+                        const h = c.hunger !== undefined ? c.hunger : 100;
+                        let label, color;
+                        if (h >= 70) { label = '🍖 Fed'; color = 'linear-gradient(90deg,#4ade80,#22c55e)'; }
+                        else if (h >= 30) { label = '🍖 Peckish'; color = 'linear-gradient(90deg,#fbbf24,#f59e0b)'; }
+                        else if (h >= 10) { label = '🍖 Hungry!'; color = 'linear-gradient(90deg,#fb923c,#ea580c)'; }
+                        else { label = '💀 Starving!'; color = 'linear-gradient(90deg,#f87171,#dc2626)'; }
+                        html += `<div class="cc-hunger-bar"><div class="cc-hunger-fill" style="width:${h}%;background:${color}"></div><span>${label} ${Math.floor(h)}/100</span></div>`;
                     }
 
                     // Assignment + type match info
@@ -372,128 +376,98 @@ class UI {
             body.innerHTML = html;
 
         } else if (this.activeTab === 'research') {
+            // Tech Tree — replaces old research system. Uses Skill Points earned from level-ups.
             let html = '';
-            const researchSpeed = Buildings.getResearchSpeed(g.buildings, g.critters);
-            if (researchSpeed <= 0) {
-                html = '<div class="panel-empty">Build a Research Lab and assign INT critters to start researching!</div>';
-            } else {
-                // Research speed + in-progress bar
-                html += `<div class="tt-header">`;
-                html += `<span class="tt-speed">Research Speed: <b>${researchSpeed.toFixed(2)}/s</b></span>`;
-                if (g.researchInProgress) {
-                    const rd = RESEARCH_DEFS[g.researchInProgress.id];
-                    const pct = Math.min(100, (g.researchInProgress.progress / rd.time) * 100);
-                    html += `<div class="tt-prog">`;
-                    html += `<span class="tt-prog-name">${rd.name}</span>`;
-                    html += `<div class="tt-prog-bar"><div class="tt-prog-fill" style="width:${pct}%"></div></div>`;
-                    html += `<span class="tt-prog-pct">${Math.floor(pct)}%</span>`;
-                    html += `</div>`;
+            const sp = g.skillPoints || 0;
+            const unlocks = g.techUnlocks || {};
+            const defs = typeof TECH_DEFS !== 'undefined' ? TECH_DEFS : {};
+            const branches = typeof TECH_BRANCHES !== 'undefined' ? TECH_BRANCHES : {};
+
+            // Header — show available SP
+            html += `<div class="tt-header">`;
+            html += `<div class="tt-sp-banner">`;
+            html += `<span class="tt-sp-label">🧬 Skill Points</span>`;
+            html += `<span class="tt-sp-num">${sp}</span>`;
+            html += `<span class="tt-sp-hint">Earn 1 SP per player level. Spend to unlock tech.</span>`;
+            html += `</div>`;
+            html += `</div>`;
+
+            // Group nodes by branch then tier
+            const byBranch = {};
+            for (const [id, def] of Object.entries(defs)) {
+                if (!byBranch[def.branch]) byBranch[def.branch] = {};
+                if (!byBranch[def.branch][def.tier]) byBranch[def.branch][def.tier] = [];
+                byBranch[def.branch][def.tier].push({ id, def });
+            }
+
+            html += `<div class="tt-tree">`;
+            for (const [branchKey, branchInfo] of Object.entries(branches)) {
+                const tiers = byBranch[branchKey] || {};
+                const tierNums = Object.keys(tiers).map(Number).sort((a,b) => a-b);
+                if (tierNums.length === 0) continue;
+
+                // Branch progress
+                let total = 0, done = 0;
+                for (const t of tierNums) {
+                    for (const { id, def } of tiers[t]) {
+                        total += def.maxLevel;
+                        done += Math.min(unlocks[id] || 0, def.maxLevel);
+                    }
                 }
+                const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+
+                html += `<div class="tt-branch" style="--branch-color:${branchInfo.color}">`;
+                html += `<div class="tt-branch-head">`;
+                html += `<span class="tt-branch-icon">${branchInfo.icon}</span>`;
+                html += `<span class="tt-branch-name">${branchInfo.name}</span>`;
+                html += `<span class="tt-branch-pct">${pct}%</span>`;
+                html += `<div class="tt-branch-bar"><div class="tt-branch-fill" style="width:${pct}%"></div></div>`;
                 html += `</div>`;
 
-                // ─── TECH TREE BRANCHES ──────────────────────
-                const branches = [
-                    { name: 'Combat', icon: '⚔️', color: '#f87171', rows: [
-                        ['gunDamage'],
-                        ['turretDamage', 'turretRange'],
-                        ['baseTurret', 'barracks'],
-                    ]},
-                    { name: 'Economy', icon: '🏗️', color: '#4ade80', rows: [
-                        ['storageCap', 'storageBuilding'],
-                        ['smelting', 'greenhouse'],
-                        ['gasRefining', 'generators'],
-                        ['colonyRadius', 'afkCap'],
-                    ]},
-                    { name: 'Capture', icon: '🎯', color: '#4fc3f7', rows: [
-                        ['captureBonus', 'critterCap'],
-                        ['ironSnare', 'workersPerB'],
-                        ['goldSnare', 'companionSlots'],
-                        ['diamondSnare', 'bodyguardSlots'],
-                        ['passiveLab'],
-                    ]},
-                    { name: 'Extraction', icon: '⛏️', color: '#ce93d8', rows: [
-                        ['oilDrilling', 'crystalExtract'],
-                        ['goldMining', 'refinery'],
-                        ['diamondDrill'],
-                    ]},
-                    { name: 'Defense', icon: '🛡️', color: '#fbbf24', rows: [
-                        ['baseHp'],
-                        ['healingHut'],
-                    ]},
-                ];
+                for (let ti = 0; ti < tierNums.length; ti++) {
+                    const tier = tierNums[ti];
+                    if (ti > 0) html += `<div class="tt-connector" style="border-color:${branchInfo.color}40"></div>`;
+                    html += `<div class="tt-tier-label">Tier ${tier}</div>`;
+                    html += `<div class="tt-row">`;
+                    for (const { id, def } of tiers[tier]) {
+                        const level = unlocks[id] || 0;
+                        const maxed = level >= def.maxLevel;
+                        const prereqsMet = g._techPrereqsMet ? g._techPrereqsMet(id) : true;
+                        const cost = def.cost || 1;
+                        const canAfford = sp >= cost;
+                        const canClick = !maxed && prereqsMet && canAfford;
 
-                html += `<div class="tt-tree">`;
-                for (const branch of branches) {
-                    // Count completions for branch progress
-                    let branchTotal = 0, branchDone = 0;
-                    for (const row of branch.rows) {
-                        for (const id of row) {
-                            const rd = RESEARCH_DEFS[id]; if (!rd) continue;
-                            branchTotal += rd.maxLevel;
-                            branchDone += Math.min(g.research[id] || 0, rd.maxLevel);
+                        let stateClass = 'tt-locked';
+                        if (maxed) stateClass = 'tt-done';
+                        else if (canClick) stateClass = 'tt-available';
+                        else if (!prereqsMet) stateClass = 'tt-prereq-locked';
+
+                        // Level pips
+                        let pipsHtml = '';
+                        if (def.maxLevel > 1) {
+                            pipsHtml = `<div class="tt-pips">`;
+                            for (let p = 0; p < def.maxLevel; p++) {
+                                pipsHtml += `<span class="tt-pip${p < level ? ' tt-pip-on' : ''}"></span>`;
+                            }
+                            pipsHtml += `</div>`;
                         }
-                    }
-                    const branchPct = branchTotal > 0 ? Math.floor((branchDone / branchTotal) * 100) : 0;
 
-                    html += `<div class="tt-branch" style="--branch-color:${branch.color}">`;
-                    html += `<div class="tt-branch-head">`;
-                    html += `<span class="tt-branch-icon">${branch.icon}</span>`;
-                    html += `<span class="tt-branch-name">${branch.name}</span>`;
-                    html += `<span class="tt-branch-pct">${branchPct}%</span>`;
-                    html += `<div class="tt-branch-bar"><div class="tt-branch-fill" style="width:${branchPct}%"></div></div>`;
-                    html += `</div>`;
-
-                    for (let ri = 0; ri < branch.rows.length; ri++) {
-                        const row = branch.rows[ri];
-                        // Connector line between rows
-                        if (ri > 0) html += `<div class="tt-connector" style="border-color:${branch.color}40"></div>`;
-                        html += `<div class="tt-row">`;
-                        for (const id of row) {
-                            const rd = RESEARCH_DEFS[id];
-                            if (!rd) continue;
-                            const level = g.research[id] || 0;
-                            const maxed = level >= rd.maxLevel;
-                            const inProg = g.researchInProgress?.id === id;
-                            const cost = maxed ? null : rd.cost(level);
-                            const canAfford = cost ? Object.entries(cost).every(([k,v]) => (g.resources[k]||0) >= v) : false;
-                            const canClick = !maxed && !inProg && !g.researchInProgress && canAfford;
-
-                            let stateClass = 'tt-locked';
-                            if (maxed) stateClass = 'tt-done';
-                            else if (inProg) stateClass = 'tt-active';
-                            else if (canAfford) stateClass = 'tt-available';
-
-                            // Level pips
-                            let pipsHtml = '';
-                            if (rd.maxLevel > 1) {
-                                pipsHtml = `<div class="tt-pips">`;
-                                for (let p = 0; p < rd.maxLevel; p++) {
-                                    pipsHtml += `<span class="tt-pip${p < level ? ' tt-pip-on' : ''}"></span>`;
-                                }
-                                pipsHtml += `</div>`;
-                            }
-
-                            html += `<div class="tt-node ${stateClass}" ${canClick ? `onclick="game.startResearch('${id}')"` : ''}>`;
-                            html += `<div class="tt-node-name">${rd.name}</div>`;
-                            html += `<div class="tt-node-desc">${rd.desc}</div>`;
-                            if (rd.maxLevel > 1) {
-                                html += `<div class="tt-node-level">${level}/${rd.maxLevel}</div>`;
-                                html += pipsHtml;
-                            } else {
-                                html += `<div class="tt-node-level">${maxed ? '✓' : '○'}</div>`;
-                            }
-                            if (cost) {
-                                const costBits = Object.entries(cost).filter(([,v]) => v > 0).map(([k,v]) => {
-                                    const have = Math.floor(g.resources[k] || 0);
-                                    return `<span class="${have >= v ? 'tt-cost-ok' : 'tt-cost-need'}">${v} ${k}</span>`;
-                                }).join(' ');
-                                html += `<div class="tt-node-cost">${costBits}</div>`;
-                            }
-                            if (inProg) {
-                                const pct = Math.min(100, (g.researchInProgress.progress / rd.time) * 100);
-                                html += `<div class="tt-node-bar"><div class="tt-node-fill" style="width:${pct}%"></div></div>`;
-                            }
-                            html += `</div>`;
+                        html += `<div class="tt-node ${stateClass}" ${canClick ? `onclick="game.unlockTech('${id}')"` : ''}>`;
+                        html += `<div class="tt-node-name">${def.name}</div>`;
+                        html += `<div class="tt-node-desc">${def.desc}</div>`;
+                        if (def.maxLevel > 1) {
+                            html += `<div class="tt-node-level">${level}/${def.maxLevel}</div>`;
+                            html += pipsHtml;
+                        } else {
+                            html += `<div class="tt-node-level">${maxed ? '✓ Unlocked' : '🔒 Locked'}</div>`;
+                        }
+                        if (!maxed) {
+                            const sufficient = canAfford && prereqsMet;
+                            html += `<div class="tt-node-cost"><span class="${sufficient ? 'tt-cost-ok' : 'tt-cost-need'}">🧬 ${cost} SP</span></div>`;
+                        }
+                        if (!prereqsMet && def.prereq) {
+                            const reqNames = def.prereq.filter(r => !unlocks[r]).map(r => defs[r]?.name || r).join(', ');
+                            html += `<div class="tt-node-prereq">⛓ Need: ${reqNames}</div>`;
                         }
                         html += `</div>`;
                     }
@@ -501,6 +475,7 @@ class UI {
                 }
                 html += `</div>`;
             }
+            html += `</div>`;
             body.innerHTML = html;
 
         } else if (this.activeTab === 'workbench') {
@@ -650,10 +625,7 @@ class UI {
                         const ct = Buildings.getCraftTime(b, g.critters);
                         html += `<div class="mb-prod">${ct.toFixed(1)}s/trap${b.craftQueue > 0 ? ` | ${b.craftQueue} queued` : ''}</div>`;
                     }
-                    if (def.isResearch && b.workers.length > 0) {
-                        const speed = Buildings.getResearchSpeed([b], g.critters);
-                        html += `<div class="mb-prod">Research: ${speed.toFixed(2)}/s</div>`;
-                    }
+                    // Research lab removed — research is now Skill Point based via Tech Tree
 
                     html += `</div>`;
                 }

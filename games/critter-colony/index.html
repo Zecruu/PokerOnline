@@ -14,23 +14,14 @@
 
   <!-- GAME UI (hidden until game starts) -->
   <div id="gameUI" class="hidden">
-    <!-- Resource Bar -->
+    <!-- Top Status Bar — slim, just status info -->
     <div id="resourceBar">
-      <div class="res-item"><img class="res-img" id="riWood" src="" alt=""><span id="resWood">0</span> Wood <span class="res-rate" id="rateWood"></span></div>
-      <div class="res-item"><img class="res-img" id="riStone" src="" alt=""><span id="resStone">0</span> Stone <span class="res-rate" id="rateStone"></span></div>
-      <div class="res-item"><img class="res-img" id="riFood" src="" alt=""><span id="resFood">0</span> Food <span class="res-rate" id="rateFood"></span></div>
-      <div class="res-item"><img class="res-img" id="riIron" src="" alt=""><span id="resIron">0</span> Iron <span class="res-rate" id="rateIron"></span></div>
-      <div class="res-item" id="resOilWrap" style="display:none"><img class="res-img" id="riOil" src="" alt=""><span id="resOil">0</span> Oil</div>
-      <div class="res-item" id="resGoldWrap" style="display:none"><img class="res-img" id="riGold" src="" alt=""><span id="resGold">0</span> Gold</div>
-      <div class="res-item" id="resDiamondWrap" style="display:none"><img class="res-img" id="riDiamond" src="" alt=""><span id="resDiamond">0</span> Diamond</div>
-      <div class="res-item" id="resGasWrap" style="display:none"><img class="res-img" id="riGas" src="" alt=""><span id="resGas">0</span> Gas</div>
-      <div class="res-divider"></div>
       <div class="res-item player-level" id="plvlWrap" title="Player level"><span class="plvl-badge">Lv<span id="plvlNum">1</span></span><div class="plvl-bar"><div class="plvl-fill" id="plvlFill"></div></div></div>
+      <div class="res-item player-hunger" id="phungerWrap" title="Player hunger — find Forage when low"><span style="font-size:.8rem">🍖</span><div class="phunger-bar"><div class="phunger-fill" id="phungerFill"></div></div></div>
       <div class="res-divider"></div>
-      <div class="res-item"><img class="res-img" id="riTrap" src="" alt=""><span id="trapCount">0</span> Traps</div>
-      <div class="res-item"><img class="res-img" id="riAmmo" src="" alt=""><span id="ammoCount">30</span> Ammo</div>
-      <div class="res-item critter-counter"><span id="critterCount">0/4</span> Critters</div>
-      <div class="res-item" style="color:#ffd700"><img class="res-img" id="riAether" src="" alt=""><span id="aethershardCount">0</span> Aethershards</div>
+      <div class="res-item critter-counter" title="Critters / Capacity">🐾 <span id="critterCount">0/4</span></div>
+      <div class="res-item" style="color:#ffd700" title="Aethershards"><img class="res-img" id="riAether" src="" alt="">✨ <span id="aethershardCount">0</span></div>
+      <div class="res-item skill-points" id="skillPointsWrap" title="Spend in Tech Tree" onclick="game.openTechTree()" style="display:none;cursor:pointer">🧬 <span id="skillPointsNum">0</span> SP</div>
       <div class="res-divider"></div>
       <div class="res-item res-dead" id="deadCount" title="Fallen critters" style="display:none">💀 <span>0</span></div>
       <div class="res-item res-horde" id="hordeTimer" title="Next horde attack">⚔️ 15:00</div>
@@ -38,6 +29,28 @@
       <div class="res-actions">
         <button class="res-btn" id="pauseBtn" onclick="game.togglePause()" title="Pause">⏸</button>
         <button class="res-btn" id="settingsBtn" onclick="game.toggleSettings()" title="Settings">⚙</button>
+      </div>
+    </div>
+
+    <!-- Resource Chart — bottom-left card -->
+    <div id="resourceChart" class="resource-chart">
+      <div class="rc-header">
+        <span class="rc-title">📦 Resources</span>
+        <button class="rc-toggle" id="rcToggle" onclick="game.toggleResourceChart()" title="Collapse">−</button>
+      </div>
+      <div class="rc-body" id="rcBody">
+        <div class="rc-row" data-res="wood"><span class="rc-icon"><img id="riWood" src=""></span><div class="rc-info"><div class="rc-name-row"><span class="rc-name">Wood</span><span class="rc-rate" id="rateWood"></span></div><div class="rc-bar"><div class="rc-fill" id="fillWood" style="background:linear-gradient(90deg,#8d6e63,#6d4c41)"></div><span class="rc-amount" id="resWood">0/0</span></div></div></div>
+        <div class="rc-row" data-res="stone"><span class="rc-icon"><img id="riStone" src=""></span><div class="rc-info"><div class="rc-name-row"><span class="rc-name">Stone</span><span class="rc-rate" id="rateStone"></span></div><div class="rc-bar"><div class="rc-fill" id="fillStone" style="background:linear-gradient(90deg,#90a4ae,#607d8b)"></div><span class="rc-amount" id="resStone">0/0</span></div></div></div>
+        <div class="rc-row" data-res="food"><span class="rc-icon"><img id="riFood" src=""></span><div class="rc-info"><div class="rc-name-row"><span class="rc-name">Forage</span><span class="rc-rate" id="rateFood"></span></div><div class="rc-bar"><div class="rc-fill" id="fillFood" style="background:linear-gradient(90deg,#9ccc65,#689f38)"></div><span class="rc-amount" id="resFood">0/0</span></div></div></div>
+        <div class="rc-row" data-res="iron"><span class="rc-icon"><img id="riIron" src=""></span><div class="rc-info"><div class="rc-name-row"><span class="rc-name">Iron</span><span class="rc-rate" id="rateIron"></span></div><div class="rc-bar"><div class="rc-fill" id="fillIron" style="background:linear-gradient(90deg,#b0bec5,#78909c)"></div><span class="rc-amount" id="resIron">0/0</span></div></div></div>
+        <div class="rc-divider"></div>
+        <div class="rc-row rc-row-mini" id="resOilWrap" style="display:none"><span class="rc-icon"><img id="riOil" src=""></span><span class="rc-mini-name">Oil</span><span class="rc-mini-amount" id="resOil">0</span></div>
+        <div class="rc-row rc-row-mini" id="resGoldWrap" style="display:none"><span class="rc-icon"><img id="riGold" src=""></span><span class="rc-mini-name">Gold</span><span class="rc-mini-amount" id="resGold">0</span></div>
+        <div class="rc-row rc-row-mini" id="resDiamondWrap" style="display:none"><span class="rc-icon"><img id="riDiamond" src=""></span><span class="rc-mini-name">Diamond</span><span class="rc-mini-amount" id="resDiamond">0</span></div>
+        <div class="rc-row rc-row-mini" id="resGasWrap" style="display:none"><span class="rc-icon"><img id="riGas" src=""></span><span class="rc-mini-name">Gas</span><span class="rc-mini-amount" id="resGas">0</span></div>
+        <div class="rc-divider"></div>
+        <div class="rc-row rc-row-mini"><span class="rc-icon"><img id="riTrap" src=""></span><span class="rc-mini-name">Traps</span><span class="rc-mini-amount" id="trapCount">0</span></div>
+        <div class="rc-row rc-row-mini"><span class="rc-icon"><img id="riAmmo" src=""></span><span class="rc-mini-name">Ammo</span><span class="rc-mini-amount" id="ammoCount">0</span></div>
       </div>
     </div>
 
@@ -75,7 +88,7 @@
           <button class="bm-tab" data-tab="critters" onclick="game.switchBuildTab('critters')">Critters</button>
           <button class="bm-tab" data-tab="manage" onclick="game.switchBuildTab('manage')">Manage</button>
           <button class="bm-tab" data-tab="workbench" onclick="game.switchBuildTab('workbench')">Workbench</button>
-          <button class="bm-tab" data-tab="research" onclick="game.switchBuildTab('research')">Research</button>
+          <button class="bm-tab" data-tab="research" onclick="game.switchBuildTab('research')">🧬 Tech Tree</button>
           <button class="bm-tab" data-tab="equip" onclick="game.switchBuildTab('equip')">Equip</button>
           <button class="bm-tab" data-tab="critterdex" onclick="game.switchBuildTab('critterdex')">Critterdex</button>
         </div>

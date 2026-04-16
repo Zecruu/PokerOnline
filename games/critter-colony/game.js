@@ -10,12 +10,12 @@ class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.world = new World();
 
-        this.player = { x: 0, y: 0, speed: 200, hp: 100, maxHp: 100, level: 1, xp: 0 };
+        this.player = { x: 0, y: 0, speed: 200, hp: 100, maxHp: 100, level: 1, xp: 0, hunger: 100 };
         this.gunTier = 1;
         this.armorTier = 1;
         this.cam = { x: 0, y: 0 };
 
-        this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
+        this.resources = { wood: 50, stone: 50, food: 30, iron: 0 }; // 30 = forage
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
         this.inventory = { traps: 5, ammo: 120 };
         this.buildings = [];
@@ -35,12 +35,12 @@ class Game {
         this.miningProgress = 0;
         this.miningTarget = null; // {tx, ty, type}
 
-        // Research
-        this.research = {
-            gunDamage: 0, storageCap: 0, captureBonus: 0,
-            turretDamage: 0, turretRange: 0, afkCap: 0, colonyRadius: 0,
-        };
-        this.researchInProgress = null;
+        // Tech tree (replaces research). research field kept as alias for backwards-compat —
+        // most game code reads `this.research.X` to get unlock levels. We point it at techUnlocks.
+        this.skillPoints = 0;
+        this.techUnlocks = {};
+        this.research = this.techUnlocks; // alias for legacy code
+        this.researchInProgress = null; // unused but kept to avoid undefined refs
 
         // Input
         this.keys = {};
@@ -224,17 +224,32 @@ class Game {
         if (gs.waypoints) this.world.waypoints = gs.waypoints;
         this.player.x = gs.playerPos.x;
         this.player.y = gs.playerPos.y;
+        this.player.hunger = gs.playerHunger !== undefined ? gs.playerHunger : 100;
+        this.skillPoints = gs.skillPoints || 0;
+        this.techUnlocks = gs.techUnlocks || {};
         this.resources = { ...gs.resources };
         this.resourceCaps = gs.resourceCaps || { wood: 200, stone: 200, food: 150 };
         this.inventory = { ...gs.inventory };
-        this.buildings = gs.buildings.map(b => {
-            const def = BUILDING_DEFS[b.type];
-            const maxHp = def ? (def.hp || 100) : 100;
-            return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
+        this.buildings = gs.buildings
+            .filter(b => BUILDING_DEFS[b.type]) // skip removed buildings (e.g. research_lab from old saves)
+            .map(b => {
+                const def = BUILDING_DEFS[b.type];
+                const maxHp = def ? (def.hp || 100) : 100;
+                return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
+            });
+        this.critters = gs.critters.map(c => {
+            const restored = { ...c, stats: { ...c.stats }, hunger: c.hunger !== undefined ? c.hunger : 100 };
+            // Clear assignment if it points to a building that no longer exists (e.g. removed research_lab)
+            if (restored.assignment && typeof restored.assignment === 'number') {
+                const bld = this.buildings.find(b => b.id === restored.assignment);
+                if (!bld) restored.assignment = null;
+            }
+            return restored;
         });
-        this.critters = gs.critters.map(c => ({ ...c, stats: { ...c.stats } }));
-        this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
-        this.researchInProgress = gs.researchInProgress || null;
+        // Tech tree — merge legacy `research` field with new `techUnlocks` (whichever has data wins)
+        this.techUnlocks = { ...(gs.research || {}), ...(gs.techUnlocks || {}) };
+        this.research = this.techUnlocks; // alias for legacy code paths
+        this.researchInProgress = null; // research progress system removed
         this.deadCritters = gs.deadCritters || [];
         this.discoveredSpecies = gs.discoveredSpecies || [];
         // Backfill: mark all currently owned critter species as discovered
@@ -258,7 +273,7 @@ class Game {
         for (const b of this.buildings) { if (b._pixiSprite) { b._pixiSprite.destroy({ children: true }); b._pixiSprite = null; } }
         this.world.generate();
         this.player.x = 0; this.player.y = 0;
-        this.resources = { wood: 50, stone: 50, food: 30, iron: 0 };
+        this.resources = { wood: 50, stone: 50, food: 30, iron: 0 }; // 30 = forage
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
         this.inventory = { traps: 5, ammo: 120 };
         this.critters = []; this.deadCritters = [];
@@ -803,7 +818,7 @@ class Game {
         if (!critter) return;
         const sp = SPECIES[critter.species];
 
-        if (!confirm(`Sacrifice ${critter.nickname} (Lv.${critter.level} ${sp.name}) for food? This is permanent.`)) return;
+        if (!confirm(`Sacrifice ${critter.nickname} (Lv.${critter.level} ${sp.name}) for forage? This is permanent.`)) return;
 
         // Remove from building
         if (critter.assignment && critter.assignment !== 'patrol') {
@@ -820,7 +835,7 @@ class Game {
         if (!this.deadCritters) this.deadCritters = [];
         this.deadCritters.push({ ...critter, causeOfDeath: 'sacrificed' });
 
-        UI.notify(`🩸 Sacrificed ${critter.nickname} for ${foodGained} food...`, 4000);
+        UI.notify(`🩸 Sacrificed ${critter.nickname} for ${foodGained} forage...`, 4000);
         if (this.sounds) this.sounds.sacrifice?.();
         UI.update();
     }
@@ -1035,17 +1050,20 @@ class Game {
         if (this.player.level >= 100) return;
         this.player.xp += amount;
         let leveled = false;
+        let pointsGained = 0;
         while (this.player.level < 100 && this.player.xp >= Game.playerXpForLevel(this.player.level)) {
             this.player.xp -= Game.playerXpForLevel(this.player.level);
             this.player.level++;
-            // Per-level reward: +5 maxHp, +1 gun damage, heal to full
+            // Per-level reward: +5 maxHp, +1 gun damage, heal to full, +1 Skill Point (engram!)
             this.player.maxHp = (this.player.maxHp || 100) + 5;
             this.gunDamage = (this.gunDamage || 10) + 1;
             this.player.hp = this.player.maxHp;
+            this.skillPoints = (this.skillPoints || 0) + 1;
+            pointsGained++;
             leveled = true;
         }
         if (leveled) {
-            UI.notify(`🎉 Leveled up! You are now Lv.${this.player.level}`, 4000);
+            UI.notify(`🎉 LEVEL UP! Lv.${this.player.level} — +${pointsGained} Skill Point${pointsGained > 1 ? 's' : ''} earned! [Open Tech Tree]`, 6000);
             if (this.sounds) this.sounds.levelup?.();
         }
     }
@@ -1194,6 +1212,49 @@ class Game {
         if (el) el.classList.toggle('hidden');
     }
 
+    toggleResourceChart() {
+        const el = document.getElementById('resourceChart');
+        const btn = document.getElementById('rcToggle');
+        if (!el) return;
+        el.classList.toggle('collapsed');
+        if (btn) btn.textContent = el.classList.contains('collapsed') ? '+' : '−';
+    }
+
+    openTechTree() {
+        if (!UI.showBuildMenu) UI.toggleBuildMenu();
+        UI.switchTab('research');
+    }
+
+    // Check if all prereqs for a tech node are met
+    _techPrereqsMet(nodeId) {
+        if (typeof TECH_DEFS === 'undefined' || !TECH_DEFS[nodeId]) return false;
+        const node = TECH_DEFS[nodeId];
+        if (!node.prereq || node.prereq.length === 0) return true;
+        for (const req of node.prereq) {
+            if (!this.techUnlocks[req] || this.techUnlocks[req] < 1) return false;
+        }
+        return true;
+    }
+
+    unlockTech(nodeId) {
+        if (typeof TECH_DEFS === 'undefined' || !TECH_DEFS[nodeId]) return;
+        const node = TECH_DEFS[nodeId];
+        const cur = this.techUnlocks[nodeId] || 0;
+        if (cur >= node.maxLevel) { UI.notify('Already maxed out!'); return; }
+        if (!this._techPrereqsMet(nodeId)) {
+            const missing = (node.prereq || []).filter(r => !this.techUnlocks[r]).map(r => TECH_DEFS[r]?.name || r);
+            UI.notify('Locked! Need: ' + missing.join(', '), 4000);
+            return;
+        }
+        const cost = node.cost || 1;
+        if ((this.skillPoints || 0) < cost) { UI.notify(`Need ${cost} Skill Point${cost > 1 ? 's' : ''}!`); return; }
+        this.skillPoints -= cost;
+        this.techUnlocks[nodeId] = cur + 1;
+        UI.notify(`🧬 Unlocked: ${node.name}${node.maxLevel > 1 ? ` (Lv.${cur+1}/${node.maxLevel})` : ''}`, 4000);
+        if (this.sounds) this.sounds.levelup?.();
+        UI.update();
+    }
+
     applySetting(key, value) {
         switch (key) {
             case 'volume':
@@ -1218,17 +1279,8 @@ class Game {
         }
     }
 
-    startResearch(researchId) {
-        if (this.researchInProgress) { UI.notify('Already researching!'); return; }
-        const rd = RESEARCH_DEFS[researchId];
-        const level = this.research[researchId] || 0;
-        if (level >= rd.maxLevel) return;
-        const cost = rd.cost(level);
-        for (const [k,v] of Object.entries(cost)) { if ((this.resources[k]||0) < v) { UI.notify('Not enough resources!'); return; } }
-        for (const [k,v] of Object.entries(cost)) this.resources[k] -= v;
-        this.researchInProgress = { id: researchId, progress: 0 };
-        UI.notify(`Researching ${rd.name}...`); UI.update();
-    }
+    // Legacy alias — old saves/UI may still reference startResearch. Redirect to unlockTech.
+    startResearch(id) { return this.unlockTech(id); }
 
     // ─── UPDATE ──────────────────────────────────────────────
     update(dt) {
@@ -1671,18 +1723,7 @@ class Game {
         }
         this._updateWorldBosses(dt);
 
-        if (this.researchInProgress) {
-            const speed = Buildings.getResearchSpeed(this.buildings, this.critters);
-            if (speed > 0) {
-                this.researchInProgress.progress += speed * dt;
-                const rd = RESEARCH_DEFS[this.researchInProgress.id];
-                if (this.researchInProgress.progress >= rd.time) {
-                    this.research[this.researchInProgress.id] = (this.research[this.researchInProgress.id]||0) + 1;
-                    UI.notify(`Research complete: ${rd.name}!`);
-                    this.researchInProgress = null; UI.update();
-                }
-            }
-        }
+        // (Research progress system removed — see unlockTech instead)
 
         // Tick injured critter recovery
         for (const c of this.critters) {
@@ -1712,46 +1753,127 @@ class Game {
             }
         }
 
-        // ─── FOOD CONSUMPTION + STARVATION ────────────────
-        if (!this._foodTimer) this._foodTimer = 0;
-        if (!this._starveTimer) this._starveTimer = 0;
-        this._foodTimer += dt;
-        if (this._foodTimer >= 5) {
-            this._foodTimer = 0;
-            let activeCount = this.critters.filter(c => c.assignment).length;
-            const consumption = activeCount * 0.1;
-            if (this.resources.food >= consumption) {
-                this.resources.food -= consumption;
-                this.hungry = false;
-                this._starveTimer = 0;
-            } else {
-                this.resources.food = Math.max(0, this.resources.food - consumption);
-                if (!this.hungry) {
-                    this.hungry = true;
-                    UI.notify('⚠️ Critters are hungry! Build more Farms.', 4000);
+        // ─── PER-CRITTER HUNGER SYSTEM ────────────────────
+        // Each critter has a hunger value (0-100, 100=full).
+        // Decays over time based on activity. Critters eat from food pool
+        // when hunger drops, restoring it. Big critters eat more.
+        // States: Full(70+) | Peckish(30-70, -15% prod) | Hungry(10-30, -40% prod)
+        //         | Starving(<10, HP drain) | Death after 30s at 0 hunger.
+        if (!this._hungerTickTimer) this._hungerTickTimer = 0;
+        if (!this._eatTickTimer) this._eatTickTimer = 0;
+        if (!this._eatingPops) this._eatingPops = []; // {x, y, timer}
+
+        // Decay hunger every second
+        this._hungerTickTimer += dt;
+        if (this._hungerTickTimer >= 1) {
+            const decayDt = this._hungerTickTimer;
+            this._hungerTickTimer = 0;
+
+            // Player hunger decay (slower than working critters)
+            if (this.player.hunger === undefined) this.player.hunger = 100;
+            this.player.hunger = Math.max(0, this.player.hunger - 0.5 * decayDt);
+            // Player auto-eats when below 30
+            if (this.player.hunger < 30 && this.resources.food >= 1) {
+                this.resources.food -= 1;
+                this.player.hunger = 100;
+                this._eatingPops.push({ x: this.player.x, y: this.player.y - 12, timer: 1.2, vy: -25 });
+            }
+            // Starve player at 0 hunger with no forage — HP drain
+            if (this.player.hunger <= 0 && this.resources.food <= 0) {
+                this.player.hp = Math.max(0, this.player.hp - 2 * decayDt);
+                if (!this._lastStarveWarn || this.gameTimeSec - this._lastStarveWarn > 10) {
+                    UI.notify('💀 You are starving! Find Forage NOW!', 4000);
+                    this._lastStarveWarn = this.gameTimeSec;
                 }
-                // Starvation — after 60s of no food, critters start dying
-                this._starveTimer += 5;
-                if (this._starveTimer >= 60 && this.resources.food <= 0) {
-                    // Kill the weakest assigned critter
-                    const assigned = this.critters.filter(c => c.assignment);
-                    if (assigned.length > 0) {
-                        assigned.sort((a, b) => a.level - b.level);
-                        const victim = assigned[0];
-                        // Remove from building
-                        if (victim.assignment && victim.assignment !== 'patrol') {
-                            const bld = this.buildings.find(b => b.id === victim.assignment);
-                            if (bld) bld.workers = bld.workers.filter(w => w !== victim.id);
+            }
+
+            for (const c of this.critters) {
+                if (c.hunger === undefined) c.hunger = 100;
+                if (c.injured) continue;
+                const sp = SPECIES[c.species];
+                const sizeMul = (sp?.size || 1);
+                let decay;
+                if (!c.assignment) decay = 0.3;        // idle
+                else if (c.assignment === 'patrol' || c.assignment === 'bodyguard') decay = 0.8;
+                else if (c.assignment === 'companion') decay = 0.5;
+                else decay = 1.0;                      // working at building
+                c.hunger = Math.max(0, c.hunger - decay * sizeMul * decayDt);
+                // Starving HP drain
+                if (c.hunger <= 0) {
+                    if (!c._starveDeathTimer) c._starveDeathTimer = 0;
+                    c._starveDeathTimer += decayDt;
+                    if (c.patrolHp !== undefined) c.patrolHp = Math.max(0, c.patrolHp - decayDt * 1.5);
+                } else {
+                    c._starveDeathTimer = 0;
+                }
+            }
+        }
+
+        // Every 3s, hungry critters try to eat (1 forage = full from any hunger)
+        this._eatTickTimer += dt;
+        if (this._eatTickTimer >= 3) {
+            this._eatTickTimer = 0;
+            for (const c of this.critters) {
+                if (c.hunger === undefined) c.hunger = 100;
+                if (c.hunger >= 30) continue; // wait until under 30 (Palworld-style threshold)
+                if (c.injured) continue;
+                const cost = 1; // 1 forage per critter, regardless of size
+                if (this.resources.food >= cost) {
+                    this.resources.food -= cost;
+                    c.hunger = 100;
+                    // Spawn eating animation at critter's location
+                    let ex, ey;
+                    if (c.assignment === 'patrol' || c.assignment === 'bodyguard') {
+                        ex = c._patrolX || this.player.x;
+                        ey = c._patrolY || this.player.y;
+                    } else if (c.assignment === 'companion') {
+                        ex = this.player.x; ey = this.player.y - 12;
+                    } else if (c.assignment) {
+                        const bld = this.buildings.find(b => b.id == c.assignment);
+                        if (bld) {
+                            const def = BUILDING_DEFS[bld.type];
+                            ex = (bld.gridX + def.size / 2) * TILE_SIZE;
+                            ey = (bld.gridY + def.size / 2) * TILE_SIZE;
                         }
-                        this.critters = this.critters.filter(c => c.id !== victim.id);
-                        if (!this.deadCritters) this.deadCritters = [];
-                        this.deadCritters.push({ ...victim, causeOfDeath: 'starvation' });
-                        UI.notify(`💀 ${victim.nickname} starved to death!`, 5000);
-                        if (this.sounds) this.sounds.destroy?.();
-                        this._starveTimer = 30; // next death in 30s if still starving
-                        UI.update();
+                    }
+                    if (ex !== undefined) {
+                        this._eatingPops.push({ x: ex, y: ey - 8, timer: 1.2, vy: -25 });
                     }
                 }
+            }
+        }
+
+        // Update eating pop animations
+        for (let i = this._eatingPops.length - 1; i >= 0; i--) {
+            const p = this._eatingPops[i];
+            p.timer -= dt;
+            p.y += p.vy * dt;
+            if (p.timer <= 0) this._eatingPops.splice(i, 1);
+        }
+
+        // Aggregate hungry flag for HUD/notifications
+        const anyHungry = this.critters.some(c => (c.hunger || 100) < 30);
+        if (anyHungry && !this.hungry) {
+            this.hungry = true;
+            UI.notify('⚠️ Some critters are hungry! Build more Farms.', 4000);
+        } else if (!anyHungry && this.hungry) {
+            this.hungry = false;
+        }
+
+        // Death from prolonged starvation (30s at 0 hunger)
+        for (let pi = this.critters.length - 1; pi >= 0; pi--) {
+            const c = this.critters[pi];
+            if ((c._starveDeathTimer || 0) >= 30) {
+                if (c.assignment && c.assignment !== 'patrol' && c.assignment !== 'companion' && c.assignment !== 'bodyguard') {
+                    const bld = this.buildings.find(b => b.id === c.assignment);
+                    if (bld) bld.workers = bld.workers.filter(w => w !== c.id);
+                }
+                if (!this.deadCritters) this.deadCritters = [];
+                this.deadCritters.push({ ...c, causeOfDeath: 'starvation' });
+                UI.notify(`💀 ${c.nickname} starved to death!`, 5000);
+                if (this.sounds) this.sounds.destroy?.();
+                this._cleanupCritterSprite?.(c);
+                this.critters.splice(pi, 1);
             }
         }
 
@@ -1847,12 +1969,24 @@ class Game {
         if (this.panelUpdateTimer <= 0) {
             this.panelUpdateTimer = 0.5;
             const gc = (r) => caps[r]||200;
-            document.getElementById('resWood').textContent = `${Math.floor(this.resources.wood)}/${gc('wood')}`;
-            document.getElementById('resStone').textContent = `${Math.floor(this.resources.stone)}/${gc('stone')}`;
-            const foodEl = document.getElementById('resFood');
-            foodEl.textContent = `${Math.floor(this.resources.food)}/${gc('food')}`;
-            foodEl.style.color = this.hungry ? '#f87171' : '#9ccc65';
-            document.getElementById('resIron').textContent = `${Math.floor(this.resources.iron||0)}/${gc('iron')}`;
+            // Helper — set amount text + fill bar width
+            const setRes = (key, fillId, amountId) => {
+                const cur = Math.floor(this.resources[key] || 0);
+                const max = gc(key);
+                const el = document.getElementById(amountId);
+                if (el) el.textContent = `${cur}/${max}`;
+                const fill = document.getElementById(fillId);
+                if (fill) fill.style.width = Math.min(100, (cur / max) * 100) + '%';
+            };
+            setRes('wood',  'fillWood',  'resWood');
+            setRes('stone', 'fillStone', 'resStone');
+            setRes('food',  'fillFood',  'resFood');
+            setRes('iron',  'fillIron',  'resIron');
+            // Tint food fill red when hungry
+            const foodFill = document.getElementById('fillFood');
+            if (foodFill) foodFill.style.background = this.hungry
+                ? 'linear-gradient(90deg,#f87171,#dc2626)'
+                : 'linear-gradient(90deg,#9ccc65,#689f38)';
             document.getElementById('trapCount').textContent = this.inventory.traps;
             document.getElementById('ammoCount').textContent = this.inventory.ammo || 0;
             // Player level HUD
@@ -1870,6 +2004,20 @@ class Game {
                 }
             }
             document.getElementById('aethershardCount').textContent = this.inventory.aethershards || 0;
+            // Skill points indicator (only shows when > 0)
+            const spWrap = document.getElementById('skillPointsWrap');
+            const spNum = document.getElementById('skillPointsNum');
+            if (spWrap && spNum) {
+                if ((this.skillPoints || 0) > 0) { spWrap.style.display = ''; spNum.textContent = this.skillPoints; }
+                else spWrap.style.display = 'none';
+            }
+            // Player hunger bar
+            const ph = this.player.hunger !== undefined ? this.player.hunger : 100;
+            const phFill = document.getElementById('phungerFill');
+            if (phFill) {
+                phFill.style.width = ph + '%';
+                phFill.className = 'phunger-fill' + (ph < 10 ? ' starving' : ph < 30 ? ' low' : '');
+            }
             document.getElementById('critterCount').textContent = `${this.critters.length}/${Buildings.getMaxCritters(this.buildings, this.research)}`;
             const deadEl = document.getElementById('deadCount');
             if (this.deadCritters.length > 0) {
@@ -1877,12 +2025,19 @@ class Game {
                 deadEl.querySelector('span').textContent = this.deadCritters.length;
                 deadEl.title = this.deadCritters.map(d => `${d.nickname} Lv${d.level} (${SPECIES[d.species].name})`).join('\n');
             } else { deadEl.style.display = 'none'; }
-            // Resource rates
-            const fmtRate = (r) => { const v = this._resourceRates[r] || 0; return v >= 0.01 ? `+${v.toFixed(1)}/s` : v <= -0.01 ? `${v.toFixed(1)}/s` : ''; };
-            document.getElementById('rateWood').textContent = fmtRate('wood');
-            document.getElementById('rateStone').textContent = fmtRate('stone');
-            document.getElementById('rateFood').textContent = fmtRate('food');
-            document.getElementById('rateIron').textContent = fmtRate('iron');
+            // Resource rates with positive/negative coloring
+            const setRate = (r, id) => {
+                const v = this._resourceRates[r] || 0;
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (v >= 0.01) { el.textContent = `+${v.toFixed(1)}/s`; el.className = 'rc-rate positive'; }
+                else if (v <= -0.01) { el.textContent = `${v.toFixed(1)}/s`; el.className = 'rc-rate negative'; }
+                else { el.textContent = '—'; el.className = 'rc-rate zero'; }
+            };
+            setRate('wood', 'rateWood');
+            setRate('stone', 'rateStone');
+            setRate('food', 'rateFood');
+            setRate('iron', 'rateIron');
             // Game time
             const mins = Math.floor(this.gameTimeSec / 60);
             const secs = Math.floor(this.gameTimeSec % 60);
@@ -2300,6 +2455,16 @@ class Game {
             });
             t.x = dn.x; t.y = dn.y;
             t.alpha = alpha;
+        }
+
+        // Eating pop animations (🍖 floating up when critter eats)
+        if (this._eatingPops) {
+            for (const ep of this._eatingPops) {
+                const alpha = Math.min(1, ep.timer / 0.4);
+                const t = this._getWorldText('\uD83C\uDF56', { fontSize: 14 });
+                t.x = ep.x; t.y = ep.y;
+                t.alpha = alpha;
+            }
         }
 
         // Boss location markers (pulsing skull pointing toward distant bosses)

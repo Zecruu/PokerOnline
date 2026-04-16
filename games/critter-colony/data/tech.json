@@ -1,0 +1,45 @@
+{
+    "_README": "Tech tree definitions. Player gains 1 Skill Point per level. Cost = SP. Tier prereqs: must own at least 1 node from previous tier in same branch. Specific prereqs in `prereq` array force a chain.",
+
+    "_branches": {
+        "combat":     { "name": "Combat",      "icon": "\u2694\ufe0f", "color": "#f87171" },
+        "economy":    { "name": "Economy",     "icon": "\ud83c\udfd7\ufe0f", "color": "#4ade80" },
+        "capture":    { "name": "Capture",     "icon": "\ud83c\udfaf", "color": "#4fc3f7" },
+        "extraction": { "name": "Extraction",  "icon": "\u26cf\ufe0f", "color": "#ce93d8" },
+        "defense":    { "name": "Defense",     "icon": "\ud83d\udee1\ufe0f", "color": "#fbbf24" }
+    },
+
+    "gunDamage":      { "name": "Tamer Gun Power",    "desc": "+5 gun damage per level", "branch": "combat",     "tier": 1, "cost": 1, "maxLevel": 10 },
+    "turretDamage":   { "name": "Turret Calibration",  "desc": "+3 turret damage per level", "branch": "combat", "tier": 2, "cost": 1, "maxLevel": 8, "prereq": ["gunDamage"] },
+    "turretRange":    { "name": "Turret Optics",       "desc": "+1 tile turret range per level", "branch": "combat", "tier": 2, "cost": 1, "maxLevel": 5, "prereq": ["gunDamage"] },
+    "barracks":       { "name": "Barracks",             "desc": "Unlocks Barracks (+30% patrol dmg)", "branch": "combat", "tier": 3, "cost": 2, "maxLevel": 1, "prereq": ["turretDamage"] },
+    "baseTurret":     { "name": "HQ Auto-Turret",      "desc": "HQ fires at enemies (stacks per level)", "branch": "combat", "tier": 3, "cost": 2, "maxLevel": 3, "prereq": ["turretDamage","turretRange"] },
+
+    "storageCap":     { "name": "Storage Expansion",   "desc": "+100 resource cap per level", "branch": "economy", "tier": 1, "cost": 1, "maxLevel": 10 },
+    "critterCap":     { "name": "Critter Capacity",    "desc": "+4 max critters per level", "branch": "economy", "tier": 1, "cost": 1, "maxLevel": 10 },
+    "workersPerB":    { "name": "Workforce Training",  "desc": "+1 worker slot per building", "branch": "economy", "tier": 2, "cost": 2, "maxLevel": 4, "prereq": ["critterCap"] },
+    "storageBuilding":{ "name": "Storage Tech",        "desc": "Unlocks Storage building (+150 cap each)", "branch": "economy", "tier": 2, "cost": 1, "maxLevel": 1, "prereq": ["storageCap"] },
+    "greenhouse":     { "name": "Greenhouse Tech",     "desc": "Unlocks Greenhouse (2x forage)", "branch": "economy", "tier": 2, "cost": 2, "maxLevel": 1, "prereq": ["storageCap"] },
+    "smelting":       { "name": "Smelting",             "desc": "Unlocks Smelter (ore \u2192 metal)", "branch": "economy", "tier": 3, "cost": 2, "maxLevel": 1, "prereq": ["storageBuilding"] },
+    "colonyRadius":   { "name": "Colony Reach",        "desc": "Bigger expander radius per level", "branch": "economy", "tier": 3, "cost": 1, "maxLevel": 3, "prereq": ["workersPerB"] },
+    "afkCap":         { "name": "Extended AFK",        "desc": "+2 hours offline cap per level", "branch": "economy", "tier": 4, "cost": 2, "maxLevel": 4, "prereq": ["smelting"] },
+
+    "captureBonus":   { "name": "Capture Mastery",     "desc": "+10% capture rate per level", "branch": "capture", "tier": 1, "cost": 1, "maxLevel": 5 },
+    "ironSnare":      { "name": "Iron Snares",         "desc": "Craft Iron Snares (catches uncommon)", "branch": "capture", "tier": 1, "cost": 1, "maxLevel": 1 },
+    "goldSnare":      { "name": "Gold Snares",         "desc": "Craft Gold Snares (catches rare)", "branch": "capture", "tier": 2, "cost": 2, "maxLevel": 1, "prereq": ["ironSnare"] },
+    "companionSlots": { "name": "Companion Bond",      "desc": "+1 companion slot per level", "branch": "capture", "tier": 2, "cost": 1, "maxLevel": 3, "prereq": ["captureBonus"] },
+    "bodyguardSlots": { "name": "Bodyguard Training",  "desc": "+1 bodyguard slot per level", "branch": "capture", "tier": 2, "cost": 1, "maxLevel": 3, "prereq": ["captureBonus"] },
+    "diamondSnare":   { "name": "Diamond Snares",      "desc": "Craft Diamond Snares (catches legendary)", "branch": "capture", "tier": 3, "cost": 3, "maxLevel": 1, "prereq": ["goldSnare"] },
+    "passiveLab":     { "name": "Passive Lab",         "desc": "Unlocks Passive Lab (transfer passives)", "branch": "capture", "tier": 4, "cost": 3, "maxLevel": 1, "prereq": ["diamondSnare"] },
+
+    "oilDrilling":    { "name": "Oil Drilling",        "desc": "Unlocks Oil Pump (place on oil nodes)", "branch": "extraction", "tier": 1, "cost": 1, "maxLevel": 1 },
+    "crystalExtract": { "name": "Crystal Extraction",  "desc": "Unlocks Crystal Extractor", "branch": "extraction", "tier": 1, "cost": 1, "maxLevel": 1 },
+    "gasRefining":    { "name": "Gas Refining",        "desc": "Unlocks Gas Refinery (oil \u2192 gasoline)", "branch": "extraction", "tier": 2, "cost": 2, "maxLevel": 1, "prereq": ["oilDrilling"] },
+    "refinery":       { "name": "Crystal Refinery",    "desc": "Unlocks Refinery (produces crystal)", "branch": "extraction", "tier": 2, "cost": 2, "maxLevel": 1, "prereq": ["crystalExtract"] },
+    "generators":     { "name": "Power Generators",    "desc": "Unlocks Generator (powers extractors)", "branch": "extraction", "tier": 3, "cost": 2, "maxLevel": 1, "prereq": ["gasRefining"] },
+    "goldMining":     { "name": "Gold Mining",         "desc": "Unlocks Gold Mine (needs power)", "branch": "extraction", "tier": 3, "cost": 2, "maxLevel": 1, "prereq": ["generators"] },
+    "diamondDrill":   { "name": "Diamond Drilling",    "desc": "Unlocks Diamond Drill (needs power)", "branch": "extraction", "tier": 4, "cost": 3, "maxLevel": 1, "prereq": ["goldMining"] },
+
+    "baseHp":         { "name": "Fortification",       "desc": "+50 HP to all buildings per level", "branch": "defense", "tier": 1, "cost": 1, "maxLevel": 8 },
+    "healingHut":     { "name": "Healing Arts",        "desc": "Unlocks Healing Hut (auto-heal injured)", "branch": "defense", "tier": 2, "cost": 2, "maxLevel": 1, "prereq": ["baseHp"] }
+}

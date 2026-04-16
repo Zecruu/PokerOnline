@@ -421,6 +421,7 @@ class Critters {
                 stats: critter.stats, level: 1, xp: 0, assignment: null,
                 passives: Critters.rollPassives(SPECIES[critter.species].rarity),
                 patrolHp: 50, patrolMaxHp: 50,
+                hunger: 100,
                 stars: 0,
             };
             return { success: true, captured };
@@ -445,6 +446,7 @@ class Critters {
                 assignment: null,
                 passives: Critters.rollPassives(SPECIES[critter.species].rarity),
                 patrolHp: 50, patrolMaxHp: 50,
+                hunger: 100,
                 stars: 0,
             };
             return { success: true, captured };

@@ -64,13 +64,23 @@ class Buildings {
         };
     }
 
-    static getProductionRate(building, critters, hungry) {
+    // Map a critter's hunger value to a production multiplier.
+    // 70+ = 1.0 | 30-70 = 0.85 | 10-30 = 0.6 | <10 = 0.3
+    static hungerProdMul(hunger) {
+        if (hunger === undefined || hunger >= 70) return 1.0;
+        if (hunger >= 30) return 0.85;
+        if (hunger >= 10) return 0.6;
+        return 0.3;
+    }
+
+    static getProductionRate(building, critters, _legacyHungry) {
         const def = BUILDING_DEFS[building.type];
         if (!def.produces || building.workers.length === 0) return 0;
 
         let totalStat = 0;
         let passiveBonus = 0;
         let typeBonus = 0;
+        let hungerMulSum = 0;
         for (const cid of building.workers) {
             const c = critters.find(cr => cr.id === cid);
             if (!c) continue;
@@ -89,9 +99,11 @@ class Buildings {
             passiveBonus += resBonus;
             // Type bonus/penalty
             typeBonus += Critters.getTypeBonus(c, building.type);
+            hungerMulSum += Buildings.hungerProdMul(c.hunger);
         }
-        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05) * (1 + passiveBonus) * (1 + typeBonus / building.workers.length);
-        if (hungry) rate *= 0.5;
+        // Average hunger penalty across workers
+        const avgHungerMul = building.workers.length > 0 ? hungerMulSum / building.workers.length : 1;
+        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05) * (1 + passiveBonus) * (1 + typeBonus / building.workers.length) * avgHungerMul;
         return Math.max(0, rate);
     }
 

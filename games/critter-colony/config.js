@@ -28,7 +28,7 @@ const GameConfig = {
     async loadAll() {
         const files = [
             'species', 'critter-types', 'passives', 'buildings',
-            'research', 'equipment', 'snares', 'world', 'balance', 'biomes', 'enemies'
+            'research', 'equipment', 'snares', 'world', 'balance', 'biomes', 'enemies', 'tech'
         ];
 
         const results = await Promise.all(
@@ -142,6 +142,17 @@ const GameConfig = {
         // ── ENEMIES ──
         if (d.enemies) {
             window.ENEMY_DEFS = d.enemies;
+        }
+
+        // ── TECH TREE ──
+        if (d.tech) {
+            window.TECH_BRANCHES = d.tech._branches || {};
+            const techDefs = {};
+            for (const [k, v] of Object.entries(d.tech)) {
+                if (k.startsWith('_')) continue;
+                techDefs[k] = v;
+            }
+            window.TECH_DEFS = techDefs;
         }
 
         // ── SNARES ──
