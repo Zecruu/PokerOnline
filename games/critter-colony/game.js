@@ -1290,6 +1290,8 @@ class Game {
             for (const wc of this.wildCritters) {
                 if (wc.stunned) continue;
                 const hx = wc.x - p.x, hy = wc.y - p.y;
+                // Fast squared-distance pre-check (~5 tile radius)
+                if (hx * hx + hy * hy > 25600) continue;
                 if (Math.sqrt(hx*hx + hy*hy) < 12) {
                     Critters.damageWild(wc, p.damage);
                     this._spawnDmgNum(wc.x, wc.y, p.damage, 0xffd54f);
@@ -1406,10 +1408,11 @@ class Game {
         Buildings.update(dt, this.buildings, this.critters, this.resources, caps, this.inventory, this.hungry);
         for (const r of ['wood','stone','food','iron']) this.resources[r] = Math.min(this.resources[r], caps[r]);
 
-        // Combine all turret targets: wild critters + world bosses
-        this._turretTargets = this.wildCritters;
+        // Combine turret targets: only wild critters near colony (within ~40 tiles of origin)
+        const turretRangeSq = (TILE_SIZE * 40) ** 2;
+        this._turretTargets = this.wildCritters.filter(wc => !wc.stunned && (wc.x * wc.x + wc.y * wc.y) < turretRangeSq);
         if (this.worldBosses && this.worldBosses.length > 0) {
-            this._turretTargets = this.wildCritters.concat(this.worldBosses.filter(b => b.hp > 0));
+            this._turretTargets = this._turretTargets.concat(this.worldBosses.filter(b => b.hp > 0));
         }
         Buildings.updateTurrets(dt, this.buildings, this._turretTargets, this.projectiles, this.research);
 
@@ -2503,6 +2506,19 @@ class Game {
 
     // ─── WILD CRITTER DRAWING ───────────────────────────────
     _drawWildCritter(gfx, critter) {
+        // Render culling — skip offscreen critters (camera-relative check)
+        const camX = this.cam.x, camY = this.cam.y;
+        const w = this.canvas.width, h = this.canvas.height;
+        const zoom = this.zoomLevel || 1;
+        const margin = 80; // extra pixels beyond viewport edge
+        const viewW = w / zoom + margin * 2, viewH = h / zoom + margin * 2;
+        if (critter.x < camX - margin || critter.x > camX + viewW ||
+            critter.y < camY - margin || critter.y > camY + viewH) {
+            // Hide sprite if it exists so it doesn't render at old position
+            if (critter._pixiSprite) critter._pixiSprite.visible = false;
+            return;
+        }
+
         const sp = SPECIES[critter.species];
         const sx = critter.x, sy = critter.y;
         const bob = Math.sin(this.time * 3 + critter.id) * 2;

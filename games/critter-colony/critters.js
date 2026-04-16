@@ -289,15 +289,30 @@ class Critters {
         }
     }
 
+    // Distance threshold (in pixels) for full AI updates — ~30 tiles
+    static AI_RANGE = TILE_SIZE * 30;
+    static AI_RANGE_SQ = (TILE_SIZE * 30) ** 2;
+
     static updateWild(dt, wildCritters, world, player, buildings, bodyguards) {
+        const px = player ? player.x : 0, py = player ? player.y : 0;
         for (let ci = wildCritters.length - 1; ci >= 0; ci--) {
             const c = wildCritters[ci];
-            // Stunned — 15s capture window then despawn
+            // Stunned — 15s capture window then despawn (always tick, even far away)
             if (c.stunned) {
                 c.stunTimer -= dt;
                 if (c.stunTimer <= 0) {
-                    c._despawned = true; // flag for game.js to cleanup sprite & recycle
+                    c._despawned = true;
                 }
+                continue;
+            }
+
+            // Distance culling — skip full AI for critters far from player
+            const cdx = c.x - px, cdy = c.y - py;
+            const distSq = cdx * cdx + cdy * cdy;
+            if (distSq > Critters.AI_RANGE_SQ) {
+                // Minimal tick: just drift wander timer so they don't all sync up
+                c.wanderTimer -= dt;
+                if (c.wanderTimer <= 0) c.wanderTimer = 2 + Math.random() * 4;
                 continue;
             }
 
