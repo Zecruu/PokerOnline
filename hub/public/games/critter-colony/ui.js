@@ -776,17 +776,39 @@ class UI {
 
     static renderNotifications(ctx, canvasW) {
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 13px monospace';
         for (let i = 0; i < this.notifications.length; i++) {
             const n = this.notifications[i];
-            const y = 80 + i * 30;
+            const y = 92 + i * 34;
+            const boxHeight = 28;
+            const paddingX = 14;
+            const tw = ctx.measureText(n.text).width;
+            const boxX = canvasW / 2 - tw / 2 - paddingX;
+            const boxY = y - boxHeight / 2;
+            const boxWidth = tw + paddingX * 2;
+            const radius = 10;
             ctx.globalAlpha = n.opacity;
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.font = 'bold 13px monospace';
-            const tw = ctx.measureText(n.text).width;
-            ctx.fillRect(canvasW / 2 - tw / 2 - 12, y - 12, tw + 24, 24);
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(boxX, boxY, boxWidth, boxHeight, radius);
+            } else {
+                ctx.moveTo(boxX + radius, boxY);
+                ctx.lineTo(boxX + boxWidth - radius, boxY);
+                ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + radius);
+                ctx.lineTo(boxX + boxWidth, boxY + boxHeight - radius);
+                ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - radius, boxY + boxHeight);
+                ctx.lineTo(boxX + radius, boxY + boxHeight);
+                ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - radius);
+                ctx.lineTo(boxX, boxY + radius);
+                ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
+            }
+            ctx.fill();
             ctx.fillStyle = '#fff';
-            ctx.fillText(n.text, canvasW / 2, y + 4);
+            ctx.fillText(n.text, canvasW / 2, y);
         }
         ctx.globalAlpha = 1;
+        ctx.textBaseline = 'alphabetic';
     }
 }
