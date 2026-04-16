@@ -772,6 +772,72 @@ class UI {
 
             html += `</div>`;
             body.innerHTML = html;
+
+        } else if (this.activeTab === 'critterdex') {
+            let html = '';
+            const discovered = g.discoveredSpecies || [];
+            const allSpecies = typeof SPECIES !== 'undefined' ? Object.entries(SPECIES) : [];
+            const totalCount = allSpecies.length;
+            const foundCount = allSpecies.filter(([k]) => discovered.includes(k)).length;
+
+            html += `<div class="cdex-header">`;
+            html += `<span class="cdex-title">Critterdex</span>`;
+            html += `<span class="cdex-progress">${foundCount}/${totalCount} Discovered</span>`;
+            html += `<div class="cdex-bar"><div class="cdex-bar-fill" style="width:${totalCount > 0 ? (foundCount/totalCount*100) : 0}%"></div></div>`;
+            html += `</div>`;
+
+            html += '<div class="cdex-grid">';
+            for (const [key, sp] of allSpecies) {
+                const found = discovered.includes(key);
+                const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[sp.type] : null;
+
+                html += `<div class="cdex-entry ${found ? 'cdex-found' : 'cdex-unknown'}">`;
+
+                if (found) {
+                    // Show full entry
+                    const spriteImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[key] && CRITTER_SPRITES[key].complete
+                        ? `<img class="cdex-sprite" src="${CRITTER_SPRITES[key].src}">`
+                        : `<div class="cdex-sprite cdex-sprite-fallback" style="background:${sp.color}"></div>`;
+                    html += `<div class="cdex-top">`;
+                    html += spriteImg;
+                    html += `<div class="cdex-info">`;
+                    html += `<div class="cdex-name">${sp.name}</div>`;
+                    html += `<div class="cdex-meta">`;
+                    html += `<span class="cdex-rarity" style="color:${RARITY_COLORS[sp.rarity]}">${sp.rarity}</span>`;
+                    if (typeInfo) html += `<span class="cdex-type" style="color:${typeInfo.color}">${typeInfo.icon} ${typeInfo.name}</span>`;
+                    html += `</div>`;
+                    html += `</div></div>`;
+
+                    // Stats
+                    html += `<div class="cdex-stats">`;
+                    for (const [s, v] of Object.entries(sp.baseStats)) {
+                        html += `<span class="cdex-stat">${s}:${v}</span>`;
+                    }
+                    html += `</div>`;
+
+                    // Description
+                    html += `<div class="cdex-desc">${sp.desc}</div>`;
+
+                    // Lore
+                    if (sp.lore) html += `<div class="cdex-lore">${sp.lore}</div>`;
+
+                    // Biome hint
+                    if (sp.biomeHint) html += `<div class="cdex-biome">\ud83d\uddfa\ufe0f ${sp.biomeHint}</div>`;
+                } else {
+                    // Unknown — greyed out with ?
+                    html += `<div class="cdex-top">`;
+                    html += `<div class="cdex-sprite cdex-sprite-unknown">?</div>`;
+                    html += `<div class="cdex-info">`;
+                    html += `<div class="cdex-name cdex-name-unknown">???</div>`;
+                    html += `<div class="cdex-meta"><span class="cdex-rarity" style="color:#555">Unknown</span></div>`;
+                    html += `</div></div>`;
+                    html += `<div class="cdex-desc cdex-desc-unknown">Capture this critter to reveal its entry.</div>`;
+                }
+
+                html += `</div>`;
+            }
+            html += '</div>';
+            body.innerHTML = html;
         }
     }
 

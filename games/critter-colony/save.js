@@ -65,6 +65,7 @@ class Save {
                 patrolHp: c.patrolHp, patrolMaxHp: c.patrolMaxHp,
             })),
             deadCritters: (game.deadCritters || []).slice(-20),
+            discoveredSpecies: game.discoveredSpecies || [],
             research: { ...game.research },
             researchInProgress: game.researchInProgress ? { ...game.researchInProgress } : null,
             lastActive: Date.now(),

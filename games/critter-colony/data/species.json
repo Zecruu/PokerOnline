@@ -1,30 +1,191 @@
 {
-    "_README": "Critter species definitions. Players can mod stats, rarities, types, and combat values.",
+    "_README": "Critter species definitions. Players can mod stats, rarities, types, and combat values. Lore is shown in the Critterdex.",
 
-    "mossbun":     { "name": "Mossbun",     "type": "grass",  "color": "#66bb6a", "rarity": "common",    "baseStats": { "STR":3, "DEX":4, "INT":3, "VIT":7, "LCK":3 }, "desc": "A gentle grass critter. Great farmer.", "aggressive": false, "attackDmg": 2, "attackCooldown": 2, "size": 1 },
-    "pebblit":     { "name": "Pebblit",     "type": "muscle", "color": "#90a4ae", "rarity": "common",    "baseStats": { "STR":7, "DEX":3, "INT":2, "VIT":5, "LCK":3 }, "desc": "Tough little rock critter. Born to mine.", "aggressive": true, "aggroRange": 8, "attackDmg": 4, "attackCooldown": 1.2, "size": 1 },
-    "flickwing":   { "name": "Flickwing",   "type": "arcane", "color": "#ffd54f", "rarity": "common",    "baseStats": { "STR":2, "DEX":8, "INT":4, "VIT":3, "LCK":3 }, "desc": "Fast and nimble. Excellent at crafting.", "aggressive": false, "attackDmg": 2, "attackCooldown": 1.5, "size": 1 },
-    "thornback":   { "name": "Thornback",   "type": "grass",  "color": "#558b2f", "rarity": "common",    "baseStats": { "STR":5, "DEX":3, "INT":2, "VIT":6, "LCK":4 }, "desc": "Spiky hedgehog critter. Tough and reliable.", "aggressive": true, "aggroRange": 6, "attackDmg": 5, "attackCooldown": 1.4, "size": 1 },
-    "mudgrub":     { "name": "Mudgrub",     "type": "beast",  "color": "#795548", "rarity": "common",    "baseStats": { "STR":4, "DEX":2, "INT":1, "VIT":8, "LCK":2 }, "desc": "Ugly worm thing. Useless but very tanky.", "aggressive": false, "attackDmg": 1, "attackCooldown": 3, "size": 0.8 },
-    "dustmite":    { "name": "Dustmite",    "type": "beast",  "color": "#bcaaa4", "rarity": "common",    "baseStats": { "STR":2, "DEX":5, "INT":2, "VIT":4, "LCK":6 }, "desc": "Tiny dust bug. Annoyingly fast and lucky.", "aggressive": true, "aggroRange": 5, "attackDmg": 1, "attackCooldown": 0.8, "size": 0.6 },
-    "puffshroom":  { "name": "Puffshroom",  "type": "grass",  "color": "#ef9a9a", "rarity": "common",    "baseStats": { "STR":1, "DEX":1, "INT":6, "VIT":9, "LCK":3 }, "desc": "Adorable mushroom blob. Great HP, terrible at everything else.", "aggressive": false, "attackDmg": 1, "attackCooldown": 3, "size": 1.1 },
-    "scraprat":    { "name": "Scraprat",    "type": "arcane", "color": "#8d6e63", "rarity": "common",    "baseStats": { "STR":3, "DEX":6, "INT":3, "VIT":3, "LCK":5 }, "desc": "Ugly sewer rat. Scrappy crafter with luck.", "aggressive": true, "aggroRange": 6, "attackDmg": 3, "attackCooldown": 1.0, "size": 0.9 },
+    "mossbun": {
+        "name": "Mossbun", "type": "grass", "color": "#66bb6a", "rarity": "common",
+        "baseStats": { "STR":3, "DEX":4, "INT":3, "VIT":7, "LCK":3 },
+        "desc": "A gentle grass critter. Great farmer.",
+        "lore": "Mossbuns are the first creatures most colonists befriend. Their soft moss-covered fur absorbs morning dew, which they share with nearby crops. Colonies with Mossbuns report harvests twice as lush. They hum a low melody at dawn that other critters find deeply calming.",
+        "biomeHint": "Plains — near the colony",
+        "aggressive": false, "attackDmg": 2, "attackCooldown": 2, "size": 1
+    },
+    "pebblit": {
+        "name": "Pebblit", "type": "muscle", "color": "#90a4ae", "rarity": "common",
+        "baseStats": { "STR":7, "DEX":3, "INT":2, "VIT":5, "LCK":3 },
+        "desc": "Tough little rock critter. Born to mine.",
+        "lore": "Pebblits are living stones that roll downhill when excited. They instinctively headbutt boulders, which is annoying until you realize they're actually mining for you. A Pebblit colony can tunnel through solid granite in days. Their rocky shells get shinier with age.",
+        "biomeHint": "Plains, Desert — rocky outcrops",
+        "aggressive": true, "aggroRange": 8, "attackDmg": 4, "attackCooldown": 1.2, "size": 1
+    },
+    "flickwing": {
+        "name": "Flickwing", "type": "arcane", "color": "#ffd54f", "rarity": "common",
+        "baseStats": { "STR":2, "DEX":8, "INT":4, "VIT":3, "LCK":3 },
+        "desc": "Fast and nimble. Excellent at crafting.",
+        "lore": "Flickwings are tiny moth-like critters whose wings shimmer with arcane dust. They're obsessed with shiny objects and will spend hours organizing gems by color. Master crafters prize their precision — a Flickwing can thread a needle while flying backwards in a storm.",
+        "biomeHint": "Plains — open meadows",
+        "aggressive": false, "attackDmg": 2, "attackCooldown": 1.5, "size": 1
+    },
+    "thornback": {
+        "name": "Thornback", "type": "grass", "color": "#558b2f", "rarity": "common",
+        "baseStats": { "STR":5, "DEX":3, "INT":2, "VIT":6, "LCK":4 },
+        "desc": "Spiky hedgehog critter. Tough and reliable.",
+        "lore": "Thornbacks curl into spiked balls when threatened, making them nearly impossible to eat. They forage for roots and berries, storing excess in hollow stumps they mark with thorns. Farmers love them — they eat the pests that plague crops and fertilize the soil wherever they sleep.",
+        "biomeHint": "Plains, Swamp — forest edges",
+        "aggressive": true, "aggroRange": 6, "attackDmg": 5, "attackCooldown": 1.4, "size": 1
+    },
+    "mudgrub": {
+        "name": "Mudgrub", "type": "beast", "color": "#795548", "rarity": "common",
+        "baseStats": { "STR":4, "DEX":2, "INT":1, "VIT":8, "LCK":2 },
+        "desc": "Ugly worm thing. Useless but very tanky.",
+        "lore": "Nobody knows what Mudgrubs actually are. They're not worms, not slugs, and definitely not pleasant to look at. But they refuse to die. Drop one off a cliff and it bounces. Hit it with a rock and it absorbs the rock. Scientists have given up classifying them and simply labeled them 'unkillable.'",
+        "biomeHint": "Swamp — muddy pools",
+        "aggressive": false, "attackDmg": 1, "attackCooldown": 3, "size": 0.8
+    },
+    "dustmite": {
+        "name": "Dustmite", "type": "beast", "color": "#bcaaa4", "rarity": "common",
+        "baseStats": { "STR":2, "DEX":5, "INT":2, "VIT":4, "LCK":6 },
+        "desc": "Tiny dust bug. Annoyingly fast and lucky.",
+        "lore": "Dustmites vibrate at frequencies that make them blur. Catching one is like grabbing smoke. They seem to attract good fortune — colonists report finding rare gems and extra resources whenever Dustmites are nearby. They're also compulsive thieves of small shiny objects.",
+        "biomeHint": "Desert, Plains — dry areas",
+        "aggressive": true, "aggroRange": 5, "attackDmg": 1, "attackCooldown": 0.8, "size": 0.6
+    },
+    "puffshroom": {
+        "name": "Puffshroom", "type": "grass", "color": "#ef9a9a", "rarity": "common",
+        "baseStats": { "STR":1, "DEX":1, "INT":6, "VIT":9, "LCK":3 },
+        "desc": "Adorable mushroom blob. Great HP, terrible at everything else.",
+        "lore": "Puffshrooms are sentient fungi that waddle around on stubby root-legs. They regenerate from nearly any wound by absorbing nutrients from the soil. When happy, they release a cloud of pink spores that smells like fresh bread. They make excellent emergency food (they grow back).",
+        "biomeHint": "Plains, Swamp — shaded areas",
+        "aggressive": false, "attackDmg": 1, "attackCooldown": 3, "size": 1.1
+    },
+    "scraprat": {
+        "name": "Scraprat", "type": "arcane", "color": "#8d6e63", "rarity": "common",
+        "baseStats": { "STR":3, "DEX":6, "INT":3, "VIT":3, "LCK":5 },
+        "desc": "Ugly sewer rat. Scrappy crafter with luck.",
+        "lore": "Scraprats build elaborate nests from discarded materials — bottle caps, bent nails, old gears. What looks like junk to us is architecture to them. Their innate understanding of mechanisms makes them surprisingly useful at workbenches. Just don't leave food unattended.",
+        "biomeHint": "Plains — near colony structures",
+        "aggressive": true, "aggroRange": 6, "attackDmg": 3, "attackCooldown": 1.0, "size": 0.9
+    },
 
-    "glowmite":    { "name": "Glowmite",    "type": "arcane", "color": "#ce93d8", "rarity": "uncommon",  "baseStats": { "STR":2, "DEX":3, "INT":8, "VIT":3, "LCK":4 }, "desc": "A mysterious luminous critter. Great researcher.", "aggressive": true, "aggroRange": 10, "attackDmg": 6, "attackCooldown": 1.8, "size": 1 },
-    "emberfox":    { "name": "Emberfox",    "type": "fire",   "color": "#ff7043", "rarity": "uncommon",  "baseStats": { "STR":5, "DEX":7, "INT":3, "VIT":4, "LCK":5 }, "desc": "A fiery fox. Fast attacker and decent crafter.", "aggressive": true, "aggroRange": 10, "attackDmg": 7, "attackCooldown": 1.0, "size": 1.2 },
-    "crystalhorn": { "name": "Crystalhorn", "type": "muscle", "color": "#7e57c2", "rarity": "uncommon",  "baseStats": { "STR":6, "DEX":2, "INT":4, "VIT":7, "LCK":5 }, "desc": "Crystalline beetle. Incredibly sturdy miner.", "aggressive": true, "aggroRange": 8, "attackDmg": 8, "attackCooldown": 1.6, "size": 1.3 },
-    "bogwalker":   { "name": "Bogwalker",   "type": "water",  "color": "#4e342e", "rarity": "uncommon",  "baseStats": { "STR":8, "DEX":1, "INT":2, "VIT":9, "LCK":2 }, "desc": "Massive swamp toad. Slow but hits like a truck. Swims.", "aggressive": true, "aggroRange": 5, "attackDmg": 12, "attackCooldown": 2.5, "size": 1.6 },
-    "sparkfly":    { "name": "Sparkfly",    "type": "arcane", "color": "#80deea", "rarity": "uncommon",  "baseStats": { "STR":1, "DEX":10, "INT":5, "VIT":2, "LCK":6 }, "desc": "Tiny electric firefly. Lightning fast but fragile.", "aggressive": false, "attackDmg": 3, "attackCooldown": 0.6, "size": 0.7 },
-    "rotjaw":      { "name": "Rotjaw",      "type": "muscle", "color": "#6d4c41", "rarity": "uncommon",  "baseStats": { "STR":7, "DEX":4, "INT":1, "VIT":6, "LCK":3 }, "desc": "Decaying lizard. Ugly and mean. Good fighter.", "aggressive": true, "aggroRange": 10, "attackDmg": 9, "attackCooldown": 1.3, "size": 1.3 },
+    "glowmite": {
+        "name": "Glowmite", "type": "arcane", "color": "#ce93d8", "rarity": "uncommon",
+        "baseStats": { "STR":2, "DEX":3, "INT":8, "VIT":3, "LCK":4 },
+        "desc": "A mysterious luminous critter. Great researcher.",
+        "lore": "Glowmites hover in clusters that form constellation-like patterns at night. Ancient texts describe them as 'living stars fallen from the research of forgotten gods.' Their bioluminescence resonates with arcane crystals, amplifying magical research by an order of magnitude.",
+        "biomeHint": "Crystal Caverns, Plains — night",
+        "aggressive": true, "aggroRange": 10, "attackDmg": 6, "attackCooldown": 1.8, "size": 1
+    },
+    "emberfox": {
+        "name": "Emberfox", "type": "fire", "color": "#ff7043", "rarity": "uncommon",
+        "baseStats": { "STR":5, "DEX":7, "INT":3, "VIT":4, "LCK":5 },
+        "desc": "A fiery fox. Fast attacker and decent crafter.",
+        "lore": "Emberfoxes leave trails of harmless sparks when they run. Their body temperature runs hot enough to smelt low-grade ore just by sitting on it. In the wild, they hunt in pairs — one flushes prey while the other ambushes. Tamed Emberfoxes are fiercely loyal to their colony.",
+        "biomeHint": "Desert, Volcanic — warm regions",
+        "aggressive": true, "aggroRange": 10, "attackDmg": 7, "attackCooldown": 1.0, "size": 1.2
+    },
+    "crystalhorn": {
+        "name": "Crystalhorn", "type": "muscle", "color": "#7e57c2", "rarity": "uncommon",
+        "baseStats": { "STR":6, "DEX":2, "INT":4, "VIT":7, "LCK":5 },
+        "desc": "Crystalline beetle. Incredibly sturdy miner.",
+        "lore": "Crystalhorns grow mineral deposits on their shells throughout their lives. The oldest specimens have shells worth a fortune. They eat stone and excrete purified ore — nature's perfect mining machine. Their horn vibrates at a frequency that shatters rock, making them unmatched in the mines.",
+        "biomeHint": "Frozen Tundra, Crystal — mountain areas",
+        "aggressive": true, "aggroRange": 8, "attackDmg": 8, "attackCooldown": 1.6, "size": 1.3
+    },
+    "bogwalker": {
+        "name": "Bogwalker", "type": "water", "color": "#4e342e", "rarity": "uncommon",
+        "baseStats": { "STR":8, "DEX":1, "INT":2, "VIT":9, "LCK":2 },
+        "desc": "Massive swamp toad. Slow but hits like a truck. Swims.",
+        "lore": "Bogwalkers are patient hunters that can sit motionless for days. When prey wanders close, they strike with a tongue that can shatter bone. Despite their terrifying power, tamed Bogwalkers are gentle giants that enjoy belly rubs and will carry supplies across rivers without complaint.",
+        "biomeHint": "Toxic Swamp — water edges",
+        "aggressive": true, "aggroRange": 5, "attackDmg": 12, "attackCooldown": 2.5, "size": 1.6
+    },
+    "sparkfly": {
+        "name": "Sparkfly", "type": "arcane", "color": "#80deea", "rarity": "uncommon",
+        "baseStats": { "STR":1, "DEX":10, "INT":5, "VIT":2, "LCK":6 },
+        "desc": "Tiny electric firefly. Lightning fast but fragile.",
+        "lore": "Sparkflies generate bioelectric fields that make them untouchable in the wild. They communicate through synchronized light patterns — a swarm of Sparkflies looks like a dancing aurora. They can power small machines with their static charge and are attracted to crystal resonance frequencies.",
+        "biomeHint": "Frozen Tundra, Crystal — near water",
+        "aggressive": false, "attackDmg": 3, "attackCooldown": 0.6, "size": 0.7
+    },
+    "rotjaw": {
+        "name": "Rotjaw", "type": "muscle", "color": "#6d4c41", "rarity": "uncommon",
+        "baseStats": { "STR":7, "DEX":4, "INT":1, "VIT":6, "LCK":3 },
+        "desc": "Decaying lizard. Ugly and mean. Good fighter.",
+        "lore": "Rotjaws are survivors from a bygone era — their ancestors were apex predators. Modern Rotjaws are smaller but no less vicious. Their bite carries a mild venom that makes wounds itch for weeks. Despite their hostile nature, they're surprisingly effective workers when properly motivated (fear counts as motivation).",
+        "biomeHint": "Toxic Swamp, Volcanic — dark areas",
+        "aggressive": true, "aggroRange": 10, "attackDmg": 9, "attackCooldown": 1.3, "size": 1.3
+    },
 
-    "stormwing":   { "name": "Stormwing",   "type": "arcane", "color": "#42a5f5", "rarity": "rare",      "baseStats": { "STR":4, "DEX":10, "INT":7, "VIT":4, "LCK":6 }, "desc": "Electric bird. Lightning fast, great at everything.", "aggressive": true, "aggroRange": 14, "attackDmg": 10, "attackCooldown": 0.8, "size": 1.3 },
-    "ironshell":   { "name": "Ironshell",   "type": "muscle", "color": "#78909c", "rarity": "rare",      "baseStats": { "STR":9, "DEX":2, "INT":3, "VIT":12, "LCK":5 }, "desc": "Armored turtle. Nearly indestructible tank.", "aggressive": true, "aggroRange": 6, "attackDmg": 12, "attackCooldown": 2.0, "size": 1.5 },
-    "venomaw":     { "name": "Venomaw",     "type": "beast",  "color": "#ab47bc", "rarity": "rare",      "baseStats": { "STR":7, "DEX":6, "INT":5, "VIT":5, "LCK":8 }, "desc": "Toxic frog. Poisons enemies and boosts luck.", "aggressive": true, "aggroRange": 12, "attackDmg": 9, "attackCooldown": 1.2, "size": 1.2 },
-    "goretusk":    { "name": "Goretusk",    "type": "beast",  "color": "#b71c1c", "rarity": "rare",      "baseStats": { "STR":12, "DEX":4, "INT":1, "VIT":8, "LCK":3 }, "desc": "Blood-red boar. Pure aggression. Terrible worker.", "aggressive": true, "aggroRange": 16, "attackDmg": 16, "attackCooldown": 1.0, "size": 1.7 },
-    "faewisp":     { "name": "Faewisp",     "type": "fairy",  "color": "#b2ff59", "rarity": "rare",      "baseStats": { "STR":1, "DEX":6, "INT":12, "VIT":3, "LCK":10 }, "desc": "Ethereal fairy. Incredible researcher and lucky.", "aggressive": false, "attackDmg": 2, "attackCooldown": 2, "size": 0.8 },
+    "stormwing": {
+        "name": "Stormwing", "type": "arcane", "color": "#42a5f5", "rarity": "rare",
+        "baseStats": { "STR":4, "DEX":10, "INT":7, "VIT":4, "LCK":6 },
+        "desc": "Electric bird. Lightning fast, great at everything.",
+        "lore": "Stormwings ride atmospheric currents at impossible speeds. During thunderstorms, they absorb lightning and store it in their crystalline feathers. A single Stormwing's discharge can power a colony for hours. Legend says they were once messengers of the sky gods, and they still carry that divine arrogance.",
+        "biomeHint": "Crystal Caverns — high altitude areas",
+        "aggressive": true, "aggroRange": 14, "attackDmg": 10, "attackCooldown": 0.8, "size": 1.3
+    },
+    "ironshell": {
+        "name": "Ironshell", "type": "muscle", "color": "#78909c", "rarity": "rare",
+        "baseStats": { "STR":9, "DEX":2, "INT":3, "VIT":12, "LCK":5 },
+        "desc": "Armored turtle. Nearly indestructible tank.",
+        "lore": "Ironshells are living fortresses. Their shells are composed of naturally occurring steel alloys that only get harder with age. In the wild, they serve as mobile shelters for smaller critters during storms. An Ironshell on patrol can absorb hits that would flatten buildings. They eat iron ore like candy.",
+        "biomeHint": "Frozen Tundra — mountain passes",
+        "aggressive": true, "aggroRange": 6, "attackDmg": 12, "attackCooldown": 2.0, "size": 1.5
+    },
+    "venomaw": {
+        "name": "Venomaw", "type": "beast", "color": "#ab47bc", "rarity": "rare",
+        "baseStats": { "STR":7, "DEX":6, "INT":5, "VIT":5, "LCK":8 },
+        "desc": "Toxic frog. Poisons enemies and boosts luck.",
+        "lore": "Venomaws secrete a psychoactive toxin from their skin that causes vivid hallucinations in predators. Strangely, colonists who handle them (with gloves) report increased lucky finds — as if the toxin alters probability itself. Researchers debate whether Venomaws bend luck or just make you notice opportunities you'd otherwise miss.",
+        "biomeHint": "Toxic Swamp — deep swamp pools",
+        "aggressive": true, "aggroRange": 12, "attackDmg": 9, "attackCooldown": 1.2, "size": 1.2
+    },
+    "goretusk": {
+        "name": "Goretusk", "type": "beast", "color": "#b71c1c", "rarity": "rare",
+        "baseStats": { "STR":12, "DEX":4, "INT":1, "VIT":8, "LCK":3 },
+        "desc": "Blood-red boar. Pure aggression. Terrible worker.",
+        "lore": "Goretusks are walking natural disasters. They charge at anything that moves and destroy anything that doesn't. Their tusks can pierce reinforced walls. Absolutely useless at any job that doesn't involve violence, but as bodyguards, they're unmatched. The colony's enemies learn to fear the thundering hooves.",
+        "biomeHint": "Volcanic Wastes — far zones",
+        "aggressive": true, "aggroRange": 16, "attackDmg": 16, "attackCooldown": 1.0, "size": 1.7
+    },
+    "faewisp": {
+        "name": "Faewisp", "type": "fairy", "color": "#b2ff59", "rarity": "rare",
+        "baseStats": { "STR":1, "DEX":6, "INT":12, "VIT":3, "LCK":10 },
+        "desc": "Ethereal fairy. Incredible researcher and lucky.",
+        "lore": "Faewisps are fragments of pure magical energy that somehow achieved sentience. They flicker between visible and invisible, communicating through emotions rather than sound. Their presence accelerates all forms of research — equations solve themselves, experiments succeed on the first try. Finding one is considered the luckiest event a colonist can experience.",
+        "biomeHint": "Crystal Caverns — deep caverns",
+        "aggressive": false, "attackDmg": 2, "attackCooldown": 2, "size": 0.8
+    },
 
-    "shadowfang":  { "name": "Shadowfang",  "type": "beast",  "color": "#5c2d91", "rarity": "legendary", "baseStats": { "STR":12, "DEX":10, "INT":6, "VIT":8, "LCK":8 }, "desc": "Dark wolf of shadow. Devastating in combat.", "aggressive": true, "aggroRange": 18, "attackDmg": 18, "attackCooldown": 0.7, "size": 1.8 },
-    "celestine":   { "name": "Celestine",   "type": "fairy",  "color": "#e0f7fa", "rarity": "legendary", "baseStats": { "STR":6, "DEX":8, "INT":14, "VIT":10, "LCK":10 }, "desc": "Celestial deer. Divine researcher and healer.", "aggressive": true, "aggroRange": 16, "attackDmg": 14, "attackCooldown": 1.0, "size": 1.8 },
-    "dreadmaw":    { "name": "Dreadmaw",    "type": "beast",  "color": "#1a1a1a", "rarity": "legendary", "baseStats": { "STR":15, "DEX":6, "INT":2, "VIT":14, "LCK":5 }, "desc": "Abyssal horror. Giant mouth. Eats everything.", "aggressive": true, "aggroRange": 20, "attackDmg": 25, "attackCooldown": 0.8, "size": 2.2 },
-    "pixibell":    { "name": "Pixibell",    "type": "fairy",  "color": "#fff176", "rarity": "legendary", "baseStats": { "STR":2, "DEX":14, "INT":12, "VIT":4, "LCK":14 }, "desc": "Adorable golden pixie. Absurdly lucky crafter.", "aggressive": false, "attackDmg": 5, "attackCooldown": 1.5, "size": 0.6 }
+    "shadowfang": {
+        "name": "Shadowfang", "type": "beast", "color": "#5c2d91", "rarity": "legendary",
+        "baseStats": { "STR":12, "DEX":10, "INT":6, "VIT":8, "LCK":8 },
+        "desc": "Dark wolf of shadow. Devastating in combat.",
+        "lore": "Shadowfangs are apex predators from the void between biomes. They phase through solid matter and strike from impossible angles. Only the bravest — or most foolish — colonists attempt capture. Those who succeed gain a companion of terrifying loyalty. A bonded Shadowfang has never been known to let its master die.",
+        "biomeHint": "Any biome — far zones, night",
+        "aggressive": true, "aggroRange": 18, "attackDmg": 18, "attackCooldown": 0.7, "size": 1.8
+    },
+    "celestine": {
+        "name": "Celestine", "type": "fairy", "color": "#e0f7fa", "rarity": "legendary",
+        "baseStats": { "STR":6, "DEX":8, "INT":14, "VIT":10, "LCK":10 },
+        "desc": "Celestial deer. Divine researcher and healer.",
+        "lore": "Celestines are believed to be physical manifestations of the world's healing magic. Where they walk, flowers bloom. Where they rest, wounds close. Their antlers channel research energy so efficiently that a single Celestine in a lab is worth ten scientists. Capturing one requires patience measured in seasons, not hours.",
+        "biomeHint": "Crystal Caverns — sacred groves",
+        "aggressive": true, "aggroRange": 16, "attackDmg": 14, "attackCooldown": 1.0, "size": 1.8
+    },
+    "dreadmaw": {
+        "name": "Dreadmaw", "type": "beast", "color": "#1a1a1a", "rarity": "legendary",
+        "baseStats": { "STR":15, "DEX":6, "INT":2, "VIT":14, "LCK":5 },
+        "desc": "Abyssal horror. Giant mouth. Eats everything.",
+        "lore": "No one knows where Dreadmaws come from. They appear from underground, consume everything in their path, then vanish. Their stomach acid dissolves diamond. Their hide deflects bullets. They're not intelligent — they're something worse: inevitable. Taming one is a feat spoken of in whispers. It requires a diamond snare and extraordinary luck.",
+        "biomeHint": "Volcanic Wastes — the deepest zones",
+        "aggressive": true, "aggroRange": 20, "attackDmg": 25, "attackCooldown": 0.8, "size": 2.2
+    },
+    "pixibell": {
+        "name": "Pixibell", "type": "fairy", "color": "#fff176", "rarity": "legendary",
+        "baseStats": { "STR":2, "DEX":14, "INT":12, "VIT":4, "LCK":14 },
+        "desc": "Adorable golden pixie. Absurdly lucky crafter.",
+        "lore": "Pixibells are impossibly rare golden sprites that leave trails of golden dust. Everything they touch turns profitable — ore yields double, crafts produce extras, and rare materials appear from nowhere. Some believe they're not real creatures but rather good luck given physical form. Capturing one requires a diamond snare and a prayer.",
+        "biomeHint": "Crystal Caverns — only at dawn",
+        "aggressive": false, "attackDmg": 5, "attackCooldown": 1.5, "size": 0.6
+    }
 }

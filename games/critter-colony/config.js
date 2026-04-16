@@ -28,7 +28,7 @@ const GameConfig = {
     async loadAll() {
         const files = [
             'species', 'critter-types', 'passives', 'buildings',
-            'research', 'equipment', 'snares', 'world', 'balance', 'biomes'
+            'research', 'equipment', 'snares', 'world', 'balance', 'biomes', 'enemies'
         ];
 
         const results = await Promise.all(
@@ -137,6 +137,11 @@ const GameConfig = {
         // ── BIOMES ──
         if (d.biomes) {
             window.BIOMES = d.biomes;
+        }
+
+        // ── ENEMIES ──
+        if (d.enemies) {
+            window.ENEMY_DEFS = d.enemies;
         }
 
         // ── SNARES ──

@@ -1,0 +1,97 @@
+{
+    "_README": "Hostile enemy definitions. These are NOT capturable — they attack player, critters, and buildings. Drop loot on death.",
+
+    "poacher": {
+        "name": "Poacher",
+        "desc": "A ruthless critter hunter. Targets your pals first.",
+        "hp": 60, "damage": 8, "attackCooldown": 1.5, "speed": 90,
+        "aggroRange": 12, "color": "#8B4513", "size": 1.2,
+        "biomes": ["plains","desert","snow","swamp","volcanic","crystal"],
+        "nightOnly": false, "ranged": true, "projectileSpeed": 250,
+        "targetsCreatures": true,
+        "loot": { "wood": 5, "stone": 3, "aethershards": 1 },
+        "spawnWeight": 1.0, "minDist": 60
+    },
+    "shadow_stalker": {
+        "name": "Shadow Stalker",
+        "desc": "Emerges from darkness. Lightning fast, vanishes in daylight.",
+        "hp": 40, "damage": 14, "attackCooldown": 0.8, "speed": 180,
+        "aggroRange": 10, "color": "#1a1a2e", "size": 1.1,
+        "biomes": ["plains","desert","snow","swamp","volcanic","crystal"],
+        "nightOnly": true, "ranged": false,
+        "targetsCreatures": false,
+        "loot": { "aethershards": 2 },
+        "spawnWeight": 1.2, "minDist": 50
+    },
+    "bone_crawler": {
+        "name": "Bone Crawler",
+        "desc": "A skittering skeletal arachnid. Poisonous bite slows movement.",
+        "hp": 50, "damage": 6, "attackCooldown": 1.2, "speed": 110,
+        "aggroRange": 8, "color": "#d4c5a9", "size": 0.9,
+        "biomes": ["swamp","volcanic"],
+        "nightOnly": true, "ranged": false,
+        "poisonDuration": 3, "poisonSlow": 0.5,
+        "targetsCreatures": false,
+        "loot": { "stone": 8, "iron": 3 },
+        "spawnWeight": 0.8, "minDist": 80
+    },
+    "frost_wraith": {
+        "name": "Frost Wraith",
+        "desc": "A translucent specter of ice. Its touch freezes the soul.",
+        "hp": 35, "damage": 10, "attackCooldown": 2.0, "speed": 70,
+        "aggroRange": 14, "color": "#a0d2db", "size": 1.3,
+        "biomes": ["snow"],
+        "nightOnly": true, "ranged": false,
+        "slowOnHit": 0.4, "slowDuration": 2,
+        "targetsCreatures": false,
+        "loot": { "crystal": 2, "aethershards": 1 },
+        "spawnWeight": 0.7, "minDist": 100
+    },
+    "magma_golem": {
+        "name": "Magma Golem",
+        "desc": "A lumbering mass of molten rock. Nearly indestructible.",
+        "hp": 200, "damage": 20, "attackCooldown": 2.5, "speed": 40,
+        "aggroRange": 8, "color": "#d84315", "size": 1.8,
+        "biomes": ["volcanic"],
+        "nightOnly": false, "ranged": false,
+        "fireTrail": true, "fireTrailDamage": 3, "fireTrailDuration": 4,
+        "targetsCreatures": false,
+        "loot": { "iron": 10, "gold": 2, "aethershards": 3 },
+        "spawnWeight": 0.4, "minDist": 140
+    },
+    "crystal_sentinel": {
+        "name": "Crystal Sentinel",
+        "desc": "An ancient guardian of the crystal caverns. Fires razor shards.",
+        "hp": 80, "damage": 12, "attackCooldown": 1.8, "speed": 60,
+        "aggroRange": 16, "color": "#9c27b0", "size": 1.4,
+        "biomes": ["crystal"],
+        "nightOnly": false, "ranged": true, "projectileSpeed": 300,
+        "targetsCreatures": false,
+        "loot": { "crystal": 5, "diamond": 1, "aethershards": 2 },
+        "spawnWeight": 0.5, "minDist": 120
+    },
+    "swamp_lurker": {
+        "name": "Swamp Lurker",
+        "desc": "A mass of rotting vines and teeth. Ambushes from water edges.",
+        "hp": 70, "damage": 15, "attackCooldown": 2.0, "speed": 50,
+        "aggroRange": 6, "color": "#2e4a1e", "size": 1.5,
+        "biomes": ["swamp"],
+        "nightOnly": false, "ranged": false,
+        "ambush": true, "ambushRange": 4,
+        "targetsCreatures": true,
+        "loot": { "wood": 10, "food": 8 },
+        "spawnWeight": 0.6, "minDist": 90
+    },
+    "sand_burrower": {
+        "name": "Sand Burrower",
+        "desc": "Tunnels beneath the dunes. You only see it when it strikes.",
+        "hp": 55, "damage": 18, "attackCooldown": 3.0, "speed": 130,
+        "aggroRange": 10, "color": "#c2a84d", "size": 1.2,
+        "biomes": ["desert"],
+        "nightOnly": false, "ranged": false,
+        "burrows": true, "burrowCooldown": 5,
+        "targetsCreatures": false,
+        "loot": { "stone": 6, "gold": 1, "aethershards": 1 },
+        "spawnWeight": 0.7, "minDist": 80
+    }
+}

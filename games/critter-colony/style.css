@@ -368,6 +368,33 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 #controlsHint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:.75rem;z-index:10;pointer-events:none}
 
 
+/* ========== CRITTERDEX ========== */
+.cdex-header{text-align:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.06)}
+.cdex-title{font-size:1.4rem;font-weight:900;color:#fff;display:block;letter-spacing:1px}
+.cdex-progress{font-size:.85rem;color:#66bb6a;font-weight:700;display:block;margin:6px 0}
+.cdex-bar{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;max-width:300px;margin:0 auto}
+.cdex-bar-fill{height:100%;background:linear-gradient(90deg,#66bb6a,#4caf50);border-radius:3px;transition:width .3s}
+.cdex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.cdex-entry{padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);transition:all .2s}
+.cdex-found:hover{border-color:rgba(102,187,106,.3);background:rgba(102,187,106,.04)}
+.cdex-unknown{opacity:.5;filter:grayscale(1)}
+.cdex-top{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.cdex-sprite{width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,255,255,.1)}
+.cdex-sprite-fallback{display:flex;align-items:center;justify-content:center}
+.cdex-sprite-unknown{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#555;font-weight:900}
+.cdex-info{flex:1;min-width:0}
+.cdex-name{font-weight:800;font-size:1rem;color:#fff}
+.cdex-name-unknown{color:#555}
+.cdex-meta{display:flex;gap:8px;margin-top:2px}
+.cdex-rarity{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.cdex-type{font-size:.72rem;font-weight:600}
+.cdex-stats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.cdex-stat{font-size:.72rem;color:#aaa;background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px}
+.cdex-desc{font-size:.8rem;color:#ccc;margin-bottom:6px;line-height:1.4}
+.cdex-desc-unknown{color:#555;font-style:italic}
+.cdex-lore{font-size:.75rem;color:#888;line-height:1.5;padding:8px;background:rgba(255,255,255,.02);border-radius:8px;border-left:3px solid rgba(102,187,106,.3);margin-bottom:6px}
+.cdex-biome{font-size:.7rem;color:#66bb6a;font-weight:600}
+
 /* ========== SCROLLBAR ========== */
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}

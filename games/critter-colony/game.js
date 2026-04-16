@@ -23,6 +23,7 @@ class Game {
         this.wildCritters = [];
         this.projectiles = [];
         this.deadCritters = []; // permadeath graveyard
+        this.discoveredSpecies = []; // Critterdex — species IDs the player has captured
 
         // Combat
         this.gunCooldown = 0;
@@ -59,6 +60,10 @@ class Game {
         this.hordeWave = 0;
         this.hordeActive = false;
         this.hordeCreatures = [];
+
+        // Hostile enemies (non-capturable)
+        this.hostileEnemies = [];
+        this._enemySpawnTimer = 15; // first check after 15s
 
         // Timers
         this.autoSaveTimer = 60;
@@ -124,6 +129,7 @@ class Game {
         this._resize();
         window.onresize = () => this._resize();
         preloadAllAssets();
+        preloadEnemySprites();
         this._initTitle();
     }
 
@@ -230,6 +236,11 @@ class Game {
         this.research = gs.research || { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = gs.researchInProgress || null;
         this.deadCritters = gs.deadCritters || [];
+        this.discoveredSpecies = gs.discoveredSpecies || [];
+        // Backfill: mark all currently owned critter species as discovered
+        for (const c of this.critters) {
+            if (!this.discoveredSpecies.includes(c.species)) this.discoveredSpecies.push(c.species);
+        }
         this.wildCritters = Critters.spawnWild(this.world);
         if (elapsed > 10) {
             const gains = Save.applyAFKGains(this, elapsed);
@@ -365,6 +376,11 @@ class Game {
                 // Preserve wild level on the captured pal so late-game captures aren't reset
                 result.captured.level = Math.max(1, closest.level || 1);
                 this.critters.push(result.captured);
+                // Critterdex discovery
+                if (!this.discoveredSpecies.includes(closest.species)) {
+                    this.discoveredSpecies.push(closest.species);
+                    UI.notify(`\ud83d\udcd6 New Critterdex entry: ${SPECIES[closest.species]?.name || closest.species}!`, 5000);
+                }
                 // Capture XP bonus — bigger than kill, scales with wild level + rarity
                 const rarity = SPECIES[closest.species]?.rarity || 'common';
                 const rarityMul = { common: 1.2, uncommon: 1.8, rare: 2.6, legendary: 4.5 }[rarity] || 1;
@@ -1772,6 +1788,53 @@ class Game {
             this._updateHorde(dt);
         }
 
+        // ── Hostile enemies (non-capturable) ──
+        this._enemySpawnTimer -= dt;
+        if (this._enemySpawnTimer <= 0) {
+            this._enemySpawnTimer = Enemies.SPAWN_INTERVAL;
+            const newEnemies = Enemies.spawnCheck(this.world, this.player.x, this.player.y, this.hostileEnemies);
+            for (const e of newEnemies) this.hostileEnemies.push(e);
+        }
+        Enemies.update(dt, this.hostileEnemies, this.player, this.critters, this.world, this.projectiles);
+        // Check projectile hits on hostile enemies
+        for (let pi = this.projectiles.length - 1; pi >= 0; pi--) {
+            const p = this.projectiles[pi];
+            if (p.fromEnemy) {
+                // Enemy projectile hits player
+                const hx = p.x - this.player.x, hy = p.y - this.player.y;
+                if (Math.sqrt(hx * hx + hy * hy) < 14) {
+                    this.playerTakeDamage(p.damage);
+                    this.projectiles.splice(pi, 1);
+                }
+                continue;
+            }
+            for (let ei = this.hostileEnemies.length - 1; ei >= 0; ei--) {
+                const e = this.hostileEnemies[ei];
+                if (e.hp <= 0 || e._burrowed) continue;
+                const hx = e.x - p.x, hy = e.y - p.y;
+                if (Math.sqrt(hx * hx + hy * hy) < 14 * (ENEMY_DEFS[e.type]?.size || 1)) {
+                    const loot = Enemies.damage(e, p.damage);
+                    this._spawnDmgNum(e.x, e.y, p.damage, 0xff5252);
+                    if (loot) {
+                        // Award loot
+                        for (const [res, amt] of Object.entries(loot)) {
+                            if (res === 'aethershards') this.inventory.aethershards = (this.inventory.aethershards || 0) + amt;
+                            else this.resources[res] = Math.min((this.resources[res] || 0) + amt, 9999);
+                        }
+                        this.deathSkulls.push({ x: e.x, y: e.y, timer: 3 });
+                        UI.notify(`Defeated ${ENEMY_DEFS[e.type]?.name || 'enemy'}! Loot dropped.`, 3000);
+                        this.hostileEnemies.splice(ei, 1);
+                    }
+                    this.projectiles.splice(pi, 1);
+                    break;
+                }
+            }
+        }
+        // Remove dead enemies
+        for (let ei = this.hostileEnemies.length - 1; ei >= 0; ei--) {
+            if (this.hostileEnemies[ei].hp <= 0) this.hostileEnemies.splice(ei, 1);
+        }
+
         // Loot pickups
         this._updateLootPickups(dt);
 
@@ -1958,6 +2021,13 @@ class Game {
 
         // Wild critters
         for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
+
+        // Hostile enemies
+        for (const e of this.hostileEnemies) {
+            if (e._burrowed) continue;
+            if (e.x < camX - 100 || e.x > camX + w + 100 || e.y < camY - 100 || e.y > camY + h + 100) continue;
+            this._drawHostileEnemy(gfx, e);
+        }
 
         // Loot pickups
         if (this._lootPickups) {
@@ -2624,6 +2694,83 @@ class Game {
     }
 
     // ─── WILD CRITTER DRAWING ───────────────────────────────
+    _drawHostileEnemy(gfx, enemy) {
+        const def = typeof ENEMY_DEFS !== 'undefined' ? ENEMY_DEFS[enemy.type] : null;
+        if (!def || enemy._burrowed) return;
+
+        const sx = enemy.x, sy = enemy.y;
+        const bob = Math.sin(this.time * 3 + enemy.id) * 2;
+        const size = def.size || 1;
+        const r = Math.round(12 * size);
+
+        // Fire trails
+        if (enemy._fireTrails) {
+            for (const ft of enemy._fireTrails) {
+                const fa = Math.min(1, ft.timer / 2);
+                gfx.beginFill(0xff6400, fa * 0.4);
+                gfx.drawCircle(ft.x, ft.y, TILE_SIZE * 0.4);
+                gfx.endFill();
+            }
+        }
+
+        // Shadow
+        gfx.beginFill(0x000000, 0.3);
+        gfx.drawEllipse(sx, sy + r, r * 0.8, r * 0.3);
+        gfx.endFill();
+
+        // Body — red-tinted circle with hostile indicator
+        const bodyColor = def.color ? PIXI.utils.string2hex(def.color) : 0xff4444;
+        gfx.beginFill(bodyColor);
+        gfx.drawCircle(sx, sy + bob, r * 0.85);
+        gfx.endFill();
+
+        // Red outline (hostile)
+        gfx.lineStyle(2, 0xcc3333, 0.8);
+        gfx.drawCircle(sx, sy + bob, r * 0.85);
+        gfx.lineStyle(0);
+
+        // Angry eyes
+        gfx.beginFill(0xff0000);
+        gfx.drawCircle(sx - r * 0.22, sy + bob - r * 0.12, 2.5);
+        gfx.drawCircle(sx + r * 0.22, sy + bob - r * 0.12, 2.5);
+        gfx.endFill();
+
+        // Aggro pulse ring
+        if (enemy.state === 'aggro') {
+            const pulse = 0.4 + Math.sin(this.time * 6) * 0.2;
+            gfx.lineStyle(1.5, 0xff3333, pulse);
+            gfx.drawCircle(sx, sy + bob, r + 4);
+            gfx.lineStyle(0);
+        }
+
+        // Name label
+        const nameText = this._getText(def.name, {
+            fontFamily: 'monospace', fontSize: 8, fontWeight: 'bold', fill: 0xff6b6b
+        });
+        nameText.anchor.set(0.5, 1);
+        nameText.x = sx; nameText.y = sy + bob - r - 10;
+
+        // Skull icon
+        const skull = this._getText('\u2620', {
+            fontFamily: 'sans-serif', fontSize: Math.floor(10 * size), fill: 0xff4444
+        });
+        skull.anchor.set(0.5, 1);
+        skull.x = sx; skull.y = sy + bob - r - 2;
+
+        // HP bar
+        if (enemy.hp < enemy.maxHp) {
+            const barW = 24 * size, barH = 3;
+            const bx = sx - barW / 2, by = sy + bob - r - 18;
+            gfx.beginFill(0x333333);
+            gfx.drawRect(bx, by, barW, barH);
+            gfx.endFill();
+            const pct = Math.max(0, enemy.hp / enemy.maxHp);
+            gfx.beginFill(0xff4444);
+            gfx.drawRect(bx, by, barW * pct, barH);
+            gfx.endFill();
+        }
+    }
+
     _drawWildCritter(gfx, critter) {
         // Render culling — skip offscreen critters (camera-relative check)
         const camX = this.cam.x, camY = this.cam.y;
