@@ -17,7 +17,7 @@ function preloadEnemySprites() {
     if (typeof ENEMY_DEFS === 'undefined') return;
     for (const key of Object.keys(ENEMY_DEFS)) {
         const img = new Image();
-        img.src = `images/enemies/${key}.webp`;
+        img.src = `images/enemies/${key}.png`;
         ENEMY_SPRITES[key] = img;
     }
 }
