@@ -9,24 +9,54 @@
 let _nextCritterId = 1;
 
 class Critters {
-    // Check if critter type matches a building
-    static getTypeBonus(critter, buildingType) {
+    // Get a critter's role (fighter/enhancer/chef/gatherer). Falls back to legacy `type` during migration.
+    static getRole(critter) {
         const sp = SPECIES[critter.species];
-        if (!sp || !sp.type) return 0;
-        const typeInfo = CRITTER_TYPES[sp.type];
-        if (!typeInfo) return 0;
-        if (typeInfo.buildings.includes(buildingType)) return TYPE_MATCH_BONUS;
-        if (typeInfo.buildings.length > 0) return TYPE_MISMATCH_PENALTY; // has specialties but this isn't one
-        return 0; // beast type — no building specialty, no penalty
+        if (!sp) return null;
+        return sp.role || sp.type || null;
     }
 
+    // Proficiency-vs-building bonus.
+    // Role match: +30% (TYPE_MATCH_BONUS). Role mismatch: -60% (worse than before to make roles matter).
+    // No role on building (e.g. nest, hq) = 0%.
+    static getTypeBonus(critter, buildingType) {
+        const def = (typeof BUILDING_DEFS !== 'undefined') ? BUILDING_DEFS[buildingType] : null;
+        if (!def || !def.role) return 0;
+        const role = Critters.getRole(critter);
+        if (!role) return 0;
+        if (role === def.role) return (typeof TYPE_MATCH_BONUS !== 'undefined') ? TYPE_MATCH_BONUS : 0.30;
+        return (typeof TYPE_MISMATCH_PENALTY !== 'undefined') ? TYPE_MISMATCH_PENALTY : -0.60;
+    }
+
+    // Roll a proficiency value for a newly captured critter.
+    // Base from species ± 2 variance, clamped to 1+.
+    static rollProficiency(species) {
+        const sp = SPECIES[species];
+        if (!sp) return 1;
+        const base = sp.proficiency || 5;
+        const variance = Math.floor(Math.random() * 5) - 2; // -2..+2
+        return Math.max(1, base + variance);
+    }
+
+    // Legacy shim — keep `stats` object for code that still reads c.stats.X
+    // All stats now mirror the proficiency value. Migration handles old saves.
     static rollStats(species) {
-        const base = SPECIES[species].baseStats;
-        const stats = {};
-        for (const key of Object.keys(base)) {
-            stats[key] = Math.max(1, base[key] + Math.floor(Math.random() * 5) - 2);
+        const prof = Critters.rollProficiency(species);
+        return { STR: prof, DEX: prof, INT: prof, VIT: prof, LCK: prof, PROF: prof };
+    }
+
+    // Get a critter's current proficiency, including from old stats during migration.
+    static getProficiency(critter) {
+        if (critter.proficiency !== undefined) return critter.proficiency;
+        if (critter.stats && critter.stats.PROF !== undefined) return critter.stats.PROF;
+        if (critter.stats) {
+            // Legacy migration: average of old 5 stats
+            const keys = ['STR','DEX','INT','VIT','LCK'];
+            let sum = 0, n = 0;
+            for (const k of keys) { if (typeof critter.stats[k] === 'number') { sum += critter.stats[k]; n++; } }
+            if (n > 0) return Math.round(sum / n);
         }
-        return stats;
+        return 1;
     }
 
     static rollPassives(speciesRarity) {
@@ -150,10 +180,9 @@ class Critters {
             const maxHp = Math.floor(baseHp * Critters.enemyHpMul(level));
             const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level) * bossMul);
 
-            const stats = Critters.rollStats(species);
-            if (isBoss) {
-                for (const k of Object.keys(stats)) stats[k] = Math.floor(stats[k] * 2);
-            }
+            let prof = Critters.rollProficiency(species);
+            if (isBoss) prof *= 2;
+            const stats = { PROF: prof, STR: prof, DEX: prof, INT: prof, VIT: prof, LCK: prof };
 
             wilds.push({
                 id: _nextCritterId++,
@@ -161,6 +190,7 @@ class Critters {
                 isBoss,
                 x: pos.x * TILE_SIZE + TILE_SIZE / 2,
                 y: pos.y * TILE_SIZE + TILE_SIZE / 2,
+                proficiency: prof,
                 stats,
                 hp: maxHp,
                 maxHp,
@@ -415,10 +445,13 @@ class Critters {
 
         // Stunned = guaranteed capture
         if (critter.stunned) {
+            const prof = critter.proficiency !== undefined ? critter.proficiency : Critters.rollProficiency(critter.species);
             const captured = {
                 id: critter.id, species: critter.species,
                 nickname: SPECIES[critter.species].name,
-                stats: critter.stats, level: 1, xp: 0, assignment: null,
+                proficiency: prof,
+                stats: { PROF: prof }, // legacy shim for code that still reads stats
+                level: 1, xp: 0, assignment: null,
                 passives: Critters.rollPassives(SPECIES[critter.species].rarity),
                 patrolHp: 50, patrolMaxHp: 50,
                 hunger: 100,
@@ -436,11 +469,13 @@ class Critters {
 
         if (roll < rate) {
             // Success!
+            const prof = critter.proficiency !== undefined ? critter.proficiency : Critters.rollProficiency(critter.species);
             const captured = {
                 id: critter.id,
                 species: critter.species,
                 nickname: SPECIES[critter.species].name,
-                stats: critter.stats,
+                proficiency: prof,
+                stats: { PROF: prof }, // legacy shim
                 level: 1,
                 xp: 0,
                 assignment: null,
@@ -644,8 +679,9 @@ class Critters {
         const maxHp = Math.floor(baseHp * Critters.enemyHpMul(level));
         const attackDmg = Math.ceil((sp.attackDmg || 3) * Critters.enemyDmgMul(level) * bossMul);
 
-        const stats = Critters.rollStats(species);
-        if (isBoss) { for (const k of Object.keys(stats)) stats[k] = Math.floor(stats[k] * 2); }
+        let prof = Critters.rollProficiency(species);
+        if (isBoss) prof *= 2;
+        const stats = { PROF: prof, STR: prof, DEX: prof, INT: prof, VIT: prof, LCK: prof };
 
         critter.species = species;
         critter.level = level;
@@ -653,6 +689,7 @@ class Critters {
         critter.isBoss = isBoss;
         critter.x = pos.x * TILE_SIZE + TILE_SIZE / 2;
         critter.y = pos.y * TILE_SIZE + TILE_SIZE / 2;
+        critter.proficiency = prof;
         critter.stats = stats;
         critter.hp = maxHp;
         critter.maxHp = maxHp;
@@ -683,25 +720,21 @@ class Critters {
             critter.xp -= needed;
             critter.level++;
 
-            // Level up: boost 2 stats — primary stat + random stat
-            const sp = SPECIES[critter.species];
-            const statKeys = Object.keys(critter.stats);
-            // Find the species' best base stat
-            let primaryStat = statKeys[0];
-            let bestVal = 0;
-            for (const k of statKeys) {
-                if (sp.baseStats[k] > bestVal) { bestVal = sp.baseStats[k]; primaryStat = k; }
-            }
-            // Always boost primary
-            critter.stats[primaryStat]++;
-            // 50% chance to also boost a random stat
-            if (Math.random() < 0.5) {
-                const other = statKeys[Math.floor(Math.random() * statKeys.length)];
-                critter.stats[other]++;
+            // Level up: +1 PROF (primary advancement) + 25% chance for bonus +1
+            if (critter.proficiency === undefined) critter.proficiency = Critters.getProficiency(critter);
+            const gain = 1 + (Math.random() < 0.25 ? 1 : 0);
+            critter.proficiency += gain;
+            // Keep legacy stats object in sync so old code doesn't break
+            if (critter.stats) {
+                critter.stats.PROF = critter.proficiency;
+                for (const k of ['STR','DEX','INT','VIT','LCK']) {
+                    if (critter.stats[k] !== undefined) critter.stats[k] = critter.proficiency;
+                }
+            } else {
+                critter.stats = { PROF: critter.proficiency };
             }
 
-            // Track what leveled for UI notification
-            critter._lastLevelUp = { level: critter.level, stat: primaryStat };
+            critter._lastLevelUp = { level: critter.level, stat: 'PROF', gain };
             return true;
         }
         return false;

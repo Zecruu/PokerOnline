@@ -18,8 +18,8 @@
         "catchRates": { "common": 0.70, "uncommon": 0.40, "rare": 0.20, "legendary": 0.05 },
         "captureRange": 2.5,
         "stunDuration": 15,
-        "typeMatchBonus": 0.50,
-        "typeMismatchPenalty": -0.30
+        "typeMatchBonus": 0.30,
+        "typeMismatchPenalty": -0.60
     },
 
     "wildCritters": {

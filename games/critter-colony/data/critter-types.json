@@ -1,11 +1,8 @@
 {
-    "_README": "Critter type definitions. Each type has buildings it gets a bonus at. canSwim allows water traversal.",
+    "_README": "Critter ROLES — each critter belongs to one of four roles. Role determines building effectiveness. Matching role = +30%, mismatch = -60%. Special canSwim flag preserved on Chef types that live near water.",
 
-    "grass":  { "name": "Grass",  "icon": "\ud83c\udf3f", "color": "#66bb6a", "desc": "Farming & food production", "buildings": ["farm","greenhouse"] },
-    "fire":   { "name": "Fire",   "icon": "\ud83d\udd25", "color": "#ff7043", "desc": "Smelting & fuel processing", "buildings": ["smelter","gas_refinery"] },
-    "muscle": { "name": "Muscle", "icon": "\ud83d\udcaa", "color": "#90a4ae", "desc": "Mining, lumber & combat",    "buildings": ["mine","lumber_mill","iron_mine","oil_pump","gold_mine","diamond_drill"] },
-    "arcane": { "name": "Arcane", "icon": "\ud83d\udd2e", "color": "#ce93d8", "desc": "Research, crafting & extractors", "buildings": ["research_lab","workbench","crystal_extractor","refinery"] },
-    "beast":  { "name": "Beast",  "icon": "\ud83d\udc3e", "color": "#8d6e63", "desc": "Patrol & bodyguard specialist", "buildings": [] },
-    "water":  { "name": "Water",  "icon": "\ud83d\udca7", "color": "#42a5f5", "desc": "Can swim. Companion grants water walk", "buildings": ["greenhouse"], "canSwim": true },
-    "fairy":  { "name": "Fairy",  "icon": "\u2728", "color": "#fff176", "desc": "Lucky crafter & healer",    "buildings": ["workbench","healer"] }
+    "fighter":  { "name": "Fighter",  "icon": "\u2694\ufe0f", "color": "#f87171", "desc": "Combat specialist. Patrol, bodyguard, barracks.", "buildings": ["barracks"] },
+    "enhancer": { "name": "Enhancer", "icon": "\u2728",       "color": "#fbbf24", "desc": "Support & magic. Passive lab, healer, doctrine building.", "buildings": ["passive_lab","healer","doctrine_building"] },
+    "chef":     { "name": "Chef",     "icon": "\ud83c\udf72", "color": "#9ccc65", "desc": "Forage & cooking. Farm, greenhouse.", "buildings": ["farm","greenhouse"] },
+    "gatherer": { "name": "Gatherer", "icon": "\u26cf\ufe0f", "color": "#90a4ae", "desc": "Resource extraction. Storage, mines, refineries, workbench.", "buildings": ["resource_storage","iron_mine","smelter","oil_pump","gold_mine","diamond_drill","crystal_extractor","gas_refinery","refinery","workbench"] }
 }

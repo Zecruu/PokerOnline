@@ -167,6 +167,10 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .cc-stats{display:flex;gap:6px;margin:4px 0;flex-wrap:wrap}
 .cc-stat{font-size:.7rem;color:#aaa;background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px;display:flex;align-items:center;gap:2px}
 .cc-stat-icon{width:12px;height:12px;object-fit:contain}
+.cc-prof-row{display:flex;gap:8px;align-items:center;margin:6px 0}
+.cc-prof-badge{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:.3px}
+.cc-prof-badge b{font-size:.9rem;margin-left:3px}
+.cc-prof-hint{font-size:.68rem;color:#888}
 .cc-assign{margin-top:6px}
 .cc-assign select{width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 8px;color:#e0e0e0;font-size:.8rem;cursor:pointer}
 .cc-assign select:focus{outline:none;border-color:rgba(102,187,106,.4)}

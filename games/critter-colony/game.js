@@ -246,7 +246,22 @@ class Game {
                 return { ...b, workers: [...b.workers], turretCooldown: 0, turretTarget: null, hp: b.hp ?? maxHp, maxHp };
             });
         this.critters = gs.critters.map(c => {
-            const restored = { ...c, stats: { ...c.stats }, hunger: c.hunger !== undefined ? c.hunger : 100 };
+            const restored = { ...c, stats: { ...(c.stats || {}) }, hunger: c.hunger !== undefined ? c.hunger : 100 };
+            // Migrate old 5-stat critters to single Proficiency
+            if (restored.proficiency === undefined) {
+                if (restored.stats && restored.stats.PROF !== undefined) {
+                    restored.proficiency = restored.stats.PROF;
+                } else if (restored.stats) {
+                    const keys = ['STR','DEX','INT','VIT','LCK'];
+                    let sum = 0, n = 0;
+                    for (const k of keys) { if (typeof restored.stats[k] === 'number') { sum += restored.stats[k]; n++; } }
+                    restored.proficiency = n > 0 ? Math.max(1, Math.round(sum / n)) : 5;
+                } else {
+                    restored.proficiency = 5;
+                }
+                // Keep stats in sync as a legacy shim
+                restored.stats = { PROF: restored.proficiency, STR: restored.proficiency, DEX: restored.proficiency, INT: restored.proficiency, VIT: restored.proficiency, LCK: restored.proficiency };
+            }
             // Clear assignment if it points to a building that no longer exists (e.g. removed research_lab)
             if (restored.assignment && typeof restored.assignment === 'number') {
                 const bld = this.buildings.find(b => b.id === restored.assignment);
@@ -717,26 +732,21 @@ class Game {
         });
 
         for (const critter of idle) {
-            // Find best building for this critter (type match + relevant stat)
+            // Find best building for this critter (role match + proficiency)
             let bestBuilding = null, bestScore = -Infinity;
-            const sp = SPECIES[critter.species];
+            const prof = Critters.getProficiency(critter);
 
             for (const b of openBuildings) {
                 if (b.workers.length >= maxW) continue;
-                const def = BUILDING_DEFS[b.type];
 
-                // Score: type match bonus + relevant stat value
+                // Score: role match (huge weight) + PROF value
                 let score = 0;
-                const typeBonus = Critters.getTypeBonus(critter, b.type);
-                score += typeBonus * 100; // type match is very important
-
-                // Add the building's scaling stat value
-                if (def.statKey && critter.stats[def.statKey]) {
-                    score += critter.stats[def.statKey] * 5;
-                }
+                const roleBonus = Critters.getTypeBonus(critter, b.type);
+                score += roleBonus * 200; // role match is very important (+30% vs -60%)
+                score += prof * 5;          // proficiency adds linearly
 
                 // Penalize buildings that already have workers (spread workers out)
-                score -= b.workers.length * 20;
+                score -= b.workers.length * 25;
 
                 if (score > bestScore) { bestScore = score; bestBuilding = b; }
             }
@@ -848,7 +858,7 @@ class Game {
         }
 
         // Food gained: base 10 + level * 5 + VIT * 2
-        const foodGained = 10 + critter.level * 5 + (critter.stats.VIT || 0) * 2;
+        const foodGained = 10 + critter.level * 5 + Critters.getProficiency(critter) * 2;
         const cap = (this.resourceCaps.food || 150) + (this.research.storageCap || 0) * 100;
         this.resources.food = Math.min(this.resources.food + foodGained, cap);
 
@@ -1599,7 +1609,7 @@ class Game {
             c._hurtTimer -= dt;
 
             // Init patrol HP based on VIT
-            if (!c.patrolMaxHp) { c.patrolMaxHp = 30 + (c.stats.VIT || 3) * 5; c.patrolHp = c.patrolMaxHp; }
+            if (!c.patrolMaxHp) { c.patrolMaxHp = 30 + Critters.getProficiency(c) * 4; c.patrolHp = c.patrolMaxHp; }
             const hpBonus = Critters.getPassiveEffect(c, 'hpBonus');
             const effectiveMaxHp = Math.floor(c.patrolMaxHp * (1 + hpBonus));
 

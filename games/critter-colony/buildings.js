@@ -87,18 +87,20 @@ class Buildings {
         // Broken-down buildings produce nothing until repaired (Industrial Tyrant mechanic)
         if (building._breakdown) return 0;
 
-        let totalStat = 0;
+        // New Proficiency system:
+        //   rate = baseRate × workers × (1 + totalProf × 0.04)
+        //        × (1 + passiveBonus) × (1 + avgRoleBonus) × avgHungerMul
+        let totalProf = 0;
         let passiveBonus = 0;
-        let typeBonus = 0;
+        let roleBonusSum = 0;
         let hungerMulSum = 0;
         for (const cid of building.workers) {
             const c = critters.find(cr => cr.id === cid);
             if (!c) continue;
-            if (def.statKey) {
-                let stat = c.stats[def.statKey] || 0;
-                stat *= (1 + Critters.getPassiveEffect(c, 'statMulti'));
-                totalStat += stat;
-            }
+            // Use Critters.getProficiency so both new and migrated critters work
+            let prof = Critters.getProficiency(c);
+            prof *= (1 + Critters.getPassiveEffect(c, 'statMulti'));
+            totalProf += prof;
             passiveBonus += Critters.getPassiveEffect(c, 'prodBonus');
             const resBonus = c.passives ? c.passives.reduce((sum, pid) => {
                 const p = PASSIVES[pid];
@@ -107,13 +109,14 @@ class Buildings {
                 return sum;
             }, 0) : 0;
             passiveBonus += resBonus;
-            // Type bonus/penalty
-            typeBonus += Critters.getTypeBonus(c, building.type);
+            // Role match bonus/mismatch penalty (reads building.role, critter.role)
+            roleBonusSum += Critters.getTypeBonus(c, building.type);
             hungerMulSum += Buildings.hungerProdMul(c.hunger);
         }
-        // Average hunger penalty across workers
-        const avgHungerMul = building.workers.length > 0 ? hungerMulSum / building.workers.length : 1;
-        let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05) * (1 + passiveBonus) * (1 + typeBonus / building.workers.length) * avgHungerMul;
+        const n = building.workers.length;
+        const avgHungerMul = n > 0 ? hungerMulSum / n : 1;
+        const avgRoleBonus = n > 0 ? roleBonusSum / n : 0;
+        let rate = def.baseRate * n * (1 + totalProf * 0.04) * (1 + passiveBonus) * (1 + avgRoleBonus) * avgHungerMul;
 
         // ── Doctrine modifiers ─────────────────────────────
         if (typeof Doctrines !== 'undefined') {
@@ -150,15 +153,15 @@ class Buildings {
         return Math.max(0, rate);
     }
 
-    // Base 5 seconds per trap. Each DEX point from workers reduces by 2%, min 1 second.
+    // Base 5 seconds per craft. Each point of summed worker Proficiency reduces by 1.5%, min 1 second.
     // No workers = manual craft at base speed (5s).
     static getCraftTime(building, critters) {
-        let dexSum = 0;
+        let profSum = 0;
         for (const cid of building.workers) {
             const c = critters.find(cr => cr.id === cid);
-            if (c) dexSum += c.stats.DEX || 0;
+            if (c) profSum += Critters.getProficiency(c);
         }
-        return Math.max(1, 5 * (1 - dexSum * 0.02));
+        return Math.max(1, 5 * (1 - profSum * 0.015));
     }
 
     static getResearchSpeed(buildings, critters) {

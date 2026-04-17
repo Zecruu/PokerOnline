@@ -63,7 +63,9 @@ class Save {
             })),
             critters: game.critters.map(c => ({
                 id: c.id, species: c.species, nickname: c.nickname,
-                stats: { ...c.stats }, level: c.level, xp: c.xp,
+                proficiency: c.proficiency !== undefined ? c.proficiency : (c.stats?.PROF || 1),
+                stats: { ...(c.stats || {}) }, // legacy shim for old-format readers
+                level: c.level, xp: c.xp,
                 assignment: c.assignment,
                 injured: c.injured || false, injuredTimer: c.injuredTimer || 0,
                 passives: c.passives || [],

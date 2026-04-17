@@ -122,7 +122,7 @@ class UI {
                 if (wb.workers.length > 0) {
                     for (const cid of wb.workers) {
                         const c = g.critters.find(cr => cr.id === cid);
-                        if (c) html += `<div class="wb-worker-item">${UI._critterIconHtml(c.species,'wb-worker-icon')} ${c.nickname} <span style="color:#ffd54f">DEX:${c.stats.DEX||0}</span></div>`;
+                        if (c) html += `<div class="wb-worker-item">${UI._critterIconHtml(c.species,'wb-worker-icon')} ${c.nickname} <span style="color:#ffd54f">PROF ${Critters.getProficiency(c)}</span></div>`;
                     }
                 } else html += `<div class="wb-no-workers">No workers — assign DEX critters for auto-craft</div>`;
 
@@ -226,7 +226,7 @@ class UI {
                     const critterImg = typeof CRITTER_SPRITES !== 'undefined' && CRITTER_SPRITES[c.species] && CRITTER_SPRITES[c.species].complete
                         ? `<img class="cc-icon" src="${CRITTER_SPRITES[c.species].src}">` : `<span class="cc-dot" style="background:${sp.color}"></span>`;
                     const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
-                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[sp.type] : null;
+                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? (CRITTER_TYPES[sp.role] || CRITTER_TYPES[sp.type]) : null;
                     const stars = c.stars || 0;
                     const starsHtml = stars > 0 ? `<span class="cc-stars">${'★'.repeat(stars)}</span>` : '';
                     // Merge selection state
@@ -286,14 +286,15 @@ class UI {
                         html += `<div class="cc-xp cc-xp-max"><span class="cc-xp-text">MAX LEVEL</span></div>`;
                     }
 
-                    // Stats row
-                    html += `<div class="cc-stats">`;
-                    for (const [key, val] of Object.entries(c.stats)) {
-                        const iconImg = typeof STAT_ICONS !== 'undefined' && STAT_ICONS[key.toLowerCase()] && STAT_ICONS[key.toLowerCase()].complete
-                            ? `<img class="cc-stat-icon" src="${STAT_ICONS[key.toLowerCase()].src}">` : '';
-                        html += `<span class="cc-stat">${iconImg}${key}:${val}</span>`;
+                    // Proficiency badge (role-colored) — single source of truth for power level
+                    {
+                        const prof = typeof Critters !== 'undefined' ? Critters.getProficiency(c) : (c.proficiency || c.stats?.PROF || 1);
+                        const roleColor = typeInfo ? typeInfo.color : '#888';
+                        html += `<div class="cc-prof-row">`;
+                        html += `<span class="cc-prof-badge" style="background:${roleColor}22;border:1px solid ${roleColor}55;color:${roleColor}">PROF <b>${prof}</b></span>`;
+                        if (typeInfo) html += `<span class="cc-prof-hint">${typeInfo.icon} ${typeInfo.name}</span>`;
+                        html += `</div>`;
                     }
-                    html += `</div>`;
 
                     // PASSIVES — prominent section with full descriptions
                     if (c.passives && c.passives.length > 0) {
@@ -558,11 +559,15 @@ class UI {
                     const def = BUILDING_DEFS[b.type];
                     if (def.turret || def.expander || def.capacity || def.isHQ || def.isWall || def.isGate || def.isGenerator) continue;
 
-                    // Find best critter type for this building
+                    // Find best critter role for this building (prefer def.role, fallback to type list)
                     let bestType = null;
                     if (typeof CRITTER_TYPES !== 'undefined') {
-                        for (const [tKey, tInfo] of Object.entries(CRITTER_TYPES)) {
-                            if (tInfo.buildings.includes(b.type)) { bestType = tInfo; break; }
+                        if (def.role && CRITTER_TYPES[def.role]) {
+                            bestType = CRITTER_TYPES[def.role];
+                        } else {
+                            for (const [tKey, tInfo] of Object.entries(CRITTER_TYPES)) {
+                                if (tInfo.buildings && tInfo.buildings.includes(b.type)) { bestType = tInfo; break; }
+                            }
                         }
                     }
 
@@ -585,7 +590,7 @@ class UI {
                                 html += UI._critterIconHtml(c.species);
                                 html += `<span class="mb-worker-name">${c.nickname}</span>`;
                                 html += `<span class="mb-worker-lv">Lv${c.level}</span>`;
-                                if (def.statKey) html += `<span class="mb-worker-stat">${def.statKey}:${c.stats[def.statKey]||0}</span>`;
+                                html += `<span class="mb-worker-stat">PROF ${Critters.getProficiency(c)}</span>`;
                                 html += `</div>`;
                             }
                         } else {
@@ -597,12 +602,12 @@ class UI {
                                 html += `<option value="">+ Assign critter...</option>`;
                                 for (const ic of idle) {
                                     const isp = SPECIES[ic.species];
-                                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? CRITTER_TYPES[isp.type] : null;
+                                    const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? (CRITTER_TYPES[isp.role] || CRITTER_TYPES[isp.type]) : null;
                                     const typeTag = typeInfo ? `${typeInfo.icon}${typeInfo.name}` : '';
-                                    const statVal = def.statKey ? ` ${def.statKey}:${ic.stats[def.statKey]||0}` : '';
+                                    const profVal = ` PROF ${Critters.getProficiency(ic)}`;
                                     const tBonus = typeof Critters !== 'undefined' ? Critters.getTypeBonus(ic, b.type) : 0;
                                     const matchTag = tBonus > 0 ? ' ✅' : tBonus < 0 ? ' ⚠️' : '';
-                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level} [${typeTag}]${statVal}${matchTag}</option>`;
+                                    html += `<option value="${ic.id}">${ic.nickname} Lv${ic.level} [${typeTag}]${profVal}${matchTag}</option>`;
                                 }
                                 html += `</select>`;
                                 html += `</div>`;
@@ -783,12 +788,14 @@ class UI {
                     html += `</div>`;
                     html += `</div></div>`;
 
-                    // Stats
-                    html += `<div class="cdex-stats">`;
-                    for (const [s, v] of Object.entries(sp.baseStats)) {
-                        html += `<span class="cdex-stat">${s}:${v}</span>`;
+                    // Proficiency (role-colored badge)
+                    {
+                        const prof = sp.proficiency != null ? sp.proficiency : 5;
+                        const roleColor = typeInfo ? typeInfo.color : '#888';
+                        html += `<div class="cdex-stats">`;
+                        html += `<span class="cdex-stat" style="background:${roleColor}22;border:1px solid ${roleColor}55;color:${roleColor}">PROF ${prof}</span>`;
+                        html += `</div>`;
                     }
-                    html += `</div>`;
 
                     // Description
                     html += `<div class="cdex-desc">${sp.desc}</div>`;
