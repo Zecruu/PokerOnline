@@ -591,8 +591,8 @@ class Game {
         this.buildings.push(b);
         this.sounds.build();
         UI.notify(`Built ${def.name}!`); this.placementMode = null; UI.update();
-        // Trigger doctrine selection on first Research Lab
-        if (type === 'research_lab' && !this.doctrine.active) {
+        // Trigger doctrine selection on first Doctrine Building
+        if (type === 'doctrine_building' && !this.doctrine.active) {
             Doctrines.triggerSelection();
         }
     }

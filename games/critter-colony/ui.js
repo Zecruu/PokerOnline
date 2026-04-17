@@ -942,7 +942,7 @@ class UI {
         if (!activeId) {
             let html = '<div class="doctrine-tab-empty">';
             html += '<div class="dt-empty-title">No Doctrine Chosen</div>';
-            html += '<div class="dt-empty-body">Build a <b>Research Lab</b> to unlock doctrine selection. Your doctrine shapes production, threat, critter behavior, and map strategy.</div>';
+            html += '<div class="dt-empty-body">Build a <b>Doctrine Building</b> to unlock doctrine selection. Your doctrine shapes production, threat, critter behavior, and map strategy.</div>';
             html += '<button class="dt-empty-btn" onclick="UI.showDoctrineSelection()">Preview Doctrines</button>';
             html += '</div>';
             return html;

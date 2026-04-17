@@ -24,7 +24,7 @@ function preloadBuildingSprites() {
         farm: 'buildings/farm.png',
         nest: 'buildings/nest.png',
         turret: 'buildings/turret.png',
-        research_lab: 'buildings/research-lab.png',
+        doctrine_building: 'buildings/research-lab.png',
         workbench: 'buildings/workbench.png',
         iron_mine: 'buildings/iron-mine.png',
         wall: 'buildings/wall.png',
@@ -149,7 +149,7 @@ function buildPixiTextures() {
         hq: 'buildings/hq.png',
         mine: 'buildings/mine.png', lumber_mill: 'buildings/lumber-mill.png',
         farm: 'buildings/farm.png', nest: 'buildings/nest.png',
-        turret: 'buildings/turret.png', research_lab: 'buildings/research-lab.png',
+        turret: 'buildings/turret.png', doctrine_building: 'buildings/research-lab.png',
         workbench: 'buildings/workbench.png', iron_mine: 'buildings/iron-mine.png',
         wall: 'buildings/wall.png', gate: 'buildings/gate.png',
     };
