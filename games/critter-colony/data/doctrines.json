@@ -1,0 +1,357 @@
+{
+    "_README": "Colony Doctrines — major strategic identities. Each doctrine reshapes economy, threat, critter behavior, and map planning. Modifiers are queried via Doctrines.getMod(key) and stack with research/passives. Pick one per run, permanent until respec unlocked.",
+
+    "_schema": {
+        "id": "unique id",
+        "name": "display name",
+        "icon": "emoji",
+        "color": "theme color hex",
+        "tagline": "short descriptor",
+        "description": "flavor text, 1-2 sentences",
+        "playstyle": "one-liner describing the fantasy",
+        "core": {
+            "label": "short core bonus label",
+            "desc": "what the core passive does",
+            "mods": "key-value modifier bag applied immediately"
+        },
+        "risk": {
+            "label": "short risk label",
+            "desc": "what the downside is",
+            "mods": "modifier bag (may be negative)",
+            "mechanic": "id of special system to activate (pollution, instability, building_fragility, threat_multiplier)"
+        },
+        "nodes": {
+            "node_id": {
+                "name": "display name",
+                "tier": "mid|capstone|hybrid",
+                "cost": "skill points",
+                "requires": "[array of node ids required]",
+                "crossBranch": "if hybrid, id of other doctrine whose tier-2+ must be owned",
+                "desc": "tooltip",
+                "mods": "modifier bag"
+            }
+        }
+    },
+
+    "industrial_tyrant": {
+        "id": "industrial_tyrant",
+        "name": "Industrial Tyrant",
+        "icon": "🏭",
+        "color": "#ff8f00",
+        "tagline": "Expansion, automation, throughput",
+        "description": "Your colony is a grinding machine. Production reigns, pollution be damned.",
+        "playstyle": "Expansion, automation, throughput",
+        "core": {
+            "label": "Assembly Line",
+            "desc": "+25% production from all buildings.",
+            "mods": { "productionMul": 0.25 }
+        },
+        "risk": {
+            "label": "Industrial Pollution",
+            "desc": "Heavy buildings emit pollution zones. Pollution damages critters, saps morale, and slowly fatigues building HP. Buildings also have a small breakdown chance per tick.",
+            "mods": {},
+            "mechanic": "pollution",
+            "params": {
+                "pollutionEmitRadiusTiles": 4,
+                "pollutionEmitIntensity": 1.0,
+                "pollutionCritterDamagePerSec": 0.5,
+                "pollutionMoraleDrainPerSec": 0.8,
+                "pollutionBuildingFatiguePerSec": 0.05,
+                "breakdownChancePerTick": 0.003,
+                "breakdownDurationSec": 12,
+                "breakdownHpCost": 15,
+                "industrialBuildings": ["mine","iron_mine","smelter","gas_refinery","oil_pump","refinery","gold_mine","diamond_drill","crystal_extractor"]
+            }
+        },
+        "nodes": {
+            "overdrive": {
+                "name": "Overdrive",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Buildings auto-overclock: +50% output and emit +1 pollution tile. Overclocked buildings take +10% HP drain per minute.",
+                "mods": {
+                    "overdriveUnlocked": 1,
+                    "overdriveProductionMul": 0.50,
+                    "overdrivePollutionBonus": 1,
+                    "overdriveHpDrainPerMin": 0.10
+                }
+            },
+            "auto_smelter": {
+                "name": "Auto-Smelter Efficiency",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Smelters, refineries, and gas refineries run 50% faster and use 25% less input resources.",
+                "mods": {
+                    "smelterMul": 0.50,
+                    "smelterConsumptionMul": -0.25
+                }
+            },
+            "reinforced_machinery": {
+                "name": "Reinforced Machinery",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "+25% building HP. -30% breakdown chance. Pollution damage to buildings reduced 50%.",
+                "mods": {
+                    "buildingHpMul": 0.25,
+                    "breakdownChanceMul": -0.30,
+                    "pollutionBuildingDamageMul": -0.50
+                }
+            },
+            "tyrant_grid": {
+                "name": "Tyrant Grid (Capstone)",
+                "tier": "capstone",
+                "cost": 4,
+                "requires": ["overdrive", "auto_smelter", "reinforced_machinery"],
+                "desc": "[STUB] Place a Grid Pylon that boosts all buildings within 10 tiles and neutralizes their pollution. Behavior not yet implemented.",
+                "mods": { "tyrantGridUnlocked": 1 }
+            },
+            "eco_factory": {
+                "name": "Eco-Factory (Nature Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["auto_smelter"],
+                "crossBranch": "natures_harmony",
+                "desc": "Pollution zones also grant +20% food production at farms/greenhouses inside them.",
+                "mods": { "pollutionFoodBonus": 0.20 }
+            },
+            "magitek_forges": {
+                "name": "Magitek Forges (Arcane Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["reinforced_machinery"],
+                "crossBranch": "arcane_dominion",
+                "desc": "Smelters 20% chance to yield bonus rare resources. Industrial buildings absorb minor anomalies.",
+                "mods": { "smelterBonusChance": 0.20, "anomalyAbsorb": 1 }
+            }
+        },
+        "deathHooks": {
+            "enemyKillInPollution": {
+                "desc": "Enemies killed inside pollution zones drop bonus iron scrap.",
+                "bonusLoot": { "iron": 2 },
+                "pollutionCleanupPct": 0.15
+            }
+        }
+    },
+
+    "natures_harmony": {
+        "id": "natures_harmony",
+        "name": "Nature's Harmony",
+        "icon": "🌿",
+        "color": "#66bb6a",
+        "tagline": "Critter-centric, resilient, sustainable",
+        "description": "Your critters are family. Buildings serve them, not the other way around.",
+        "playstyle": "Critter-centric, resilient, sustainable",
+        "core": {
+            "label": "Living Colony",
+            "desc": "+15% critter HP, +10% critter work/combat effectiveness, +25% morale recovery.",
+            "mods": { "critterHpMul": 0.15, "critterEffectivenessMul": 0.10, "moraleRecoveryMul": 0.25 }
+        },
+        "risk": {
+            "label": "Fragile Structures",
+            "desc": "Without industrial engineering, all buildings have -20% max HP.",
+            "mods": { "buildingHpMul": -0.20 },
+            "mechanic": "building_fragility"
+        },
+        "nodes": {
+            "symbiosis": {
+                "name": "Symbiotic Growth",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Grass-type critters passively generate +0.1 food/sec each, regardless of assignment.",
+                "mods": { "grassTypePassiveFood": 0.1 }
+            },
+            "wild_bond": {
+                "name": "Wild Bond",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "+30% capture rate. Patrol critters heal 1 HP/sec when out of combat.",
+                "mods": { "captureRateMul": 0.30, "patrolRegen": 1 }
+            },
+            "living_walls": {
+                "name": "Living Walls",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Walls regenerate 2 HP/sec. Trees near colony act as natural barriers enemies must break.",
+                "mods": { "wallRegen": 2, "treeBarriers": 1 }
+            },
+            "overgrowth": {
+                "name": "Overgrowth (Capstone)",
+                "tier": "capstone",
+                "cost": 4,
+                "requires": ["symbiosis", "wild_bond", "living_walls"],
+                "desc": "Colony tiles slowly spawn resource nodes (wood/food) over time. Critters gain a 'Bonded' buff that scales with colony size.",
+                "mods": { "overgrowthUnlocked": 1 }
+            },
+            "sustainable_harvest": {
+                "name": "Sustainable Harvest (Industrial Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["symbiosis"],
+                "crossBranch": "industrial_tyrant",
+                "desc": "Industrial buildings don't reduce critter morale. Lumber mills and mines don't deplete nearby tiles.",
+                "mods": { "moralePollutionImmune": 1, "noTileDepletion": 1 }
+            },
+            "druidic_rites": {
+                "name": "Druidic Rites (Arcane Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["wild_bond"],
+                "crossBranch": "arcane_dominion",
+                "desc": "Rare chance for captured critters to come pre-rolled with a legendary passive. Anomaly events heal instead of harm.",
+                "mods": { "legendaryPassiveRoll": 0.05, "anomalyHealInstead": 1 }
+            }
+        }
+    },
+
+    "arcane_dominion": {
+        "id": "arcane_dominion",
+        "name": "Arcane Dominion",
+        "icon": "🔮",
+        "color": "#ce93d8",
+        "tagline": "Weird utility, experimentation, high ceiling",
+        "description": "You tap into chaos itself. Research bends reality — but reality bends back.",
+        "playstyle": "Weird utility, experimentation, high ceiling",
+        "core": {
+            "label": "Unbound Intellect",
+            "desc": "+20% research speed, +15% anomaly/mutation interaction efficiency.",
+            "mods": { "researchMul": 0.20, "anomalyEfficiencyMul": 0.15 }
+        },
+        "risk": {
+            "label": "Arcane Instability",
+            "desc": "Periodic arcane instability events strike active colony structures. Can be good, bad, or extremely strange.",
+            "mods": {},
+            "mechanic": "instability"
+        },
+        "nodes": {
+            "passive_amplifier": {
+                "name": "Passive Amplifier Towers",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Unlock Amplifier Towers. Critter passives within 8 tiles of a tower trigger 30% stronger.",
+                "mods": { "amplifierTowerUnlocked": 1 }
+            },
+            "temporal_surge": {
+                "name": "Temporal Surges",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Active ability: 2x speed burst for all nearby work/combat for 8 seconds (60s cooldown).",
+                "mods": { "temporalSurgeUnlocked": 1 }
+            },
+            "unstable_magic": {
+                "name": "Unstable Magic",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Instability events double in frequency but 60% are beneficial: resource duplication, critter teleports, weather buffs.",
+                "mods": { "instabilityFrequencyMul": 1.0, "instabilityBeneficialRate": 0.60 }
+            },
+            "reality_rift": {
+                "name": "Reality Rift (Capstone)",
+                "tier": "capstone",
+                "cost": 4,
+                "requires": ["passive_amplifier", "temporal_surge", "unstable_magic"],
+                "desc": "Open permanent rifts on the map. Rifts spawn anomaly resources, corrupt nearby enemies into allies, and occasionally vomit legendary critters.",
+                "mods": { "realityRiftUnlocked": 1 }
+            },
+            "enchanted_forges": {
+                "name": "Enchanted Forges (Industrial Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["passive_amplifier"],
+                "crossBranch": "industrial_tyrant",
+                "desc": "Your smelters also produce Aethershards at 1/10th the crystal rate. Industrial buildings within Amplifier range are immune to instability.",
+                "mods": { "smelterAethershardTrickle": 0.10, "industrialAnomalyShield": 1 }
+            },
+            "fey_pact": {
+                "name": "Fey Pact (Nature Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["unstable_magic"],
+                "crossBranch": "natures_harmony",
+                "desc": "Captured critters have 25% chance to gain an additional random passive. Anomaly events can spawn a wild fairy critter.",
+                "mods": { "bonusPassiveChance": 0.25, "anomalyFairyChance": 0.10 }
+            }
+        }
+    },
+
+    "warlords_path": {
+        "id": "warlords_path",
+        "name": "Warlord's Path",
+        "icon": "⚔️",
+        "color": "#ef5350",
+        "tagline": "Defense, aggression, combat scaling",
+        "description": "You declare war on the world. The world declares war right back — and you're ready.",
+        "playstyle": "Defense, aggression, combat scaling",
+        "core": {
+            "label": "Warcry",
+            "desc": "+20% combat damage (player, patrols, turrets). +15% patrol/turret attack speed.",
+            "mods": { "combatDmgMul": 0.20, "attackSpeedMul": 0.15 }
+        },
+        "risk": {
+            "label": "Blood Beacon",
+            "desc": "+50% threat generated from violence and colony presence. Enemies spawn in bigger, more coordinated waves.",
+            "mods": { "threatGenerationMul": 0.50 },
+            "mechanic": "threat_multiplier"
+        },
+        "nodes": {
+            "blood_tithe": {
+                "name": "Blood Tithe",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Each enemy/wild critter killed grants 2 wood, 1 iron, and 1 food. Scales with enemy level.",
+                "mods": { "bloodTitheUnlocked": 1 }
+            },
+            "war_machines": {
+                "name": "War Machines",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "Turrets gain +50% fire rate, +2 tile range, and pierce 1 additional target.",
+                "mods": { "turretFireRateMul": 0.50, "turretRangeBonus": 2, "turretPierce": 1 }
+            },
+            "conscription": {
+                "name": "Conscription",
+                "tier": "mid",
+                "cost": 2,
+                "requires": [],
+                "desc": "During hordes, any aggressive wild critters within 15 tiles of colony are temporarily recruited to fight for you.",
+                "mods": { "conscriptionUnlocked": 1 }
+            },
+            "siege_engine": {
+                "name": "Siege Engine (Capstone)",
+                "tier": "capstone",
+                "cost": 4,
+                "requires": ["blood_tithe", "war_machines", "conscription"],
+                "desc": "Build a mobile Siege Engine you can ride. High damage, high HP, crushes buildings and critters.",
+                "mods": { "siegeEngineUnlocked": 1 }
+            },
+            "war_factory": {
+                "name": "War Factory (Industrial Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["war_machines"],
+                "crossBranch": "industrial_tyrant",
+                "desc": "Turrets can be overclocked for 3x fire rate at the cost of HP. Ammo crafting 40% faster.",
+                "mods": { "turretOverclockUnlocked": 1, "ammoCraftSpeed": 0.40 }
+            },
+            "battle_mage": {
+                "name": "Battle Mage (Arcane Hybrid)",
+                "tier": "hybrid",
+                "cost": 3,
+                "requires": ["conscription"],
+                "crossBranch": "arcane_dominion",
+                "desc": "Patrol critters deal +20% damage as arcane (ignores armor). Horde deaths charge a 'Wrath' meter for free Temporal Surges.",
+                "mods": { "arcaneDamagePct": 0.20, "wrathMeterUnlocked": 1 }
+            }
+        }
+    }
+}

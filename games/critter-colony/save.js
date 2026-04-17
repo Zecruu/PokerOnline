@@ -73,6 +73,7 @@ class Save {
             discoveredSpecies: game.discoveredSpecies || [],
             research: { ...game.research },
             researchInProgress: game.researchInProgress ? { ...game.researchInProgress } : null,
+            doctrine: (typeof Doctrines !== 'undefined' && Doctrines.save) ? Doctrines.save() : (game.doctrine || null),
             lastActive: Date.now(),
         };
     }

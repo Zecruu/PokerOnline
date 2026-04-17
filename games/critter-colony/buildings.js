@@ -47,8 +47,10 @@ class Buildings {
         for (const [res, cost] of Object.entries(def.cost)) {
             resources[res] -= cost;
         }
-        const maxHp = def.hp || 100;
-        return {
+        // Doctrine: building HP scaled by mods (Nature -20%, Industrial Reinforced +25%)
+        const hpMul = (typeof Doctrines !== 'undefined') ? (1 + Doctrines.getMod('buildingHpMul')) : 1;
+        const maxHp = Math.max(1, Math.floor((def.hp || 100) * hpMul));
+        const building = {
             id: Date.now() + Math.floor(Math.random() * 1000),
             type,
             gridX,
@@ -61,7 +63,13 @@ class Buildings {
             turretTarget: null,
             turretCooldown: 0,
             turretAngle: 0,
+            // Breakdown state (Industrial Tyrant)
+            _breakdown: false,
+            _breakdownTimer: 0,
         };
+        // Invalidate pollution zone cache — a new emitter may need registration
+        if (typeof PollutionSystem !== 'undefined') PollutionSystem.invalidate();
+        return building;
     }
 
     // Map a critter's hunger value to a production multiplier.
@@ -76,6 +84,8 @@ class Buildings {
     static getProductionRate(building, critters, _legacyHungry) {
         const def = BUILDING_DEFS[building.type];
         if (!def.produces || building.workers.length === 0) return 0;
+        // Broken-down buildings produce nothing until repaired (Industrial Tyrant mechanic)
+        if (building._breakdown) return 0;
 
         let totalStat = 0;
         let passiveBonus = 0;
@@ -104,6 +114,39 @@ class Buildings {
         // Average hunger penalty across workers
         const avgHungerMul = building.workers.length > 0 ? hungerMulSum / building.workers.length : 1;
         let rate = def.baseRate * building.workers.length * (1 + totalStat * 0.05) * (1 + passiveBonus) * (1 + typeBonus / building.workers.length) * avgHungerMul;
+
+        // ── Doctrine modifiers ─────────────────────────────
+        if (typeof Doctrines !== 'undefined') {
+            // Global production multiplier (Industrial Tyrant)
+            rate *= (1 + Doctrines.getMod('productionMul'));
+            // Nature critter effectiveness also boosts production rate
+            rate *= (1 + Doctrines.getMod('critterEffectivenessMul'));
+            // Smelter-family bonus
+            const smelterTypes = new Set(['smelter','gas_refinery','refinery']);
+            if (smelterTypes.has(building.type)) {
+                rate *= (1 + Doctrines.getMod('smelterMul'));
+            }
+            // Overdrive: +50% output on industrial buildings
+            if (Doctrines.getFlag('overdriveUnlocked')) {
+                const industrialSet = new Set(['mine','iron_mine','smelter','gas_refinery','oil_pump','refinery','gold_mine','diamond_drill','crystal_extractor']);
+                if (industrialSet.has(building.type)) {
+                    rate *= (1 + Doctrines.getMod('overdriveProductionMul'));
+                }
+            }
+            // Eco-Factory hybrid: farms/greenhouses inside pollution zones get +food bonus
+            const pollutionFoodBonus = Doctrines.getMod('pollutionFoodBonus');
+            if (pollutionFoodBonus > 0 && (building.type === 'farm' || building.type === 'greenhouse')) {
+                if (typeof PollutionSystem !== 'undefined') {
+                    const bcx = (building.gridX + (def.size || 1) / 2) * TILE_SIZE;
+                    const bcy = (building.gridY + (def.size || 1) / 2) * TILE_SIZE;
+                    if (PollutionSystem.isInZone(bcx, bcy)) rate *= (1 + pollutionFoodBonus);
+                }
+            }
+            // Tyrant Grid capstone — behavior stubbed; flag check hook ready for future
+            if (Doctrines.getFlag('tyrantGridUnlocked')) {
+                // STUB: Tyrant Grid not yet implemented. Keeping hook for future.
+            }
+        }
         return Math.max(0, rate);
     }
 
@@ -130,6 +173,10 @@ class Buildings {
             if (b.workers.length > 0) {
                 speed += 0.075 * b.workers.length * (1 + intSum * 0.08);
             }
+        }
+        // Doctrine: Arcane Dominion research speed bonus
+        if (typeof Doctrines !== 'undefined') {
+            speed *= (1 + Doctrines.getMod('researchMul'));
         }
         return speed;
     }

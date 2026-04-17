@@ -42,6 +42,9 @@ class Game {
         this.research = this.techUnlocks; // alias for legacy code
         this.researchInProgress = null; // unused but kept to avoid undefined refs
 
+        // Doctrine (colony-wide strategic identity)
+        this.doctrine = { active: null, unlocked: [], pendingSelection: false };
+
         // Input
         this.keys = {};
         this.mouse = { x: 0, y: 0, worldX: 0, worldY: 0 };
@@ -252,6 +255,8 @@ class Game {
         this.researchInProgress = null; // research progress system removed
         this.deadCritters = gs.deadCritters || [];
         this.discoveredSpecies = gs.discoveredSpecies || [];
+        // Doctrine state
+        this.doctrine = gs.doctrine || { active: null, unlocked: [], pendingSelection: false };
         // Backfill: mark all currently owned critter species as discovered
         for (const c of this.critters) {
             if (!this.discoveredSpecies.includes(c.species)) this.discoveredSpecies.push(c.species);
@@ -279,6 +284,7 @@ class Game {
         this.critters = []; this.deadCritters = [];
         this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
         this.researchInProgress = null;
+        this.doctrine = { active: null, unlocked: [], pendingSelection: false };
         // Place HQ at colony center
         this.buildings = [Buildings.place('hq', -1, -1, { wood:0, stone:0, food:0, iron:0 })];
         this.wildCritters = Critters.spawnWild(this.world);
@@ -294,6 +300,8 @@ class Game {
         // Clear old chunk sprites
         this._chunkSprites.forEach(cs => { if (cs.sprite.parent) cs.sprite.parent.removeChild(cs.sprite); cs.sprite.destroy(true); });
         this._chunkSprites.clear();
+        Doctrines.init(this);
+        if (typeof PollutionSystem !== 'undefined') PollutionSystem.init(this);
         UI.init(this); UI.update();
         // Set resource icon images
         this._setResIcons();
@@ -326,6 +334,9 @@ class Game {
                 else { this.placementMode = null; UI.showWaypointMenu = false; this.showFullMap = false; }
             }
             if (e.key.toLowerCase() === 'p') this.togglePause();
+            // Debug: F10 toggles pollution viz, F11 toggles damage
+            if (e.key === 'F10' && typeof PollutionSystem !== 'undefined') { e.preventDefault(); PollutionSystem.toggleVisualize(); }
+            if (e.key === 'F11' && typeof PollutionSystem !== 'undefined') { e.preventDefault(); PollutionSystem.toggleDamage(); }
         };
         window.onkeyup = (e) => {
             this.keys[e.key.toLowerCase()] = false;
@@ -531,7 +542,8 @@ class Game {
         }
         if (ammoNow > 10) this._lastAmmoThreshold = null;
         const angle = Math.atan2(wy - this.player.y, wx - this.player.x);
-        const speed = 400, damage = Math.floor((this.gunDamage + (this.research.gunDamage || 0) * 5) * gt.dmgMul);
+        const doctrineCombat = (typeof Doctrines !== 'undefined') ? (1 + Doctrines.getMod('combatDmgMul')) : 1;
+        const speed = 400, damage = Math.floor((this.gunDamage + (this.research.gunDamage || 0) * 5) * gt.dmgMul * doctrineCombat);
         const vx = Math.cos(angle)*speed, vy = Math.sin(angle)*speed;
         this.projectiles.push({ x: this.player.x, y: this.player.y, vx, vy, damage, lifetime: 2, fromTurret: false });
         this.sounds.shoot();
@@ -579,6 +591,10 @@ class Game {
         this.buildings.push(b);
         this.sounds.build();
         UI.notify(`Built ${def.name}!`); this.placementMode = null; UI.update();
+        // Trigger doctrine selection on first Research Lab
+        if (type === 'research_lab' && !this.doctrine.active) {
+            Doctrines.triggerSelection();
+        }
     }
 
     _invalidateChunksNear(tx, ty, radius) {
@@ -1293,6 +1309,9 @@ class Game {
 
         this.gameTimeSec += dt;
 
+        // Doctrine risk tick — pollution, instability, threat bleed
+        if (typeof Doctrines !== 'undefined') Doctrines.tick(dt);
+
         // ── Day/Night Cycle ──
         const dn = this.world.dayNightCycle;
         const fullCycle = dn.dayLength + dn.nightLength; // 480s = 8min total
@@ -1515,6 +1534,7 @@ class Game {
                 }
                 UI.notify(`${BUILDING_DEFS[b.type].name} was destroyed!`, 4000);
                 this.buildings.splice(i, 1);
+                if (typeof PollutionSystem !== 'undefined') PollutionSystem.invalidate();
             }
         }
 
@@ -2174,6 +2194,9 @@ class Game {
             }
         }
 
+        // Pollution zones (debug viz under critters)
+        if (typeof PollutionSystem !== 'undefined' && PollutionSystem.render) PollutionSystem.render(gfx);
+
         // Wild critters
         for (const c of this.wildCritters) this._drawWildCritter(gfx, c);
 
@@ -2792,6 +2815,19 @@ class Game {
         }
         gfx.lineStyle(1, 0xffffff, 0.2);
         gfx.drawRect(wx + 2, wy + 2, size - 4, size - 4);
+        // Breakdown overlay (Industrial Tyrant): red X and smoke
+        if (building._breakdown) {
+            const cx = wx + size / 2, cy = wy + size / 2;
+            const r = size / 2 - 4;
+            const pulse = 0.5 + Math.sin(this.time * 6) * 0.3;
+            gfx.lineStyle(3, 0xff5252, pulse);
+            gfx.moveTo(cx - r, cy - r); gfx.lineTo(cx + r, cy + r);
+            gfx.moveTo(cx + r, cy - r); gfx.lineTo(cx - r, cy + r);
+            gfx.lineStyle(0);
+            gfx.beginFill(0x1a1a1a, 0.35);
+            gfx.drawRect(wx + 2, wy + 2, size - 4, size - 4);
+            gfx.endFill();
+        }
         gfx.lineStyle(0);
 
         // Turret barrel

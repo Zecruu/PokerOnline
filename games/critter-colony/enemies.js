@@ -254,14 +254,28 @@ class Enemies {
         }
     }
 
-    // Handle damage to an enemy — returns loot if killed
+    // Handle damage to an enemy — returns loot if killed.
+    // Loot bag may be augmented by doctrine/system death hooks (e.g. PollutionSystem
+    // grants bonus iron for kills inside pollution zones under Industrial Tyrant).
     static damage(enemy, amount) {
         if (!enemy || enemy.hp <= 0) return null;
         enemy.hp -= amount;
         enemy._aggroed = true;
         if (enemy.hp <= 0) {
             const def = typeof ENEMY_DEFS !== 'undefined' ? ENEMY_DEFS[enemy.type] : null;
-            return def ? { ...def.loot } : null;
+            const base = def ? { ...def.loot } : null;
+            const loot = base || {};
+            // ── Doctrine death hooks ─────────────────────────
+            // Industrial Tyrant: bonus loot for kills in pollution zones
+            if (typeof PollutionSystem !== 'undefined' && PollutionSystem.onEnemyDeath) {
+                const bonus = PollutionSystem.onEnemyDeath(enemy);
+                if (bonus) {
+                    for (const [k, v] of Object.entries(bonus)) {
+                        loot[k] = (loot[k] || 0) + v;
+                    }
+                }
+            }
+            return Object.keys(loot).length > 0 ? loot : null;
         }
         return null;
     }

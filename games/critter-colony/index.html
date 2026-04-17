@@ -89,10 +89,22 @@
           <button class="bm-tab" data-tab="manage" onclick="game.switchBuildTab('manage')">Manage</button>
           <button class="bm-tab" data-tab="workbench" onclick="game.switchBuildTab('workbench')">Workbench</button>
           <button class="bm-tab" data-tab="research" onclick="game.switchBuildTab('research')">🧬 Tech Tree</button>
+          <button class="bm-tab" data-tab="doctrine" onclick="game.switchBuildTab('doctrine')">📜 Doctrine</button>
           <button class="bm-tab" data-tab="equip" onclick="game.switchBuildTab('equip')">Equip</button>
           <button class="bm-tab" data-tab="critterdex" onclick="game.switchBuildTab('critterdex')">Critterdex</button>
         </div>
         <div id="buildModalBody" class="build-modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Doctrine Selection Modal — appears when first Research Lab built -->
+    <div id="doctrineModal" class="doctrine-modal hidden">
+      <div class="doctrine-modal-content">
+        <div class="doctrine-modal-header">
+          <h2>⚡ Choose Your Doctrine</h2>
+          <p>Your colony's identity. This choice permanently reshapes production, threat, critter behavior, and map strategy. Choose wisely.</p>
+        </div>
+        <div id="doctrineCardGrid" class="doctrine-card-grid"></div>
       </div>
     </div>
 
@@ -115,6 +127,8 @@
   <script src="buildings.js"></script>
   <script src="ui.js"></script>
   <script src="enemies.js"></script>
+  <script src="pollution.js"></script>
+  <script src="doctrines.js"></script>
   <script src="save.js"></script>
   <script src="game.js"></script>
   <script>

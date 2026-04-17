@@ -28,7 +28,8 @@ const GameConfig = {
     async loadAll() {
         const files = [
             'species', 'critter-types', 'passives', 'buildings',
-            'research', 'equipment', 'snares', 'world', 'balance', 'biomes', 'enemies', 'tech'
+            'research', 'equipment', 'snares', 'world', 'balance', 'biomes', 'enemies', 'tech',
+            'doctrines'
         ];
 
         const results = await Promise.all(
@@ -187,6 +188,15 @@ const GameConfig = {
         if (d.equipment) {
             window.GUN_TIERS = d.equipment.guns;
             window.ARMOR_TIERS = d.equipment.armor;
+        }
+
+        // ── DOCTRINES ──
+        if (d.doctrines) {
+            window.DOCTRINE_DEFS = {};
+            for (const [k, v] of Object.entries(d.doctrines)) {
+                if (k.startsWith('_')) continue;
+                window.DOCTRINE_DEFS[k] = v;
+            }
         }
     }
 };

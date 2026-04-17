@@ -745,6 +745,9 @@ class UI {
             html += `</div>`;
             body.innerHTML = html;
 
+        } else if (this.activeTab === 'doctrine') {
+            body.innerHTML = UI._renderDoctrineTab(g);
+
         } else if (this.activeTab === 'critterdex') {
             let html = '';
             const discovered = g.discoveredSpecies || [];
@@ -892,5 +895,131 @@ class UI {
             ctx.fillText(n.text, canvasW / 2, y + 4);
         }
         ctx.globalAlpha = 1;
+    }
+
+    // ─── DOCTRINE SELECTION MODAL ───────────────────────────
+    static showDoctrineSelection() {
+        const modal = document.getElementById('doctrineModal');
+        const grid = document.getElementById('doctrineCardGrid');
+        if (!modal || !grid || typeof DOCTRINE_DEFS === 'undefined') return;
+        let html = '';
+        for (const [id, d] of Object.entries(DOCTRINE_DEFS)) {
+            if (id.startsWith('_')) continue;
+            html += `<div class="doctrine-card" style="--d-color:${d.color}" onclick="UI.pickDoctrine('${id}')">`;
+            html += `<div class="doctrine-card-head">`;
+            html += `<span class="doctrine-card-icon">${d.icon}</span>`;
+            html += `<div class="doctrine-card-title">`;
+            html += `<div class="doctrine-card-name">${d.name}</div>`;
+            html += `<div class="doctrine-card-tag">${d.tagline}</div>`;
+            html += `</div></div>`;
+            html += `<div class="doctrine-card-desc">${d.description}</div>`;
+            html += `<div class="doctrine-card-block doctrine-card-core">`;
+            html += `<div class="doctrine-card-label">⚡ Core: ${d.core.label}</div>`;
+            html += `<div class="doctrine-card-text">${d.core.desc}</div>`;
+            html += `</div>`;
+            html += `<div class="doctrine-card-block doctrine-card-risk">`;
+            html += `<div class="doctrine-card-label">⚠ Risk: ${d.risk.label}</div>`;
+            html += `<div class="doctrine-card-text">${d.risk.desc}</div>`;
+            html += `</div>`;
+            html += `<div class="doctrine-card-playstyle">🎯 ${d.playstyle}</div>`;
+            html += `<button class="doctrine-card-pick" style="background:${d.color}" onclick="event.stopPropagation(); UI.pickDoctrine('${id}')">Choose ${d.name}</button>`;
+            html += `</div>`;
+        }
+        grid.innerHTML = html;
+        modal.classList.remove('hidden');
+    }
+
+    static pickDoctrine(doctrineId) {
+        if (typeof Doctrines !== 'undefined') Doctrines.pick(doctrineId);
+        const modal = document.getElementById('doctrineModal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    // ─── DOCTRINE TAB RENDERING ─────────────────────────────
+    static _renderDoctrineTab(g) {
+        if (typeof DOCTRINE_DEFS === 'undefined') return '<div class="panel-empty">Doctrines unavailable.</div>';
+        const activeId = g.doctrine?.active;
+        if (!activeId) {
+            let html = '<div class="doctrine-tab-empty">';
+            html += '<div class="dt-empty-title">No Doctrine Chosen</div>';
+            html += '<div class="dt-empty-body">Build a <b>Research Lab</b> to unlock doctrine selection. Your doctrine shapes production, threat, critter behavior, and map strategy.</div>';
+            html += '<button class="dt-empty-btn" onclick="UI.showDoctrineSelection()">Preview Doctrines</button>';
+            html += '</div>';
+            return html;
+        }
+        const d = DOCTRINE_DEFS[activeId];
+        if (!d) return '<div class="panel-empty">Invalid doctrine.</div>';
+
+        let html = `<div class="doctrine-tab" style="--d-color:${d.color}">`;
+        // Header
+        html += `<div class="dt-header">`;
+        html += `<span class="dt-icon">${d.icon}</span>`;
+        html += `<div class="dt-header-info">`;
+        html += `<div class="dt-name">${d.name}</div>`;
+        html += `<div class="dt-tag">${d.tagline}</div>`;
+        html += `</div>`;
+        const inDoc = Doctrines.spentInDoctrine();
+        const totalLife = Doctrines.spentTotal();
+        html += `<div class="dt-sp-group">`;
+        html += `<div class="dt-sp" title="Available skill points">🧬 ${g.skillPoints || 0} SP</div>`;
+        html += `<div class="dt-sp-meta" title="SP invested in this doctrine (used for hybrid gating) vs. lifetime across all doctrines">In doctrine: <b>${inDoc}</b> · Lifetime: <b>${totalLife}</b></div>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        // Core + Risk summary
+        html += `<div class="dt-cr">`;
+        html += `<div class="dt-cr-block dt-core"><div class="dt-cr-label">⚡ Core</div><div class="dt-cr-name">${d.core.label}</div><div class="dt-cr-desc">${d.core.desc}</div></div>`;
+        html += `<div class="dt-cr-block dt-risk"><div class="dt-cr-label">⚠ Risk</div><div class="dt-cr-name">${d.risk.label}</div><div class="dt-cr-desc">${d.risk.desc}</div></div>`;
+        html += `</div>`;
+
+        // Node tree: group by tier
+        const mid = [], cap = [], hyb = [];
+        for (const [nid, n] of Object.entries(d.nodes || {})) {
+            if (n.tier === 'capstone') cap.push([nid, n]);
+            else if (n.tier === 'hybrid') hyb.push([nid, n]);
+            else mid.push([nid, n]);
+        }
+
+        html += `<div class="dt-tree">`;
+        // Mid tier
+        html += `<div class="dt-tier-label">Mid Nodes</div><div class="dt-tier-row">`;
+        for (const [nid, n] of mid) html += UI._renderDoctrineNode(g, d, nid, n);
+        html += `</div>`;
+        // Capstone
+        html += `<div class="dt-tier-label">Capstone</div><div class="dt-tier-row">`;
+        for (const [nid, n] of cap) html += UI._renderDoctrineNode(g, d, nid, n);
+        html += `</div>`;
+        // Hybrids
+        html += `<div class="dt-tier-label">Hybrid Paths</div><div class="dt-tier-row">`;
+        for (const [nid, n] of hyb) html += UI._renderDoctrineNode(g, d, nid, n);
+        html += `</div>`;
+        html += `</div>`;
+
+        html += '</div>';
+        return html;
+    }
+
+    static _renderDoctrineNode(g, d, nid, n) {
+        const unlocked = g.doctrine.unlocked.includes(nid);
+        const chk = Doctrines.canUnlock(nid);
+        const available = chk.ok;
+        const stateClass = unlocked ? 'dt-node-done' : available ? 'dt-node-available' : 'dt-node-locked';
+        const click = (!unlocked && available) ? ` onclick="Doctrines.unlock('${nid}')"` : '';
+        let html = `<div class="dt-node ${stateClass}"${click} title="${n.desc}">`;
+        html += `<div class="dt-node-name">${n.name}</div>`;
+        html += `<div class="dt-node-desc">${n.desc}</div>`;
+        if (unlocked) {
+            html += `<div class="dt-node-status">✓ Unlocked</div>`;
+        } else if (available) {
+            html += `<div class="dt-node-status">💠 ${n.cost} SP — Click to unlock</div>`;
+        } else {
+            html += `<div class="dt-node-status">🔒 ${chk.reason}</div>`;
+        }
+        if (n.tier === 'hybrid' && n.crossBranch) {
+            const other = DOCTRINE_DEFS[n.crossBranch];
+            if (other) html += `<div class="dt-node-hybrid">${other.icon} ${other.name} synergy</div>`;
+        }
+        html += `</div>`;
+        return html;
     }
 }
