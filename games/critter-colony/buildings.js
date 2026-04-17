@@ -259,6 +259,74 @@ class Buildings {
                 continue;
             }
 
+            // Critter Resource Storage: gather from nearby tree/rock nodes.
+            // Each worker gathers from its assigned node (cycled periodically).
+            // When no nodes available in radius → storage idles.
+            if (def.isResourceStorage) {
+                if (b.workers.length === 0) { b._gatherTarget = null; continue; }
+                if (!b.productionAccum) b.productionAccum = 0;
+                if (!b._gatherTick) b._gatherTick = 0;
+                b._gatherTick += dt;
+                // Find/rotate active gather target every 3s or when current node depleted
+                const world = (typeof game !== 'undefined') ? game.world : null;
+                if (!world) continue;
+                const retargetNeeded = !b._gatherTarget
+                    || b._gatherTick > 3
+                    || world.getTile(b._gatherTarget.tx, b._gatherTarget.ty) !== b._gatherTarget.type;
+                if (retargetNeeded) {
+                    b._gatherTick = 0;
+                    const bcx = b.gridX + (def.size || 2) / 2;
+                    const bcy = b.gridY + (def.size || 2) / 2;
+                    // Alternate wood/stone based on last pull so we produce both
+                    const prefer = b._lastPulled === 'wood' ? TILE.ROCK : TILE.TREE;
+                    let node = world.findNearestNode(Math.floor(bcx), Math.floor(bcy), def.gatherRadius || 15, prefer);
+                    if (!node) node = world.findNearestNode(Math.floor(bcx), Math.floor(bcy), def.gatherRadius || 15);
+                    b._gatherTarget = node;
+                }
+                if (!b._gatherTarget) continue; // no nodes around, idle
+
+                // Production rate scales by worker stats + hunger (same formula as generic producers)
+                const rate = Buildings.getProductionRate(b, critters, hungry);
+                b.productionAccum += rate * dt;
+                if (b.productionAccum >= 1) {
+                    const want = Math.floor(b.productionAccum);
+                    const tx = b._gatherTarget.tx, ty = b._gatherTarget.ty;
+                    const resType = b._gatherTarget.type === TILE.TREE ? 'wood' : 'stone';
+                    const abLvl = (typeof game !== 'undefined' && game.techUnlocks) ? (game.techUnlocks.abundance || 0) : 0;
+                    const got = world.harvestNode(tx, ty, want, abLvl, (typeof game !== 'undefined' ? game.gameTimeSec : 0), 300);
+                    if (got > 0) {
+                        const cap = resourceCaps ? (resourceCaps[resType] || 9999) : 9999;
+                        resources[resType] = Math.min((resources[resType] || 0) + got, cap);
+                        b.productionAccum -= got;
+                        b._lastPulled = resType;
+                        // Invalidate chunk cache if node was depleted
+                        if (world.getTile(tx, ty) !== b._gatherTarget.type) {
+                            if (typeof game !== 'undefined' && game._chunkSprites) {
+                                const cx = Math.floor(tx / CHUNK_SIZE), cy = Math.floor(ty / CHUNK_SIZE);
+                                const cs = game._chunkSprites.get(cx + ',' + cy);
+                                if (cs) cs.dirty = true;
+                            }
+                            b._gatherTarget = null; // re-target next tick
+                        }
+                        // Grant worker XP
+                        for (const cid of b.workers) {
+                            const c = critters.find(cr => cr.id === cid);
+                            if (c) {
+                                const leveled = Critters.addXp(c, got);
+                                if (leveled && c._lastLevelUp) {
+                                    UI.notify(`${c.nickname} leveled up to Lv.${c._lastLevelUp.level}! +${c._lastLevelUp.stat}`);
+                                    if (typeof game !== 'undefined' && game.sounds) game.sounds.levelup();
+                                }
+                            }
+                        }
+                    } else {
+                        // Target was depleted between retargets
+                        b._gatherTarget = null;
+                    }
+                }
+                continue;
+            }
+
             // Gas Refinery: consume oil → produce gasoline
             if (def.consumesResource && def.produces && !def.isGenerator) {
                 if (b.workers.length === 0) continue;

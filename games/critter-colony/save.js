@@ -46,6 +46,8 @@ class Save {
             worldSeed: game.world.seed,
             modifiedChunks,
             waypoints: game.world.waypoints,
+            nodePools: Array.from((game.world.nodePools || new Map()).entries()).map(([k, v]) => [k, v === Infinity ? '∞' : v]),
+            nodeRespawns: Array.from((game.world.nodeRespawns || new Map()).entries()),
             playerPos: { x: game.player.x, y: game.player.y },
             playerHunger: game.player.hunger !== undefined ? game.player.hunger : 100,
             skillPoints: game.skillPoints || 0,

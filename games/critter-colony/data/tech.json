@@ -4,10 +4,13 @@
     "_branches": {
         "combat":     { "name": "Combat",      "icon": "\u2694\ufe0f", "color": "#f87171" },
         "economy":    { "name": "Economy",     "icon": "\ud83c\udfd7\ufe0f", "color": "#4ade80" },
+        "abundance":  { "name": "Abundance",   "icon": "\ud83c\udf3f", "color": "#8bc34a" },
         "capture":    { "name": "Capture",     "icon": "\ud83c\udfaf", "color": "#4fc3f7" },
         "extraction": { "name": "Extraction",  "icon": "\u26cf\ufe0f", "color": "#ce93d8" },
         "defense":    { "name": "Defense",     "icon": "\ud83d\udee1\ufe0f", "color": "#fbbf24" }
     },
+
+    "abundance": { "name": "Abundance I", "desc": "Tree & rock nodes hold 2x resources (50 each)", "branch": "abundance", "tier": 1, "cost": 1, "maxLevel": 5, "_scaling": "Lv2=4x, Lv3=8x, Lv4=16x, Lv5=INFINITE" },
 
     "gunDamage":      { "name": "Tamer Gun Power",    "desc": "+5 gun damage per level", "branch": "combat",     "tier": 1, "cost": 1, "maxLevel": 10 },
     "turretDamage":   { "name": "Turret Calibration",  "desc": "+3 turret damage per level", "branch": "combat", "tier": 2, "cost": 1, "maxLevel": 8, "prereq": ["gunDamage"] },

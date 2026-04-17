@@ -225,6 +225,11 @@ class Game {
         this.world.generate(gs.worldSeed);
         Save.restoreModifiedChunks(this.world, gs.modifiedChunks);
         if (gs.waypoints) this.world.waypoints = gs.waypoints;
+        // Restore node pools + respawns
+        if (gs.nodePools) {
+            this.world.nodePools = new Map(gs.nodePools.map(([k, v]) => [k, v === '∞' ? Infinity : v]));
+        }
+        if (gs.nodeRespawns) this.world.nodeRespawns = new Map(gs.nodeRespawns);
         this.player.x = gs.playerPos.x;
         this.player.y = gs.playerPos.y;
         this.player.hunger = gs.playerHunger !== undefined ? gs.playerHunger : 100;
@@ -1308,6 +1313,10 @@ class Game {
         if (this.paused) return;
 
         this.gameTimeSec += dt;
+        // Node respawns (trees/rocks regenerate over time unless Abundance V = infinite)
+        if (this.world && this.world.processRespawns) {
+            this.world.processRespawns(this.gameTimeSec, this.techUnlocks?.abundance || 0);
+        }
 
         // Doctrine risk tick — pollution, instability, threat bleed
         if (typeof Doctrines !== 'undefined') Doctrines.tick(dt);
@@ -1410,28 +1419,32 @@ class Game {
                 if (Math.abs(mdx) > 2 || Math.abs(mdy) > 2) {
                     this.miningTarget = null; this.miningProgress = 0;
                 } else {
-                    const baseMineTime = this.miningTarget.type === TILE.TREE ? 0.8 : this.miningTarget.type === TILE.NODE_OIL ? 2.0 : 1.2;
+                    // Manual mining is slow — critters do it faster. Encourage automation.
+                    const baseMineTime = this.miningTarget.type === TILE.TREE ? 3.0 : this.miningTarget.type === TILE.NODE_OIL ? 5.0 : 4.0;
                     const mineTime = baseMineTime / (1 + (this.player._compMineBonus || 0));
                     this.miningProgress += dt;
                     if (this.miningProgress >= mineTime) {
                         const t = this.miningTarget.type;
                         const tx = this.miningTarget.tx, ty = this.miningTarget.ty;
-                        // Harvest
                         const cap = (r) => (this.resourceCaps[r] || 50) + (this.research.storageCap || 0) * 100;
-                        if (t === TILE.TREE) {
-                            this.resources.wood = Math.min(this.resources.wood + 3, cap('wood'));
-                        } else if (t === TILE.ROCK) {
-                            this.resources.stone = Math.min(this.resources.stone + 3, cap('stone'));
-                        } else if (t === TILE.NODE_OIL) {
+                        const abLvl = this.techUnlocks?.abundance || 0;
+                        // Harvest from node pool (handles depletion + respawn scheduling)
+                        if (t === TILE.NODE_OIL) {
+                            // Oil nodes never deplete (extractor pattern) — give fixed amount
                             this.resources.oil = Math.min((this.resources.oil || 0) + 1, cap('oil'));
                             UI.notify('+1 Oil', 1500);
+                        } else {
+                            const got = this.world.harvestNode(tx, ty, 3, abLvl, this.gameTimeSec, 300);
+                            if (t === TILE.TREE) {
+                                this.resources.wood = Math.min(this.resources.wood + got, cap('wood'));
+                            } else if (t === TILE.ROCK) {
+                                this.resources.stone = Math.min(this.resources.stone + got, cap('stone'));
+                            }
+                            // If tile got depleted, invalidate chunk cache (harvestNode may have changed tile)
+                            const cx = Math.floor(tx / CHUNK_SIZE), cy = Math.floor(ty / CHUNK_SIZE);
+                            const cs = this._chunkSprites.get(cx + ',' + cy);
+                            if (cs) cs.dirty = true;
                         }
-                        // Clear tile to grass (except oil — oil nodes persist, just give resource)
-                        if (t !== TILE.NODE_OIL) this.world.setTile(tx, ty, TILE.GRASS);
-                        // Invalidate chunk cache
-                        const cx = Math.floor(tx / CHUNK_SIZE), cy = Math.floor(ty / CHUNK_SIZE);
-                        const cs = this._chunkSprites.get(cx + ',' + cy);
-                        if (cs) cs.dirty = true;
                         this.sounds.hit();
                         this.miningProgress = 0;
                         this.miningTarget = null; // find next target
@@ -2542,11 +2555,40 @@ class Game {
         const w2sx = (wx) => (wx - camX) * zoom + zoomOffX;
         const w2sy = (wy) => (wy - camY) * zoom + zoomOffY;
 
+        // Node remaining-count labels — shown when player is within 5 tiles of a tree/rock
+        {
+            const ptx = Math.floor(this.player.x / TILE_SIZE);
+            const pty = Math.floor(this.player.y / TILE_SIZE);
+            const abLvl = this.techUnlocks?.abundance || 0;
+            const isInfinite = abLvl >= 5;
+            for (let dy = -5; dy <= 5; dy++) {
+                for (let dx = -5; dx <= 5; dx++) {
+                    if (dx * dx + dy * dy > 25) continue;
+                    const tx = ptx + dx, ty = pty + dy;
+                    const t = this.world.getTile(tx, ty);
+                    if (t !== TILE.TREE && t !== TILE.ROCK) continue;
+                    const remaining = this.world.getNodePool(tx, ty, abLvl);
+                    const maxPool = this.world._defaultPoolFor(t, abLvl);
+                    const nx = w2sx(tx * TILE_SIZE + TILE_SIZE / 2);
+                    const ny = w2sy(ty * TILE_SIZE - 2);
+                    if (isInfinite) {
+                        const lbl = this._getText('∞', { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold', fill: 0x4ade80, stroke: 0x000000, strokeThickness: 3 });
+                        lbl.x = nx; lbl.y = ny;
+                    } else {
+                        const pct = remaining / maxPool;
+                        const color = pct > 0.5 ? 0xeaeaea : pct > 0.25 ? 0xfbbf24 : 0xf87171;
+                        const lbl = this._getText(remaining + '', { fontFamily: 'monospace', fontSize: 9, fontWeight: 'bold', fill: color, stroke: 0x000000, strokeThickness: 3 });
+                        lbl.x = nx; lbl.y = ny;
+                    }
+                }
+            }
+        }
+
         // Mining progress bar
         if (this.miningHeld && this.miningTarget && this.miningProgress > 0) {
             const mtx = w2sx(this.miningTarget.tx * TILE_SIZE + TILE_SIZE / 2);
             const mty = w2sy(this.miningTarget.ty * TILE_SIZE - 4);
-            const mineTime = this.miningTarget.type === TILE.TREE ? 0.8 : 1.2;
+            const mineTime = this.miningTarget.type === TILE.TREE ? 3.0 : this.miningTarget.type === TILE.NODE_OIL ? 5.0 : 4.0;
             const pct = Math.min(1, this.miningProgress / mineTime);
             const barW = 28;
             ovr.beginFill(0x333333);
@@ -2829,6 +2871,23 @@ class Game {
             gfx.endFill();
         }
         gfx.lineStyle(0);
+
+        // Resource Storage — draw a dashed line to current gather target
+        if (def.isResourceStorage && building._gatherTarget) {
+            const target = building._gatherTarget;
+            const tx = target.tx * TILE_SIZE + TILE_SIZE / 2;
+            const ty = target.ty * TILE_SIZE + TILE_SIZE / 2;
+            const sx = wx + size / 2, sy = wy + size / 2;
+            const col = target.type === TILE.TREE ? 0x66bb6a : 0x90a4ae;
+            gfx.lineStyle(2, col, 0.4 + Math.sin(this.time * 3) * 0.2);
+            gfx.moveTo(sx, sy);
+            gfx.lineTo(tx, ty);
+            gfx.lineStyle(0);
+            // Small pulsing dot at target
+            gfx.beginFill(col, 0.6);
+            gfx.drawCircle(tx, ty, 4 + Math.sin(this.time * 4) * 1.5);
+            gfx.endFill();
+        }
 
         // Turret barrel
         if (def.turret) {

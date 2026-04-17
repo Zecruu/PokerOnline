@@ -15,6 +15,92 @@ class World {
         this._noiseCache = new Map();
         this._gradients = null;
         this.dayNightCycle = { time: 0, dayLength: 300, nightLength: 180, isNight: false, darkness: 0 };
+        // Node resource pools — keyed by "tx,ty". Tracks remaining harvests per tree/rock.
+        // Nodes not in this map fall back to their default pool (lazily initialized on first query).
+        this.nodePools = new Map();
+        // Scheduled node respawns — keyed by "tx,ty" → { time: gameSec, tileType }
+        this.nodeRespawns = new Map();
+    }
+
+    // Get default pool size for a tile type, with Abundance tech multiplier.
+    _defaultPoolFor(tileType, abundanceLevel) {
+        let base = 25;
+        if (tileType === TILE.TREE) base = 25;
+        else if (tileType === TILE.ROCK) base = 25;
+        else if (tileType === TILE.NODE_OIL) base = 40;
+        // Abundance multiplier: Lv0=1x, Lv1=2x, Lv2=4x, Lv3=8x, Lv4=16x, Lv5=Infinity
+        const lvl = abundanceLevel || 0;
+        if (lvl >= 5) return Infinity;
+        return base * Math.pow(2, lvl);
+    }
+
+    // Get or create the remaining resources for a node tile.
+    getNodePool(tx, ty, abundanceLevel) {
+        const key = tx + ',' + ty;
+        if (this.nodePools.has(key)) return this.nodePools.get(key);
+        const t = this.getTile(tx, ty);
+        if (t !== TILE.TREE && t !== TILE.ROCK && t !== TILE.NODE_OIL &&
+            t !== TILE.NODE_GOLD && t !== TILE.NODE_DIAMOND && t !== TILE.NODE_CRYSTAL) return 0;
+        const pool = this._defaultPoolFor(t, abundanceLevel);
+        this.nodePools.set(key, pool);
+        return pool;
+    }
+
+    // Harvest N resources from a node. Returns actual amount harvested (may be less if depleted).
+    // If pool is Infinity, always returns full amount (never depletes).
+    // Schedules respawn when pool hits 0.
+    harvestNode(tx, ty, amount, abundanceLevel, gameTimeSec, respawnSec) {
+        const key = tx + ',' + ty;
+        const t = this.getTile(tx, ty);
+        if (t !== TILE.TREE && t !== TILE.ROCK && t !== TILE.NODE_OIL) return 0;
+        let pool = this.nodePools.has(key) ? this.nodePools.get(key) : this._defaultPoolFor(t, abundanceLevel);
+        if (pool === Infinity) { this.nodePools.set(key, Infinity); return amount; }
+        const harvested = Math.min(amount, pool);
+        pool -= harvested;
+        if (pool <= 0) {
+            // Deplete — convert tile to grass and schedule respawn
+            this.setTile(tx, ty, TILE.GRASS);
+            this.nodePools.delete(key);
+            this.nodeRespawns.set(key, { time: (gameTimeSec || 0) + (respawnSec || 300), tileType: t });
+        } else {
+            this.nodePools.set(key, pool);
+        }
+        return harvested;
+    }
+
+    // Check if any scheduled respawns are ready and restore them.
+    processRespawns(gameTimeSec, abundanceLevel) {
+        if (this.nodeRespawns.size === 0) return;
+        for (const [key, info] of this.nodeRespawns) {
+            if (info.time <= gameTimeSec) {
+                const [tx, ty] = key.split(',').map(Number);
+                // Only restore if tile is still grass (nothing built on it)
+                if (this.getTile(tx, ty) === TILE.GRASS && !this.isColony(tx, ty)) {
+                    this.setTile(tx, ty, info.tileType);
+                    this.nodePools.set(key, this._defaultPoolFor(info.tileType, abundanceLevel));
+                }
+                this.nodeRespawns.delete(key);
+            }
+        }
+    }
+
+    // Find nearest tree/rock node within `radiusTiles` of (ox, oy), optionally filtered by type.
+    // Returns { tx, ty, dist, type } or null.
+    findNearestNode(ox, oy, radiusTiles, filterType) {
+        let best = null, bestD = Infinity;
+        const r = Math.ceil(radiusTiles);
+        for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+                const tx = ox + dx, ty = oy + dy;
+                const t = this.getTile(tx, ty);
+                if (t !== TILE.TREE && t !== TILE.ROCK) continue;
+                if (filterType && t !== filterType) continue;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > radiusTiles) continue;
+                if (d < bestD) { bestD = d; best = { tx, ty, dist: d, type: t }; }
+            }
+        }
+        return best;
     }
 
     /* ----------------------------------------------------------
