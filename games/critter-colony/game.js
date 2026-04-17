@@ -1120,7 +1120,6 @@ class Game {
     startMerge(critterId) {
         const c = this.critters.find(cr => cr.id === critterId);
         if (!c) return;
-        if ((c.stars || 0) >= 5) { UI.notify('Already max stars (5★)!'); return; }
         const eligible = this.critters.filter(o =>
             o.id !== critterId &&
             o.species === c.species &&
@@ -1186,11 +1185,16 @@ class Game {
         const consumedIds = new Set(consumed.map(c => c.id));
         this.critters = this.critters.filter(c => !consumedIds.has(c.id));
 
-        // Apply star — bake flat stat bonus so downstream code doesn't need updates
-        base.stars = (base.stars || 0) + 1;
-        for (const key of Object.keys(base.stats)) base.stats[key] += 2;
-        base.patrolMaxHp = (base.patrolMaxHp || 50) + 10;
-        base.patrolHp = Math.min((base.patrolHp || 0) + 10, base.patrolMaxHp);
+        // Apply star — stars 1-5 grant +10 PROF (via Critters.getProficiency computed at read-time).
+        // Stars 6+ are cosmetic "Collector's Stars" (no stat change).
+        const oldStars = base.stars || 0;
+        base.stars = oldStars + 1;
+        const isCollector = base.stars > Critters.MAX_BASE_PROF_STAR_LEVEL;
+        if (!isCollector) {
+            // Power star — patrol HP also goes up to match PROF boost
+            base.patrolMaxHp = (base.patrolMaxHp || 50) + 40; // reflect +10 PROF × 4 HP
+            base.patrolHp = Math.min((base.patrolHp || 0) + 40, base.patrolMaxHp);
+        }
 
         // Inherit up to 1 passive from consumed pool (25% chance per candidate)
         if (base.passives && base.passives.length < 5) {
@@ -1204,7 +1208,11 @@ class Game {
             }
         }
 
-        UI.notify(`⭐ ${base.nickname} ascended to ${base.stars}★!`, 4000);
+        if (isCollector) {
+            UI.notify(`🏆 ${base.nickname} earned a Collector's Star! (${base.stars}★ — cosmetic only)`, 5000);
+        } else {
+            UI.notify(`⭐ ${base.nickname} ascended to ${base.stars}★! +${Critters.STAR_PROF_BONUS} PROF`, 4000);
+        }
         if (this.sounds) this.sounds.levelup?.() || this.sounds.build?.();
         UI.update();
     }

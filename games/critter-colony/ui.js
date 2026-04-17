@@ -228,7 +228,14 @@ class UI {
                     const maxLv = typeof Critters !== 'undefined' ? Critters.MAX_LEVEL : 20;
                     const typeInfo = typeof CRITTER_TYPES !== 'undefined' ? (CRITTER_TYPES[sp.role] || CRITTER_TYPES[sp.type]) : null;
                     const stars = c.stars || 0;
-                    const starsHtml = stars > 0 ? `<span class="cc-stars">${'★'.repeat(stars)}</span>` : '';
+                    // Display up to 5 gold power stars, then collector stars above in a different color
+                    let starsHtml = '';
+                    if (stars > 0) {
+                        const powerStars = Math.min(stars, 5);
+                        const collectorStars = Math.max(0, stars - 5);
+                        starsHtml = `<span class="cc-stars">${'★'.repeat(powerStars)}</span>`;
+                        if (collectorStars > 0) starsHtml += `<span class="cc-collector-stars" title="Collector's Stars — cosmetic">+${collectorStars}🏆</span>`;
+                    }
                     // Merge selection state
                     let mergeClass = '', mergeClick = '';
                     if (mergeSrc) {
@@ -286,12 +293,17 @@ class UI {
                         html += `<div class="cc-xp cc-xp-max"><span class="cc-xp-text">MAX LEVEL</span></div>`;
                     }
 
-                    // Proficiency badge (role-colored) — single source of truth for power level
+                    // Proficiency badge (role-colored) — base (capped at 50) + star bonus (up to +50)
                     {
-                        const prof = typeof Critters !== 'undefined' ? Critters.getProficiency(c) : (c.proficiency || c.stats?.PROF || 1);
+                        const base = typeof Critters !== 'undefined' ? Critters.getBaseProficiency(c) : (c.proficiency || 1);
+                        const eff = typeof Critters !== 'undefined' ? Critters.getProficiency(c) : base;
+                        const starDelta = eff - base;
                         const roleColor = typeInfo ? typeInfo.color : '#888';
                         html += `<div class="cc-prof-row">`;
-                        html += `<span class="cc-prof-badge" style="background:${roleColor}22;border:1px solid ${roleColor}55;color:${roleColor}">PROF <b>${prof}</b></span>`;
+                        const maxed = base >= (typeof Critters !== 'undefined' ? Critters.MAX_BASE_PROF : 50);
+                        const baseLabel = maxed ? `${base} MAX` : `${base}`;
+                        const bonusLabel = starDelta > 0 ? ` <span style="color:#ffd54f">+${starDelta}★</span>` : '';
+                        html += `<span class="cc-prof-badge" style="background:${roleColor}22;border:1px solid ${roleColor}55;color:${roleColor}">PROF <b>${eff}</b> <span class="cc-prof-sub">(${baseLabel}${bonusLabel})</span></span>`;
                         if (typeInfo) html += `<span class="cc-prof-hint">${typeInfo.icon} ${typeInfo.name}</span>`;
                         html += `</div>`;
                     }
@@ -366,7 +378,9 @@ class UI {
                     // Merge + Sacrifice buttons
                     html += `<div class="cc-actions">`;
                     if (stars < 5) {
-                        html += `<button class="cc-merge" onclick="event.stopPropagation(); game.startMerge(${c.id})">⭐ Merge</button>`;
+                        html += `<button class="cc-merge" onclick="event.stopPropagation(); game.startMerge(${c.id})">⭐ Merge (+10 PROF)</button>`;
+                    } else {
+                        html += `<button class="cc-merge cc-merge-collector" onclick="event.stopPropagation(); game.startMerge(${c.id})">🏆 Collector's Star</button>`;
                     }
                     html += `<button class="cc-sacrifice" onclick="event.stopPropagation(); game.sacrificeCritter(${c.id})">🩸 Sacrifice</button>`;
                     html += `</div>`;

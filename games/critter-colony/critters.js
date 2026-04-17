@@ -45,12 +45,27 @@ class Critters {
         return { STR: prof, DEX: prof, INT: prof, VIT: prof, LCK: prof, PROF: prof };
     }
 
-    // Get a critter's current proficiency, including from old stats during migration.
+    // Hard ceiling for PROF earned from leveling alone. Beyond this, only stars add power.
+    static get MAX_BASE_PROF() { return 50; }
+    // PROF granted per star, up to 5★. Stars 6+ are cosmetic "Collector's Stars".
+    static get STAR_PROF_BONUS() { return 10; }
+    static get MAX_STAR_PROF_BONUS() { return Critters.MAX_BASE_PROF_STAR_LEVEL * Critters.STAR_PROF_BONUS; }
+    static get MAX_BASE_PROF_STAR_LEVEL() { return 5; }
+
+    // Get a critter's current *effective* proficiency: base (from species+levels, capped at 50)
+    // plus star bonus (+10 per star up to 5★). Stars 6+ add no power.
     static getProficiency(critter) {
+        const base = Critters.getBaseProficiency(critter);
+        const stars = critter.stars || 0;
+        const starBonus = Math.min(stars, Critters.MAX_BASE_PROF_STAR_LEVEL) * Critters.STAR_PROF_BONUS;
+        return base + starBonus;
+    }
+
+    // Base proficiency from species + leveling only (no star bonus). Used for save/level logic.
+    static getBaseProficiency(critter) {
         if (critter.proficiency !== undefined) return critter.proficiency;
         if (critter.stats && critter.stats.PROF !== undefined) return critter.stats.PROF;
         if (critter.stats) {
-            // Legacy migration: average of old 5 stats
             const keys = ['STR','DEX','INT','VIT','LCK'];
             let sum = 0, n = 0;
             for (const k of keys) { if (typeof critter.stats[k] === 'number') { sum += critter.stats[k]; n++; } }
@@ -720,11 +735,14 @@ class Critters {
             critter.xp -= needed;
             critter.level++;
 
-            // Level up: +1 PROF (primary advancement) + 25% chance for bonus +1
-            if (critter.proficiency === undefined) critter.proficiency = Critters.getProficiency(critter);
-            const gain = 1 + (Math.random() < 0.25 ? 1 : 0);
+            // Level up: +1 PROF (primary advancement) + 25% chance for bonus +1.
+            // Capped at MAX_BASE_PROF (50). Beyond that, only stars grant more PROF.
+            if (critter.proficiency === undefined) critter.proficiency = Critters.getBaseProficiency(critter);
+            const cap = Critters.MAX_BASE_PROF;
+            const rawGain = 1 + (Math.random() < 0.25 ? 1 : 0);
+            const gain = Math.max(0, Math.min(rawGain, cap - critter.proficiency));
             critter.proficiency += gain;
-            // Keep legacy stats object in sync so old code doesn't break
+            // Keep legacy stats object in sync
             if (critter.stats) {
                 critter.stats.PROF = critter.proficiency;
                 for (const k of ['STR','DEX','INT','VIT','LCK']) {
