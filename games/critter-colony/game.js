@@ -3117,17 +3117,22 @@ class Game {
 
     // ─── NOTIFICATIONS ──────────────────────────────────────
     _renderNotifications(gfx, canvasW) {
+        const style = { fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold', fill: 0xffffff };
+        // Measure using fresh TextMetrics so pooled-Text stale cache doesn't mis-size the bg rect
         for (let i = 0; i < UI.notifications.length; i++) {
             const n = UI.notifications[i];
             const y = 80 + i * 30;
-            const t = this._getText(n.text, { fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold', fill: 0xffffff });
+            const metrics = PIXI.TextMetrics.measureText(n.text, new PIXI.TextStyle(style));
+            const tw = metrics.width;
+            const th = metrics.height;
+            // Background rect first (drawn behind — Graphics is added before Text in overlay)
+            gfx.beginFill(0x000000, 0.6 * n.opacity);
+            gfx.drawRoundedRect(canvasW / 2 - tw / 2 - 12, y - th / 2 - 4, tw + 24, th + 8, 6);
+            gfx.endFill();
+            // Text on top
+            const t = this._getText(n.text, style);
             t.x = canvasW / 2; t.y = y;
             t.alpha = n.opacity;
-
-            const tw = t.width;
-            gfx.beginFill(0x000000, 0.6 * n.opacity);
-            gfx.drawRect(canvasW / 2 - tw / 2 - 12, y - 12, tw + 24, 24);
-            gfx.endFill();
         }
     }
 
