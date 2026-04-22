@@ -47,6 +47,14 @@
         "levelUpStatBoostChance": 0.50
     },
 
+    "worldScaling": {
+        "_README": "Critter level/rarity/passive tiers scale by game time. Early runs = low-level commons near spawn; cap reached at capHours = full distance-based spread.",
+        "capHours": 8,
+        "minScale": 0.12,
+        "affectsRarity": true,
+        "affectsPassives": true
+    },
+
     "passiveRolls": {
         "countByRarity": { "common": 1, "uncommon": 2, "rare": 2, "legendary": 3 },
         "bonusChance": { "common": 0.15, "uncommon": 0.15, "rare": 0.30, "legendary": 0.50 },

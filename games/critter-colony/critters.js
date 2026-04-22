@@ -86,12 +86,22 @@ class Critters {
         const bonusChance = bonusMap[speciesRarity] || 0.15;
         const totalSlots = count + (Math.random() < bonusChance ? 1 : 0);
 
+        // Time-based passive tier bias — early game rolls skew common/uncommon.
+        const affectsPassives = !(typeof BALANCE !== 'undefined' && BALANCE.worldScaling && BALANCE.worldScaling.affectsPassives === false);
+        const ts = affectsPassives ? Critters.timeScale() : 1;
+        const twScaled = {
+            legendary: tw.legendary * ts,
+            rare:      tw.rare      * ts,
+            uncommon:  tw.uncommon  * (0.5 + 0.5 * ts),
+            common:    tw.common + (1 - ts) * (tw.legendary + tw.rare) + (0.5 * (1 - ts)) * tw.uncommon
+        };
+
         for (let i = 0; i < totalSlots; i++) {
             const roll = Math.random();
             let pool;
-            if (roll < tw.legendary) pool = PASSIVE_POOL.legendary;
-            else if (roll < tw.legendary + tw.rare) pool = PASSIVE_POOL.rare;
-            else if (roll < tw.legendary + tw.rare + tw.uncommon) pool = PASSIVE_POOL.uncommon;
+            if (roll < twScaled.legendary) pool = PASSIVE_POOL.legendary;
+            else if (roll < twScaled.legendary + twScaled.rare) pool = PASSIVE_POOL.rare;
+            else if (roll < twScaled.legendary + twScaled.rare + twScaled.uncommon) pool = PASSIVE_POOL.uncommon;
             else pool = PASSIVE_POOL.common;
 
             const id = pool[Math.floor(Math.random() * pool.length)];
@@ -120,8 +130,20 @@ class Critters {
         });
     }
 
+    // Time-based scaling: 0 → minScale at t=0, reaches 1.0 at capHours.
+    // Gates rarity/level/passive-tier power so new runs aren't overwhelming.
+    static timeScale() {
+        const cfg = (typeof BALANCE !== 'undefined' && BALANCE.worldScaling) ? BALANCE.worldScaling : null;
+        const capH = cfg ? cfg.capHours : 8;
+        const minS = cfg ? cfg.minScale : 0.12;
+        const t = (typeof game !== 'undefined' && game && typeof game.gameTimeSec === 'number') ? game.gameTimeSec : 0;
+        const p = Math.min(1, t / (capH * 3600));
+        return minS + (1 - minS) * p;
+    }
+
     // Pick a species weighted by distance from colony center (0,0 in tiles)
     // Inner zones → mostly common; outer zones → higher rarities.
+    // Rarity weights are also biased toward common in early game (time scaling).
     // If biome is provided, 40% chance to pick from biome-boosted species.
     static pickSpeciesByDistance(distTiles, biome) {
         const commonKeys = Object.keys(SPECIES).filter(k => SPECIES[k].rarity === 'common');
@@ -143,6 +165,19 @@ class Critters {
             else if (distTiles < 100) w = { legendary: 0.00, rare: 0.05, uncommon: 0.30, common: 0.65 };
             else if (distTiles < 160) w = { legendary: 0.03, rare: 0.22, uncommon: 0.40, common: 0.35 };
             else                      w = { legendary: 0.15, rare: 0.40, uncommon: 0.30, common: 0.15 };
+        }
+
+        // Time-based rarity bias — early game, blend weights toward common.
+        // At t=0: ~88% common override. At capHours: weights pass through unchanged.
+        const affectsRarity = !(typeof BALANCE !== 'undefined' && BALANCE.worldScaling && BALANCE.worldScaling.affectsRarity === false);
+        if (affectsRarity) {
+            const ts = Critters.timeScale();
+            w = {
+                legendary: w.legendary * ts,
+                rare:      w.rare      * ts,
+                uncommon:  w.uncommon  * ts,
+                common:    w.common + (1 - ts) * (w.legendary + w.rare + w.uncommon)
+            };
         }
 
         // Biome bonus: 40% chance to force a biome-native species
@@ -663,7 +698,11 @@ class Critters {
         const base = Math.max(1, Math.floor(distTiles / 4));
         const bonus = Critters.RARITY_LEVEL_BONUS[rarity] || 0;
         const variance = Math.floor(Math.random() * 5);
-        return Math.max(1, Math.min(100, base + bonus + variance));
+        const raw = base + bonus + variance;
+        // Time scaling — early runs produce low-level critters even far from colony.
+        const ts = Critters.timeScale();
+        const scaled = Math.round(raw * ts);
+        return Math.max(1, Math.min(Critters.MAX_LEVEL, scaled));
     }
 
     // HP multiplier for a given enemy level. Keeps L1 at 1x, ramps to ~13x by L100.
