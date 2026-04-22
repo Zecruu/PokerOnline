@@ -16,6 +16,9 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 .title-continue:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(76,175,80,.3)}
 .title-new{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15)}
 .title-new:hover{background:rgba(255,255,255,.15)}
+.title-donate{background:rgba(255,94,91,.12);color:#ff7a77;border:1px solid rgba(255,94,91,.35)}
+.title-donate:hover{background:rgba(255,94,91,.22);box-shadow:0 0 20px rgba(255,94,91,.25);transform:translateY(-2px)}
+.donate-hint{color:rgba(255,255,255,.35);font-size:.72rem;margin-top:6px}
 .title-warn{color:#666;font-size:.8rem;margin-top:16px}
 .title-info{text-align:left;max-width:400px;margin:0 auto 20px;font-size:.85rem;color:#aaa;line-height:1.6}
 .title-info p{margin-bottom:8px}
