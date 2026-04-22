@@ -103,6 +103,24 @@ function getSpritePath(filename) {
     return SPRITE_BASE_PATH + filename;
 }
 
+// Tileable hellscape floor — loaded once, tiled across the map in render()
+const HELL_FLOOR = { img: null, loaded: false };
+(function initHellFloor() {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { HELL_FLOOR.loaded = true; };
+    img.onerror = () => {
+        // CDN miss — retry from local path so dev / un-synced prod still works.
+        const fb = new Image();
+        fb.crossOrigin = 'anonymous';
+        fb.onload = () => { HELL_FLOOR.img = fb; HELL_FLOOR.loaded = true; };
+        fb.src = 'bg/hell-floor.png';
+    };
+    // Prefer CDN if configured (so CloudFront can cache it), else fall back to local.
+    img.src = (typeof getAssetUrl === 'function') ? getAssetUrl('bg/hell-floor.png') : 'bg/hell-floor.png';
+    HELL_FLOOR.img = img;
+})();
+
 // Player sprites for necromancer class
 const PLAYER_SPRITES = {
     standing: 'characters/necromancer-idle.png',
@@ -15605,6 +15623,23 @@ class DotsSurvivor {
         // Default background - dark demonic
         ctx.fillStyle = '#0a0508';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Hellscape floor — tile a seamless texture across the canvas, offset by world scroll.
+        // Draws in raw screen-space before camera transform so zoom doesn't leave unpainted gaps.
+        if (HELL_FLOOR.loaded && HELL_FLOOR.img) {
+            const tile = 1024;
+            const wx = this.worldX || 0, wy = this.worldY || 0;
+            let ox = (-wx) % tile; if (ox > 0) ox -= tile;
+            let oy = (-wy) % tile; if (oy > 0) oy -= tile;
+            for (let y = oy; y < this.canvas.height; y += tile) {
+                for (let x = ox; x < this.canvas.width; x += tile) {
+                    ctx.drawImage(HELL_FLOOR.img, x, y, tile, tile);
+                }
+            }
+            // Subtle darkening so bright sprites pop against the busy floor.
+            ctx.fillStyle = 'rgba(10, 5, 8, 0.35)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
 
         // Apply camera zoom (centered on player) and screen shake
         ctx.save();
