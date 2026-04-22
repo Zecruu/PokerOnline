@@ -1,0 +1,13 @@
+{
+    "name": "critter-colony-tools",
+    "version": "1.0.0",
+    "private": true,
+    "description": "One-off dev tools for Critter Colony (sprite generation, etc). Not shipped with the game.",
+    "scripts": {
+        "gen-sawmill": "node gen-sawmill-frames.js"
+    },
+    "dependencies": {
+        "replicate": "^1.0.1",
+        "sharp": "^0.34.5"
+    }
+}

@@ -29,6 +29,7 @@ function preloadBuildingSprites() {
         iron_mine: 'buildings/iron-mine.png',
         wall: 'buildings/wall.png',
         gate: 'buildings/gate.png',
+        sawmill: 'buildings/sawmill/frame-0.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
@@ -123,6 +124,8 @@ function preloadStatIcons() {
 // Load directly via PIXI.Texture.from(url) for reliable WebGL textures
 const PIXI_BUILDING_TEXTURES = {};
 const PIXI_CRITTER_TEXTURES = {};
+// Animated buildings: { [buildingType]: [tex0, tex1, ...] }
+const PIXI_BUILDING_FRAMES = {};
 let _pixiTexturesReady = false;
 
 function _loadPixiTex(path) {
@@ -153,6 +156,7 @@ function buildPixiTextures() {
         workbench: 'buildings/workbench.png', iron_mine: 'buildings/iron-mine.png',
         wall: 'buildings/wall.png', gate: 'buildings/gate.png',
     };
+    // Note: animated buildings (e.g. sawmill) load via PIXI_BUILDING_FRAMES below.
     const critterDefs = {
         mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',
         flickwing: 'critters/flickwing.png', glowmite: 'critters/glowmite.png',
@@ -174,6 +178,22 @@ function buildPixiTextures() {
     for (const [key, path] of Object.entries(critterDefs)) {
         const t = _loadPixiTex(path);
         if (t) PIXI_CRITTER_TEXTURES[key] = t;
+    }
+    // Animated buildings — 1 texture per frame
+    const animatedBuildings = {
+        sawmill: { frameCount: 6, dir: 'buildings/sawmill' },
+    };
+    for (const [key, cfg] of Object.entries(animatedBuildings)) {
+        const frames = [];
+        for (let i = 0; i < cfg.frameCount; i++) {
+            const t = _loadPixiTex(`${cfg.dir}/frame-${i}.png`);
+            if (t) frames.push(t);
+        }
+        if (frames.length > 0) {
+            PIXI_BUILDING_FRAMES[key] = frames;
+            // Also expose frame 0 as the default sprite so UI panels show something
+            if (!PIXI_BUILDING_TEXTURES[key]) PIXI_BUILDING_TEXTURES[key] = frames[0];
+        }
     }
     _pixiTexturesReady = true;
 }
