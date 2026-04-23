@@ -150,7 +150,7 @@ class Doctrines {
         this.game.doctrine.spentTotal = (this.game.doctrine.spentTotal || 0) + node.cost;
         this._invalidateCache();
         this._applyOneShotEffects();
-        if (typeof UI !== 'undefined') UI.notify && UI.notify(`⭐ Unlocked: ${node.name}`, 3500);
+        if (typeof UI !== 'undefined') UI.notify && UI.notify(`Unlocked: ${node.name}`, 3500);
         if (typeof UI !== 'undefined') UI.update && UI.update();
         return true;
     }
@@ -243,14 +243,14 @@ class Doctrines {
                 () => { if (target.hp !== undefined) { target.hp = Math.min(target.maxHp, target.hp + target.maxHp * 0.5); game._spawnDmgNum && game._spawnDmgNum(bx, by, 'REPAIRED', 0x4fc3f7); } },
             ];
             effects[Math.floor(Math.random() * effects.length)]();
-            if (UI) UI.notify && UI.notify('✨ Arcane surge: fortune!', 3000);
+            if (UI) UI.notify && UI.notify('Arcane surge: fortune!', 3000);
         } else {
             // Bad: damage building, stun nearby critters, drop resources
             if (target.hp !== undefined) {
                 target.hp = Math.max(0, target.hp - target.maxHp * 0.15);
                 game._spawnDmgNum && game._spawnDmgNum(bx, by, 'UNSTABLE', 0xe040fb);
             }
-            if (UI) UI.notify && UI.notify('⚠ Arcane instability!', 3000);
+            if (UI) UI.notify && UI.notify('Arcane instability!', 3000);
         }
         // Fairy spawn chance from Fey Pact hybrid
         if (this.getFlag('anomalyFairyChance') && Math.random() < 0.10) {

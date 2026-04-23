@@ -227,7 +227,7 @@ const PollutionSystem = {
                 b._breakdownTimer = params.breakdownDurationSec || 12;
                 b.hp = Math.max(1, (b.hp || 0) - (params.breakdownHpCost || 0));
                 if (this.debug.logBreakdowns) console.log('[Pollution] BREAKDOWN:', b.type, b.id, 'hp→', b.hp);
-                if (typeof UI !== 'undefined' && UI.notify) UI.notify(`⚠ ${BUILDING_DEFS[b.type]?.name || 'Building'} broke down!`, 2500);
+                if (typeof UI !== 'undefined' && UI.notify) UI.notify(`${BUILDING_DEFS[b.type]?.name || 'Building'} broke down!`, 2500);
                 this._zonesDirty = true; // broken buildings stop emitting
             }
         }

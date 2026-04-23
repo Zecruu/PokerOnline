@@ -167,6 +167,14 @@ class Game {
             const t = this._textPool[this._textIdx];
             t.text = str;
             t.style = style;
+            // Reset common mutations that callers may have set in a prior frame
+            // (anchor, alpha, tint, scale). Otherwise stale values leak and cause
+            // mis-positioned text / invisible notifications.
+            t.anchor.set(0.5, 0.5);
+            t.alpha = 1;
+            t.tint = 0xffffff;
+            t.scale.set(1, 1);
+            t.rotation = 0;
             t.visible = true;
             this._textIdx++;
             return t;
@@ -502,7 +510,7 @@ class Game {
                 // Critterdex discovery
                 if (!this.discoveredSpecies.includes(closest.species)) {
                     this.discoveredSpecies.push(closest.species);
-                    UI.notify(`\ud83d\udcd6 New Critterdex entry: ${SPECIES[closest.species]?.name || closest.species}!`, 5000);
+                    UI.notify(`New Critterdex entry: ${SPECIES[closest.species]?.name || closest.species}!`, 5000);
                 }
                 // Capture XP bonus — bigger than kill, scales with wild level + rarity
                 const rarity = SPECIES[closest.species]?.rarity || 'common';
@@ -836,7 +844,7 @@ class Game {
         }
 
         if (assigned > 0) {
-            UI.notify(`⚡ Auto-assigned ${assigned} critter${assigned > 1 ? 's' : ''} to buildings!`, 4000);
+            UI.notify(`Auto-assigned ${assigned} critter${assigned > 1 ? 's' : ''} to buildings!`, 4000);
         } else {
             UI.notify('No suitable assignments found.');
         }
@@ -1171,7 +1179,7 @@ class Game {
             leveled = true;
         }
         if (leveled) {
-            UI.notify(`🎉 LEVEL UP! Lv.${this.player.level} — +${pointsGained} Skill Point${pointsGained > 1 ? 's' : ''} earned! [Open Tech Tree]`, 6000);
+            UI.notify(`LEVEL UP! Lv.${this.player.level} — +${pointsGained} Skill Point${pointsGained > 1 ? 's' : ''} earned! [Open Tech Tree]`, 6000);
             if (this.sounds) this.sounds.levelup?.();
         }
     }
@@ -1203,7 +1211,7 @@ class Game {
             (o.stars || 0) === (c.stars || 0)
         );
         if (eligible.length < 2) {
-            UI.notify(`Need 3 identical ${SPECIES[c.species].name} at ${c.stars||0}★ (have ${eligible.length + 1}/3)`, 4000);
+            UI.notify(`Need 3 identical ${SPECIES[c.species].name} at rank ${c.stars||0} (have ${eligible.length + 1}/3)`, 4000);
             return;
         }
         this._mergeSelection = { sourceId: critterId, pickedIds: [] };
@@ -1286,9 +1294,9 @@ class Game {
         }
 
         if (isCollector) {
-            UI.notify(`🏆 ${base.nickname} earned a Collector's Star! (${base.stars}★ — cosmetic only)`, 5000);
+            UI.notify(`${base.nickname} earned a Collector's Star! (Lv.${base.stars} — cosmetic only)`, 5000);
         } else {
-            UI.notify(`⭐ ${base.nickname} ascended to ${base.stars}★! +${Critters.STAR_PROF_BONUS} PROF`, 4000);
+            UI.notify(`${base.nickname} ascended to rank ${base.stars}! +${Critters.STAR_PROF_BONUS} PROF`, 4000);
         }
         if (this.sounds) this.sounds.levelup?.() || this.sounds.build?.();
         UI.update();
@@ -1366,7 +1374,7 @@ class Game {
         if ((this.skillPoints || 0) < cost) { UI.notify(`Need ${cost} Skill Point${cost > 1 ? 's' : ''}!`); return; }
         this.skillPoints -= cost;
         this.techUnlocks[nodeId] = cur + 1;
-        UI.notify(`🧬 Unlocked: ${node.name}${node.maxLevel > 1 ? ` (Lv.${cur+1}/${node.maxLevel})` : ''}`, 4000);
+        UI.notify(`Tech unlocked: ${node.name}${node.maxLevel > 1 ? ` (Lv.${cur+1}/${node.maxLevel})` : ''}`, 4000);
         if (this.sounds) this.sounds.levelup?.();
         UI.update();
     }
@@ -1983,7 +1991,7 @@ class Game {
         const anyHungry = this.critters.some(c => (c.hunger || 100) < 30);
         if (anyHungry && !this.hungry) {
             this.hungry = true;
-            UI.notify('⚠️ Some critters are hungry! Build more Farms.', 4000);
+            UI.notify('Some critters are hungry! Build more Farms.', 4000);
         } else if (!anyHungry && this.hungry) {
             this.hungry = false;
         }
@@ -3873,7 +3881,7 @@ class Game {
 
         this.inventory.aethershards--;
         critter.stats[statKey] += 5;
-        UI.notify(`✨ ${critter.nickname}'s ${statKey} +5! (now ${critter.stats[statKey]})`, 4000);
+        UI.notify(`${critter.nickname}'s ${statKey} +5! (now ${critter.stats[statKey]})`, 4000);
         if (this.sounds) this.sounds.levelup?.();
         UI.update();
     }
@@ -3946,7 +3954,7 @@ class Game {
             });
         }
 
-        UI.notify(`⚠️ HORDE WAVE ${this.hordeWave}! ${count} creatures attacking!`, 6000);
+        UI.notify(`HORDE WAVE ${this.hordeWave}! ${count} creatures attacking!`, 6000);
         if (this.sounds) this.sounds.alert?.();
     }
 
@@ -3954,7 +3962,7 @@ class Game {
         if (this.hordeCreatures.length === 0) {
             this.hordeActive = false;
             this.hordeTimer = this.hordeInterval;
-            UI.notify(`✅ Horde wave ${this.hordeWave} defeated!`, 4000);
+            UI.notify(`Horde wave ${this.hordeWave} defeated!`, 4000);
             return;
         }
 
