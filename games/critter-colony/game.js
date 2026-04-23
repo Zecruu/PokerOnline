@@ -190,32 +190,100 @@ class Game {
     async _initTitle() {
         let saveData = null;
         try { saveData = await Save.load(); } catch(e) {}
-        // Also check local
-        if (!saveData || !saveData.gameState) {
-            saveData = Save.loadLocal();
-        }
+        if (!saveData || !saveData.gameState) saveData = Save.loadLocal();
+
         const titleEl = document.getElementById('titleScreen');
         const hasData = saveData && saveData.gameState;
-        let html = '<div class="title-content">';
-        html += '<h1 class="title-logo">Critter<span>Colony</span></h1>';
-        html += '<p class="title-sub">Capture. Build. Automate.</p>';
-        html += '<div class="title-info">';
-        html += '<p>Explore an infinite procedural world. Capture wild critters and put them to work mining, farming, researching, and crafting.</p>';
-        html += '<p>Build walls and turrets to defend your colony. Assign patrol guards to fight off aggressive creatures.</p>';
-        html += '<div class="title-lose"><b>Lose condition:</b> Your Colony HQ is destroyed → Game Over</div>';
-        html += '<div class="title-controls">';
-        html += '<span>WASD move</span><span>Hold Click shoot</span><span>Hold Q mine</span>';
-        html += '<span>E capture</span><span>B build</span><span>T teleport</span><span>M map</span>';
+        const elapsed = hasData ? (saveData.elapsed || 0) : 0;
+        const savedTime = hasData ? (elapsed < 60 ? 'just now' : `${Save.formatTime(elapsed)} ago`) : null;
+        const loggedIn = Save.isLoggedIn();
+
+        let html = '';
+        html += '<div class="ts-vignette" aria-hidden="true"></div>';
+
+        // Version / alpha tag (top-left)
+        html += '<div class="ts-version">ALPHA · v0.9</div>';
+
+        // User badge (top-right)
+        html += '<div class="ts-user-badge">';
+        if (loggedIn) {
+            html += `<span class="ts-user-status online">● Signed in</span>`;
+        } else {
+            html += `<span class="ts-user-status offline">○ Local save only</span>`;
+        }
         html += '</div>';
+
+        // Main layout column
+        html += '<div class="ts-layout">';
+
+        html += '<div class="ts-hero">';
+        html += '<h1 class="ts-logo">Critter<span>Colony</span></h1>';
+        html += '<p class="ts-tagline">Capture. Build. Automate.</p>';
         html += '</div>';
-        html += '<div class="title-buttons">';
-        if (hasData) html += '<button class="title-btn title-continue" onclick="game.loadAndStart()">Continue</button>';
-        html += '<button class="title-btn title-new" onclick="game.newGame()">New Game</button>';
+
+        html += '<div class="ts-actions">';
+        if (hasData) {
+            html += `<button class="ts-btn ts-btn-hero ts-btn-continue" onclick="game.loadAndStart()">`;
+            html += `<span class="ts-btn-label">▶ CONTINUE</span>`;
+            html += `<span class="ts-btn-sub">Last played · ${savedTime}</span>`;
+            html += `</button>`;
+            html += `<button class="ts-btn ts-btn-secondary" onclick="if(confirm('Start a new game? Your current save will be overwritten.')) game.newGame()">🌱 NEW GAME</button>`;
+        } else {
+            html += `<button class="ts-btn ts-btn-hero ts-btn-new" onclick="game.newGame()">`;
+            html += `<span class="ts-btn-label">🌱 NEW COLONY</span>`;
+            html += `<span class="ts-btn-sub">Begin your settlement</span>`;
+            html += `</button>`;
+        }
         html += '</div>';
-        if (!Save.isLoggedIn()) html += '<p class="title-hint">Progress saves locally. Log in for cloud saves!</p>';
+
+        html += '<div class="ts-chip-row">';
+        html += '<button class="ts-chip" onclick="game._showTitleInfo(\'controls\')">🎮 Controls</button>';
+        html += '<button class="ts-chip" onclick="game._showTitleInfo(\'about\')">❓ About</button>';
+        html += '<a class="ts-chip" href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener">☕ Support</a>';
+        html += '<a class="ts-chip" href="https://www.zecrugames.com" target="_blank" rel="noopener">🌐 Hub</a>';
         html += '</div>';
+
+        if (!loggedIn) {
+            html += '<p class="ts-hint">Progress saves locally. Sign in on zecrugames.com for cloud saves.</p>';
+        }
+
+        html += '</div>'; // ts-layout
+
+        // Info popover (hidden by default, shown via _showTitleInfo)
+        html += '<div class="ts-info-popover hidden" id="tsInfoPopover">';
+        html += '<button class="ts-info-close" onclick="document.getElementById(\'tsInfoPopover\').classList.add(\'hidden\')">✕</button>';
+        html += '<div class="ts-info-body" id="tsInfoBody"></div>';
+        html += '</div>';
+
         titleEl.innerHTML = html;
         this._saveData = saveData;
+    }
+
+    _showTitleInfo(kind) {
+        const pop = document.getElementById('tsInfoPopover');
+        const body = document.getElementById('tsInfoBody');
+        if (!pop || !body) return;
+        let html = '';
+        if (kind === 'controls') {
+            html += '<h3>Controls</h3>';
+            html += '<div class="ts-info-grid">';
+            html += '<span class="ts-key">WASD</span><span>Move</span>';
+            html += '<span class="ts-key">Hold Click</span><span>Shoot</span>';
+            html += '<span class="ts-key">Hold Q</span><span>Mine / chop</span>';
+            html += '<span class="ts-key">E</span><span>Capture critter / claim</span>';
+            html += '<span class="ts-key">B</span><span>Build menu</span>';
+            html += '<span class="ts-key">T</span><span>Waypoint teleport</span>';
+            html += '<span class="ts-key">M</span><span>World map</span>';
+            html += '<span class="ts-key">ESC</span><span>Cancel / menu</span>';
+            html += '</div>';
+        } else if (kind === 'about') {
+            html += '<h3>About Critter Colony</h3>';
+            html += '<p>Explore an infinite procedural world. Capture wild critters and put them to work — gathering, farming, crafting, fighting.</p>';
+            html += '<p>Automate production with gatherer critters and specialized buildings. Defend against horde events with walls, turrets, and trained fighters.</p>';
+            html += '<p class="ts-lose"><b>Lose condition:</b> your Colony HQ is destroyed.</p>';
+        }
+        body.innerHTML = html;
+        pop.classList.remove('hidden');
     }
 
     async loadAndStart() {
