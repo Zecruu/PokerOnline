@@ -2934,19 +2934,7 @@ class Game {
         const size = def.size * TILE_SIZE;
 
         // Building body — use Pixi sprite if available
-        // Animated buildings (def.animated) cycle through PIXI_BUILDING_FRAMES[type]
-        let tex = null;
-        const frames = (def.animated && typeof PIXI_BUILDING_FRAMES !== 'undefined') ? PIXI_BUILDING_FRAMES[building.type] : null;
-        if (frames && frames.length > 0) {
-            const fps = def.fps || 6;
-            const idx = Math.floor((this.time || 0) * fps) % frames.length;
-            const cand = frames[idx];
-            // only use the frame if its image actually loaded; else fall back to static tex / color
-            if (cand && cand.baseTexture && cand.baseTexture.width > 1) tex = cand;
-            else tex = this._getBuildingTex(building.type);
-        } else {
-            tex = this._getBuildingTex(building.type);
-        }
+        const tex = this._getBuildingTex(building.type);
         if (tex) {
             // Manage persistent sprite
             if (!building._pixiSprite) {
@@ -2954,7 +2942,6 @@ class Game {
                 this.buildingContainer.addChild(building._pixiSprite);
             }
             const sp = building._pixiSprite;
-            if (sp.texture !== tex) sp.texture = tex;
             sp.x = wx + 1; sp.y = wy + 1;
             sp.width = size - 2; sp.height = size - 2;
             sp.visible = true;

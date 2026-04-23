@@ -280,14 +280,10 @@ class Buildings {
                     b._gatherTick = 0;
                     const bcx = b.gridX + (def.size || 2) / 2;
                     const bcy = b.gridY + (def.size || 2) / 2;
-                    let prefer, allowFallback;
-                    if (def.isSawmill) {
-                        prefer = TILE.TREE; allowFallback = false; // wood-only
-                    } else {
-                        prefer = b._lastPulled === 'wood' ? TILE.ROCK : TILE.TREE; allowFallback = true;
-                    }
+                    // Alternate wood/stone based on last pull so we produce both
+                    const prefer = b._lastPulled === 'wood' ? TILE.ROCK : TILE.TREE;
                     let node = world.findNearestNode(Math.floor(bcx), Math.floor(bcy), def.gatherRadius || 15, prefer);
-                    if (!node && allowFallback) node = world.findNearestNode(Math.floor(bcx), Math.floor(bcy), def.gatherRadius || 15);
+                    if (!node) node = world.findNearestNode(Math.floor(bcx), Math.floor(bcy), def.gatherRadius || 15);
                     b._gatherTarget = node;
                 }
                 if (!b._gatherTarget) continue; // no nodes around, idle
