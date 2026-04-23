@@ -194,23 +194,20 @@ class Game {
 
         const titleEl = document.getElementById('titleScreen');
         const hasData = saveData && saveData.gameState;
-        const elapsed = hasData ? (saveData.elapsed || 0) : 0;
-        const savedTime = hasData ? (elapsed < 60 ? 'just now' : `${Save.formatTime(elapsed)} ago`) : null;
+        const lastActive = hasData ? (saveData.gameState.lastActive || saveData.lastActive || 0) : 0;
+        const savedTime = hasData ? this._formatLastPlayed(lastActive) : null;
         const loggedIn = Save.isLoggedIn();
 
         let html = '';
         html += '<div class="ts-vignette" aria-hidden="true"></div>';
 
-        // Version / alpha tag (top-left)
-        html += '<div class="ts-version">ALPHA · v0.9</div>';
-
-        // User badge (top-right)
-        html += '<div class="ts-user-badge">';
-        if (loggedIn) {
-            html += `<span class="ts-user-status online">● Signed in</span>`;
-        } else {
-            html += `<span class="ts-user-status offline">○ Local save only</span>`;
-        }
+        // Top bar — version left, signed-in status right (single horizontal row)
+        html += '<div class="ts-topbar">';
+        html += '<div class="ts-topbar-chip ts-version">ALPHA · v0.9</div>';
+        html += '<div class="ts-topbar-chip ts-user-badge">';
+        if (loggedIn) html += `<span class="ts-user-status online">● Signed in</span>`;
+        else html += `<span class="ts-user-status offline">○ Local save only</span>`;
+        html += '</div>';
         html += '</div>';
 
         // Main layout column
@@ -257,6 +254,18 @@ class Game {
 
         titleEl.innerHTML = html;
         this._saveData = saveData;
+    }
+
+    _formatLastPlayed(lastActive) {
+        if (!lastActive) return 'save found';
+        const sec = Math.max(0, Math.floor((Date.now() - lastActive) / 1000));
+        if (sec < 60) return 'just now';
+        if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+        if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+        if (sec < 7 * 86400) return `${Math.floor(sec / 86400)}d ago`;
+        try {
+            return new Date(lastActive).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        } catch { return 'long ago'; }
     }
 
     _showTitleInfo(kind) {
