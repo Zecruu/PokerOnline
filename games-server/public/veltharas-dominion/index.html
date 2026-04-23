@@ -83,13 +83,19 @@
         gtag('config', 'G-Q5YPP9WDMS');
     </script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="veltharas-dominion.css">
 </head>
 
 <body>
     <!-- Auth Container - Login Page -->
-    <div id="auth-menu" class="auth-container">
+    <div id="auth-menu" class="auth-container atmosphere-hell">
+        <div class="ember-layer" aria-hidden="true">
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+        </div>
         <div class="auth-card">
             <div class="auth-header">
                 <h1 class="auth-logo">VELTHARA'S<span>DOMINION</span></h1>
@@ -130,7 +136,13 @@
     </div>
 
     <!-- Auth Container - Register Page -->
-    <div id="register-menu" class="auth-container hidden">
+    <div id="register-menu" class="auth-container atmosphere-hell hidden">
+        <div class="ember-layer" aria-hidden="true">
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+        </div>
         <div class="auth-card">
             <div class="auth-header">
                 <h1 class="auth-logo">VELTHARA'S<span>DOMINION</span></h1>
@@ -162,10 +174,22 @@
     </div>
 
     <!-- Start Menu -->
-    <div id="start-menu" class="menu-overlay hidden">
-        <div class="menu-content">
+    <div id="start-menu" class="menu-overlay atmosphere-hell start-menu-overlay hidden">
+        <div class="ember-layer" aria-hidden="true">
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span><span class="ember"></span><span class="ember"></span>
+            <span class="ember"></span>
+        </div>
+        <img class="hero-silhouette hero-left" src="characters/shadow-monarch-lv15.png" alt="" aria-hidden="true" onerror="this.style.display='none'">
+        <img class="hero-silhouette hero-right" src="characters/fire-mage-lv15.png" alt="" aria-hidden="true" onerror="this.style.display='none'">
+        <div class="menu-content start-menu-card">
             <div id="user-info" class="user-info-badge"></div>
-            <h1 class="game-title">VELTHARA'S<span>DOMINION</span></h1>
+            <img class="game-title-art" src="bg/title-art.png" alt="VELTHARA'S DOMINION"
+                 onerror="this.style.display='none';document.getElementById('title-fallback').style.display='block'">
+            <h1 id="title-fallback" class="game-title" style="display:none">VELTHARA'S<span>DOMINION</span></h1>
             <p class="game-subtitle">How long can you survive?</p>
             <p class="alpha-tag">ALPHA VERSION</p>
 
@@ -178,22 +202,32 @@
                 </div>
             </div>
 
-            <button id="start-btn" class="menu-btn primary">START GAME</button>
-            <button id="customize-btn" class="menu-btn secondary">CUSTOMIZE</button>
-            <!-- Store button hidden until Stripe is configured for production -->
-            <!-- <button id="store-btn" class="menu-btn secondary">STORE</button> -->
-            <button id="leaderboard-btn" class="menu-btn secondary">LEADERBOARDS</button>
-            <button id="settings-btn" class="menu-btn secondary">SETTINGS</button>
-            <button id="help-btn" class="menu-btn secondary">GAME INFO</button>
-            <a href="https://www.zecrugames.com" class="menu-btn secondary">EXIT TO HUB</a>
+            <div class="menu-section menu-section-play">
+                <button id="start-btn" class="menu-btn primary menu-btn-hero">⚔ START GAME</button>
+            </div>
 
-            <a href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn donate-btn">SUPPORT US</a>
+            <div class="menu-section-divider"><span>PROGRESS</span></div>
+            <div class="menu-section">
+                <button id="customize-btn" class="menu-btn secondary">🎨 CUSTOMIZE</button>
+                <!-- Store button hidden until Stripe is configured for production -->
+                <!-- <button id="store-btn" class="menu-btn secondary">🛒 STORE</button> -->
+                <button id="leaderboard-btn" class="menu-btn secondary">🏆 LEADERBOARDS</button>
+            </div>
+
+            <div class="menu-section-divider"><span>OPTIONS</span></div>
+            <div class="menu-section">
+                <button id="settings-btn" class="menu-btn secondary">⚙ SETTINGS</button>
+                <button id="help-btn" class="menu-btn secondary">❓ GAME INFO</button>
+                <a href="https://www.zecrugames.com" class="menu-btn secondary">🚪 EXIT TO HUB</a>
+            </div>
+
+            <a href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn donate-btn">☕ SUPPORT US</a>
             <p class="donate-hint">Help fund indie game development</p>
 
             <p class="game-version">v0.3.0</p>
 
             <div class="controls-info">
-                <p>WASD or Arrow Keys to move | Auto-fire enabled</p>
+                <p>WASD or Arrow Keys to move · Auto-fire enabled</p>
             </div>
         </div>
     </div>
