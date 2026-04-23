@@ -2806,7 +2806,24 @@ class Game {
     }
 
     // ─── CHUNK MANAGEMENT ───────────────────────────────────
+    _tileTexturesReady() {
+        if (typeof PIXI_TILE_TEXTURES === 'undefined') return false;
+        const keys = ['tree-1','tree-2','rock-1','rock-2','node-oil','node-gold','node-diamond','node-crystal'];
+        for (const k of keys) {
+            const t = PIXI_TILE_TEXTURES[k];
+            if (!t || !t.baseTexture || t.baseTexture.width <= 1) return false;
+        }
+        return true;
+    }
+
     _updateChunks(camX, camY, screenW, screenH) {
+        // If tile sprites just became available, invalidate all existing chunk textures
+        // so they re-render with the pretty sprites instead of the primitive fallbacks.
+        if (!this._tileSpritesReadyLogged && this._tileTexturesReady()) {
+            this._tileSpritesReadyLogged = true;
+            for (const cs of this._chunkSprites.values()) cs.dirty = true;
+        }
+
         const startTX = Math.floor(camX / TILE_SIZE);
         const startTY = Math.floor(camY / TILE_SIZE);
         const endTX = Math.floor((camX + screenW) / TILE_SIZE) + 1;
@@ -2870,15 +2887,26 @@ class Game {
 
     _renderChunkToTexture(chunk) {
         const size = CHUNK_SIZE * TILE_SIZE;
+        const container = new PIXI.Container();
         const gfx = new PIXI.Graphics();
+        container.addChild(gfx);
 
         const TILE_HEX = {
             [TILE.GRASS]:  [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647],
-            [TILE.TREE]:   [0x2d5a1e],
-            [TILE.ROCK]:   [0x6b6b6b],
+            [TILE.TREE]:   [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647], // grass base under trees
+            [TILE.ROCK]:   [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647], // grass base under rocks
             [TILE.WATER]:  [0x2a6faa, 0x2d74b0, 0x2768a2],
             [TILE.COLONY]: [0x8a7a52, 0x8e7e56, 0x867650],
             [TILE.PATH]:   [0xa89060, 0xa48a5c, 0xac9464],
+            [TILE.NODE_OIL]:     [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647],
+            [TILE.NODE_GOLD]:    [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647],
+            [TILE.NODE_DIAMOND]: [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647],
+            [TILE.NODE_CRYSTAL]: [0x4a7c3f, 0x4e8243, 0x46763b, 0x528647],
+        };
+
+        const tileTexOk = (key) => {
+            const t = (typeof PIXI_TILE_TEXTURES !== 'undefined') ? PIXI_TILE_TEXTURES[key] : null;
+            return (t && t.baseTexture && t.baseTexture.width > 1) ? t : null;
         };
 
         for (let ly = 0; ly < CHUNK_SIZE; ly++) {
@@ -2893,24 +2921,60 @@ class Game {
                 const sx = lx * TILE_SIZE;
                 const sy = ly * TILE_SIZE;
 
+                // Base tile color (always draw — serves as ground under sprites)
                 gfx.beginFill(colors[ci]);
                 gfx.drawRect(sx, sy, TILE_SIZE, TILE_SIZE);
                 gfx.endFill();
 
-                if (t === TILE.TREE) {
-                    gfx.beginFill(0x5c3d1e);
-                    gfx.drawRect(sx + 12, sy + 12, 8, 8);
-                    gfx.endFill();
-                    gfx.beginFill(0x3a7a28);
-                    gfx.drawCircle(sx + 16, sy + 12, 10);
-                    gfx.endFill();
-                } else if (t === TILE.ROCK) {
-                    gfx.beginFill(0x888888);
-                    gfx.drawCircle(sx + 16, sy + 18, 9);
-                    gfx.endFill();
-                    gfx.beginFill(0x999999);
-                    gfx.drawCircle(sx + 14, sy + 15, 5);
-                    gfx.endFill();
+                // Overlay sprite for trees / rocks / nodes; fall back to primitive if texture not loaded
+                let spriteKey = null;
+                if (t === TILE.TREE)         spriteKey = ((wx & 0x7FFFFFFF) * 7 + (wy & 0x7FFFFFFF) * 13) % 2 === 0 ? 'tree-1' : 'tree-2';
+                else if (t === TILE.ROCK)    spriteKey = ((wx & 0x7FFFFFFF) * 7 + (wy & 0x7FFFFFFF) * 13) % 2 === 0 ? 'rock-1' : 'rock-2';
+                else if (t === TILE.NODE_OIL)     spriteKey = 'node-oil';
+                else if (t === TILE.NODE_GOLD)    spriteKey = 'node-gold';
+                else if (t === TILE.NODE_DIAMOND) spriteKey = 'node-diamond';
+                else if (t === TILE.NODE_CRYSTAL) spriteKey = 'node-crystal';
+
+                if (spriteKey) {
+                    const tex = tileTexOk(spriteKey);
+                    if (tex) {
+                        const sp = new PIXI.Sprite(tex);
+                        // Render slightly larger than the tile and nudge up so the base sits on the tile center
+                        const scale = TILE_SIZE * 1.25; // 40px for 32px tile — overhang sells depth
+                        sp.width = scale;
+                        sp.height = scale;
+                        sp.x = sx + (TILE_SIZE - scale) / 2;
+                        sp.y = sy + TILE_SIZE - scale - 2; // anchor base to tile bottom
+                        container.addChild(sp);
+                    } else {
+                        // Primitive fallback until textures load
+                        if (t === TILE.TREE) {
+                            gfx.beginFill(0x5c3d1e);
+                            gfx.drawRect(sx + 12, sy + 12, 8, 8);
+                            gfx.endFill();
+                            gfx.beginFill(0x3a7a28);
+                            gfx.drawCircle(sx + 16, sy + 12, 10);
+                            gfx.endFill();
+                        } else if (t === TILE.ROCK) {
+                            gfx.beginFill(0x888888);
+                            gfx.drawCircle(sx + 16, sy + 18, 9);
+                            gfx.endFill();
+                            gfx.beginFill(0x999999);
+                            gfx.drawCircle(sx + 14, sy + 15, 5);
+                            gfx.endFill();
+                        } else {
+                            // Node primitive fallback: colored diamond
+                            const nodeColors = {
+                                [TILE.NODE_OIL]: 0x111111,
+                                [TILE.NODE_GOLD]: 0xffd54f,
+                                [TILE.NODE_DIAMOND]: 0x4fc3f7,
+                                [TILE.NODE_CRYSTAL]: 0xab47bc,
+                            };
+                            gfx.beginFill(nodeColors[t] || 0xffffff);
+                            gfx.drawCircle(sx + 16, sy + 16, 7);
+                            gfx.endFill();
+                        }
+                    }
                 } else if (t === TILE.COLONY) {
                     gfx.lineStyle(0.5, 0xffffff, 0.06);
                     gfx.drawRect(sx, sy, TILE_SIZE, TILE_SIZE);
@@ -2919,10 +2983,10 @@ class Game {
             }
         }
 
-        const rt = this.pixiApp.renderer.generateTexture(gfx, {
+        const rt = this.pixiApp.renderer.generateTexture(container, {
             region: new PIXI.Rectangle(0, 0, size, size),
         });
-        gfx.destroy();
+        container.destroy({ children: true });
         return rt;
     }
 

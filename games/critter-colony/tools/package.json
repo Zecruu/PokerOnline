@@ -7,6 +7,7 @@
         "gen-sawmill": "node gen-sawmill-frames.js"
     },
     "dependencies": {
+        "@imgly/background-removal-node": "^1.4.5",
         "replicate": "^1.0.1",
         "sharp": "^0.34.5"
     }
