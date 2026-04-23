@@ -173,8 +173,8 @@
         </div>
     </div>
 
-    <!-- Start Menu -->
-    <div id="start-menu" class="menu-overlay atmosphere-hell start-menu-overlay hidden">
+    <!-- Start Menu — full-screen cinematic layout -->
+    <div id="start-menu" class="menu-overlay start-menu-overlay hidden">
         <div class="ember-layer" aria-hidden="true">
             <span class="ember"></span><span class="ember"></span><span class="ember"></span>
             <span class="ember"></span><span class="ember"></span><span class="ember"></span>
@@ -183,52 +183,48 @@
             <span class="ember"></span><span class="ember"></span><span class="ember"></span>
             <span class="ember"></span>
         </div>
-        <img class="hero-silhouette hero-left" src="characters/shadow-monarch-lv15.png" alt="" aria-hidden="true" onerror="this.style.display='none'">
-        <img class="hero-silhouette hero-right" src="characters/fire-mage-lv15.png" alt="" aria-hidden="true" onerror="this.style.display='none'">
-        <div class="menu-content start-menu-card">
-            <div id="user-info" class="user-info-badge"></div>
-            <img class="game-title-art" src="bg/title-art.png" alt="VELTHARA'S DOMINION"
-                 onerror="this.style.display='none';document.getElementById('title-fallback').style.display='block'">
-            <h1 id="title-fallback" class="game-title" style="display:none">VELTHARA'S<span>DOMINION</span></h1>
-            <p class="game-subtitle">How long can you survive?</p>
-            <p class="alpha-tag">ALPHA VERSION</p>
 
-            <!-- Saved Game Notice -->
-            <div id="saved-game-notice" class="hidden saved-notice">
-                <p>You have a saved game!</p>
-                <div class="saved-notice-actions">
-                    <button id="continue-btn" class="menu-btn primary">CONTINUE</button>
-                    <button id="new-game-btn" class="menu-btn secondary">NEW GAME</button>
+        <div id="user-info" class="user-info-badge"></div>
+
+        <div class="sm-layout">
+            <div class="sm-hero">
+                <img class="game-title-art" src="bg/title-art.png" alt="VELTHARA'S DOMINION"
+                     onerror="this.style.display='none';document.getElementById('title-fallback').style.display='block'">
+                <h1 id="title-fallback" class="game-title" style="display:none">VELTHARA'S<span>DOMINION</span></h1>
+                <p class="game-subtitle">How long can you survive?</p>
+                <p class="alpha-tag">ALPHA VERSION</p>
+            </div>
+
+            <div class="sm-actions">
+                <!-- Saved Game Notice -->
+                <div id="saved-game-notice" class="hidden saved-notice">
+                    <p>You have a saved game!</p>
+                    <div class="saved-notice-actions">
+                        <button id="continue-btn" class="menu-btn primary">CONTINUE</button>
+                        <button id="new-game-btn" class="menu-btn secondary">NEW GAME</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="menu-section menu-section-play">
                 <button id="start-btn" class="menu-btn primary menu-btn-hero">⚔ START GAME</button>
+
+                <div class="sm-action-row">
+                    <button id="customize-btn" class="menu-btn sm-chip">🎨 CUSTOMIZE</button>
+                    <button id="leaderboard-btn" class="menu-btn sm-chip">🏆 LEADERBOARDS</button>
+                    <button id="settings-btn" class="menu-btn sm-chip">⚙ SETTINGS</button>
+                    <button id="help-btn" class="menu-btn sm-chip">❓ GAME INFO</button>
+                    <a href="https://www.zecrugames.com" class="menu-btn sm-chip">🚪 EXIT TO HUB</a>
+                </div>
+
+                <a href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn donate-btn sm-donate">☕ SUPPORT US — fund indie development</a>
             </div>
+        </div>
 
-            <div class="menu-section-divider"><span>PROGRESS</span></div>
-            <div class="menu-section">
-                <button id="customize-btn" class="menu-btn secondary">🎨 CUSTOMIZE</button>
-                <!-- Store button hidden until Stripe is configured for production -->
-                <!-- <button id="store-btn" class="menu-btn secondary">🛒 STORE</button> -->
-                <button id="leaderboard-btn" class="menu-btn secondary">🏆 LEADERBOARDS</button>
-            </div>
-
-            <div class="menu-section-divider"><span>OPTIONS</span></div>
-            <div class="menu-section">
-                <button id="settings-btn" class="menu-btn secondary">⚙ SETTINGS</button>
-                <button id="help-btn" class="menu-btn secondary">❓ GAME INFO</button>
-                <a href="https://www.zecrugames.com" class="menu-btn secondary">🚪 EXIT TO HUB</a>
-            </div>
-
-            <a href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn donate-btn">☕ SUPPORT US</a>
-            <p class="donate-hint">Help fund indie game development</p>
-
-            <p class="game-version">v0.3.0</p>
-
-            <div class="controls-info">
-                <p>WASD or Arrow Keys to move · Auto-fire enabled</p>
-            </div>
+        <div class="sm-footer">
+            <span>v0.3.0</span>
+            <span class="sm-footer-sep">·</span>
+            <span>WASD or Arrow Keys to move</span>
+            <span class="sm-footer-sep">·</span>
+            <span>Auto-fire enabled</span>
         </div>
     </div>
 
