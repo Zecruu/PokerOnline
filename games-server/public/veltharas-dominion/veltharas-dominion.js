@@ -15258,6 +15258,11 @@ class DotsSurvivor {
             const hasPassive = classRunes && classRunes.passive;
             runeDisplay.textContent = hasPassive ? `Q ${qLv}/5  E ${eLv}/5  P ${pLv}/5` : `Q ${qLv}/5  E ${eLv}/5`;
         }
+
+        const hud = document.getElementById('game-hud');
+        if (hud && this.player) {
+            hud.classList.toggle('low-health', this.player.health / this.player.maxHealth < 0.3);
+        }
     }
 
     initStatsPanel() {
@@ -15268,18 +15273,18 @@ class DotsSurvivor {
 
         // On mobile, start collapsed
         if (this.isMobile || window.innerWidth <= 768) {
-            body.style.display = 'none';
+            body.style.setProperty('display', 'none', 'important');
             header.textContent = '📊';
             panel.style.minWidth = 'auto';
         }
 
         header.addEventListener('click', () => {
             if (body.style.display === 'none') {
-                body.style.display = 'flex';
+                body.style.setProperty('display', 'grid', 'important');
                 header.textContent = '📊 STATS';
                 panel.style.minWidth = '';
             } else {
-                body.style.display = 'none';
+                body.style.setProperty('display', 'none', 'important');
                 header.textContent = '📊';
                 panel.style.minWidth = 'auto';
             }
@@ -16124,12 +16129,11 @@ class DotsSurvivor {
                     ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
                     ctx.fill();
                 }
-                // HP bar for all enemies
-                const bw = e.radius * 2;
-                ctx.fillStyle = '#1a1a1a';
-                ctx.fillRect(sx - bw / 2, sy - e.radius - 7, bw, 4);
-                ctx.fillStyle = e.color;
-                ctx.fillRect(sx - bw / 2, sy - e.radius - 7, bw * (e.health / e.maxHealth), 4);
+                const bw = Math.max(e.radius * 2.2, 22);
+                this.drawCombatBar(ctx, sx - bw / 2, sy - e.radius - 9, bw, 5, e.health / e.maxHealth, e.color, {
+                    backdrop: 'rgba(3,6,12,0.72)',
+                    border: 'rgba(255,255,255,0.18)'
+                });
                 return;
             }
 
@@ -16168,12 +16172,12 @@ class DotsSurvivor {
                     ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
                     ctx.fill();
                 }
-                // HP bar
-                const bw = e.radius * 2.2;
-                ctx.fillStyle = '#1a1a1a';
-                ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 5);
-                ctx.fillStyle = e.color;
-                ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 5);
+                const bw = Math.max(e.radius * 2.4, 26);
+                this.drawCombatBar(ctx, sx - bw / 2, sy - e.radius - 10, bw, 6, e.health / e.maxHealth, e.color, {
+                    glow: e.hitFlash > 0,
+                    backdrop: 'rgba(3,6,12,0.76)',
+                    border: 'rgba(255,255,255,0.2)'
+                });
                 ctx.restore();
             }
 
@@ -17381,14 +17385,19 @@ class DotsSurvivor {
                 // Boss name (no emoji on the boss itself - sprites handle visuals)
                 ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
                 ctx.fillText(e.name, sx, sy - e.radius - 15);
-                // HP bar
-                const bw = e.radius * 2;
-                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 6);
-                ctx.fillStyle = '#ff0044'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 6);
+                const bw = Math.max(e.radius * 2.2, 72);
+                this.drawCombatBar(ctx, sx - bw / 2, sy - e.radius - 10, bw, 8, e.health / e.maxHealth, '#ff0044', {
+                    glow: true,
+                    startColor: '#fb7185',
+                    endColor: '#ffd1dc',
+                    border: 'rgba(255,255,255,0.32)'
+                });
             } else if (e.type === 'tank' || e.type === 'splitter') {
-                const bw = e.radius * 1.5;
-                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw, 4);
-                ctx.fillStyle = '#ff4444'; ctx.fillRect(sx - bw / 2, sy - e.radius - 8, bw * (e.health / e.maxHealth), 4);
+                const bw = Math.max(e.radius * 1.7, 24);
+                this.drawCombatBar(ctx, sx - bw / 2, sy - e.radius - 9, bw, 5, e.health / e.maxHealth, '#ff4444', {
+                    backdrop: 'rgba(3,6,12,0.74)',
+                    border: 'rgba(255,255,255,0.18)'
+                });
             }
         });
 
@@ -17478,25 +17487,15 @@ class DotsSurvivor {
                 ctx.fillText(m.icon, m.x, m.y);
             }
 
-            // Draw green health bar above wolf
             const barWidth = m.radius * 3;
             const barHeight = 4;
             const barY = m.y - m.radius * 2.5;
             const healthPercent = m.health / m.maxHealth;
-
-            // Background (dark)
-            ctx.fillStyle = '#333';
-            ctx.fillRect(m.x - barWidth / 2, barY, barWidth, barHeight);
-
-            // Health (green gradient based on health)
             const healthColor = healthPercent > 0.5 ? '#22c55e' : healthPercent > 0.25 ? '#eab308' : '#ef4444';
-            ctx.fillStyle = healthColor;
-            ctx.fillRect(m.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
-
-            // Border
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(m.x - barWidth / 2, barY, barWidth, barHeight);
+            this.drawCombatBar(ctx, m.x - barWidth / 2, barY, barWidth, barHeight, healthPercent, healthColor, {
+                backdrop: 'rgba(3,6,12,0.72)',
+                border: 'rgba(255,255,255,0.18)'
+            });
         });
         // Imps
         this.imps.forEach(imp => {
@@ -17515,13 +17514,14 @@ class DotsSurvivor {
                 ctx.fillText(m.icon, m.x, m.y);
                 ctx.globalAlpha = 1;
 
-                // Health bar
                 const barWidth = m.radius * 2.5;
                 const barHeight = 3;
                 const barY = m.y - m.radius - 8;
                 const healthPercent = m.health / m.maxHealth;
-                ctx.fillStyle = '#333'; ctx.fillRect(m.x - barWidth / 2, barY, barWidth, barHeight);
-                ctx.fillStyle = '#6600aa'; ctx.fillRect(m.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+                this.drawCombatBar(ctx, m.x - barWidth / 2, barY, barWidth, barHeight, healthPercent, '#a855f7', {
+                    backdrop: 'rgba(3,6,12,0.72)',
+                    border: 'rgba(255,255,255,0.16)'
+                });
             });
         }
 
@@ -17535,13 +17535,14 @@ class DotsSurvivor {
                 ctx.fillText(c.icon, c.x, c.y);
                 ctx.globalAlpha = 1;
 
-                // Health bar
                 const barWidth = c.radius * 2;
                 const barHeight = 3;
                 const barY = c.y - c.radius - 6;
                 const healthPercent = c.health / c.maxHealth;
-                ctx.fillStyle = '#333'; ctx.fillRect(c.x - barWidth / 2, barY, barWidth, barHeight);
-                ctx.fillStyle = '#00cc66'; ctx.fillRect(c.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+                this.drawCombatBar(ctx, c.x - barWidth / 2, barY, barWidth, barHeight, healthPercent, '#00cc66', {
+                    backdrop: 'rgba(3,6,12,0.72)',
+                    border: 'rgba(255,255,255,0.16)'
+                });
             });
         }
 
@@ -17566,13 +17567,14 @@ class DotsSurvivor {
                 ctx.fillText(s.icon, s.x, s.y);
                 ctx.globalAlpha = 1;
 
-                // Health bar
                 const barWidth = s.radius * 2;
                 const barHeight = 2;
                 const barY = s.y - s.radius - 5;
                 const healthPercent = s.health / s.maxHealth;
-                ctx.fillStyle = '#333'; ctx.fillRect(s.x - barWidth / 2, barY, barWidth, barHeight);
-                ctx.fillStyle = '#8844cc'; ctx.fillRect(s.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+                this.drawCombatBar(ctx, s.x - barWidth / 2, barY, barWidth, barHeight, healthPercent, '#8844cc', {
+                    backdrop: 'rgba(3,6,12,0.72)',
+                    border: 'rgba(255,255,255,0.14)'
+                });
             });
         }
 
@@ -17792,15 +17794,15 @@ class DotsSurvivor {
                     ctx.fillText(thrall.icon, thrall.x, thrall.y);
                 }
 
-                // Health bar
                 const barW = thrall.radius * 3;
                 const barH = 4;
                 const barY = thrall.y - thrall.radius * 2 - 10;
                 const hp = thrall.health / thrall.maxHealth;
-                ctx.fillStyle = '#222';
-                ctx.fillRect(thrall.x - barW / 2, barY, barW, barH);
-                ctx.fillStyle = thrall.ascended ? '#bb66ff' : '#7700cc';
-                ctx.fillRect(thrall.x - barW / 2, barY, barW * hp, barH);
+                this.drawCombatBar(ctx, thrall.x - barW / 2, barY, barW, barH, hp, thrall.ascended ? '#bb66ff' : '#7700cc', {
+                    glow: thrall.ascended,
+                    backdrop: 'rgba(3,6,12,0.76)',
+                    border: 'rgba(255,255,255,0.18)'
+                });
 
                 // Tier name
                 ctx.font = '9px Inter';
@@ -18702,58 +18704,7 @@ class DotsSurvivor {
         // Restore transform before drawing UI
         ctx.restore();
 
-        // Damage numbers (UI - not scaled) - with stacking visual effects
-        this.damageNumbers.forEach(d => {
-            // Base font size - smaller for regular damage
-            let fontSize = Math.floor(14 * (d.scale || 1));
-
-            // Pulse effect when damage is added (reduced intensity)
-            if (d.pulseTimer > 0) {
-                const pulse = 1 + (d.pulseTimer / 0.15) * 0.15; // Reduced from 0.3 to 0.15
-                fontSize = Math.floor(fontSize * pulse);
-            }
-
-            // Scale based on stack count - much more limited scaling
-            if (d.stackCount > 1) {
-                fontSize = Math.floor(fontSize * (1 + Math.min(d.stackCount * 0.02, 0.2))); // Reduced from 0.05/0.5 to 0.02/0.2
-            }
-
-            // Cap maximum font size to prevent screen-covering numbers
-            fontSize = Math.min(fontSize, 28);
-
-            ctx.font = `bold ${fontSize}px Inter`;
-            ctx.textAlign = 'center';
-
-            // For stacked numbers, add subtle glow effect
-            if (d.stackCount > 3) {
-                ctx.shadowBlur = Math.min(8, 4 + d.stackCount * 0.5); // Capped glow
-                ctx.shadowColor = d.color;
-            }
-
-            // Outline for readability
-            ctx.globalAlpha = Math.min(1, d.lifetime * 1.5);
-            ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-            ctx.lineWidth = 2; // Reduced from 3
-
-            // Format large numbers (1000+ = 1.0k)
-            let displayValue = d.value;
-            if (typeof d.value === 'number' && d.value >= 1000) {
-                displayValue = (d.value / 1000).toFixed(1) + 'k';
-            }
-
-            ctx.strokeText(displayValue, d.x, d.y);
-            // Rainbow damage numbers cosmetic effect
-            if (this.hasEffect('rainbow_damage') && typeof d.value === 'number') {
-                ctx.fillStyle = this.getRainbowColor();
-            } else {
-                ctx.fillStyle = d.color;
-            }
-            ctx.fillText(displayValue, d.x, d.y);
-
-            // Reset effects
-            ctx.shadowBlur = 0;
-            ctx.globalAlpha = 1;
-        });
+        this.drawDamageNumbers(ctx);
         
         // Event Boss Timer UI
         this.drawBossEventTimer(ctx);
@@ -19570,13 +19521,172 @@ class DotsSurvivor {
         ctx.restore();
     }
 
+    formatCombatNumber(value) {
+        if (typeof value !== 'number') return value;
+        if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+        if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+        return Math.round(value).toString();
+    }
+
+    drawCombatBar(ctx, x, y, w, h, pct, color, options = {}) {
+        const fillPct = Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
+        const radius = options.radius ?? Math.max(2, h / 2);
+        const inset = Math.max(1, Math.min(2, Math.floor(h / 4)));
+        const fillW = Math.max(0, (w - inset * 2) * fillPct);
+        const glowColor = options.glowColor || color;
+
+        ctx.save();
+        ctx.shadowBlur = options.glow ? Math.min(16, h * 2) : 0;
+        ctx.shadowColor = glowColor;
+
+        ctx.fillStyle = options.backdrop || 'rgba(3, 6, 12, 0.82)';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, radius);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = options.border || 'rgba(255,255,255,0.28)';
+        ctx.lineWidth = options.borderWidth || 1;
+        ctx.beginPath();
+        ctx.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, radius);
+        ctx.stroke();
+
+        if (fillW > 0) {
+            const fillRadius = Math.max(1, Math.min(radius - inset, fillW / 2, (h - inset * 2) / 2));
+            const grad = ctx.createLinearGradient(x + inset, y, x + w - inset, y);
+            grad.addColorStop(0, options.startColor || color);
+            grad.addColorStop(0.62, color);
+            grad.addColorStop(1, options.endColor || '#ffffff');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect(x + inset, y + inset, fillW, h - inset * 2, fillRadius);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255,255,255,0.24)';
+            ctx.beginPath();
+            ctx.roundRect(x + inset, y + inset, fillW, Math.max(1, (h - inset * 2) * 0.35), fillRadius);
+            ctx.fill();
+        }
+
+        if (options.label) {
+            ctx.font = options.font || `bold ${Math.max(8, Math.floor(h * 0.9))}px Inter`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillStyle = options.labelColor || '#fff';
+            ctx.strokeText(options.label, x + w / 2, y + h / 2 + 0.5);
+            ctx.fillText(options.label, x + w / 2, y + h / 2 + 0.5);
+        }
+
+        ctx.restore();
+    }
+
+    drawDamageNumbers(ctx) {
+        this.damageNumbers.forEach(d => {
+            let fontSize = Math.floor(14 * (d.scale || 1));
+
+            if (d.pulseTimer > 0) {
+                const pulse = 1 + (d.pulseTimer / 0.15) * 0.15;
+                fontSize = Math.floor(fontSize * pulse);
+            }
+
+            if (d.stackCount > 1) {
+                fontSize = Math.floor(fontSize * (1 + Math.min(d.stackCount * 0.02, 0.2)));
+            }
+
+            fontSize = Math.min(fontSize, 30);
+            const displayValue = this.formatCombatNumber(d.value);
+            const isNumber = typeof d.value === 'number';
+            const alpha = Math.min(1, d.lifetime * 1.5);
+            const fillColor = this.hasEffect('rainbow_damage') && isNumber ? this.getRainbowColor() : d.color;
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.font = `900 ${fontSize}px Inter`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const metrics = ctx.measureText(displayValue);
+            const padX = isNumber ? 8 : 6;
+            const pillW = Math.min(140, Math.max(28, metrics.width + padX * 2));
+            const pillH = Math.max(18, fontSize + 7);
+            const pillX = d.x - pillW / 2;
+            const pillY = d.y - pillH / 2;
+            const shouldFrame = isNumber || d.stackCount > 1;
+
+            if (shouldFrame) {
+                ctx.shadowBlur = Math.min(16, 6 + (d.stackCount || 1));
+                ctx.shadowColor = fillColor;
+                ctx.fillStyle = 'rgba(3, 6, 12, 0.58)';
+                ctx.beginPath();
+                ctx.roundRect(pillX, pillY, pillW, pillH, 999);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.strokeStyle = fillColor;
+                ctx.globalAlpha = alpha * 0.46;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(pillX + 0.5, pillY + 0.5, pillW - 1, pillH - 1, 999);
+                ctx.stroke();
+                ctx.globalAlpha = alpha;
+            }
+
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+            ctx.strokeText(displayValue, d.x, d.y + 0.5);
+            ctx.fillStyle = fillColor;
+            ctx.fillText(displayValue, d.x, d.y);
+
+            if (d.stackCount > 1) {
+                ctx.font = '800 9px Inter';
+                ctx.fillStyle = 'rgba(255,255,255,0.78)';
+                ctx.fillText(`x${d.stackCount}`, d.x + pillW / 2 - 13, d.y - pillH / 2 + 7);
+            }
+
+            ctx.restore();
+        });
+    }
+
     drawHealthBar() {
-        const ctx = this.ctx, bw = 150, bh = 12, x = 20, y = 20;
+        const ctx = this.ctx;
+        const compact = this.canvas.width < 768;
+        const bw = compact ? 126 : 176;
+        const bh = compact ? 14 : 16;
+        const x = compact ? 12 : 18;
+        const y = compact ? 14 : 18;
         const hp = this.player.health / this.player.maxHealth;
-        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x, y, bw, bh);
-        ctx.fillStyle = hp > 0.5 ? '#4ade80' : hp > 0.25 ? '#fbbf24' : '#ff4444'; ctx.fillRect(x, y, bw * hp, bh);
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(x, y, bw, bh);
-        ctx.font = 'bold 10px Inter'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(`${Math.ceil(this.player.health)}/${this.player.maxHealth}`, x + bw / 2, y + 10);
+        const hpColor = hp > 0.5 ? '#4ade80' : hp > 0.25 ? '#fbbf24' : '#ff4466';
+        const panelW = bw + 18;
+        const panelH = compact ? 38 : 44;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(7, 10, 18, 0.78)';
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = hp < 0.3 ? 'rgba(255,68,102,0.45)' : 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        ctx.roundRect(x - 8, y - 8, panelW, panelH, 12);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = hp < 0.3 ? 'rgba(255,68,102,0.55)' : 'rgba(255,255,255,0.16)';
+        ctx.stroke();
+
+        ctx.font = `800 ${compact ? 9 : 10}px Inter`;
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('HEALTH', x, y - 1);
+
+        this.drawCombatBar(ctx, x, y + 7, bw, bh, hp, hpColor, {
+            glow: hp < 0.35,
+            endColor: hp > 0.5 ? '#bbf7d0' : '#fff7ed',
+            label: `${Math.ceil(this.player.health)}/${Math.floor(this.player.maxHealth)}`,
+            font: `900 ${compact ? 9 : 10}px Inter`,
+            border: hp < 0.3 ? 'rgba(255,68,102,0.62)' : 'rgba(255,255,255,0.28)'
+        });
+
+        ctx.restore();
     }
 
     drawItems() {
