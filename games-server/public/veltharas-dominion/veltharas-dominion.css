@@ -2176,6 +2176,7 @@ body {
     width: 5px;
     height: 5px;
     border-radius: 50%;
+    pointer-events: none;
     background: radial-gradient(circle, #ffdca8 0%, #ff8a3c 45%, #ff2e00 75%, transparent 100%);
     box-shadow: 0 0 6px rgba(255, 120, 0, 0.75), 0 0 14px rgba(255, 60, 0, 0.35);
     filter: blur(0.3px);
@@ -2213,13 +2214,10 @@ body {
    ════════════════════════════════════════════════════════════════ */
 
 .start-menu-overlay {
-    background: #0a0508 url('bg/menu-background.png') center center / cover no-repeat !important;
-    animation: none !important;
+    background: #0a0508 url('bg/menu-background.png') center center / cover no-repeat;
+    animation: none;
     overflow: hidden;
-    display: flex !important;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
     padding: 1rem;
 }
 
