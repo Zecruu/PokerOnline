@@ -3542,9 +3542,10 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
     if (wave >= 10) types.push('leech');
     if (wave >= 14) types.push('leech', 'leech'); // More leeches later
 
-    // ============ PUSHER MOB (wave 20+): Grabs and pushes player toward enemies ============
-    if (wave >= 20) types.push('pusher');
-    if (wave >= 25) types.push('pusher', 'pusher'); // More pushers later
+    // ============ PUSHER MOB: Grabs and pushes player toward enemies ============
+    if (wave >= 8) types.push('pusher');                    // Introduced earlier so the new sprite is encountered
+    if (wave >= 14) types.push('pusher');                   // More common in mid-game
+    if (wave >= 20) types.push('pusher', 'pusher');         // Heavy weight late-game
 
     // ============ CINDER WRETCH SPAWN GATING ============
     // Waves 1-5: disabled
@@ -14707,6 +14708,9 @@ class DotsSurvivor {
                 if (r.classReq && r.classReq !== this.selectedClass?.id) return false;
                 // Check prerequisite requirement (e.g., Ring II requires Ring I)
                 if (r.req && !this.boundSigils?.includes(r.req)) return false;
+                // Skill / ability cards only appear from level 5 onward — early game is
+                // pure stat-rolls so the player can build a foundation first.
+                if ((r.isSkillUpgrade || r.isAbilityUpgrade) && (this.level || 1) < 5) return false;
                 return true;
             };
 
@@ -14744,7 +14748,8 @@ class DotsSurvivor {
             !ownedSigilSet.has(s.id) && !usedIds.has(s.id) && s.req && ownedSigilSet.has(s.req)
         );
         // Only 25% chance to offer an ability sigil (not guaranteed every level)
-        if (Math.random() < 0.25) {
+        // Skill / ability cards are gated to level 5+ so early game is stat-focused.
+        if ((this.level || 1) >= 5 && Math.random() < 0.25) {
             let abilitySigilToOffer = null;
             if (availableBases.length > 0) {
                 abilitySigilToOffer = availableBases[Math.floor(Math.random() * availableBases.length)];
@@ -14767,7 +14772,8 @@ class DotsSurvivor {
         }
 
         // Every 10 waves (10, 20, 30...): guarantee 1 class skill upgrade sigil in slot 0
-        if (this.wave > 0 && this.wave % 10 === 0) {
+        // Also requires level 5+ since skill cards are level-gated.
+        if (this.wave > 0 && this.wave % 10 === 0 && (this.level || 1) >= 5) {
             const ownedIds = new Set(this.boundSigils || []);
             const availableClassSigils = ALL_CLASS_SIGILS.filter(s => {
                 if (ownedIds.has(s.id)) return false;
