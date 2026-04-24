@@ -16104,11 +16104,24 @@ class DotsSurvivor {
                 return;
             }
             if (e._lod === 1 && !e.isBoss) {
-                // Tier 1: colored circle + HP bar
-                ctx.beginPath();
-                ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
-                ctx.fill();
+                // Tier 1: sprite if loaded, else colored circle; + HP bar
+                const spriteLod1 = SPRITE_CACHE[e.type];
+                if (spriteLod1) {
+                    const size = e.radius * 2.4;
+                    ctx.drawImage(spriteLod1, sx - size / 2, sy - size / 2, size, size);
+                    if (e.hitFlash > 0) {
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = 0.4;
+                        ctx.drawImage(spriteLod1, sx - size / 2, sy - size / 2, size, size);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = 1;
+                    }
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                    ctx.fill();
+                }
                 // HP bar for all enemies
                 const bw = e.radius * 2;
                 ctx.fillStyle = '#1a1a1a';
@@ -16122,7 +16135,7 @@ class DotsSurvivor {
 
             // ======== CUSTOM CANVAS-DRAWN MOBS ========
 
-            // ALL non-boss enemies: colored circle + glow ring + HP bar
+            // ALL non-boss enemies: sprite if loaded (else colored circle) + glow ring + HP bar
             if (!e.isConsumer && !e.isPlagueWeaver && !e.isRiftLord && !e.isBroodQueen && !e.isArchitect && !e.isLeviathan) {
                 // Wraith alpha when phased
                 const alpha = (e.isWraith && e.wraithPhased) ? 0.3 : 1;
@@ -16134,11 +16147,25 @@ class DotsSurvivor {
                 ctx.strokeStyle = (e.hitFlash > 0 ? '#fff' : e.color) + '66';
                 ctx.lineWidth = 2;
                 ctx.stroke();
-                // Main circle
-                ctx.beginPath();
-                ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
-                ctx.fill();
+                const sprite = SPRITE_CACHE[e.type];
+                if (sprite) {
+                    // Render sprite at ~2.6x radius so the art reads larger than the hitbox
+                    const size = e.radius * 2.6;
+                    ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
+                    if (e.hitFlash > 0) {
+                        ctx.globalCompositeOperation = 'lighter';
+                        ctx.globalAlpha = Math.min(alpha, 0.5);
+                        ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = alpha;
+                    }
+                } else {
+                    // Fallback: colored circle while sprite still loads (or if none exists)
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                    ctx.fill();
+                }
                 // HP bar
                 const bw = e.radius * 2.2;
                 ctx.fillStyle = '#1a1a1a';
