@@ -325,16 +325,23 @@ class AuthManager {
 
         try {
             errorEl.textContent = '';
-            const res = await this.apiPost('/api/auth/register', { username, email, password });
+            const res = await this.apiPost('/api/auth/register', { username, email, password, rememberMe: true });
             this.token = res.token;
             this.user = res.user;
             localStorage.setItem('ds_token', res.token);
-            
+
+            // If the server supports remember tokens on register, store it so the
+            // new user stays signed in across sessions.
+            if (res.rememberToken) {
+                this.rememberToken = res.rememberToken;
+                localStorage.setItem('ds_remember_token', res.rememberToken);
+            }
+
             // Clear form
             document.getElementById('register-username').value = '';
             document.getElementById('register-email').value = '';
             document.getElementById('register-password').value = '';
-            
+
             this.showStartMenu();
         } catch (e) {
             errorEl.textContent = e.message || 'Registration failed';
