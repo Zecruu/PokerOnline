@@ -897,6 +897,17 @@ body {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
+@keyframes upgradePulse {
+    0%, 100% { transform: scale(1);    box-shadow: 0 0 8px rgba(0, 255, 170, 0.4); }
+    50%      { transform: scale(1.08); box-shadow: 0 0 18px rgba(0, 255, 170, 0.8); }
+}
+
+/* Outer glow ring on the whole card when it's an upgrade-chain pick */
+.upgrade-card.sigil-card:has(.sigil-upgrade-badge) {
+    box-shadow: 0 0 28px rgba(0, 255, 170, 0.35), inset 0 0 14px rgba(0, 255, 170, 0.08);
+    border-color: rgba(0, 255, 170, 0.5) !important;
+}
+
 .upgrade-card:hover {
     transform: translateY(-5px);
 }

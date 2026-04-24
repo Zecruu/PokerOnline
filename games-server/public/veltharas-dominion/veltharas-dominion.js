@@ -1233,7 +1233,11 @@ const ENEMY_SPRITES = {
     necromancer: 'enemies/necromancer-enemy.png', // Wave 6 - Spawns sprites
     necro_sprite: 'enemies/necro-sprite.png',     // Necromancer's minions
     miniconsumer: 'enemies/mini-consumer.png', // Wave 10 - Grows with deaths
-    cinder_wretch: 'enemies/cinder_wretch.png' // Wave 6+ - Fire enemy, spawns Fire Zone on death
+    cinder_wretch: 'enemies/cinder_wretch.png', // Wave 6+ - Fire enemy, spawns Fire Zone on death
+    wraith: 'enemies/wraith.png',               // Wave 8+ - Phasing demon
+    magma_crawler: 'enemies/magma_crawler.png', // Wave 12+ - Heavy magma beetle
+    leech: 'enemies/leech.png',                 // Wave 10+ - Healing parasite
+    pusher: 'enemies/pusher.png'                // Wave 20+ - Bodyslam brawler
 };
 
 // Sprite cache - stores loaded Image objects
@@ -14695,6 +14699,10 @@ class DotsSurvivor {
             // Helper function to filter sigils by requirements
             const filterSigil = (r) => {
                 if (usedIds.has(r.id)) return false;
+                // Already-bound sigils don't re-roll (they're no-ops when re-picked).
+                // Upgrade-chain sigils (have r.req) are separate IDs and NOT blocked here —
+                // they're the intended way to level up an owned base sigil.
+                if (this.boundSigils?.includes(r.id)) return false;
                 // Check class requirement
                 if (r.classReq && r.classReq !== this.selectedClass?.id) return false;
                 // Check prerequisite requirement (e.g., Ring II requires Ring I)
@@ -14887,6 +14895,13 @@ class DotsSurvivor {
                 <div style="position:absolute;bottom:5px;left:5px;padding:2px 6px;border-radius:6px;background:linear-gradient(90deg,#ff00ff,#00ffff);color:#fff;font-size:0.6em;font-weight:bold;">🌀 CHAOS</div>
             ` : '';
 
+            // Upgrade-chain badge — sigil has a prerequisite you already own, so
+            // picking it strictly upgrades that owned sigil (not a fresh effect).
+            const isUpgradeSigil = rune.req && this.boundSigils?.includes(rune.req);
+            const upgradeBadgeHtml = isUpgradeSigil ? `
+                <div class="sigil-upgrade-badge" style="position:absolute;top:5px;right:5px;padding:3px 9px;border-radius:999px;background:linear-gradient(90deg,#00ffaa,#00cc77);color:#052;font-size:0.65em;font-weight:800;letter-spacing:0.06em;box-shadow:0 0 12px rgba(0,255,170,0.55);text-shadow:none;animation:upgradePulse 1.6s ease-in-out infinite;">▲ UPGRADE</div>
+            ` : '';
+
             const rerollCost = this.getRerollCost();
             const canAffordReroll = this.souls >= rerollCost;
             const rerollBtnHtml = !rerollsUsed[cardIndex] ? `
@@ -14916,6 +14931,7 @@ class DotsSurvivor {
                 ${setBadgeHtml}
                 ${highRollBadgeHtml}
                 ${chaosBadgeHtml}
+                ${upgradeBadgeHtml}
                 <div class="upgrade-rarity" style="background:${style.labelBg};color:${style.labelColor || (tier === 'common' || tier === 'bronze' ? '#000' : '#fff')};font-weight:bold;">${style.label}</div>
                 ${tierImageHtml}
                 <div class="upgrade-name" style="color:${style.nameColor || style.border};font-weight:bold;">${rune.name}</div>
@@ -16636,13 +16652,11 @@ class DotsSurvivor {
                 ctx.setLineDash([]);
                 ctx.restore();
 
-                // Draw the void sprite (rotating slowly)
+                // Draw the Consumer sprite — humanoid boss, kept upright so it
+                // reads as walking toward the player instead of spinning.
                 const consumerSprite = SPRITE_CACHE['consumer'];
                 if (consumerSprite) {
-                    ctx.save();
-                    ctx.rotate(e.rotationAngle * 0.3); // Slow rotation
                     ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-                    // Hit flash effect (subtle tint, not blinding)
                     if (e.hitFlash > 0) {
                         ctx.globalCompositeOperation = 'lighter';
                         ctx.globalAlpha = 0.15;
@@ -16650,7 +16664,6 @@ class DotsSurvivor {
                         ctx.globalCompositeOperation = 'source-over';
                         ctx.globalAlpha = 1;
                     }
-                    ctx.restore();
                 } else {
                     // Fallback: dark void circle if sprite not loaded
                     ctx.beginPath();

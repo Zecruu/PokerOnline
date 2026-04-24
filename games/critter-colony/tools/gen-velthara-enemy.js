@@ -106,6 +106,22 @@ const ENEMIES = {
         quality: 'high',
         subject: 'A floating demonic soul-wisp conjured by a necromancer. Small spectral skull-and-spine form wreathed in swirling orange-red ember flames. Hollow glowing eye sockets, pale cracked bone, tendrils of dark smoke trailing behind as it floats.',
     },
+    'wraith': {
+        quality: 'high',
+        subject: 'A phasing demonic wraith. Gaunt ghostly humanoid figure draped in torn black-purple shadow robes, semi-translucent body letting the background faintly show through. Cracked obsidian skull face with two glowing violet eye sockets, bony claws extended. Thin violet-orange flame licking up from the hem of the robe. Ethereal and threatening.',
+    },
+    'magma_crawler': {
+        quality: 'high',
+        subject: 'A massive four-legged demonic magma beetle the size of a tank. Segmented armored shell of cracked obsidian plates glowing bright molten orange-yellow along every seam. Six short heavy legs tipped with obsidian claws, a broad jagged maw across the front underbelly, two small glowing eyes on armored stalks. Heat haze and smoke rising from the shell.',
+    },
+    'leech': {
+        quality: 'high',
+        subject: 'A demonic parasitic leech-creature. Long slug-like body of glossy black tarry flesh with glowing orange-red pulsing veins running its length. Front end has a huge circular sucker-maw ringed with needle teeth. No legs — it slides on the ground. Two small glowing green eyes flanking the maw. Faint trailing drops of glowing ooze behind it.',
+    },
+    'pusher': {
+        quality: 'high',
+        subject: 'A heavy demonic brawler. Humanoid stance, stocky muscular body of cracked obsidian with orange lava veins, massively oversized clenched stone-knuckle fists raised in a boxing/shoving stance. Small head sunken into huge shoulders, short horns, glowing orange eyes, bared teeth in a snarl. Built to bodyslam and push.',
+    },
 };
 
 async function main() {
