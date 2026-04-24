@@ -20068,45 +20068,49 @@ class DotsSurvivor {
             return; // No character abilities for this class
         }
 
+        const qUnlocked = this.unlockedSkills?.has(`${classId}_q`);
+        const eUnlocked = this.unlockedSkills?.has(`${classId}_e`);
+
         // Draw Q ability
-        this.drawAbilitySlot(ctx, x, y, abilitySize, qAbility, this.characterAbilities.q, compact);
+        this.drawAbilitySlot(ctx, x, y, abilitySize, qAbility, this.characterAbilities.q, compact, qUnlocked);
         x += abilitySize + padding;
 
         // Draw E ability
-        this.drawAbilitySlot(ctx, x, y, abilitySize, eAbility, this.characterAbilities.e, compact);
+        this.drawAbilitySlot(ctx, x, y, abilitySize, eAbility, this.characterAbilities.e, compact, eUnlocked);
     }
 
-    drawAbilitySlot(ctx, x, y, size, abilityInfo, abilityState, compact) {
+    drawAbilitySlot(ctx, x, y, size, abilityInfo, abilityState, compact, isUnlocked = true) {
         const isReady = abilityState.ready;
         const cooldownPercent = isReady ? 0 : abilityState.cooldown / abilityState.maxCooldown;
+        const isActive = isUnlocked && isReady;
 
         // Background
-        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.fillStyle = isUnlocked ? 'rgba(0,0,0,0.75)' : 'rgba(5,7,12,0.9)';
         ctx.beginPath();
         ctx.roundRect(x, y, size, size, 8);
         ctx.fill();
 
         // Border - glow when ready
-        if (isReady) {
+        if (isActive) {
             ctx.shadowBlur = 10;
             ctx.shadowColor = abilityInfo.color;
         }
-        ctx.strokeStyle = isReady ? abilityInfo.color : '#555';
+        ctx.strokeStyle = isActive ? abilityInfo.color : (isUnlocked ? '#555' : '#2f3542');
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         // Icon
         ctx.font = `${compact ? 18 : 22}px Inter`;
-        ctx.fillStyle = isReady ? '#fff' : '#666';
+        ctx.fillStyle = isActive ? '#fff' : '#666';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.globalAlpha = isReady ? 1 : 0.5;
+        ctx.globalAlpha = isActive ? 1 : (isUnlocked ? 0.5 : 0.22);
         ctx.fillText(abilityInfo.icon, x + size / 2, y + size / 2 - 3);
         ctx.globalAlpha = 1;
 
         // Cooldown overlay
-        if (!isReady) {
+        if (isUnlocked && !isReady) {
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.beginPath();
             ctx.moveTo(x + size / 2, y + size / 2);
@@ -20123,9 +20127,44 @@ class DotsSurvivor {
             ctx.fillText(`${Math.ceil(abilityState.cooldown)}`, x + size / 2, y + size / 2);
         }
 
+        if (!isUnlocked) {
+            const cx = x + size / 2;
+            const cy = y + size / 2;
+            const lockW = compact ? 14 : 16;
+            const lockH = compact ? 11 : 13;
+            const shackleR = compact ? 5 : 6;
+
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            ctx.roundRect(x + 5, y + 5, size - 10, size - 10, 7);
+            ctx.fill();
+
+            ctx.strokeStyle = '#f5d089';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy - 4, shackleR, Math.PI, 0);
+            ctx.stroke();
+
+            ctx.fillStyle = '#f5d089';
+            ctx.beginPath();
+            ctx.roundRect(cx - lockW / 2, cy - 4, lockW, lockH, 3);
+            ctx.fill();
+
+            ctx.fillStyle = '#111827';
+            ctx.beginPath();
+            ctx.arc(cx, cy + 1, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#f5d089';
+            ctx.font = `bold ${compact ? 7 : 8}px Inter`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('LOCKED', cx, y + size + 3);
+        }
+
         // Key hint at bottom
         ctx.font = `bold ${compact ? 9 : 11}px Inter`;
-        ctx.fillStyle = isReady ? abilityInfo.color : '#666';
+        ctx.fillStyle = isActive ? abilityInfo.color : (isUnlocked ? '#666' : '#f5d089');
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillText(abilityInfo.key, x + size / 2, y + size - 2);
