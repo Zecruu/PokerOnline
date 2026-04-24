@@ -15769,16 +15769,27 @@ class DotsSurvivor {
         ctx.fillStyle = '#0a0508';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Hellscape floor — tile a seamless texture across the canvas, offset by world scroll.
-        // Draws in raw screen-space before camera transform so zoom doesn't leave unpainted gaps.
+        // Hellscape floor — single-call tiled pattern fill (replaces the
+        // per-frame nested drawImage loop). The pattern is created once and
+        // shifted via setTransform each frame to scroll with the player.
         if (HELL_FLOOR.loaded && HELL_FLOOR.img) {
-            const tile = 1024;
+            if (!HELL_FLOOR.pattern) {
+                HELL_FLOOR.pattern = ctx.createPattern(HELL_FLOOR.img, 'repeat');
+            }
             const wx = this.worldX || 0, wy = this.worldY || 0;
-            let ox = (-wx) % tile; if (ox > 0) ox -= tile;
-            let oy = (-wy) % tile; if (oy > 0) oy -= tile;
-            for (let y = oy; y < this.canvas.height; y += tile) {
-                for (let x = ox; x < this.canvas.width; x += tile) {
-                    ctx.drawImage(HELL_FLOOR.img, x, y, tile, tile);
+            if (HELL_FLOOR.pattern && typeof HELL_FLOOR.pattern.setTransform === 'function') {
+                HELL_FLOOR.pattern.setTransform(new DOMMatrix().translate(-wx, -wy));
+                ctx.fillStyle = HELL_FLOOR.pattern;
+                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            } else {
+                // Fallback for very old browsers — manual tile loop
+                const tile = 1024;
+                let ox = (-wx) % tile; if (ox > 0) ox -= tile;
+                let oy = (-wy) % tile; if (oy > 0) oy -= tile;
+                for (let y = oy; y < this.canvas.height; y += tile) {
+                    for (let x = ox; x < this.canvas.width; x += tile) {
+                        ctx.drawImage(HELL_FLOOR.img, x, y, tile, tile);
+                    }
                 }
             }
             // Subtle darkening so bright sprites pop against the busy floor.
@@ -16243,24 +16254,14 @@ class DotsSurvivor {
                 return;
             }
             if (e._lod === 1 && !e.isBoss) {
-                // Tier 1: sprite if loaded, else colored circle; + HP bar
-                const spriteLod1 = SPRITE_CACHE[e.type];
-                if (spriteLod1) {
-                    const size = e.radius * 2.4;
-                    ctx.drawImage(spriteLod1, sx - size / 2, sy - size / 2, size, size);
-                    if (e.hitFlash > 0) {
-                        ctx.globalCompositeOperation = 'lighter';
-                        ctx.globalAlpha = 0.4;
-                        ctx.drawImage(spriteLod1, sx - size / 2, sy - size / 2, size, size);
-                        ctx.globalCompositeOperation = 'source-over';
-                        ctx.globalAlpha = 1;
-                    }
-                } else {
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
-                    ctx.fill();
-                }
+                // Tier 1 (mid distance): cheap colored circle + HP bar.
+                // drawImage costs ~10x a circle fill and the sprite detail is
+                // mostly invisible at this range — saves a lot of GPU work
+                // when many enemies are off-camera.
+                ctx.beginPath();
+                ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                ctx.fill();
                 const bw = Math.max(e.radius * 2.2, 22);
                 this.drawCombatBar(ctx, sx - bw / 2, sy - e.radius - 9, bw, 5, e.health / e.maxHealth, e.color, {
                     backdrop: 'rgba(3,6,12,0.72)',
@@ -16287,8 +16288,9 @@ class DotsSurvivor {
                 ctx.stroke();
                 const sprite = SPRITE_CACHE[e.type];
                 if (sprite) {
-                    // Render sprite at ~2.6x radius so the art reads larger than the hitbox
-                    const size = e.radius * 2.6;
+                    // Render sprite at ~3.6x radius so the art reads clearly above
+                    // the hitbox without dwarfing the player.
+                    const size = e.radius * 3.6;
                     ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
                     if (e.hitFlash > 0) {
                         ctx.globalCompositeOperation = 'lighter';
