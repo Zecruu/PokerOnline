@@ -14859,14 +14859,15 @@ class DotsSurvivor {
             const setImageUrl = setData && setData.image ? getSpritePath(setData.image) : null;
 
             const card = document.createElement('div');
-            card.className = `upgrade-card ${tier}`;
+            card.className = `upgrade-card sigil-card ${tier}`;
+            card.style.setProperty('--sigil-border', style.border);
+            card.style.setProperty('--sigil-glow', style.glow);
+            card.style.setProperty('--sigil-surface', style.bg);
+            card.style.setProperty('--sigil-label-bg', style.labelBg);
             card.style.borderColor = style.border;
             card.style.boxShadow = `0 0 20px ${style.glow}`;
             card.style.background = style.bg;
             card.style.position = 'relative';
-            if (isMythic) card.style.animation = 'mythicPulse 2s ease-in-out infinite';
-            if (isLegendary) card.style.animation = 'legendaryShine 3s ease-in-out infinite';
-            if (isCorrupted) card.style.animation = 'corruptedFlicker 1.5s ease-in-out infinite';
 
             const corruptedOverlayHtml = isCorrupted ? `
                 <div class="corrupted-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;border-radius:inherit;overflow:hidden;">
@@ -14935,6 +14936,7 @@ class DotsSurvivor {
                 <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' || tier === 'rare' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
                 ${tierImageHtml}
                 <div class="upgrade-name" style="color:${style.border};font-weight:bold;">${rune.name}</div>
+                <div class="sigil-divider"></div>
                 <div class="upgrade-desc" style="color:#ddd;font-size:0.85em;">${descHtml}</div>
                 ${downsideHtml}
                 ${setData ? `<div class="sigil-set-info" style="color:${setData.color};font-size:0.75em;margin-top:4px;font-style:italic;">${setData.icon} ${setData.name}</div>` : ''}
