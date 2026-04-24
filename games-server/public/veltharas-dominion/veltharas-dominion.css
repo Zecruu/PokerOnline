@@ -1673,22 +1673,23 @@ body {
 /* ============ SILVER RUNE STYLES ============ */
 @keyframes silverShine {
     0%, 100% {
-        box-shadow: 0 0 10px rgba(192, 192, 192, 0.3);
+        box-shadow: 0 0 10px rgba(103, 145, 176, 0.24);
     }
     50% {
-        box-shadow: 0 0 18px rgba(192, 192, 192, 0.5);
+        box-shadow: 0 0 18px rgba(103, 145, 176, 0.38);
     }
 }
 
 .upgrade-card.silver {
     animation: silverShine 3s ease-in-out infinite;
-    background: linear-gradient(135deg, #1a1a2e, #2d2d44) !important;
-    border: 3px solid #c0c0c0 !important;
+    background: linear-gradient(135deg, #101824, #1c2b3b) !important;
+    border: 3px solid #8fa8bd !important;
+    color: #d5e1ea;
 }
 
 .upgrade-card.silver:hover {
     transform: scale(1.03);
-    box-shadow: 0 0 25px rgba(192, 192, 192, 0.5) !important;
+    box-shadow: 0 0 25px rgba(103, 145, 176, 0.42) !important;
 }
 
 /* ============ BRONZE/COMMON RUNE STYLES ============ */
@@ -1736,8 +1737,44 @@ body {
 }
 
 .upgrade-card.silver .upgrade-rarity {
-    background: #c0c0c0;
-    color: #000;
+    background: linear-gradient(90deg, #26384a, #152536);
+    color: #eaf4ff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.75);
+}
+
+.upgrade-card.sigil-card.silver,
+.upgrade-card.sigil-card.rare,
+.upgrade-card.sigil-card.runed {
+    --sigil-border: #8fa8bd;
+    --sigil-glow: rgba(103, 145, 176, 0.34);
+    color: #d5e1ea;
+}
+
+.upgrade-card.sigil-card.silver .upgrade-rarity,
+.upgrade-card.sigil-card.rare .upgrade-rarity,
+.upgrade-card.sigil-card.runed .upgrade-rarity {
+    color: #eaf4ff !important;
+    background: linear-gradient(90deg, #26384a, #152536) !important;
+    border-color: rgba(234, 244, 255, 0.22);
+}
+
+.upgrade-card.sigil-card.silver .upgrade-name,
+.upgrade-card.sigil-card.rare .upgrade-name,
+.upgrade-card.sigil-card.runed .upgrade-name {
+    color: #d7e9f7 !important;
+    text-shadow: 0 0 12px rgba(103,145,176,0.45), 0 2px 3px rgba(0,0,0,0.8);
+}
+
+.upgrade-card.sigil-card.silver .upgrade-desc,
+.upgrade-card.sigil-card.rare .upgrade-desc,
+.upgrade-card.sigil-card.runed .upgrade-desc {
+    color: #d5e1ea !important;
+}
+
+.upgrade-card.sigil-card.silver .upgrade-stats,
+.upgrade-card.sigil-card.rare .upgrade-stats,
+.upgrade-card.sigil-card.runed .upgrade-stats {
+    color: #b8cfdf !important;
 }
 
 .upgrade-card.common .upgrade-rarity,

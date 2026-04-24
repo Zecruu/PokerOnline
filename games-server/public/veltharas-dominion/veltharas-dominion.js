@@ -2031,25 +2031,8 @@ const ENHANCEMENT_RUNES = {
 // Price shown to user = price / 100 (e.g., 499 = $4.99)
 // ============================================
 const COSMETIC_STORE = {
-    skins: [
-        { id: 'skin_golden', name: 'Golden Warrior', icon: '👑', desc: 'Shimmering gold player aura', price: 499, color: '#ffd700', effect: 'golden_glow' },
-        { id: 'skin_shadow', name: 'Shadow Form', icon: '🌑', desc: 'Dark purple ethereal form', price: 399, color: '#6600aa', effect: 'shadow_form' },
-        { id: 'skin_ice', name: 'Frost Walker', icon: '❄️', desc: 'Icy blue crystalline skin', price: 399, color: '#00ccff', effect: 'ice_form' },
-        { id: 'skin_fire', name: 'Inferno', icon: '🔥', desc: 'Blazing fire aura', price: 449, color: '#ff4400', effect: 'fire_form' },
-        { id: 'skin_nature', name: 'Forest Spirit', icon: '🌿', desc: 'Green nature essence', price: 349, color: '#44ff88', effect: 'nature_form' },
-        { id: 'skin_void', name: 'Void Walker', icon: '🕳️', desc: 'Dark void energy', price: 599, color: '#220044', effect: 'void_form' },
-        { id: 'skin_rainbow', name: 'Prismatic', icon: '🌈', desc: 'Color-shifting rainbow', price: 799, color: 'rainbow', effect: 'rainbow_form' },
-        { id: 'skin_skull', name: 'Death Knight', icon: '💀', desc: 'Skeletal warrior form', price: 549, color: '#aaaaaa', effect: 'skull_form' },
-    ],
-    // trails removed - no longer a cosmetic category
-    effects: [
-        { id: 'effect_explosion', name: 'Epic Explosions', icon: '💥', desc: 'Bigger kill explosions', price: 399, effect: 'big_explosions' },
-        { id: 'effect_screenshake', name: 'Extra Shake', icon: '📳', desc: 'More screen shake on hits', price: 149, effect: 'extra_shake' },
-        { id: 'effect_confetti', name: 'Confetti Kills', icon: '🎉', desc: 'Confetti on enemy death', price: 299, effect: 'confetti_kills' },
-        { id: 'effect_coins', name: 'Coin Shower', icon: '🪙', desc: 'Coins fly out on kills', price: 349, effect: 'coin_shower' },
-        { id: 'effect_skull_eyes', name: 'Glowing Skulls', icon: '👁️', desc: 'Your skulls have glowing eyes', price: 249, effect: 'glowing_skulls' },
-        { id: 'effect_rainbow_damage', name: 'Rainbow Numbers', icon: '🌈', desc: 'Damage numbers cycle colors', price: 199, effect: 'rainbow_damage' },
-    ]
+    skins: [],
+    effects: []
 };
 
 // ============================================
@@ -14823,15 +14806,15 @@ class DotsSurvivor {
             // Legacy rarity names mapping to sigil tiers
             common: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
             bronze: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
-            silver: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'RUNED', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)', tierKey: 'RUNED' },
-            rare: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'RUNED', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)', tierKey: 'RUNED' },
+            silver: { border: '#8fa8bd', bg: 'linear-gradient(135deg, #101824, #1c2b3b)', label: 'RUNED', labelBg: 'linear-gradient(90deg,#26384a,#152536)', labelColor: '#eaf4ff', nameColor: '#d7e9f7', descColor: '#d5e1ea', statColor: '#b8cfdf', glow: 'rgba(103,145,176,0.34)', tierKey: 'RUNED' },
+            rare: { border: '#8fa8bd', bg: 'linear-gradient(135deg, #101824, #1c2b3b)', label: 'RUNED', labelBg: 'linear-gradient(90deg,#26384a,#152536)', labelColor: '#eaf4ff', nameColor: '#d7e9f7', descColor: '#d5e1ea', statColor: '#b8cfdf', glow: 'rgba(103,145,176,0.34)', tierKey: 'RUNED' },
             purple: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
             epic: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
             legendary: { border: '#ffd700', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'ASCENDANT', labelBg: 'linear-gradient(90deg,#ffd700,#f59e0b)', glow: 'rgba(255,215,0,0.5)', tierKey: 'ASCENDANT' },
             mythic: { border: '#ff6600', bg: 'linear-gradient(135deg, #1a0a00, #2a1000)', label: '🔥 MYTHIC 🔥', labelBg: 'linear-gradient(90deg,#ff6600,#ff0000,#ff6600)', glow: 'rgba(255,102,0,0.6)', tierKey: 'MYTHIC' },
             // New sigil tier names (lowercase for direct lookup)
             faded: { border: '#8b7355', bg: 'linear-gradient(135deg, #2a1810, #3d2817)', label: 'FADED', labelBg: '#8b7355', glow: 'rgba(139,115,85,0.3)', tierKey: 'FADED' },
-            runed: { border: '#c0c0c0', bg: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', label: 'RUNED', labelBg: '#c0c0c0', glow: 'rgba(192,192,192,0.4)', tierKey: 'RUNED' },
+            runed: { border: '#8fa8bd', bg: 'linear-gradient(135deg, #101824, #1c2b3b)', label: 'RUNED', labelBg: 'linear-gradient(90deg,#26384a,#152536)', labelColor: '#eaf4ff', nameColor: '#d7e9f7', descColor: '#d5e1ea', statColor: '#b8cfdf', glow: 'rgba(103,145,176,0.34)', tierKey: 'RUNED' },
             empowered: { border: '#9932cc', bg: 'linear-gradient(135deg, #1a0a2e, #2d1744)', label: 'EMPOWERED', labelBg: '#9932cc', glow: 'rgba(153,50,204,0.4)', tierKey: 'EMPOWERED' },
             ascendant: { border: '#ffd700', bg: 'linear-gradient(135deg, #2a1a00, #3d2800)', label: 'ASCENDANT', labelBg: 'linear-gradient(90deg,#ffd700,#f59e0b)', glow: 'rgba(255,215,0,0.5)', tierKey: 'ASCENDANT' },
             // Corrupted tier styles - dark red/purple with unstable effects
@@ -14933,14 +14916,14 @@ class DotsSurvivor {
                 ${setBadgeHtml}
                 ${highRollBadgeHtml}
                 ${chaosBadgeHtml}
-                <div class="upgrade-rarity" style="background:${style.labelBg};color:${tier === 'silver' || tier === 'common' || tier === 'bronze' || tier === 'rare' ? '#000' : '#fff'};font-weight:bold;">${style.label}</div>
+                <div class="upgrade-rarity" style="background:${style.labelBg};color:${style.labelColor || (tier === 'common' || tier === 'bronze' ? '#000' : '#fff')};font-weight:bold;">${style.label}</div>
                 ${tierImageHtml}
-                <div class="upgrade-name" style="color:${style.border};font-weight:bold;">${rune.name}</div>
+                <div class="upgrade-name" style="color:${style.nameColor || style.border};font-weight:bold;">${rune.name}</div>
                 <div class="sigil-divider"></div>
-                <div class="upgrade-desc" style="color:#ddd;font-size:0.85em;">${descHtml}</div>
+                <div class="upgrade-desc" style="color:${style.descColor || '#ddd'};font-size:0.85em;">${descHtml}</div>
                 ${downsideHtml}
                 ${setData ? `<div class="sigil-set-info" style="color:${setData.color};font-size:0.75em;margin-top:4px;font-style:italic;">${setData.icon} ${setData.name}</div>` : ''}
-                <div class="upgrade-stats" style="color:#aaa;font-size:0.8em;">${rune.getDesc ? rune.getDesc(this) : ''}</div>
+                <div class="upgrade-stats" style="color:${style.statColor || '#aaa'};font-size:0.8em;">${rune.getDesc ? rune.getDesc(this) : ''}</div>
                 ${rerollBtnHtml}
             `;
 
@@ -15294,38 +15277,18 @@ class DotsSurvivor {
     // Load equipped cosmetics at game start
     loadEquippedCosmetics() {
         this.equippedCosmetics = { skins: null, effects: null };
-
-        if (typeof authManager !== 'undefined') {
-            const equipped = authManager.getEquippedCosmetics();
-            if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
-            if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
-        } else {
-            try {
-                const equipped = JSON.parse(localStorage.getItem('equipped_cosmetics') || '{}');
-                if (equipped.skins) this.equippedCosmetics.skins = equipped.skins;
-                if (equipped.effects) this.equippedCosmetics.effects = equipped.effects;
-            } catch (e) { /* ignore */ }
-        }
     }
 
     // Get cosmetic skin color for player glow
     getCosmeticSkinColor() {
-        if (!this.equippedCosmetics?.skins) return null;
-        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
-        if (!store) return null;
-        const skin = store.skins.find(s => s.id === this.equippedCosmetics.skins);
-        return skin ? skin.color : null;
+        return null;
     }
 
     // Trail cosmetics removed
 
     // Check if effect cosmetic is active
     hasEffect(effectName) {
-        if (!this.equippedCosmetics?.effects) return false;
-        const store = typeof COSMETIC_STORE !== 'undefined' ? COSMETIC_STORE : null;
-        if (!store) return false;
-        const effect = store.effects.find(e => e.id === this.equippedCosmetics.effects);
-        return effect && effect.effect === effectName;
+        return false;
     }
 
     // Get rainbow color for rainbow damage numbers
