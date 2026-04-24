@@ -1237,8 +1237,13 @@ const ENEMY_SPRITES = {
     wraith: 'enemies/wraith.png',               // Wave 8+ - Phasing demon
     magma_crawler: 'enemies/magma_crawler.png', // Wave 12+ - Heavy magma beetle
     leech: 'enemies/leech.png',                 // Wave 10+ - Healing parasite
-    pusher: 'enemies/pusher.png'                // Wave 20+ - Bodyslam brawler
+    pusher: 'enemies/pusher.png'                // Wave 8+ - Bodyslam brawler
 };
+
+// Consumer boss has multi-frame animations (walk / eat / die, 6 frames each).
+// Loaded into SPRITE_CACHE under keys consumer_walk_0..5, consumer_eat_0..5, consumer_die_0..5.
+const CONSUMER_ANIM_FRAMES = 6;
+const CONSUMER_ANIMS = ['walk', 'eat', 'die'];
 
 // Sprite cache - stores loaded Image objects
 const SPRITE_CACHE = {};
@@ -1304,6 +1309,12 @@ function initSprites() {
     // Load enemy sprites
     for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
         if (path) loadSprite(type, path);
+    }
+    // Load Consumer boss animation frames — already transparent, skip BG processing.
+    for (const anim of CONSUMER_ANIMS) {
+        for (let i = 0; i < CONSUMER_ANIM_FRAMES; i++) {
+            loadSprite(`consumer_${anim}_${i}`, `enemies/consumer-anims/${anim}/frame-${i}.png`, true);
+        }
     }
     // Load player sprites (standing, walking, dead)
     for (const [anim, path] of Object.entries(PLAYER_SPRITES)) {
@@ -4454,24 +4465,21 @@ class DotsSurvivor {
         const canSave = typeof authManager !== 'undefined' && authManager.user;
 
         pauseMenu.innerHTML = `
-            <div class="menu-content" style="text-align:center;max-height:85vh;display:flex;flex-direction:column;">
-                <h1 style="font-size:2.5rem;margin-bottom:0.5rem;">⏸️ PAUSED</h1>
-                <p style="color:#888;margin-bottom:1rem;font-size:0.9rem;">Press ESC or P to resume</p>
+            <div class="menu-content pause-content">
+                <h1 class="pause-title">PAUSED</h1>
+                <p class="pause-subtitle">Press ESC or P to resume</p>
 
-                <!-- Scrollable button area -->
-                <div id="pause-menu-buttons" style="overflow-y:auto;max-height:50vh;padding:0.5rem;scrollbar-width:thin;scrollbar-color:#00ffaa33 transparent;">
-                    <button id="resume-btn" class="menu-btn" style="background:linear-gradient(135deg,#00ffaa,#00aa66);border:none;padding:1rem 2rem;border-radius:12px;color:#000;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;">▶️ Resume</button>
-                    ${canSave ? `<button id="save-quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#4da6ff,#2266aa);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;">💾 Save & Quit</button>` : ''}
-                    <button id="quit-btn" class="menu-btn" style="background:linear-gradient(135deg,#ff4466,#cc2244);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;">🚪 Quit</button>
+                <div id="pause-menu-buttons" class="pause-menu-buttons">
+                    <button id="resume-btn" class="menu-btn pause-action resume">Resume</button>
+                    ${canSave ? `<button id="save-quit-btn" class="menu-btn pause-action save">Save & Quit</button>` : ''}
+                    <button id="quit-btn" class="menu-btn pause-action quit">Quit Run</button>
 
-                    <!-- Divider -->
-                    <div style="border-top:1px solid #333;margin:1rem auto;width:180px;"></div>
+                    <div class="pause-divider"></div>
 
-                    <!-- Donate Button -->
-                    <a id="donate-btn" href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn" style="background:linear-gradient(135deg,#ff5e5b,#ff9966);border:none;padding:1rem 2rem;border-radius:12px;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;margin:0.5rem;display:block;width:220px;margin-left:auto;margin-right:auto;text-decoration:none;box-shadow:0 0 20px rgba(255,94,91,0.3);transition:all 0.2s;">
-                        ❤️ Support Us
+                    <a id="donate-btn" href="https://ko-fi.com/zecrugames" target="_blank" rel="noopener noreferrer" class="menu-btn pause-action support">
+                        Support Us
                     </a>
-                    <p style="color:#888;font-size:0.75rem;margin-top:0.25rem;text-align:center;">Help fund indie game development!</p>
+                    <p class="pause-help-text">Help fund indie game development.</p>
                 </div>
             </div>
         `;
@@ -5748,7 +5756,15 @@ class DotsSurvivor {
             enraged: false,
             voidProjectiles: [],
             voidProjectileTimer: 0,
-            voidProjectileCooldown: 4 // Void bolt every 4 seconds
+            voidProjectileCooldown: 4, // Void bolt every 4 seconds
+            // Animation state — 'walk' (idle/moving), 'eat' (consuming, plays once then back to walk),
+            // 'die' (death sequence, plays once, sprite vanishes 5s after start of die)
+            anim: 'walk',
+            animFrame: 0,
+            animTimer: 0,
+            animFrameDuration: 0.18, // seconds per walk frame (~5.5fps loop)
+            isDying: false,
+            despawnTimer: 0          // counts up after 'die' starts; sprite fades out at 5s
         };
 
         this.enemies.push(consumer);
@@ -5785,6 +5801,40 @@ class DotsSurvivor {
         // Find consumer enemy
         const consumer = this.enemies.find(e => e.isConsumer);
         if (!consumer) return;
+
+        // ── Animation tick: advance walk loop / eat-once / die-then-hold ──
+        consumer.animTimer = (consumer.animTimer || 0) + dt;
+        const animDur = consumer.animFrameDuration || 0.18;
+        if (consumer.animTimer >= animDur) {
+            consumer.animTimer = 0;
+            if (consumer.anim === 'eat') {
+                if (consumer.animFrame < CONSUMER_ANIM_FRAMES - 1) {
+                    consumer.animFrame++;
+                } else {
+                    // Eat anim complete → back to walk loop
+                    consumer.anim = 'walk';
+                    consumer.animFrame = 0;
+                    consumer.animFrameDuration = 0.18;
+                }
+            } else if (consumer.anim === 'die') {
+                if (consumer.animFrame < CONSUMER_ANIM_FRAMES - 1) {
+                    consumer.animFrame++;
+                }
+                // Hold on last frame; despawn handled below
+            } else {
+                consumer.animFrame = ((consumer.animFrame || 0) + 1) % CONSUMER_ANIM_FRAMES;
+            }
+        }
+
+        // ── Dying state: only tick despawn timer, skip all behavior ──
+        if (consumer.isDying) {
+            consumer.despawnTimer = (consumer.despawnTimer || 0) + dt;
+            if (consumer.despawnTimer >= 5) {
+                const idx = this.enemies.indexOf(consumer);
+                if (idx >= 0) this.enemies.splice(idx, 1);
+            }
+            return;
+        }
 
         // Update life timer
         consumer.lifeTimer += dt;
@@ -5902,6 +5952,13 @@ class DotsSurvivor {
 
                 // Consume if very close - DEVOUR the enemy
                 if (edist < consumer.radius + e.radius * 0.5) {
+                    // Trigger the eat animation (plays once, ~6 frames @ 0.10s)
+                    if (consumer.anim !== 'eat') {
+                        consumer.anim = 'eat';
+                        consumer.animFrame = 0;
+                        consumer.animTimer = 0;
+                        consumer.animFrameDuration = 0.10;
+                    }
                     // Absorb health (20% of enemy max health)
                     const healthGain = Math.floor(e.maxHealth * 0.20);
                     consumer.maxHealth += healthGain;
@@ -6089,9 +6146,15 @@ class DotsSurvivor {
         // Pause enemy spawns for 5 seconds
         this.spawnPauseTimer = 5;
 
-        // Remove consumer
-        const idx = this.enemies.indexOf(consumer);
-        if (idx >= 0) this.enemies.splice(idx, 1);
+        // Trigger death animation; updateConsumer removes the entity 5s later.
+        consumer.anim = 'die';
+        consumer.animFrame = 0;
+        consumer.animTimer = 0;
+        consumer.animFrameDuration = 0.40;
+        consumer.isDying = true;
+        consumer.despawnTimer = 0;
+        consumer.damage = 0;
+        consumer.health = consumer.maxHealth = 1e12;
     }
 
     handleConsumerKilled(consumer, sx, sy) {
@@ -6104,7 +6167,9 @@ class DotsSurvivor {
         this.triggerScreenShake(20, 0.5);
         this.triggerSlowmo(0.2, 1.0);
 
-        // Wipe ALL enemies (no damage to player)
+        // Wipe ALL non-boss enemies (no damage to player). KEEP the consumer in
+        // this.enemies so its death animation can play out (updateConsumer
+        // removes it after the 5s despawn timer).
         const enemiesWiped = this.enemies.filter(e => e !== consumer).length;
         for (const e of this.enemies) {
             if (e === consumer) continue;
@@ -6112,9 +6177,21 @@ class DotsSurvivor {
             const esy = this.player.y + (e.wy - this.worldY);
             this.spawnParticles(esx, esy, '#8800ff', 5);
         }
-        // Release all enemies back to pool, then clear
-        for (let i = 0; i < this.enemies.length; i++) this._releaseEnemy(this.enemies[i]);
-        this.enemies = [];
+        for (const e of this.enemies) {
+            if (e !== consumer) this._releaseEnemy(e);
+        }
+        this.enemies = [consumer];
+
+        // Trigger Consumer death animation; updateConsumer removes the entity 5s later.
+        // Zero damage + huge HP so it can't damage the player or be re-killed during the anim.
+        consumer.anim = 'die';
+        consumer.animFrame = 0;
+        consumer.animTimer = 0;
+        consumer.animFrameDuration = 0.40;
+        consumer.isDying = true;
+        consumer.despawnTimer = 0;
+        consumer.damage = 0;
+        consumer.health = consumer.maxHealth = 1e12;
 
         // Announcement
         this.damageNumbers.push({
@@ -10891,11 +10968,12 @@ class DotsSurvivor {
     }
 
     handleEnemyDeath(e, sx, sy, index) {
-        // Special handling for Consumer death (killed by player)
+        // Special handling for Consumer death (killed by player).
+        // Don't run twice — once isDying is set, the death animation is in
+        // progress and updateConsumer is responsible for removing the entity
+        // 5 seconds later.
         if (e.isConsumer) {
-            this.handleConsumerKilled(e, sx, sy);
-            const idx = this.enemies.indexOf(e);
-            if (idx >= 0) this.enemies.splice(idx, 1);
+            if (!e.isDying) this.handleConsumerKilled(e, sx, sy);
             return;
         }
 
@@ -16633,8 +16711,8 @@ class DotsSurvivor {
                 const spriteSize = e.spriteSize || 300;
                 const coreRadius = e.radius;
 
-                // Draw spiraling vacuum particles BEHIND the sprite
-                if (e.vacuumParticles) {
+                // Draw spiraling vacuum particles BEHIND the sprite (skip while dying)
+                if (e.vacuumParticles && !e.isDying) {
                     for (const p of e.vacuumParticles) {
                         ctx.beginPath();
                         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -16645,31 +16723,42 @@ class DotsSurvivor {
                     ctx.globalAlpha = 1;
                 }
 
-                // Draw subtle void ring (single, not pulsing)
-                const spiralAngle = e.spiralAngle || 0;
-                ctx.save();
-                ctx.rotate(spiralAngle * 0.3);
-                ctx.beginPath();
-                ctx.arc(0, 0, coreRadius * 1.2, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(136, 0, 255, 0.12)';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([12, 10]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
+                // Draw subtle void ring (skip while dying — boss is broken, no aura)
+                if (!e.isDying) {
+                    const spiralAngle = e.spiralAngle || 0;
+                    ctx.save();
+                    ctx.rotate(spiralAngle * 0.3);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, coreRadius * 1.2, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(136, 0, 255, 0.12)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([12, 10]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.restore();
+                }
 
-                // Draw the Consumer sprite — humanoid boss, kept upright so it
-                // reads as walking toward the player instead of spinning.
-                const consumerSprite = SPRITE_CACHE['consumer'];
+                // Draw the Consumer animation frame — walk loops, eat plays once
+                // then returns to walk, die plays once then holds while the
+                // sprite fades out over the despawn timer's last second.
+                const animName = e.anim || 'walk';
+                const animFrame = e.animFrame || 0;
+                const consumerSprite = SPRITE_CACHE[`consumer_${animName}_${animFrame}`] || SPRITE_CACHE['consumer'];
                 if (consumerSprite) {
+                    let alpha = 1;
+                    if (e.isDying) {
+                        // Fade out in the final 1.2s of the 5s despawn window
+                        alpha = Math.max(0, 1 - Math.max(0, ((e.despawnTimer || 0) - 3.8) / 1.2));
+                    }
+                    if (alpha < 1) ctx.globalAlpha = alpha;
                     ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-                    if (e.hitFlash > 0) {
+                    if (e.hitFlash > 0 && !e.isDying) {
                         ctx.globalCompositeOperation = 'lighter';
                         ctx.globalAlpha = 0.15;
                         ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
                         ctx.globalCompositeOperation = 'source-over';
-                        ctx.globalAlpha = 1;
                     }
+                    ctx.globalAlpha = 1;
                 } else {
                     // Fallback: dark void circle if sprite not loaded
                     ctx.beginPath();
@@ -16682,56 +16771,59 @@ class DotsSurvivor {
                     ctx.fill();
                 }
 
-                // Draw the EYEBALL in the center of the sprite
-                const eyeSize = coreRadius * 0.35;
+                // Eyeball + consume-radius indicator only render while alive — the
+                // animated death sprite carries the visuals during isDying.
+                if (!e.isDying) {
+                    const eyeSize = coreRadius * 0.35;
 
-                // Eye white/red glow
-                ctx.beginPath();
-                ctx.arc(0, 0, eyeSize * 1.2, 0, Math.PI * 2);
-                const eyeGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize * 1.2);
-                eyeGlow.addColorStop(0, 'rgba(255, 0, 100, 0.8)');
-                eyeGlow.addColorStop(0.7, 'rgba(200, 0, 80, 0.4)');
-                eyeGlow.addColorStop(1, 'rgba(100, 0, 50, 0)');
-                ctx.fillStyle = eyeGlow;
-                ctx.fill();
+                    // Eye white/red glow
+                    ctx.beginPath();
+                    ctx.arc(0, 0, eyeSize * 1.2, 0, Math.PI * 2);
+                    const eyeGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize * 1.2);
+                    eyeGlow.addColorStop(0, 'rgba(255, 0, 100, 0.8)');
+                    eyeGlow.addColorStop(0.7, 'rgba(200, 0, 80, 0.4)');
+                    eyeGlow.addColorStop(1, 'rgba(100, 0, 50, 0)');
+                    ctx.fillStyle = eyeGlow;
+                    ctx.fill();
 
-                // Main eye (red, menacing)
-                ctx.beginPath();
-                ctx.ellipse(0, 0, eyeSize, eyeSize * 0.5, 0, 0, Math.PI * 2);
-                ctx.fillStyle = '#cc0044';
-                ctx.fill();
-                ctx.strokeStyle = '#ff0066';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+                    // Main eye (red, menacing)
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, eyeSize, eyeSize * 0.5, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = '#cc0044';
+                    ctx.fill();
+                    ctx.strokeStyle = '#ff0066';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
 
-                // Pupil - follows player direction
-                const playerDx = this.worldX - e.wx;
-                const playerDy = this.worldY - e.wy;
-                const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
-                const pupilOffset = Math.min(eyeSize * 0.35, playerDist * 0.06);
-                const pupilX = playerDist > 0 ? (playerDx / playerDist) * pupilOffset : 0;
-                const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset * 0.5 : 0;
+                    // Pupil - follows player direction
+                    const playerDx = this.worldX - e.wx;
+                    const playerDy = this.worldY - e.wy;
+                    const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
+                    const pupilOffset = Math.min(eyeSize * 0.35, playerDist * 0.06);
+                    const pupilX = playerDist > 0 ? (playerDx / playerDist) * pupilOffset : 0;
+                    const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset * 0.5 : 0;
 
-                ctx.beginPath();
-                ctx.ellipse(pupilX, pupilY, eyeSize * 0.3, eyeSize * 0.18, 0, 0, Math.PI * 2);
-                ctx.fillStyle = '#000';
-                ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(pupilX, pupilY, eyeSize * 0.3, eyeSize * 0.18, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000';
+                    ctx.fill();
 
-                // Inner highlight (makes eye look alive)
-                ctx.beginPath();
-                ctx.arc(pupilX - eyeSize * 0.12, pupilY - eyeSize * 0.06, eyeSize * 0.1, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-                ctx.fill();
+                    // Inner highlight (makes eye look alive)
+                    ctx.beginPath();
+                    ctx.arc(pupilX - eyeSize * 0.12, pupilY - eyeSize * 0.06, eyeSize * 0.1, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.fill();
 
-                // Consume radius indicator (pulsing dashed circle)
-                const pulseAlpha = 0.2 + Math.sin(e.spiralAngle * 2) * 0.1;
-                ctx.beginPath();
-                ctx.arc(0, 0, e.consumeRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(136, 0, 255, ${pulseAlpha})`;
-                ctx.lineWidth = 3;
-                ctx.setLineDash([12, 8]);
-                ctx.stroke();
-                ctx.setLineDash([]);
+                    // Consume radius indicator (pulsing dashed circle)
+                    const pulseAlpha = 0.2 + Math.sin(e.spiralAngle * 2) * 0.1;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, e.consumeRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(136, 0, 255, ${pulseAlpha})`;
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([12, 8]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
 
                 ctx.restore();
 
@@ -16784,28 +16876,29 @@ class DotsSurvivor {
                     ctx.restore();
                 }
 
-                // Name and HP bar (outside save/restore)
-                const displayRadius = spriteSize / 2;
-                ctx.font = 'bold 18px Inter'; ctx.fillStyle = e.enraged ? '#ff0000' : '#ff0066'; ctx.textAlign = 'center';
-                ctx.fillText((e.enraged ? '😡 ' : '🌀 ') + e.name + (e.enraged ? ' ENRAGED! 😡' : ' 🌀'), sx, sy - displayRadius - 55);
-                ctx.font = '12px Inter'; ctx.fillStyle = '#cc88ff';
-                ctx.fillText(`Souls Consumed: ${e.consumedCount}`, sx, sy - displayRadius - 38);
-                // Time remaining
-                if (e.lifeTimer !== undefined) {
-                    const timeLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
-                    const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#aaa');
-                    ctx.font = '11px Inter'; ctx.fillStyle = timeColor;
-                    ctx.fillText(`Detonates in: ${timeLeft}s`, sx, sy - displayRadius - 22);
+                // Name and HP bar (skip while dying — boss is gone)
+                if (!e.isDying) {
+                    const displayRadius = spriteSize / 2;
+                    ctx.font = 'bold 18px Inter'; ctx.fillStyle = e.enraged ? '#ff0000' : '#ff0066'; ctx.textAlign = 'center';
+                    ctx.fillText((e.enraged ? '😡 ' : '🌀 ') + e.name + (e.enraged ? ' ENRAGED! 😡' : ' 🌀'), sx, sy - displayRadius - 55);
+                    ctx.font = '12px Inter'; ctx.fillStyle = '#cc88ff';
+                    ctx.fillText(`Souls Consumed: ${e.consumedCount}`, sx, sy - displayRadius - 38);
+                    if (e.lifeTimer !== undefined) {
+                        const timeLeft = Math.ceil(e.maxLifeTime - e.lifeTimer);
+                        const timeColor = timeLeft <= 10 ? '#ff0000' : (timeLeft <= 30 ? '#ff8800' : '#aaa');
+                        ctx.font = '11px Inter'; ctx.fillStyle = timeColor;
+                        ctx.fillText(`Detonates in: ${timeLeft}s`, sx, sy - displayRadius - 22);
+                    }
+                    const bw = Math.max(e.radius * 2.5, 200);
+                    ctx.fillStyle = '#222'; ctx.fillRect(sx - bw / 2, sy - displayRadius - 12, bw, 12);
+                    ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2 + 1, sy - displayRadius - 11, bw - 2, 10);
+                    const hpGrad = ctx.createLinearGradient(sx - bw / 2, 0, sx + bw / 2, 0);
+                    hpGrad.addColorStop(0, '#8800ff');
+                    hpGrad.addColorStop(0.5, '#cc00aa');
+                    hpGrad.addColorStop(1, '#ff0066');
+                    ctx.fillStyle = hpGrad;
+                    ctx.fillRect(sx - bw / 2 + 1, sy - displayRadius - 11, (bw - 2) * (e.health / e.maxHealth), 10);
                 }
-                const bw = Math.max(e.radius * 2.5, 200);
-                ctx.fillStyle = '#222'; ctx.fillRect(sx - bw / 2, sy - displayRadius - 12, bw, 12);
-                ctx.fillStyle = '#333'; ctx.fillRect(sx - bw / 2 + 1, sy - displayRadius - 11, bw - 2, 10);
-                const hpGrad = ctx.createLinearGradient(sx - bw / 2, 0, sx + bw / 2, 0);
-                hpGrad.addColorStop(0, '#8800ff');
-                hpGrad.addColorStop(0.5, '#cc00aa');
-                hpGrad.addColorStop(1, '#ff0066');
-                ctx.fillStyle = hpGrad;
-                ctx.fillRect(sx - bw / 2 + 1, sy - displayRadius - 11, (bw - 2) * (e.health / e.maxHealth), 10);
 
             } else if (e.isBroodQueen) {
                 // THE BROOD QUEEN - Giant spider with legs, eggs, acid rain
