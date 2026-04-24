@@ -4868,7 +4868,13 @@ class DotsSurvivor {
         this.pendingCharacterClass = characterClass;
 
         const menu = document.getElementById('start-menu');
-        const content = menu.querySelector('.menu-content');
+        // Main start menu now uses .sm-layout as its content wrapper; fall back
+        // to legacy .menu-content so the gameover-menu flow still works.
+        const content = menu.querySelector('.sm-layout') || menu.querySelector('.menu-content');
+        if (!content) {
+            console.error('showStarterItemSelect: no content wrapper found in #start-menu');
+            return;
+        }
 
         // Add wide panel class for starter select
         content.classList.add('wide-panel');

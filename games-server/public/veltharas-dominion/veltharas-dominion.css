@@ -2247,6 +2247,11 @@ body {
     animation: menuFadeIn 0.4s ease-out;
 }
 
+/* When the starter-item-select takes over the layout, let it go wider */
+.sm-layout.wide-panel {
+    max-width: 960px;
+}
+
 .sm-hero {
     text-align: center;
     width: 100%;
