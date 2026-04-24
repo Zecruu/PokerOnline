@@ -4,7 +4,8 @@
   "description": "Static file server for ZecruGames - games.zecrugames.com",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo \"games-server is a static file server — nothing to build\""
   },
   "dependencies": {
     "compression": "^1.7.4",
