@@ -5371,6 +5371,11 @@ class DotsSurvivor {
             this.homingStrength = 12;
             // Fireball color
             this.weapons.bullet.color = '#ff6600';
+            // Auto-attack cadence: Caitlyn's base AS in LoL = 0.681 attacks/sec
+            // (one of the slowest in the game — she trades AS for range). The
+            // fire-slash arc replaces homing fireballs and inherits this cadence,
+            // so each slash feels deliberate and weighty.
+            this.weapons.bullet.fireRate = 1468; // ms between attacks ≈ 0.681 AS
             // Ring of Fire — now unlocked via Passive Ability Sigil (auraFire stays null)
             // Ability cooldowns
             this.characterAbilities.q.maxCooldown = 12;
