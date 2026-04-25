@@ -15778,30 +15778,20 @@ class DotsSurvivor {
         ctx.fillStyle = '#0a0508';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Hellscape floor — single-call tiled pattern fill (replaces the
-        // per-frame nested drawImage loop). The pattern is created once and
-        // shifted via setTransform each frame to scroll with the player.
+        // Hellscape floor — manual tile loop (was using ctx.createPattern +
+        // setTransform but that triggered per-frame texture re-uploads in
+        // some Chromium builds and tanked the framerate). Plain drawImage
+        // tiling is reliably fast.
         if (HELL_FLOOR.loaded && HELL_FLOOR.img) {
-            if (!HELL_FLOOR.pattern) {
-                HELL_FLOOR.pattern = ctx.createPattern(HELL_FLOOR.img, 'repeat');
-            }
+            const tile = 1024;
             const wx = this.worldX || 0, wy = this.worldY || 0;
-            if (HELL_FLOOR.pattern && typeof HELL_FLOOR.pattern.setTransform === 'function') {
-                HELL_FLOOR.pattern.setTransform(new DOMMatrix().translate(-wx, -wy));
-                ctx.fillStyle = HELL_FLOOR.pattern;
-                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            } else {
-                // Fallback for very old browsers — manual tile loop
-                const tile = 1024;
-                let ox = (-wx) % tile; if (ox > 0) ox -= tile;
-                let oy = (-wy) % tile; if (oy > 0) oy -= tile;
-                for (let y = oy; y < this.canvas.height; y += tile) {
-                    for (let x = ox; x < this.canvas.width; x += tile) {
-                        ctx.drawImage(HELL_FLOOR.img, x, y, tile, tile);
-                    }
+            let ox = (-wx) % tile; if (ox > 0) ox -= tile;
+            let oy = (-wy) % tile; if (oy > 0) oy -= tile;
+            for (let y = oy; y < this.canvas.height; y += tile) {
+                for (let x = ox; x < this.canvas.width; x += tile) {
+                    ctx.drawImage(HELL_FLOOR.img, x, y, tile, tile);
                 }
             }
-            // Subtle darkening so bright sprites pop against the busy floor.
             ctx.fillStyle = 'rgba(10, 5, 8, 0.35)';
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -16297,9 +16287,10 @@ class DotsSurvivor {
                 ctx.stroke();
                 const sprite = SPRITE_CACHE[e.type];
                 if (sprite) {
-                    // Render sprite at ~3.6x radius so the art reads clearly above
-                    // the hitbox without dwarfing the player.
-                    const size = e.radius * 3.6;
+                    // Render sprite at ~3.0x radius — bigger than the original
+                    // 2.6× so the demonic art reads, but not so large that the
+                    // ~30 simultaneous drawImages spike the GPU compositor.
+                    const size = e.radius * 3.0;
                     ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
                     if (e.hitFlash > 0) {
                         ctx.globalCompositeOperation = 'lighter';
