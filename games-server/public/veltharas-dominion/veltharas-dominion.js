@@ -14849,9 +14849,9 @@ class DotsSurvivor {
                 if (r.req && !this.boundSigils?.includes(r.req)) return false;
                 // Skill / ability cards only appear from level 5 onward — early game is
                 // pure stat-rolls so the player can build a foundation first.
-                if ((r.isSkillUpgrade || r.isAbilityUpgrade) && (this.level || 1) < 5) return false;
+                if ((r.isSkillUpgrade || r.isAbilityUpgrade) && (this.player?.level || 1) < 5) return false;
                 // Per-sigil minLevel override (e.g. E unlocks gate to level 10).
-                if (r.minLevel && (this.level || 1) < r.minLevel) return false;
+                if (r.minLevel && (this.player?.level || 1) < r.minLevel) return false;
                 return true;
             };
 
@@ -14883,7 +14883,7 @@ class DotsSurvivor {
         // ─── PASSIVE ABILITY SIGIL SLOT (25% chance to appear in slot 1) ─────────────
         const ownedSigilSet = new Set(this.boundSigils || []);
         const myClassId = this.selectedClass?.id;
-        const myLevel = this.level || 1;
+        const myLevel = this.player?.level || 1;
         // Honor classReq so a Fire Sovereign never sees a Shadow Master unlock card.
         const classOK = (s) => !s.classReq || s.classReq === myClassId;
         // Honor per-sigil minLevel (e.g. E unlocks at L10).
@@ -14899,7 +14899,7 @@ class DotsSurvivor {
         // boost to 60% so they actually see the unlock cards within a few level-ups.
         const hasPendingUnlocks = availableBases.some(s => s.id.startsWith('unlock_'));
         const offerChance = hasPendingUnlocks ? 0.60 : 0.25;
-        if ((this.level || 1) >= 5 && Math.random() < offerChance) {
+        if ((this.player?.level || 1) >= 5 && Math.random() < offerChance) {
             let abilitySigilToOffer = null;
             // Prioritize unlock sigils for unowned Q/E so the player can actually
             // engage their character abilities — especially the first one rolled.
@@ -14929,7 +14929,7 @@ class DotsSurvivor {
 
         // Every 10 waves (10, 20, 30...): guarantee 1 class skill upgrade sigil in slot 0
         // Also requires level 5+ since skill cards are level-gated.
-        if (this.wave > 0 && this.wave % 10 === 0 && (this.level || 1) >= 5) {
+        if (this.wave > 0 && this.wave % 10 === 0 && (this.player?.level || 1) >= 5) {
             const ownedIds = new Set(this.boundSigils || []);
             const availableClassSigils = ALL_CLASS_SIGILS.filter(s => {
                 if (ownedIds.has(s.id)) return false;
