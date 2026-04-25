@@ -1712,45 +1712,7 @@ const ALL_CLASS_SIGILS = [
 // Unlock and upgrade passive ability systems via the level-up menu.
 // Base sigils unlock abilities; upgrade sigils chain via req field.
 // ============================================
-// Helper: builds a class-locked Q or E unlock sigil. Picking it adds the
-// `<classId>_<key>` entry to game.unlockedSkills so activateCharacterAbility
-// will fire instead of showing the locked toast.
-function makeSkillUnlockSigil(classId, key, name, icon, desc) {
-    // Q unlocks at level 5, E unlocks at level 10 — staggers ability access so
-    // the player builds toward each major upgrade rather than getting both at once.
-    const minLevel = key === 'e' ? 10 : 5;
-    return {
-        id: `unlock_${classId}_${key}`,
-        name: `Unlock: ${name}`,
-        icon,
-        rarity: 'ability',
-        tier: 'ABILITY',
-        classReq: classId,
-        minLevel,
-        isAbilityUpgrade: true, // gates this card behind level 5 via filterSigil
-        desc: `UNLOCK: ${desc}. Press [${key.toUpperCase()}] to use. (Lv ${minLevel}+)`,
-        effect: (g) => {
-            g.unlockedSkills.add(`${classId}_${key}`);
-            g.boundSigils.push(`unlock_${classId}_${key}`);
-        },
-        getDesc: (g) => g.unlockedSkills.has(`${classId}_${key}`) ? 'Unlocked ✓' : `Press [${key.toUpperCase()}]`
-    };
-}
-
 const PASSIVE_ABILITY_SIGILS = [
-    // ─── CLASS Q/E SKILL UNLOCKS ──────────────────────────────────────────────
-    // Players start with auto-fire only; Q and E must be unlocked via these cards.
-    makeSkillUnlockSigil('fire_sovereign',  'q', 'Inferno Volley',     '🔥', 'Burst of 5 enhanced homing fireballs'),
-    makeSkillUnlockSigil('fire_sovereign',  'e', 'Solar Cataclysm',    '☀️', 'Devastating fire nova ultimate'),
-    makeSkillUnlockSigil('shadow_master',   'q', 'Shadow Cloak',       '🌑', '3-second invisibility, freezes enemies'),
-    makeSkillUnlockSigil('shadow_master',   'e', 'Shadow Step',        '💨', 'Dash 200px + 1s invisibility'),
-    makeSkillUnlockSigil('necromancer',     'q', 'Bone Pit',           '🦴', 'Drop a slow zone of grasping bones'),
-    makeSkillUnlockSigil('necromancer',     'e', 'Soul Shield',        '🛡️', 'Raised corpses absorb damage for 4s'),
-    makeSkillUnlockSigil('shadow_monarch',  'q', 'Despair Barrage',    '⚫', 'Orbs become super orbs firing despair beams'),
-    makeSkillUnlockSigil('shadow_monarch',  'e', "Monarch's Decree",   '👑', 'Ascend your Shadow Thrall for 8 seconds'),
-    makeSkillUnlockSigil('void_blade',      'q', 'Voidstep Dash',      '⚔️', 'Dash, slash, apply bleed, gain iframes'),
-    makeSkillUnlockSigil('void_blade',      'e', 'Crimson Catastrophe','🩸', 'Unleash all stored Blood Swords'),
-
     // ─── RING OF FIRE ─────────────────────────────────────────────────────────
     {
         id: 'ability_ring_of_fire',
@@ -13136,23 +13098,31 @@ class DotsSurvivor {
 
         const classId = this.selectedClass?.id;
 
-        // Q/E abilities must be unlocked via skill cards before they can fire.
+        // Q unlocks at player level 5, E unlocks at level 10. Auto-unlock here
+        // (in addition to the level-up handler) so a player who's already past
+        // the threshold gets it the instant they press the key.
         const skillKey = `${classId}_${abilityKey}`;
+        const requiredLevel = abilityKey === 'e' ? 10 : 5;
+        const playerLevel = this.player?.level || 1;
         if (!this.unlockedSkills.has(skillKey)) {
-            // One-shot toast: throttle to avoid spam if the user mashes Q/E
-            const now = (this.gameTime || Date.now());
-            if (!this._lockToastAt || now - this._lockToastAt > 1500) {
-                this._lockToastAt = now;
-                this.damageNumbers.push({
-                    x: this.canvas.width / 2,
-                    y: this.canvas.height / 2 + 80,
-                    value: `🔒 ${abilityKey.toUpperCase()} ability locked — find an unlock card`,
-                    lifetime: 1.5,
-                    color: '#ff8866',
-                    scale: 1.1
-                });
+            if (playerLevel >= requiredLevel) {
+                this.unlockedSkills.add(skillKey);
+            } else {
+                // Throttled toast so mashing Q/E doesn't spam the screen
+                const now = (this.gameTime || Date.now());
+                if (!this._lockToastAt || now - this._lockToastAt > 1500) {
+                    this._lockToastAt = now;
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2,
+                        y: this.canvas.height / 2 + 80,
+                        value: `🔒 ${abilityKey.toUpperCase()} unlocks at level ${requiredLevel}`,
+                        lifetime: 1.5,
+                        color: '#ff8866',
+                        scale: 1.1
+                    });
+                }
+                return;
             }
-            return;
         }
 
         // ========== FIRE SOVEREIGN ABILITIES ==========
@@ -14506,6 +14476,30 @@ class DotsSurvivor {
             this.player.xp -= this.player.xpToLevel;
             this.player.level++;
 
+            // Q unlocks at level 5, E unlocks at level 10 — auto, no card needed.
+            const lvl = this.player.level;
+            const cid = this.selectedClass?.id;
+            if (cid && this.unlockedSkills) {
+                if (lvl >= 5 && !this.unlockedSkills.has(`${cid}_q`)) {
+                    this.unlockedSkills.add(`${cid}_q`);
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2,
+                        y: this.canvas.height / 2 - 60,
+                        value: '🔓 Q ABILITY UNLOCKED — press Q',
+                        lifetime: 3, color: '#00ffaa', scale: 1.6
+                    });
+                }
+                if (lvl >= 10 && !this.unlockedSkills.has(`${cid}_e`)) {
+                    this.unlockedSkills.add(`${cid}_e`);
+                    this.damageNumbers.push({
+                        x: this.canvas.width / 2,
+                        y: this.canvas.height / 2 - 60,
+                        value: '🔓 E ABILITY UNLOCKED — press E',
+                        lifetime: 3, color: '#00ffaa', scale: 1.6
+                    });
+                }
+            }
+
             // Shadow Monarch: Thrall evolution on level-up
             if (this.shadowThrall && this.shadowThrall.alive) {
                 const newTier = this.getThrallTier();
@@ -14895,20 +14889,10 @@ class DotsSurvivor {
             !ownedSigilSet.has(s.id) && !usedIds.has(s.id) && s.req && ownedSigilSet.has(s.req)
         );
         // Skill / ability cards are gated to level 5+ so early game is stat-focused.
-        // 50% chance once at L5+ AND if the player still has Q/E unlocks pending,
-        // boost to 60% so they actually see the unlock cards within a few level-ups.
-        const hasPendingUnlocks = availableBases.some(s => s.id.startsWith('unlock_'));
-        const offerChance = hasPendingUnlocks ? 0.60 : 0.25;
-        if ((this.player?.level || 1) >= 5 && Math.random() < offerChance) {
+        if ((this.player?.level || 1) >= 5 && Math.random() < 0.25) {
             let abilitySigilToOffer = null;
-            // Prioritize unlock sigils for unowned Q/E so the player can actually
-            // engage their character abilities — especially the first one rolled.
-            const pendingUnlocks = availableBases.filter(s => s.id.startsWith('unlock_'));
-            const otherBases = availableBases.filter(s => !s.id.startsWith('unlock_'));
-            if (pendingUnlocks.length > 0) {
-                abilitySigilToOffer = pendingUnlocks[Math.floor(Math.random() * pendingUnlocks.length)];
-            } else if (otherBases.length > 0) {
-                abilitySigilToOffer = otherBases[Math.floor(Math.random() * otherBases.length)];
+            if (availableBases.length > 0) {
+                abilitySigilToOffer = availableBases[Math.floor(Math.random() * availableBases.length)];
             } else if (availableUpgrades.length > 0) {
                 abilitySigilToOffer = availableUpgrades[Math.floor(Math.random() * availableUpgrades.length)];
             }
