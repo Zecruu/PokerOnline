@@ -1338,19 +1338,49 @@ function loadSprite(type, path, skipProcessing = false) {
     return img;
 }
 
+// Robust item-icon loader: tries CDN first, falls back to a same-origin path.
+// Same pattern as the hell-floor loader so icons resolve whether the player
+// is on production CloudFront, the dev server, or anything in between.
+function loadItemIcon(id) {
+    const key = `item_${id}`;
+    if (SPRITE_CACHE[key]) return SPRITE_CACHE[key];
+    const localUrl = `items/${id}.png`;
+    const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : localUrl;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { SPRITE_CACHE[key] = img; };
+    img.onerror = () => {
+        // CDN miss — try the relative local path.
+        if (img.src !== new URL(localUrl, location.href).href) {
+            const fb = new Image();
+            fb.crossOrigin = 'anonymous';
+            fb.onload = () => { SPRITE_CACHE[key] = fb; };
+            fb.onerror = () => {};
+            fb.src = localUrl;
+        }
+    };
+    img.src = cdnUrl;
+    return img;
+}
+
 // Initialize sprites on load
 function initSprites() {
-    // Inventory item icons — square ID-named sprites under /items/
+    // Inventory item icons — square ID-named sprites under /items/.
+    // Try CDN first (fast, cached) and fall back to local on error so the
+    // icons appear in both prod (CloudFront synced) and local dev.
     if (typeof ITEM_DEFS !== 'undefined') {
         for (const id of Object.keys(ITEM_DEFS)) {
-            loadSprite(`item_${id}`, `items/${id}.png`, true);
+            loadItemIcon(id);
         }
     }
-    // Stat-panel icons — bind <img class="stat-icon" data-stat="..."> elements
-    // to the matching PNG. If the file is missing, the CSS hides the broken img.
+    // Stat-panel icons — bind <img class="stat-icon" data-stat="..."> elements.
     document.querySelectorAll('img.stat-icon').forEach(el => {
         const stat = el.getAttribute('data-stat');
-        if (stat) el.src = `stat-icons/${stat}.png`;
+        if (!stat) return;
+        const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(`stat-icons/${stat}.png`) : null;
+        const localUrl = `stat-icons/${stat}.png`;
+        el.onerror = () => { if (el.src !== new URL(localUrl, location.href).href) el.src = localUrl; else el.style.display = 'none'; };
+        el.src = cdnUrl || localUrl;
     });
     // Load enemy sprites
     for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
