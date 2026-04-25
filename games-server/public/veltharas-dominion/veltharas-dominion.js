@@ -1338,28 +1338,26 @@ function loadSprite(type, path, skipProcessing = false) {
     return img;
 }
 
-// Robust item-icon loader: tries CDN first, falls back to a same-origin path.
-// Same pattern as the hell-floor loader so icons resolve whether the player
-// is on production CloudFront, the dev server, or anything in between.
+// Robust item-icon loader: tries same-origin first (works on local dev and
+// on production once the assets are deployed), falls back to the explicit
+// CloudFront URL if same-origin 404s.
 function loadItemIcon(id) {
     const key = `item_${id}`;
     if (SPRITE_CACHE[key]) return SPRITE_CACHE[key];
     const localUrl = `items/${id}.png`;
-    const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : localUrl;
+    const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : null;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => { SPRITE_CACHE[key] = img; };
     img.onerror = () => {
-        // CDN miss — try the relative local path.
-        if (img.src !== new URL(localUrl, location.href).href) {
-            const fb = new Image();
-            fb.crossOrigin = 'anonymous';
-            fb.onload = () => { SPRITE_CACHE[key] = fb; };
-            fb.onerror = () => {};
-            fb.src = localUrl;
-        }
+        if (!cdnUrl || cdnUrl === img.src) return;
+        const fb = new Image();
+        fb.crossOrigin = 'anonymous';
+        fb.onload = () => { SPRITE_CACHE[key] = fb; };
+        fb.onerror = () => {};
+        fb.src = cdnUrl;
     };
-    img.src = cdnUrl;
+    img.src = localUrl;
     return img;
 }
 
@@ -1373,14 +1371,22 @@ function initSprites() {
             loadItemIcon(id);
         }
     }
-    // Stat-panel icons — bind <img class="stat-icon" data-stat="..."> elements.
+    // Stat-panel icons — same-origin first, CDN fallback, hide on both fail.
     document.querySelectorAll('img.stat-icon').forEach(el => {
         const stat = el.getAttribute('data-stat');
         if (!stat) return;
-        const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(`stat-icons/${stat}.png`) : null;
         const localUrl = `stat-icons/${stat}.png`;
-        el.onerror = () => { if (el.src !== new URL(localUrl, location.href).href) el.src = localUrl; else el.style.display = 'none'; };
-        el.src = cdnUrl || localUrl;
+        const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : null;
+        let triedCdn = false;
+        el.onerror = () => {
+            if (!triedCdn && cdnUrl && cdnUrl !== el.src) {
+                triedCdn = true;
+                el.src = cdnUrl;
+            } else {
+                el.style.display = 'none';
+            }
+        };
+        el.src = localUrl;
     });
     // Load enemy sprites
     for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
@@ -15235,9 +15241,14 @@ class DotsSurvivor {
             const tierName = itemTierName(newLevel);
             const tierColor = itemTierColor(newLevel);
             card.style.cssText = `border: 3px solid ${tierColor}; box-shadow: 0 0 24px ${tierColor}55, 0 4px 20px rgba(0,0,0,0.5);`;
+            // Prefer the loaded item sprite; fall back to the emoji glyph.
+            const cached = SPRITE_CACHE[`item_${def.id}`];
+            const iconBlock = cached
+                ? `<img src="${cached.src}" alt="${def.name}" style="display:block;width:96px;height:96px;margin:.4rem auto .3rem;border:2px solid ${tierColor};border-radius:10px;box-shadow:0 0 18px ${tierColor}88;background:#0a0508;object-fit:contain;">`
+                : `<div style="font-size:3.2rem;line-height:1;text-align:center;margin:.6rem 0 .3rem;text-shadow:0 0 20px ${tierColor}aa;">${def.icon}</div>`;
             card.innerHTML = `
                 <div class="upgrade-rarity" style="background:${tierColor};color:#0a0508;font-weight:800;">${isUpgrade ? `${tierName.toUpperCase()} · UPGRADE` : 'NEW · CRUSTY'}</div>
-                <div style="font-size:3.2rem;line-height:1;text-align:center;margin:.6rem 0 .3rem;text-shadow:0 0 20px ${tierColor}aa;">${def.icon}</div>
+                ${iconBlock}
                 <div class="upgrade-name" style="color:#fff;font-weight:bold;text-align:center;">${def.name}</div>
                 <div class="sigil-divider"></div>
                 <div class="upgrade-desc" style="color:#ddd;font-size:.85em;text-align:center;">${def.desc}</div>
