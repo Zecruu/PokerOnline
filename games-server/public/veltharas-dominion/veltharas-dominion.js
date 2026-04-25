@@ -13553,6 +13553,14 @@ class DotsSurvivor {
             return;
         }
 
+        // Fire Sovereign: forward fire slash arc instead of homing fireballs.
+        // Damage is applied on contact and Sovereign Burn stacks DoT continues
+        // ticking after the slash visual fades (so it "ticks damage on hit").
+        if (this.selectedClass?.id === 'fire_sovereign') {
+            this.fireFireSlash();
+            return;
+        }
+
         // Necromancer: No projectiles - relies on skulls and death drain
         if (this.noProjectiles) {
             return;
@@ -13703,6 +13711,93 @@ class DotsSurvivor {
         if (hitCount > 0) {
             this.triggerScreenShake(3, 0.1);
         }
+    }
+
+    // Fire Sovereign auto-attack: a forward fiery crescent that damages every
+    // enemy in the arc and stacks Sovereign Burn DoT (the "tick damage on hit"
+    // half of the request — burn stacks continue ticking after the visual ends).
+    fireFireSlash() {
+        const w = this.weapons.bullet;
+        const slashRange = 180;
+        const slashArc = Math.PI * 0.75; // ~135° forward cone
+        const baseDamage = Math.floor(w.damage * (this.damageMultiplier || 1));
+
+        // Aim at nearest enemy; if none, point in last-known facing direction.
+        let nearest = null, nd = Infinity;
+        const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, slashRange + 80);
+        for (let i = 0; i < nearby.length; i++) {
+            const e = nearby[i];
+            if (e.health <= 0) continue;
+            const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
+            const dSq = dx * dx + dy * dy;
+            if (dSq < nd) { nd = dSq; nearest = e; }
+        }
+        if (!nearest) return;
+
+        const ex = this.player.x + (nearest.wx - this.worldX);
+        const ey = this.player.y + (nearest.wy - this.worldY);
+        const slashAngle = Math.atan2(ey - this.player.y, ex - this.player.x);
+
+        this.playSound('shoot');
+        this.playFireballSound();
+
+        // Visual record consumed by the renderer (see drawFireSlash below)
+        if (!this.activeFireSlashes) this.activeFireSlashes = [];
+        this.activeFireSlashes.push({
+            x: this.player.x,
+            y: this.player.y,
+            angle: slashAngle,
+            range: slashRange,
+            arc: slashArc,
+            timer: 0.32,
+            maxTimer: 0.32
+        });
+
+        // Hit every enemy inside the arc — slash is AoE, not single-target
+        let hitCount = 0;
+        for (const e of this.enemies) {
+            if (e.health <= 0) continue;
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dx = sx - this.player.x, dy = sy - this.player.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > slashRange + e.radius) continue;
+            const angleToEnemy = Math.atan2(dy, dx);
+            let angleDiff = angleToEnemy - slashAngle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            if (Math.abs(angleDiff) > slashArc / 2) continue;
+
+            // Direct contact damage
+            e.health -= baseDamage;
+            e.hitFlash = 1;
+            this.damageNumbers.push({ x: sx, y: sy - 14, value: baseDamage, lifetime: 0.5, color: '#ff7733', scale: 1.05 });
+
+            // Apply / refresh Sovereign Burn stacks (DoT) — same pipeline as the
+            // old fireball-on-hit code so all existing burn sigils keep working.
+            if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
+            const stacksPerHit = 2;
+            const cap = this.maxBurnStacks || 10;
+            e.sovereignBurn.stacks = Math.min(cap, e.sovereignBurn.stacks + stacksPerHit);
+            e.sovereignBurn.timer = this.burnStackDuration || 4;
+            e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1);
+
+            this.spawnParticles(sx, sy, '#ff6622', 3);
+            hitCount++;
+
+            // Track damage for stacking items
+            this.updateStackingItems('damage', baseDamage);
+
+            // Lifesteal pass-through (mirrors the projectile path)
+            if (this.vampireHeal && this.vampireHeal > 0) {
+                const heal = Math.floor(baseDamage * this.vampireHeal);
+                if (heal > 0 && this.player.health < this.player.maxHealth) {
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                }
+            }
+        }
+
+        if (hitCount > 0) this.triggerScreenShake(2, 0.08);
     }
 
     updateProjectiles(dt) {
@@ -18399,6 +18494,53 @@ class DotsSurvivor {
             ctx.restore();
 
             this.activeWhip.timer -= 0.016;
+        }
+
+        // Fire Slash Visual (Fire Sovereign auto-attack)
+        if (this.activeFireSlashes && this.activeFireSlashes.length > 0) {
+            for (let i = this.activeFireSlashes.length - 1; i >= 0; i--) {
+                const s = this.activeFireSlashes[i];
+                const t = Math.max(0, s.timer / s.maxTimer); // 1 → 0
+                const fade = t;          // alpha
+                const sweep = 1 - t;     // 0 → 1 (animates the slash sweep direction)
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.rotate(s.angle);
+                // Outer crescent — fiery wedge
+                const r0 = s.range * (0.45 + sweep * 0.55);
+                const r1 = s.range * (0.65 + sweep * 0.35);
+                const grad = ctx.createRadialGradient(0, 0, r0 * 0.4, 0, 0, r1);
+                grad.addColorStop(0,   `rgba(255, 230, 160, ${0.0  * fade})`);
+                grad.addColorStop(0.4, `rgba(255, 140, 40,  ${0.55 * fade})`);
+                grad.addColorStop(0.8, `rgba(255, 60, 0,    ${0.45 * fade})`);
+                grad.addColorStop(1,   `rgba(80, 0, 0,      ${0.0  * fade})`);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.shadowBlur = 22; ctx.shadowColor = '#ff5500';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                // Bright leading edge
+                ctx.beginPath();
+                ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
+                ctx.strokeStyle = `rgba(255, 220, 140, ${fade})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                // Inner ember wisps
+                for (let k = 0; k < 5; k++) {
+                    const a = (-s.arc / 2) + (s.arc * (k + 0.5) / 5);
+                    const r = r1 * (0.6 + Math.random() * 0.4);
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 3 + Math.random() * 2, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, ${180 + Math.random() * 60 | 0}, 60, ${fade * 0.8})`;
+                    ctx.fill();
+                }
+                ctx.restore();
+                s.timer -= 0.016;
+                if (s.timer <= 0) this.activeFireSlashes.splice(i, 1);
+            }
         }
 
         // Invisibility Effect (Shadow Master) - Player transparency
