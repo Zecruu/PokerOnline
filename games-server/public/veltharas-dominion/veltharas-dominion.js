@@ -115,17 +115,40 @@ function itemTierColor(level) {
 }
 // statsAt(level) returns an object — each field is added/multiplied at the
 // applyItemEffects() pass. Per-level deltas keep scaling linearly forever.
+// Each item has its own `color` for the inventory slot border so items at the
+// same Crusty tier are visually distinct from each other.
 const ITEM_DEFS = {
-    rusty_sword:    { id: 'rusty_sword',    name: 'Rusty Sword',     icon: '🗡️', desc: '+5% attack damage / lvl',  statsAt: l => ({ dmgPct: 0.05 * l }) },
-    cracked_lens:   { id: 'cracked_lens',   name: 'Cracked Lens',    icon: '🔍', desc: '+3% crit chance / lvl',    statsAt: l => ({ critFlat: 0.03 * l }) },
-    worn_gloves:    { id: 'worn_gloves',    name: 'Worn Gloves',     icon: '🧤', desc: '+5% attack speed / lvl',   statsAt: l => ({ atkSpdPct: 0.05 * l }) },
-    tattered_boots: { id: 'tattered_boots', name: 'Tattered Boots',  icon: '🥾', desc: '+8 move speed / lvl',      statsAt: l => ({ moveSpdFlat: 8 * l }) },
-    bent_coin:      { id: 'bent_coin',      name: 'Bent Coin',       icon: '🪙', desc: '+8% XP gain / lvl',        statsAt: l => ({ fortunePct: 0.08 * l }) },
-    smudged_tome:   { id: 'smudged_tome',   name: 'Smudged Tome',    icon: '📕', desc: '+10% mage power / lvl',    statsAt: l => ({ magePowerPct: 0.10 * l }) },
-    frayed_talisman:{ id: 'frayed_talisman',name: 'Frayed Talisman', icon: '📿', desc: '+15 max HP / lvl',         statsAt: l => ({ hpFlat: 15 * l }) },
-    multiplier:     { id: 'multiplier',     name: 'Multiplier',      icon: '✦',  desc: '+1 slash / lvl. The only way to fire more than one slash.', statsAt: l => ({ slashMultiplier: l }) }
+    rusty_sword:    { id: 'rusty_sword',    name: 'Rusty Sword',     icon: '🗡️', color: '#ff5c5c', desc: '+100 flat damage / lvl', statsAt: l => ({ dmgFlat: 100 * l }) },
+    cracked_lens:   { id: 'cracked_lens',   name: 'Cracked Lens',    icon: '🔍', color: '#ffb84d', desc: '+3% crit chance / lvl',  statsAt: l => ({ critFlat: 0.03 * l }) },
+    worn_gloves:    { id: 'worn_gloves',    name: 'Worn Gloves',     icon: '🧤', color: '#ffe066', desc: '+5% attack speed / lvl', statsAt: l => ({ atkSpdPct: 0.05 * l }) },
+    tattered_boots: { id: 'tattered_boots', name: 'Tattered Boots',  icon: '🥾', color: '#5cd8ff', desc: '+8 move speed / lvl',    statsAt: l => ({ moveSpdFlat: 8 * l }) },
+    bent_coin:      { id: 'bent_coin',      name: 'Bent Coin',       icon: '🪙', color: '#ffd34d', desc: '+8% XP gain / lvl',      statsAt: l => ({ fortunePct: 0.08 * l }) },
+    smudged_tome:   { id: 'smudged_tome',   name: 'Smudged Tome',    icon: '📕', color: '#a070ff', desc: '+10% mage power / lvl',  statsAt: l => ({ magePowerPct: 0.10 * l }) },
+    frayed_talisman:{ id: 'frayed_talisman',name: 'Frayed Talisman', icon: '📿', color: '#ff5c8a', desc: '+15 max HP / lvl',       statsAt: l => ({ hpFlat: 15 * l }) },
+    multiplier:     { id: 'multiplier',     name: 'Multiplier',      icon: '✦',  color: '#ff8c3c', desc: '+1 slash / lvl. Only way to fire more than one slash.', statsAt: l => ({ slashMultiplier: l }) },
+    // New items
+    iron_charm:     { id: 'iron_charm',     name: 'Iron Charm',      icon: '🛡', color: '#7ec0e8', desc: '+5% CC reduction / lvl', statsAt: l => ({ ccrPct: 0.05 * l }) },
+    bone_amulet:    { id: 'bone_amulet',    name: 'Bone Amulet',     icon: '🦴', color: '#c9c5b8', desc: '+3% damage reduction / lvl', statsAt: l => ({ drPct: 0.03 * l }) },
+    healing_aura:   { id: 'healing_aura',   name: 'Healing Aura',    icon: '✚',  color: '#7be36e', desc: '+1 HP regen / lvl',      statsAt: l => ({ regenFlat: 1 * l }) }
 };
-// 8 items, exactly the inventory size — collect them all.
+// 11 items now; inventory is still 8 slots — players choose what to specialize.
+
+// ============ SHOP (every 10 waves) ============
+// 4 random offers, paid in souls. Buffs are FLAT and PERMANENT — they don't
+// scale per level like inventory items, they just add forever.
+const SHOP_OFFERS = [
+    { id: 'pot_heal',     name: 'Health Potion',     icon: '🧪', desc: 'Heal to full HP',                cost: 5,  apply: g => { g.player.health = g.player.maxHealth; } },
+    { id: 'pot_max_hp',   name: 'Vital Tonic',       icon: '❤',  desc: '+50 max HP, +50 HP heal',        cost: 6,  apply: g => { g.player.maxHealth += 50; g.player.health = Math.min(g.player.maxHealth, g.player.health + 50); } },
+    { id: 'pot_damage',   name: 'Edge Whetstone',    icon: '⚔',  desc: '+20 base damage',                cost: 6,  apply: g => { g.weapons.bullet.damage += 20; } },
+    { id: 'pot_crit',     name: "Hunter's Mark",     icon: '🎯', desc: '+5% crit chance',                cost: 7,  apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; } },
+    { id: 'pot_atk_spd',  name: 'Stim Vial',         icon: '⚡', desc: '+5% attack speed',               cost: 6,  apply: g => { g.weapons.bullet.fireRate *= (1 / 1.05); } },
+    { id: 'pot_speed',    name: 'Quicksilver',       icon: '👟', desc: '+25 move speed',                 cost: 5,  apply: g => { g.player.speed += 25; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 25; } },
+    { id: 'pot_regen',    name: 'Vivifying Salve',   icon: '✚',  desc: '+1 HP regen per second',         cost: 6,  apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; } },
+    { id: 'pot_ccr',      name: "Sage's Brew",       icon: '🛡', desc: '+10% CC reduction',              cost: 6,  apply: g => { g.ccReduction = Math.min(0.85, (g.ccReduction || 0) + 0.10); } },
+    { id: 'pot_fortune',  name: 'Lucky Charm',       icon: '🍀', desc: '+15% XP gain (permanent)',       cost: 5,  apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.15; } },
+    { id: 'pot_burn',     name: 'Phoenix Oil',       icon: '🔥', desc: '+15% burn DPS multiplier',       cost: 7,  apply: g => { g.sovereignBurnDPSMult = (g.sovereignBurnDPSMult || 1) * 1.15; } },
+    { id: 'pot_max_stack',name: 'Pyre Crucible',     icon: '🌋', desc: '+1 max burn stacks',             cost: 7,  apply: g => { g.maxBurnStacks = (g.maxBurnStacks || 10) + 1; } }
+];
 
 // CloudFront CDN base path for all assets
 const SPRITE_BASE_PATH = '';
@@ -5354,6 +5377,8 @@ class DotsSurvivor {
         // Inventory holds up to INVENTORY_SLOTS unique items; each item levels
         // up infinitely as the player picks duplicates from the level-up menu.
         this.inventory = []; // [{ id, level }]
+        this.shopOpen = false;
+        this.lastShopWave = 0;     // tracks the wave a shop already opened on
         this._itemDmgMult = 1;
         this._itemCritFlat = 0;
         this._itemAtkSpdMult = 1;
@@ -8300,6 +8325,11 @@ class DotsSurvivor {
                 this.waveTimer = 0;
                 // Re-roll Tank or Splitter choice for waves 5-6 (new choice each wave)
                 this.tankOrSplitterChoice = Math.random() < 0.5 ? 'tank' : 'splitter';
+                // Open the shop every 10 waves
+                if (this.wave % 10 === 0 && this.lastShopWave !== this.wave) {
+                    this.lastShopWave = this.wave;
+                    this.openShop();
+                }
 
                 // =============================================
                 // STARTER ITEM EVOLUTION AT WAVE 10
@@ -10089,11 +10119,17 @@ class DotsSurvivor {
         const inCombat = this.combatTimer < this.combatDuration;
 
         // Perk-based regen (1 HP per second) - DISABLED while in combat
-        if (this.player.hpRegen > 0 && !inCombat) {
+        // Healing Aura item (regenFlat) ALWAYS regens, even in combat — that's its niche.
+        const totalRegen = (this.player.hpRegen || 0) + (this._itemRegenFlat || 0);
+        const regenInCombat = (this._itemRegenFlat || 0) > 0; // healing aura works in combat
+        if (totalRegen > 0 && (!inCombat || regenInCombat)) {
             this.regenTimer += dt;
             if (this.regenTimer >= 1) {
                 this.regenTimer = 0;
-                this.player.health = Math.min(this.player.maxHealth, this.player.health + this.player.hpRegen);
+                const tickAmount = inCombat ? (this._itemRegenFlat || 0) : totalRegen;
+                if (tickAmount > 0) {
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + tickAmount);
+                }
             }
         }
 
@@ -10537,8 +10573,12 @@ class DotsSurvivor {
         const now = performance.now();
 
         // ============ MAX ALIVE CAP CHECK ============
-        // If we're at or above the max alive cap for this wave, don't spawn
-        const maxAlive = getMaxAliveByWave(this.wave);
+        // Below player level 5 the world feels overcrowded: shrink the cap so
+        // early waves can be cleared and the player can build up. Linear ramp
+        // from 25% at L1 → 100% at L5, full cap thereafter.
+        const pLvl = this.player?.level || 1;
+        const earlyEase = pLvl >= 5 ? 1 : (0.25 + (pLvl - 1) * (0.75 / 4));
+        const maxAlive = Math.max(4, Math.floor(getMaxAliveByWave(this.wave) * earlyEase));
         // Count non-boss enemies only for cap (bosses don't count toward cap)
         let currentAlive = 0;
         for (let i = 0; i < this.enemies.length; i++) { if (!this.enemies[i].isBoss) currentAlive++; }
@@ -10549,7 +10589,10 @@ class DotsSurvivor {
         // ============ SPAWN RATE CALCULATION ============
         // Use wave-based spawn rate multiplier
         const spawnRateMult = getSpawnRateMultByWave(this.wave);
-        const effectiveSpawnRate = this.baseSpawnRate * spawnRateMult * this.necromancerSpawnMult;
+        // Slow down spawn cadence below L5 too — earlyEase < 1 means LARGER
+        // intervals between spawns (rate is ms-between-spawns).
+        const earlyRateBoost = pLvl >= 5 ? 1 : (1 / earlyEase);
+        const effectiveSpawnRate = this.baseSpawnRate * spawnRateMult * this.necromancerSpawnMult * earlyRateBoost;
 
         // Reduce spawn rate during boss grace period
         const graceMultiplier = this.bossGracePeriod > 0 ? 2.0 : 1.0;
@@ -13839,8 +13882,13 @@ class DotsSurvivor {
         const w = this.weapons.bullet;
         const slashRange = 180;
         const slashArc = Math.PI * 0.375; // ~67° forward cone (half of original)
-        // Sword (dmgMult) + Tome (magePowerMult) stack into the slash damage.
-        const baseDamage = Math.floor(w.damage * (this.damageMultiplier || 1) * (this._itemDmgMult || 1) * (this._itemMagePowerMult || 1));
+        // Sword (flat) + Tome (mage power) + global mults stack into slash damage.
+        const baseDamage = Math.floor(
+            (w.damage + (this._itemDmgFlat || 0)) *
+            (this.damageMultiplier || 1) *
+            (this._itemDmgMult || 1) *
+            (this._itemMagePowerMult || 1)
+        );
         const slashCount = 1 + (this._itemSlashMultiplier || 0);
 
         // Aim at nearest enemy; if none, point in last-known facing direction.
@@ -15120,30 +15168,39 @@ class DotsSurvivor {
             this._itemBaseMaxHealth = this.player.maxHealth;
         }
 
-        let dmgMult = 1, critFlat = 0, atkSpdMult = 1, moveSpdFlat = 0;
-        let fortuneMult = 1, magePowerMult = 1, hpFlat = 0, armorPct = 0, slashMult = 0;
+        let dmgMult = 1, dmgFlat = 0, critFlat = 0, atkSpdMult = 1, moveSpdFlat = 0;
+        let fortuneMult = 1, magePowerMult = 1, hpFlat = 0, drPct = 0, slashMult = 0;
+        let ccrPct = 0, regenFlat = 0;
         for (const it of this.inventory) {
             const def = ITEM_DEFS[it.id]; if (!def) continue;
             const s = def.statsAt(it.level);
             dmgMult       *= 1 + (s.dmgPct || 0);
+            dmgFlat       += s.dmgFlat || 0;
             critFlat      += s.critFlat || 0;
             atkSpdMult    *= 1 + (s.atkSpdPct || 0);
             moveSpdFlat   += s.moveSpdFlat || 0;
             fortuneMult   *= 1 + (s.fortunePct || 0);
             magePowerMult *= 1 + (s.magePowerPct || 0);
             hpFlat        += s.hpFlat || 0;
-            armorPct      += s.armorPct || 0;
+            drPct         += s.drPct || 0;
+            ccrPct        += s.ccrPct || 0;
+            regenFlat     += s.regenFlat || 0;
             slashMult     += s.slashMultiplier || 0;
         }
         this._itemDmgMult = dmgMult;
+        this._itemDmgFlat = dmgFlat;
         this._itemCritFlat = critFlat;
         this._itemAtkSpdMult = atkSpdMult;
         this._itemMoveSpdFlat = moveSpdFlat;
         this._itemFortuneMult = fortuneMult;
         this._itemMagePowerMult = magePowerMult;
         this._itemHpFlat = hpFlat;
-        this._itemArmorPct = Math.min(0.75, armorPct); // cap 75% DR
+        this._itemDrPct = Math.min(0.75, drPct);  // cap 75% damage reduction
+        this._itemCcrPct = Math.min(0.75, ccrPct); // cap 75% CC reduction
+        this._itemRegenFlat = regenFlat;
         this._itemSlashMultiplier = slashMult;
+        // Plumb item-derived CC reduction and regen into the existing player fields
+        this.ccReduction = Math.max(this.ccReduction || 0, this._itemCcrPct);
 
         // Apply to live player fields where possible
         if (this.player && this._itemBasePlayerSpeed != null) {
@@ -15214,6 +15271,79 @@ class DotsSurvivor {
         this.applyItemEffects();
     }
 
+    // ─── SHOP ───────────────────────────────────────────────────────────────
+    openShop() {
+        if (this.shopOpen) return;
+        this.shopOpen = true;
+        this.gamePaused = true;
+
+        // Pick 4 random offers
+        const pool = SHOP_OFFERS.slice();
+        const offers = [];
+        while (offers.length < 4 && pool.length > 0) {
+            const i = Math.floor(Math.random() * pool.length);
+            offers.push(pool.splice(i, 1)[0]);
+        }
+
+        let overlay = document.getElementById('shop-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'shop-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(5,2,2,0.86);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;';
+            document.body.appendChild(overlay);
+        }
+        const renderShop = () => {
+            const souls = Math.floor(this.souls || 0);
+            overlay.innerHTML = `
+                <div style="text-align:center;margin-bottom:1.2rem;">
+                    <h1 style="color:#ffb84d;font-size:2.4rem;letter-spacing:3px;text-shadow:0 0 20px rgba(255,184,77,0.55);margin-bottom:.3rem;">⚜ SOUL MARKET ⚜</h1>
+                    <div style="color:#bdf78c;font-size:1.05rem;">Wave ${this.wave} · Souls: <span style="color:#fff;font-weight:bold;">👻 ${souls}</span></div>
+                    <div style="color:#aaa;font-size:.85rem;margin-top:.3rem;">Buffs are flat and permanent. Buy what you can; the door closes when you continue.</div>
+                </div>
+                <div id="shop-cards" style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;max-width:920px;"></div>
+                <button id="shop-leave-btn" style="margin-top:1.6rem;padding:.85rem 2.4rem;background:linear-gradient(135deg,#ff8a3c,#c03a14);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:1rem;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 18px rgba(255,80,0,0.3);">CONTINUE →</button>
+            `;
+            const cards = overlay.querySelector('#shop-cards');
+            for (const offer of offers) {
+                const canAfford = souls >= offer.cost;
+                const card = document.createElement('div');
+                const tint = canAfford ? '#ffb84d' : '#555';
+                card.style.cssText = `width:200px;padding:1rem;border:3px solid ${tint};border-radius:14px;background:rgba(20,15,8,0.9);box-shadow:0 0 24px ${tint}33;cursor:${canAfford && !offer._bought ? 'pointer' : 'default'};opacity:${offer._bought ? 0.45 : 1};transition:transform .15s;`;
+                card.innerHTML = `
+                    <div style="text-align:center;font-size:3rem;line-height:1;margin-bottom:.5rem;">${offer.icon}</div>
+                    <div style="text-align:center;color:${tint};font-weight:800;font-size:1rem;">${offer.name}</div>
+                    <div style="text-align:center;color:#ddd;font-size:.85rem;margin-top:.3rem;">${offer.desc}</div>
+                    <div style="text-align:center;margin-top:.7rem;font-weight:800;">
+                        <span style="color:${canAfford ? '#bdf78c' : '#ff7066'};">👻 ${offer.cost}${offer._bought ? ' · BOUGHT' : ''}</span>
+                    </div>
+                `;
+                if (canAfford && !offer._bought) {
+                    card.onmouseenter = () => card.style.transform = 'translateY(-3px)';
+                    card.onmouseleave = () => card.style.transform = 'translateY(0)';
+                    card.onclick = () => {
+                        this.souls -= offer.cost;
+                        try { offer.apply(this); } catch (e) { console.error('shop apply error', e); }
+                        offer._bought = true;
+                        this.applyItemEffects();
+                        renderShop();
+                    };
+                }
+                cards.appendChild(card);
+            }
+            overlay.querySelector('#shop-leave-btn').onclick = () => this.closeShop();
+        };
+        renderShop();
+    }
+
+    closeShop() {
+        const overlay = document.getElementById('shop-overlay');
+        if (overlay) overlay.remove();
+        this.shopOpen = false;
+        if (this.pendingUpgrades <= 0 && (this.pendingEnhancementRunes || 0) <= 0) {
+            this.gamePaused = false;
+        }
+    }
+
     showLevelUpMenu() {
         try {
         this.playSound('levelup');
@@ -15240,7 +15370,10 @@ class DotsSurvivor {
             const newLevel = isUpgrade ? (choice.currentLevel + 1) : 1;
             const tierName = itemTierName(newLevel);
             const tierColor = itemTierColor(newLevel);
-            card.style.cssText = `border: 3px solid ${tierColor}; box-shadow: 0 0 24px ${tierColor}55, 0 4px 20px rgba(0,0,0,0.5);`;
+            const itemColor = def.color || tierColor;
+            // Border = item brand color so cards are distinct; tier color
+            // only shown in the small "UPGRADE" pill below.
+            card.style.cssText = `border: 3px solid ${itemColor}; box-shadow: 0 0 24px ${itemColor}55, 0 4px 20px rgba(0,0,0,0.5);`;
             // Prefer the loaded item sprite; fall back to the emoji glyph.
             const cached = SPRITE_CACHE[`item_${def.id}`];
             const iconBlock = cached
@@ -20727,8 +20860,12 @@ class DotsSurvivor {
             if (it) {
                 const def = ITEM_DEFS[it.id];
                 const tierC = itemTierColor(it.level);
-                ctx.fillStyle = `${tierC}33`;
-                ctx.strokeStyle = tierC;
+                // Slot border = item brand color (so each item is visually
+                // distinct even at the same Crusty tier). Level label keeps
+                // the tier color so progression is still readable at a glance.
+                const itemC = def?.color || tierC;
+                ctx.fillStyle = `${itemC}22`;
+                ctx.strokeStyle = itemC;
                 ctx.lineWidth = 2;
                 ctx.fillRect(sx, sy, slot, slot);
                 ctx.strokeRect(sx, sy, slot, slot);
