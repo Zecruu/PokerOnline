@@ -1340,6 +1340,18 @@ function loadSprite(type, path, skipProcessing = false) {
 
 // Initialize sprites on load
 function initSprites() {
+    // Inventory item icons — square ID-named sprites under /items/
+    if (typeof ITEM_DEFS !== 'undefined') {
+        for (const id of Object.keys(ITEM_DEFS)) {
+            loadSprite(`item_${id}`, `items/${id}.png`, true);
+        }
+    }
+    // Stat-panel icons — bind <img class="stat-icon" data-stat="..."> elements
+    // to the matching PNG. If the file is missing, the CSS hides the broken img.
+    document.querySelectorAll('img.stat-icon').forEach(el => {
+        const stat = el.getAttribute('data-stat');
+        if (stat) el.src = `stat-icons/${stat}.png`;
+    });
     // Load enemy sprites
     for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
         if (path) loadSprite(type, path);
@@ -15847,26 +15859,47 @@ class DotsSurvivor {
         const statHp = document.getElementById('stat-hp');
         const statRegen = document.getElementById('stat-regen');
 
+        // Effective damage = base × global mult × item dmgMult × item magePower
         if (statDamage && this.weapons?.bullet) {
-            statDamage.textContent = Math.floor(this.weapons.bullet.damage);
+            const eff = this.weapons.bullet.damage
+                * (this.damageMultiplier || 1)
+                * (this._itemDmgMult || 1)
+                * (this._itemMagePowerMult || 1);
+            statDamage.textContent = Math.floor(eff);
         }
         if (statAtkSpd && this.weapons?.bullet) {
-            // Fire rate is in seconds between shots, convert to attacks per second
-            const atkPerSec = (1 / this.weapons.bullet.fireRate).toFixed(1);
+            // fireRate is in MS between shots → attacks-per-second = 1000 / fireRate
+            const atkPerSec = (1000 / this.weapons.bullet.fireRate).toFixed(2);
             statAtkSpd.textContent = atkPerSec;
         }
         if (statSpeed && this.player) {
             statSpeed.textContent = Math.floor(this.player.speed);
         }
         if (statCrit) {
-            const critChance = Math.round((this.critChanceBonus || 0) * 100 + 5); // Base 5% + bonus
-            statCrit.textContent = `${critChance}%`;
+            const critPct = Math.round(((this.critChanceBonus || 0) + (this._itemCritFlat || 0)) * 100 + 5);
+            statCrit.textContent = `${critPct}%`;
         }
         if (statHp && this.player) {
             statHp.textContent = `${Math.floor(this.player.health)}/${Math.floor(this.player.maxHealth)}`;
         }
         if (statRegen && this.player) {
             statRegen.textContent = Math.floor(this.player.hpRegen || 0);
+        }
+
+        // New item-derived stats
+        const statMage = document.getElementById('stat-mage');
+        if (statMage) {
+            const tomeLevel = this.inventory?.find(i => i.id === 'smudged_tome')?.level || 0;
+            statMage.textContent = `Lv ${tomeLevel}`;
+        }
+        const statFortune = document.getElementById('stat-fortune');
+        if (statFortune) {
+            const fortunePct = Math.round(((this._itemFortuneMult || 1) - 1) * 100);
+            statFortune.textContent = `+${fortunePct}%`;
+        }
+        const statSlashes = document.getElementById('stat-slashes');
+        if (statSlashes) {
+            statSlashes.textContent = String(1 + (this._itemSlashMultiplier || 0));
         }
 
         // Update CC Reduction stat
@@ -20629,23 +20662,25 @@ class DotsSurvivor {
         if (!this.inventory) return;
         const ctx = this.ctx;
         const compact = this.canvas.width < 768;
-        const slot = compact ? 36 : 48;
-        const gap = 4;
-        const padding = 8;
-        const totalW = INVENTORY_SLOTS * slot + (INVENTORY_SLOTS - 1) * gap + padding * 2;
-        const x0 = (this.canvas.width - totalW) / 2;
-        const y0 = this.canvas.height - slot - padding * 2 - 8;
+        const slot = compact ? 44 : 54;
+        const labelH = 16;       // space below slot for "LVL 2"
+        const rowH = slot + labelH + 6;
+        const padding = 10;
+        const x0 = 12;
+        const totalH = INVENTORY_SLOTS * rowH + padding * 2;
+        const totalW = slot + padding * 2;
+        const y0 = (this.canvas.height - totalH) / 2;
 
-        // Background panel
+        // Vertical column panel — left side, centered vertically
         ctx.fillStyle = 'rgba(5, 7, 12, 0.78)';
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.lineWidth = 1;
-        ctx.fillRect(x0, y0, totalW, slot + padding * 2);
-        ctx.strokeRect(x0, y0, totalW, slot + padding * 2);
+        ctx.fillRect(x0, y0, totalW, totalH);
+        ctx.strokeRect(x0, y0, totalW, totalH);
 
         for (let i = 0; i < INVENTORY_SLOTS; i++) {
-            const sx = x0 + padding + i * (slot + gap);
-            const sy = y0 + padding;
+            const sx = x0 + padding;
+            const sy = y0 + padding + i * rowH;
             const it = this.inventory[i];
 
             if (it) {
@@ -20656,22 +20691,23 @@ class DotsSurvivor {
                 ctx.lineWidth = 2;
                 ctx.fillRect(sx, sy, slot, slot);
                 ctx.strokeRect(sx, sy, slot, slot);
-                // Icon
-                ctx.font = `${Math.floor(slot * 0.55)}px sans-serif`;
+                // Icon — prefer pre-loaded image sprite, fall back to emoji
+                const cached = SPRITE_CACHE[`item_${it.id}`];
+                if (cached) {
+                    ctx.drawImage(cached, sx + 2, sy + 2, slot - 4, slot - 4);
+                } else {
+                    ctx.font = `${Math.floor(slot * 0.55)}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(def?.icon || '?', sx + slot / 2, sy + slot / 2 - 4);
+                }
+                // "LVL 2" label below the slot
+                ctx.font = `bold 11px Inter, sans-serif`;
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#fff';
-                ctx.fillText(def?.icon || '?', sx + slot / 2, sy + slot / 2 - 4);
-                // Level number bottom-right corner
-                ctx.font = `bold ${Math.floor(slot * 0.28)}px Inter, sans-serif`;
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'bottom';
+                ctx.textBaseline = 'top';
                 ctx.fillStyle = tierC;
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 3;
-                const lvlText = String(it.level);
-                ctx.strokeText(lvlText, sx + slot - 3, sy + slot - 1);
-                ctx.fillText(lvlText, sx + slot - 3, sy + slot - 1);
+                ctx.fillText(`LVL ${it.level}`, sx + slot / 2, sy + slot + 2);
             } else {
                 // Empty slot
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
@@ -20679,6 +20715,12 @@ class DotsSurvivor {
                 ctx.lineWidth = 1;
                 ctx.fillRect(sx, sy, slot, slot);
                 ctx.strokeRect(sx, sy, slot, slot);
+                // Faint dash for empty
+                ctx.font = `bold 11px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+                ctx.fillText('—', sx + slot / 2, sy + slot + 2);
             }
         }
         ctx.textBaseline = 'alphabetic';

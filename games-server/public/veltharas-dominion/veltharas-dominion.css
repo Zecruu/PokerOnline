@@ -904,6 +904,17 @@ body {
     border: 1px solid rgba(255,255,255,0.08);
 }
 
+.stat-icon {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    vertical-align: middle;
+    margin-right: 4px;
+    border-radius: 3px;
+    display: inline-block;
+}
+.stat-icon[src=""], .stat-icon:not([src]) { display: none; }
+
 #stats-panel {
     position: fixed !important;
     top: 78px !important;

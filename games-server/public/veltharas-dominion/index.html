@@ -489,12 +489,15 @@
         <div id="stats-panel" style="position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.7);border:2px solid #444;border-radius:10px;padding:10px 15px;font-size:0.85rem;color:#fff;min-width:140px;z-index:100;">
             <div style="font-weight:bold;color:#fbbf24;margin-bottom:8px;text-align:center;border-bottom:1px solid #444;padding-bottom:5px;">📊 STATS</div>
             <div style="display:flex;flex-direction:column;gap:4px;">
-                <div>⚔️ DMG: <span id="stat-damage" style="color:#ff6666;font-weight:bold;">0</span></div>
-                <div>⚡ ATK SPD: <span id="stat-atkspd" style="color:#66ff66;font-weight:bold;">0</span>/s</div>
-                <div>🏃 SPEED: <span id="stat-speed" style="color:#66ccff;font-weight:bold;">0</span></div>
-                <div>🎯 CRIT: <span id="stat-crit" style="color:#ffcc00;font-weight:bold;">0%</span></div>
-                <div>❤️ HP: <span id="stat-hp" style="color:#ff4488;font-weight:bold;">0/0</span></div>
-                <div>💚 REGEN: <span id="stat-regen" style="color:#44ff88;font-weight:bold;">0</span>/5s</div>
+                <div><img class="stat-icon" data-stat="damage" alt="">⚔️ DMG: <span id="stat-damage" style="color:#ff6666;font-weight:bold;">0</span></div>
+                <div><img class="stat-icon" data-stat="attack_speed" alt="">⚡ ATK SPD: <span id="stat-atkspd" style="color:#66ff66;font-weight:bold;">0</span>/s</div>
+                <div><img class="stat-icon" data-stat="move_speed" alt="">🏃 SPEED: <span id="stat-speed" style="color:#66ccff;font-weight:bold;">0</span></div>
+                <div><img class="stat-icon" data-stat="crit" alt="">🎯 CRIT: <span id="stat-crit" style="color:#ffcc00;font-weight:bold;">0%</span></div>
+                <div><img class="stat-icon" data-stat="mage_power" alt="">🔥 MAGE PWR: <span id="stat-mage" style="color:#ff8855;font-weight:bold;">Lv 0</span></div>
+                <div><img class="stat-icon" data-stat="fortune" alt="">💰 FORTUNE: <span id="stat-fortune" style="color:#ffd34d;font-weight:bold;">+0%</span></div>
+                <div><img class="stat-icon" data-stat="slashes" alt="">✦ SLASHES: <span id="stat-slashes" style="color:#ffaa66;font-weight:bold;">1</span></div>
+                <div><img class="stat-icon" data-stat="max_hp" alt="">❤️ HP: <span id="stat-hp" style="color:#ff4488;font-weight:bold;">0/0</span></div>
+                <div><img class="stat-icon" data-stat="regen" alt="">💚 REGEN: <span id="stat-regen" style="color:#44ff88;font-weight:bold;">0</span>/5s</div>
                 <div>🛡️ CC RES: <span id="stat-ccreduction" style="color:#88ccff;font-weight:bold;">0%</span></div>
                 <div>🍀 LUCK: <span id="stat-luck" style="color:#44ffaa;font-weight:bold;">0%</span></div>
                 <div>⚡ RUNES: <span id="rune-levels-display" style="color:#ffd700;font-weight:bold;">Q 0/5 E 0/5</span></div>
