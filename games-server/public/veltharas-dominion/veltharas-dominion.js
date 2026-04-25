@@ -1716,6 +1716,9 @@ const ALL_CLASS_SIGILS = [
 // `<classId>_<key>` entry to game.unlockedSkills so activateCharacterAbility
 // will fire instead of showing the locked toast.
 function makeSkillUnlockSigil(classId, key, name, icon, desc) {
+    // Q unlocks at level 5, E unlocks at level 10 — staggers ability access so
+    // the player builds toward each major upgrade rather than getting both at once.
+    const minLevel = key === 'e' ? 10 : 5;
     return {
         id: `unlock_${classId}_${key}`,
         name: `Unlock: ${name}`,
@@ -1723,8 +1726,9 @@ function makeSkillUnlockSigil(classId, key, name, icon, desc) {
         rarity: 'ability',
         tier: 'ABILITY',
         classReq: classId,
+        minLevel,
         isAbilityUpgrade: true, // gates this card behind level 5 via filterSigil
-        desc: `UNLOCK: ${desc}. Press [${key.toUpperCase()}] to use.`,
+        desc: `UNLOCK: ${desc}. Press [${key.toUpperCase()}] to use. (Lv ${minLevel}+)`,
         effect: (g) => {
             g.unlockedSkills.add(`${classId}_${key}`);
             g.boundSigils.push(`unlock_${classId}_${key}`);
@@ -14846,6 +14850,8 @@ class DotsSurvivor {
                 // Skill / ability cards only appear from level 5 onward — early game is
                 // pure stat-rolls so the player can build a foundation first.
                 if ((r.isSkillUpgrade || r.isAbilityUpgrade) && (this.level || 1) < 5) return false;
+                // Per-sigil minLevel override (e.g. E unlocks gate to level 10).
+                if (r.minLevel && (this.level || 1) < r.minLevel) return false;
                 return true;
             };
 
@@ -14877,10 +14883,13 @@ class DotsSurvivor {
         // ─── PASSIVE ABILITY SIGIL SLOT (25% chance to appear in slot 1) ─────────────
         const ownedSigilSet = new Set(this.boundSigils || []);
         const myClassId = this.selectedClass?.id;
+        const myLevel = this.level || 1;
         // Honor classReq so a Fire Sovereign never sees a Shadow Master unlock card.
         const classOK = (s) => !s.classReq || s.classReq === myClassId;
-        const abilityBases = PASSIVE_ABILITY_SIGILS.filter(s => !s.req && classOK(s));
-        const abilityUpgrades = PASSIVE_ABILITY_SIGILS.filter(s => !!s.req && classOK(s));
+        // Honor per-sigil minLevel (e.g. E unlocks at L10).
+        const levelOK = (s) => !s.minLevel || myLevel >= s.minLevel;
+        const abilityBases = PASSIVE_ABILITY_SIGILS.filter(s => !s.req && classOK(s) && levelOK(s));
+        const abilityUpgrades = PASSIVE_ABILITY_SIGILS.filter(s => !!s.req && classOK(s) && levelOK(s));
         const availableBases = abilityBases.filter(s => !ownedSigilSet.has(s.id) && !usedIds.has(s.id));
         const availableUpgrades = abilityUpgrades.filter(s =>
             !ownedSigilSet.has(s.id) && !usedIds.has(s.id) && s.req && ownedSigilSet.has(s.req)
