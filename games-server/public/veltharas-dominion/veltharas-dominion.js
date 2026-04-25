@@ -93,6 +93,40 @@ const LOD_TIER_0_DIST = 800;   // Full detail
 const LOD_TIER_1_DIST = 1500;  // Reduced detail (sprite/circle, update every 2nd frame)
 // Beyond 1500 = Tier 2 (tiny circle, update every 4th frame)
 
+// ============ INVENTORY ITEM SYSTEM ============
+// Items replace the sigil pool. Each item has a baseStat that scales linearly
+// per level, infinite scaling per run. Picking an owned item = +1 level.
+// Picking a new item = adds to inventory (max INVENTORY_SLOTS slots).
+const INVENTORY_SLOTS = 8;
+const ITEM_TIER_NAMES = ['Crusty', 'Worn', 'Sturdy', 'Refined', 'Mythic'];
+function itemTierName(level) {
+    if (level <= 5)  return 'Crusty';
+    if (level <= 10) return 'Worn';
+    if (level <= 20) return 'Sturdy';
+    if (level <= 50) return 'Refined';
+    return 'Mythic';
+}
+function itemTierColor(level) {
+    if (level <= 5)  return '#a1856b';
+    if (level <= 10) return '#d4d4d4';
+    if (level <= 20) return '#74c0e8';
+    if (level <= 50) return '#c97cf2';
+    return '#ff8a3c';
+}
+// statsAt(level) returns an object — each field is added/multiplied at the
+// applyItemEffects() pass. Per-level deltas keep scaling linearly forever.
+const ITEM_DEFS = {
+    rusty_sword:    { id: 'rusty_sword',    name: 'Rusty Sword',     icon: '🗡️', desc: '+5% attack damage / lvl',  statsAt: l => ({ dmgPct: 0.05 * l }) },
+    cracked_lens:   { id: 'cracked_lens',   name: 'Cracked Lens',    icon: '🔍', desc: '+3% crit chance / lvl',    statsAt: l => ({ critFlat: 0.03 * l }) },
+    worn_gloves:    { id: 'worn_gloves',    name: 'Worn Gloves',     icon: '🧤', desc: '+5% attack speed / lvl',   statsAt: l => ({ atkSpdPct: 0.05 * l }) },
+    tattered_boots: { id: 'tattered_boots', name: 'Tattered Boots',  icon: '🥾', desc: '+8 move speed / lvl',      statsAt: l => ({ moveSpdFlat: 8 * l }) },
+    bent_coin:      { id: 'bent_coin',      name: 'Bent Coin',       icon: '🪙', desc: '+8% XP gain / lvl',        statsAt: l => ({ fortunePct: 0.08 * l }) },
+    smudged_tome:   { id: 'smudged_tome',   name: 'Smudged Tome',    icon: '📕', desc: '+10% mage power / lvl',    statsAt: l => ({ magePowerPct: 0.10 * l }) },
+    frayed_talisman:{ id: 'frayed_talisman',name: 'Frayed Talisman', icon: '📿', desc: '+15 max HP / lvl',         statsAt: l => ({ hpFlat: 15 * l }) },
+    multiplier:     { id: 'multiplier',     name: 'Multiplier',      icon: '✦',  desc: '+1 slash / lvl. The only way to fire more than one slash.', statsAt: l => ({ slashMultiplier: l }) }
+};
+// 8 items, exactly the inventory size — collect them all.
+
 // CloudFront CDN base path for all assets
 const SPRITE_BASE_PATH = '';
 
@@ -5256,6 +5290,23 @@ class DotsSurvivor {
         // Q/E character abilities are locked at game start. Unlock cards (in
         // PASSIVE_ABILITY_SIGILS) flip the corresponding `<classId>_q|e` entry on.
         this.unlockedSkills = new Set();
+
+        // ── New item-based progression (replaces the sigil pool on level-up) ──
+        // Inventory holds up to INVENTORY_SLOTS unique items; each item levels
+        // up infinitely as the player picks duplicates from the level-up menu.
+        this.inventory = []; // [{ id, level }]
+        this._itemDmgMult = 1;
+        this._itemCritFlat = 0;
+        this._itemAtkSpdMult = 1;
+        this._itemMoveSpdFlat = 0;
+        this._itemFortuneMult = 1;
+        this._itemMagePowerMult = 1;
+        this._itemHpFlat = 0;
+        this._itemArmorPct = 0;
+        this._itemSlashMultiplier = 0;
+        this._itemBaseFireRate = null;   // Snapshotted on first apply
+        this._itemBasePlayerSpeed = null;
+        this._itemBaseMaxHealth = null;
 
         // Seeded RNG for deterministic sigil rolls
         this.runSeed = (Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0;
@@ -12735,7 +12786,7 @@ class DotsSurvivor {
                 dmg = Math.floor(dmg * (1 + this.starterDamageVsBleedingMult));
             }
             // Crit check
-            const critChance = (this.critChance || 0) + (this.critChanceBonus || 0) + (this.weapons.bullet.critChance || 0.05);
+            const critChance = (this.critChance || 0) + (this.critChanceBonus || 0) + (this._itemCritFlat || 0) + (this.weapons.bullet.critChance || 0.05);
             if (Math.random() < critChance) {
                 dmg = Math.floor(dmg * (this.weapons.bullet.critMultiplier || 2.0));
             }
@@ -13724,8 +13775,10 @@ class DotsSurvivor {
     fireFireSlash() {
         const w = this.weapons.bullet;
         const slashRange = 180;
-        const slashArc = Math.PI * 0.75; // ~135° forward cone
-        const baseDamage = Math.floor(w.damage * (this.damageMultiplier || 1));
+        const slashArc = Math.PI * 0.375; // ~67° forward cone (half of original)
+        // Sword (dmgMult) + Tome (magePowerMult) stack into the slash damage.
+        const baseDamage = Math.floor(w.damage * (this.damageMultiplier || 1) * (this._itemDmgMult || 1) * (this._itemMagePowerMult || 1));
+        const slashCount = 1 + (this._itemSlashMultiplier || 0);
 
         // Aim at nearest enemy; if none, point in last-known facing direction.
         let nearest = null, nd = Infinity;
@@ -13741,68 +13794,63 @@ class DotsSurvivor {
 
         const ex = this.player.x + (nearest.wx - this.worldX);
         const ey = this.player.y + (nearest.wy - this.worldY);
-        const slashAngle = Math.atan2(ey - this.player.y, ex - this.player.x);
+        const baseAngle = Math.atan2(ey - this.player.y, ex - this.player.x);
 
         this.playSound('shoot');
         this.playFireballSound();
 
-        // Visual record consumed by the renderer (see drawFireSlash below)
         if (!this.activeFireSlashes) this.activeFireSlashes = [];
-        this.activeFireSlashes.push({
-            x: this.player.x,
-            y: this.player.y,
-            angle: slashAngle,
-            range: slashRange,
-            arc: slashArc,
-            timer: 0.32,
-            maxTimer: 0.32
-        });
 
-        // Hit every enemy inside the arc — slash is AoE, not single-target
-        let hitCount = 0;
-        for (const e of this.enemies) {
-            if (e.health <= 0) continue;
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
-            const dx = sx - this.player.x, dy = sy - this.player.y;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            if (d > slashRange + e.radius) continue;
-            const angleToEnemy = Math.atan2(dy, dx);
-            let angleDiff = angleToEnemy - slashAngle;
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-            if (Math.abs(angleDiff) > slashArc / 2) continue;
+        // Multiplier item adds extra slashes spread evenly around the player.
+        // 1 slash → forward only; 2 → 180° apart; 3 → 120°; etc.
+        const angularSpread = (Math.PI * 2) / slashCount;
+        let totalHits = 0;
+        for (let s = 0; s < slashCount; s++) {
+            const slashAngle = baseAngle + s * angularSpread;
+            this.activeFireSlashes.push({
+                x: this.player.x, y: this.player.y, angle: slashAngle,
+                range: slashRange, arc: slashArc, timer: 0.32, maxTimer: 0.32
+            });
+            // Hit every enemy inside this arc
+            for (const e of this.enemies) {
+                if (e.health <= 0) continue;
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const dx = sx - this.player.x, dy = sy - this.player.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > slashRange + e.radius) continue;
+                const angleToEnemy = Math.atan2(dy, dx);
+                let angleDiff = angleToEnemy - slashAngle;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                if (Math.abs(angleDiff) > slashArc / 2) continue;
 
-            // Direct contact damage
-            e.health -= baseDamage;
-            e.hitFlash = 1;
-            this.damageNumbers.push({ x: sx, y: sy - 14, value: baseDamage, lifetime: 0.5, color: '#ff7733', scale: 1.05 });
+                e.health -= baseDamage;
+                e.hitFlash = 1;
+                this.damageNumbers.push({ x: sx, y: sy - 14, value: baseDamage, lifetime: 0.5, color: '#ff7733', scale: 1.05 });
 
-            // Apply / refresh Sovereign Burn stacks (DoT) — same pipeline as the
-            // old fireball-on-hit code so all existing burn sigils keep working.
-            if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
-            const stacksPerHit = 2;
-            const cap = this.maxBurnStacks || 10;
-            e.sovereignBurn.stacks = Math.min(cap, e.sovereignBurn.stacks + stacksPerHit);
-            e.sovereignBurn.timer = this.burnStackDuration || 4;
-            e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1);
+                // Apply / refresh Sovereign Burn stacks (DoT)
+                if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
+                const cap = this.maxBurnStacks || 10;
+                e.sovereignBurn.stacks = Math.min(cap, e.sovereignBurn.stacks + 2);
+                e.sovereignBurn.timer = this.burnStackDuration || 4;
+                // Smudged Tome (mage power) scales the burn-tick DPS too.
+                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1);
 
-            this.spawnParticles(sx, sy, '#ff6622', 3);
-            hitCount++;
+                this.spawnParticles(sx, sy, '#ff6622', 3);
+                totalHits++;
 
-            // Track damage for stacking items
-            this.updateStackingItems('damage', baseDamage);
+                this.updateStackingItems('damage', baseDamage);
 
-            // Lifesteal pass-through (mirrors the projectile path)
-            if (this.vampireHeal && this.vampireHeal > 0) {
-                const heal = Math.floor(baseDamage * this.vampireHeal);
-                if (heal > 0 && this.player.health < this.player.maxHealth) {
-                    this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                if (this.vampireHeal && this.vampireHeal > 0) {
+                    const heal = Math.floor(baseDamage * this.vampireHeal);
+                    if (heal > 0 && this.player.health < this.player.maxHealth) {
+                        this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    }
                 }
             }
         }
-
-        if (hitCount > 0) this.triggerScreenShake(2, 0.08);
+        if (totalHits > 0) this.triggerScreenShake(2, 0.08);
     }
 
     updateProjectiles(dt) {
@@ -14218,7 +14266,8 @@ class DotsSurvivor {
                     const combatText = this.isInCombat() ? ' (combat)' : '';
                     this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `+${healed} HP${combatText}`, lifetime: 1.5, color: this.isInCombat() ? '#ff8888' : '#ff4488' });
                 } else {
-                    this.player.xp += pk.xp;
+                    // Bent Coin (fortune) item multiplies XP gained from pickups
+                    this.player.xp += Math.ceil(pk.xp * (this._itemFortuneMult || 1));
                     this.playSound('xp'); // Play coin sound when collecting XP
                     this.checkLevelUp();
                 }
@@ -14840,7 +14889,174 @@ class DotsSurvivor {
         }
     }
 
+    // ─── ITEM SYSTEM HELPERS ────────────────────────────────────────────────
+    applyItemEffects() {
+        // Snapshot baseline once so item bonuses can be re-applied additively
+        // each pick without compounding (or losing class init values).
+        if (this._itemBaseFireRate == null && this.weapons?.bullet) {
+            this._itemBaseFireRate = this.weapons.bullet.fireRate;
+        }
+        if (this._itemBasePlayerSpeed == null && this.player) {
+            this._itemBasePlayerSpeed = this.player.speed;
+        }
+        if (this._itemBaseMaxHealth == null && this.player) {
+            this._itemBaseMaxHealth = this.player.maxHealth;
+        }
+
+        let dmgMult = 1, critFlat = 0, atkSpdMult = 1, moveSpdFlat = 0;
+        let fortuneMult = 1, magePowerMult = 1, hpFlat = 0, armorPct = 0, slashMult = 0;
+        for (const it of this.inventory) {
+            const def = ITEM_DEFS[it.id]; if (!def) continue;
+            const s = def.statsAt(it.level);
+            dmgMult       *= 1 + (s.dmgPct || 0);
+            critFlat      += s.critFlat || 0;
+            atkSpdMult    *= 1 + (s.atkSpdPct || 0);
+            moveSpdFlat   += s.moveSpdFlat || 0;
+            fortuneMult   *= 1 + (s.fortunePct || 0);
+            magePowerMult *= 1 + (s.magePowerPct || 0);
+            hpFlat        += s.hpFlat || 0;
+            armorPct      += s.armorPct || 0;
+            slashMult     += s.slashMultiplier || 0;
+        }
+        this._itemDmgMult = dmgMult;
+        this._itemCritFlat = critFlat;
+        this._itemAtkSpdMult = atkSpdMult;
+        this._itemMoveSpdFlat = moveSpdFlat;
+        this._itemFortuneMult = fortuneMult;
+        this._itemMagePowerMult = magePowerMult;
+        this._itemHpFlat = hpFlat;
+        this._itemArmorPct = Math.min(0.75, armorPct); // cap 75% DR
+        this._itemSlashMultiplier = slashMult;
+
+        // Apply to live player fields where possible
+        if (this.player && this._itemBasePlayerSpeed != null) {
+            this.player.speed = this._itemBasePlayerSpeed + moveSpdFlat;
+        }
+        if (this.player && this._itemBaseMaxHealth != null) {
+            const oldMax = this.player.maxHealth;
+            this.player.maxHealth = this._itemBaseMaxHealth + hpFlat;
+            // Heal the player by the amount of new max-HP gained
+            const gained = this.player.maxHealth - oldMax;
+            if (gained > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + gained);
+        }
+        if (this.weapons?.bullet && this._itemBaseFireRate != null) {
+            this.weapons.bullet.fireRate = this._itemBaseFireRate / atkSpdMult;
+        }
+        // Carry mage power into the existing burn DPS multiplier so all fire
+        // sigil scaling already accounts for it.
+        if (this.selectedClass?.id === 'fire_sovereign') {
+            this.sovereignBurnDPSMult = (this.sovereignBurnDPSMult || 1);
+            // (we'll just use _itemMagePowerMult at the burn application sites)
+        }
+    }
+
+    generateItemChoices(count = 3) {
+        const choices = [];
+        const ownedIds = new Set(this.inventory.map(i => i.id));
+        const ownedItems = this.inventory.slice();
+        const newItems = Object.values(ITEM_DEFS).filter(d => !ownedIds.has(d.id));
+        const inventoryFull = this.inventory.length >= INVENTORY_SLOTS;
+
+        const pickFromOwned = () => {
+            if (ownedItems.length === 0) return null;
+            const i = Math.floor(Math.random() * ownedItems.length);
+            const it = ownedItems.splice(i, 1)[0];
+            return { kind: 'upgrade', id: it.id, currentLevel: it.level };
+        };
+        const pickFromNew = () => {
+            if (newItems.length === 0) return null;
+            const i = Math.floor(Math.random() * newItems.length);
+            const def = newItems.splice(i, 1)[0];
+            return { kind: 'new', id: def.id };
+        };
+
+        for (let i = 0; i < count; i++) {
+            let pick = null;
+            if (inventoryFull || newItems.length === 0) {
+                pick = pickFromOwned();
+            } else if (ownedItems.length === 0) {
+                pick = pickFromNew();
+            } else {
+                // 60% upgrade existing, 40% offer new (so the player tends toward
+                // building up powerful items rather than spreading thin)
+                pick = Math.random() < 0.6 ? (pickFromOwned() || pickFromNew()) : (pickFromNew() || pickFromOwned());
+            }
+            if (!pick) break;
+            choices.push(pick);
+        }
+        return choices;
+    }
+
+    pickItem(choice) {
+        if (choice.kind === 'new') {
+            this.inventory.push({ id: choice.id, level: 1 });
+        } else {
+            const slot = this.inventory.find(it => it.id === choice.id);
+            if (slot) slot.level += 1;
+        }
+        this.applyItemEffects();
+    }
+
     showLevelUpMenu() {
+        try {
+        this.playSound('levelup');
+        this.playLevelupSound();
+        this.gamePaused = true;
+
+        const container = document.getElementById('upgrade-choices');
+        if (!container) {
+            // Fallback — auto-pick a random new item or upgrade
+            const choices = this.generateItemChoices(1);
+            if (choices.length) this.pickItem(choices[0]);
+            this.gamePaused = false;
+            return;
+        }
+
+        container.innerHTML = '';
+        const choices = this.generateItemChoices(3);
+        for (const choice of choices) {
+            const def = ITEM_DEFS[choice.id];
+            if (!def) continue;
+            const card = document.createElement('div');
+            card.className = 'upgrade-card item-card';
+            const isUpgrade = choice.kind === 'upgrade';
+            const newLevel = isUpgrade ? (choice.currentLevel + 1) : 1;
+            const tierName = itemTierName(newLevel);
+            const tierColor = itemTierColor(newLevel);
+            card.style.cssText = `border: 3px solid ${tierColor}; box-shadow: 0 0 24px ${tierColor}55, 0 4px 20px rgba(0,0,0,0.5);`;
+            card.innerHTML = `
+                <div class="upgrade-rarity" style="background:${tierColor};color:#0a0508;font-weight:800;">${isUpgrade ? `${tierName.toUpperCase()} · UPGRADE` : 'NEW · CRUSTY'}</div>
+                <div style="font-size:3.2rem;line-height:1;text-align:center;margin:.6rem 0 .3rem;text-shadow:0 0 20px ${tierColor}aa;">${def.icon}</div>
+                <div class="upgrade-name" style="color:#fff;font-weight:bold;text-align:center;">${def.name}</div>
+                <div class="sigil-divider"></div>
+                <div class="upgrade-desc" style="color:#ddd;font-size:.85em;text-align:center;">${def.desc}</div>
+                <div class="upgrade-stats" style="color:${tierColor};font-size:.95em;font-weight:700;text-align:center;margin-top:.4rem;">
+                    ${isUpgrade ? `Lvl ${choice.currentLevel} → ${newLevel}` : `Lvl 1`}
+                </div>`;
+            card.onclick = () => {
+                this.pickItem(choice);
+                document.getElementById('levelup-menu').classList.add('hidden');
+                this.upgradeMenuShowing = false;
+                this.gamePaused = false;
+                this.damageNumbers.push({
+                    x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
+                    value: `${def.icon} ${def.name} — ${tierName} ${newLevel}`,
+                    lifetime: 2, color: tierColor, scale: 1.4
+                });
+            };
+            container.appendChild(card);
+        }
+        document.getElementById('levelup-menu').classList.remove('hidden');
+        this.upgradeMenuShowing = true;
+        return;
+        } catch (err) {
+            console.error('[GAME] CRASH in showLevelUpMenu (item system):', err, err.stack);
+            _reportError(err, 'showLevelUpMenu-items');
+            this.gamePaused = false;
+        }
+    }
+
+    _legacy_showLevelUpMenu_sigils() {
         try {
         // ============================================
         // SIGIL SYSTEM - Player scales through Sigils
@@ -18994,6 +19210,7 @@ class DotsSurvivor {
         this.drawAbilities();
         // Character abilities UI (Q/E)
         this.drawCharacterAbilities();
+        this.drawInventoryBar();
         // Dominion Stacks (Shadow Monarch)
         this.drawDominionStacks();
         // Joystick
@@ -20210,6 +20427,66 @@ class DotsSurvivor {
 
         // Draw E ability
         this.drawAbilitySlot(ctx, x, y, abilitySize, eAbility, this.characterAbilities.e, compact, eUnlocked);
+    }
+
+    drawInventoryBar() {
+        if (!this.inventory) return;
+        const ctx = this.ctx;
+        const compact = this.canvas.width < 768;
+        const slot = compact ? 36 : 48;
+        const gap = 4;
+        const padding = 8;
+        const totalW = INVENTORY_SLOTS * slot + (INVENTORY_SLOTS - 1) * gap + padding * 2;
+        const x0 = (this.canvas.width - totalW) / 2;
+        const y0 = this.canvas.height - slot - padding * 2 - 8;
+
+        // Background panel
+        ctx.fillStyle = 'rgba(5, 7, 12, 0.78)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1;
+        ctx.fillRect(x0, y0, totalW, slot + padding * 2);
+        ctx.strokeRect(x0, y0, totalW, slot + padding * 2);
+
+        for (let i = 0; i < INVENTORY_SLOTS; i++) {
+            const sx = x0 + padding + i * (slot + gap);
+            const sy = y0 + padding;
+            const it = this.inventory[i];
+
+            if (it) {
+                const def = ITEM_DEFS[it.id];
+                const tierC = itemTierColor(it.level);
+                ctx.fillStyle = `${tierC}33`;
+                ctx.strokeStyle = tierC;
+                ctx.lineWidth = 2;
+                ctx.fillRect(sx, sy, slot, slot);
+                ctx.strokeRect(sx, sy, slot, slot);
+                // Icon
+                ctx.font = `${Math.floor(slot * 0.55)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(def?.icon || '?', sx + slot / 2, sy + slot / 2 - 4);
+                // Level number bottom-right corner
+                ctx.font = `bold ${Math.floor(slot * 0.28)}px Inter, sans-serif`;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillStyle = tierC;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                const lvlText = String(it.level);
+                ctx.strokeText(lvlText, sx + slot - 3, sy + slot - 1);
+                ctx.fillText(lvlText, sx + slot - 3, sy + slot - 1);
+            } else {
+                // Empty slot
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+                ctx.lineWidth = 1;
+                ctx.fillRect(sx, sy, slot, slot);
+                ctx.strokeRect(sx, sy, slot, slot);
+            }
+        }
+        ctx.textBaseline = 'alphabetic';
+        ctx.lineWidth = 1;
     }
 
     drawAbilitySlot(ctx, x, y, size, abilityInfo, abilityState, compact, isUnlocked = true) {
