@@ -5056,9 +5056,9 @@ class DotsSurvivor {
         this.player.xp = 0; this.player.xpToLevel = 50; this.player.kills = 0;
         this.player.hpRegen = 0;
 
-        // All characters start at level 1 with 3 starting augments
+        // Inventory starts empty — items come from level-up cards earned in play.
         this.player.level = 1;
-        this.pendingUpgrades = 3;
+        this.pendingUpgrades = 0;
 
         this.weapons.bullet = { damage: 15, speed: 450, fireRate: 600, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
@@ -15206,7 +15206,12 @@ class DotsSurvivor {
                 this.pickItem(choice);
                 document.getElementById('levelup-menu').classList.add('hidden');
                 this.upgradeMenuShowing = false;
-                this.gamePaused = false;
+                // Decrement pending — without this the update loop sees
+                // pendingUpgrades > 0 next frame and re-opens the menu forever.
+                if (this.pendingUpgrades > 0) this.pendingUpgrades--;
+                if (this.pendingUpgrades <= 0 && (this.pendingEnhancementRunes || 0) <= 0) {
+                    this.gamePaused = false;
+                }
                 this.damageNumbers.push({
                     x: this.canvas.width / 2, y: this.canvas.height / 2 - 60,
                     value: `${def.icon} ${def.name} — ${tierName} ${newLevel}`,
