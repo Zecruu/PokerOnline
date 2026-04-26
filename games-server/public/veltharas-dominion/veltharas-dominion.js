@@ -118,7 +118,7 @@ function itemTierColor(level) {
 // Each item has its own `color` for the inventory slot border so items at the
 // same Crusty tier are visually distinct from each other.
 const ITEM_DEFS = {
-    rusty_sword:    { id: 'rusty_sword',    name: 'Rusty Sword',     icon: '🗡️', color: '#ff5c5c', desc: '+100 flat damage / lvl', statsAt: l => ({ dmgFlat: 100 * l }) },
+    rusty_sword:    { id: 'rusty_sword',    name: 'Rusty Sword',     icon: '🗡️', color: '#ff5c5c', desc: '+25 flat damage / lvl', statsAt: l => ({ dmgFlat: 25 * l }) },
     cracked_lens:   { id: 'cracked_lens',   name: 'Cracked Lens',    icon: '🔍', color: '#ffb84d', desc: '+3% crit chance / lvl',  statsAt: l => ({ critFlat: 0.03 * l }) },
     worn_gloves:    { id: 'worn_gloves',    name: 'Worn Gloves',     icon: '🧤', color: '#ffe066', desc: '+5% attack speed / lvl', statsAt: l => ({ atkSpdPct: 0.05 * l }) },
     tattered_boots: { id: 'tattered_boots', name: 'Tattered Boots',  icon: '🥾', color: '#5cd8ff', desc: '+8 move speed / lvl',    statsAt: l => ({ moveSpdFlat: 8 * l }) },
@@ -5209,7 +5209,7 @@ class DotsSurvivor {
         this.player.level = 1;
         this.pendingUpgrades = 0;
 
-        this.weapons.bullet = { damage: 15, speed: 450, fireRate: 600, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
+        this.weapons.bullet = { damage: 8, speed: 450, fireRate: 600, lastFired: 0, count: 1, size: 6, pierce: 1, color: this.selectedClass.color, critChance: 0.05, critMultiplier: 2.0 };
 
         // Apply class bonuses
         if (this.selectedClass.bonuses.bulletCount) this.weapons.bullet.count += this.selectedClass.bonuses.bulletCount;
@@ -5566,7 +5566,7 @@ class DotsSurvivor {
         if (this.selectedClass.id === 'fire_sovereign') {
             this.hasHomingFireballs = true;
             // Burn stack system
-            this.sovereignBurnDPS = 15;
+            this.sovereignBurnDPS = 5;
             this.sovereignBurnDPSMult = 1;
             this.maxBurnStacks = 10;
             this.burnStackDuration = 4;
@@ -13983,17 +13983,16 @@ class DotsSurvivor {
         const w = this.weapons.bullet;
         const slashRange = 180;
         const slashArc = Math.PI * 0.375; // ~67° forward cone (half of original)
-        // Sword (flat) + Tome (mage power) + passive scaling all stack.
+        // Slash now scales with ATTACK DAMAGE only — Sword (flat + dmgPct),
+        // Pyre Fuel (passive damageMult). Mage power and Cosmic Stardust go
+        // exclusively to burn DoT below, keeping the two scaling paths clean.
         const passive = PASSIVE_DEFS[this.passiveId];
         const passiveDmgMult = passive?.damageMult ? passive.damageMult(this) : 1;
-        // Cosmic Stardust scales mage power per stack (+0.3% each)
-        const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
         const baseDamage = Math.floor(
             (w.damage + (this._itemDmgFlat || 0)) *
             (this.damageMultiplier || 1) *
             (this._itemDmgMult || 1) *
-            (this._itemMagePowerMult || 1) *
-            passiveDmgMult * stardustMult
+            passiveDmgMult
         );
         const slashCount = 1 + (this._itemSlashMultiplier || 0);
 
@@ -14049,10 +14048,13 @@ class DotsSurvivor {
                 // Apply / refresh Sovereign Burn stacks (DoT)
                 if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
                 const cap = this.maxBurnStacks || 10;
-                e.sovereignBurn.stacks = Math.min(cap, e.sovereignBurn.stacks + 2);
+                // 1 stack per slash hit (was 2) — gentler burn ramp.
+                e.sovereignBurn.stacks = Math.min(cap, e.sovereignBurn.stacks + 1);
                 e.sovereignBurn.timer = this.burnStackDuration || 4;
-                // Smudged Tome (mage power) scales the burn-tick DPS too.
-                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1);
+                // Burn DoT scales ONLY with mage power (Smudged Tome) +
+                // Cosmic Stardust passive — never with attack damage.
+                const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
+                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1) * stardustMult;
 
                 this.spawnParticles(sx, sy, '#ff6622', 3);
                 totalHits++;
@@ -16368,12 +16370,12 @@ class DotsSurvivor {
         const statHp = document.getElementById('stat-hp');
         const statRegen = document.getElementById('stat-regen');
 
-        // Effective damage = base × global mult × item dmgMult × item magePower
+        // Slash damage: base + flat dmg × global × item dmgMult.
+        // Mage power no longer affects slash — it's burn-only now.
         if (statDamage && this.weapons?.bullet) {
-            const eff = this.weapons.bullet.damage
+            const eff = (this.weapons.bullet.damage + (this._itemDmgFlat || 0))
                 * (this.damageMultiplier || 1)
-                * (this._itemDmgMult || 1)
-                * (this._itemMagePowerMult || 1);
+                * (this._itemDmgMult || 1);
             statDamage.textContent = Math.floor(eff);
         }
         if (statAtkSpd && this.weapons?.bullet) {
