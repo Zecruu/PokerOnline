@@ -5146,11 +5146,12 @@ class DotsSurvivor {
     resizeCanvas() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        // Mobile devices get a zoomed out view for better visibility
+        // Mobile devices get a slightly wider view for visibility; desktop
+        // sits closer to the player so combat reads clearly.
         if (this.isMobile || window.innerWidth < 768) {
-            this.cameraScale = 0.50; // More zoomed out on mobile
+            this.cameraScale = 0.65;
         } else {
-            this.cameraScale = 0.65; // Default desktop zoom
+            this.cameraScale = 0.85;
         }
     }
 
@@ -5353,8 +5354,8 @@ class DotsSurvivor {
         this.lastHealthPackSpawn = 0;
         this.healthPackInterval = 45000; // Every 45 seconds chance
 
-        // Camera zoom
-        this.cameraScale = 0.65;
+        // Camera zoom — closer to player for better combat readability
+        this.cameraScale = 0.85;
 
         // Game Juice Effects
         this.screenShake = { intensity: 0, duration: 0 };
@@ -12794,7 +12795,7 @@ class DotsSurvivor {
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
                 this.addDamageNumber(sx, sy, chunk, '#ff8844', {
-                    enemyId: e.id,
+                    enemyId: e.id, target: e,
                     scale: 0.85,
                     maxScale: 1.4,
                     scaleStep: 0.04
@@ -14113,7 +14114,11 @@ class DotsSurvivor {
                 e.health -= baseDamage;
                 e.hitFlash = 1;
                 this.runDamageDealt = (this.runDamageDealt || 0) + baseDamage;
-                this.damageNumbers.push({ x: sx, y: sy - 14, value: baseDamage, lifetime: 0.5, color: '#ff7733', scale: 1.05 });
+                this.damageNumbers.push({
+                    x: sx, y: sy - 14, value: baseDamage,
+                    lifetime: 0.5, color: '#ff7733', scale: 1.05,
+                    target: e, wx: e.wx, wy: e.wy
+                });
 
                 // Apply / refresh Sovereign Burn stacks (DoT)
                 if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
@@ -16353,7 +16358,7 @@ class DotsSurvivor {
 
     // Stacked damage number system - combines damage on same target
     addDamageNumber(x, y, value, color, options = {}) {
-        const { scale = 1, lifetime = 0.8, enemyId = null, isText = false, maxScale = 2.5, scaleStep = 0.15 } = options;
+        const { scale = 1, lifetime = 0.8, enemyId = null, isText = false, maxScale = 2.5, scaleStep = 0.15, target = null } = options;
 
         // If it's text (like "STUCK!" or "Rise!") or no enemy ID, just add normally
         if (isText || !enemyId || typeof value !== 'number') {
@@ -16393,7 +16398,10 @@ class DotsSurvivor {
                 enemyId,
                 stackCount: 1,
                 pulseTimer: 0,
-                isText: false
+                isText: false,
+                target,
+                wx: target ? target.wx : undefined,
+                wy: target ? target.wy : undefined
             });
         }
     }
@@ -16406,7 +16414,21 @@ class DotsSurvivor {
 
         for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
             const d = this.damageNumbers[i];
-            d.y -= 25 * dt; // Float upward
+            // Numbers anchored to a target/world position track the enemy as it
+            // moves, so the floating number stays directly above the mob even
+            // while the world scrolls under the player. Falls back to plain
+            // screen-space drift for legacy / detached numbers.
+            d.floatY = (d.floatY || 0) - 25 * dt; // upward float (screen pixels)
+            if (d.target && d.target.health > 0 && !d.target._despawned) {
+                d.wx = d.target.wx;
+                d.wy = d.target.wy;
+            }
+            if (d.wx !== undefined && d.wy !== undefined) {
+                d.x = this.player.x + (d.wx - this.worldX);
+                d.y = this.player.y + (d.wy - this.worldY) + d.floatY - 14;
+            } else {
+                d.y -= 25 * dt;
+            }
             d.lifetime -= dt;
 
             // Update pulse animation
