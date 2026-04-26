@@ -16540,19 +16540,32 @@ class DotsSurvivor {
         if (statSlashes) {
             statSlashes.textContent = String(1 + (this._itemSlashMultiplier || 0));
         }
-        // Passive stack display
+        // Passive stack display — rebuilt whenever the passive changes so a
+        // fresh run with a different passive doesn't show the previous one's
+        // name/icon. Uses the passive sprite (passives/<id>.png) instead of
+        // emoji, falling back to the emoji if the sprite hasn't loaded.
         const passive = PASSIVE_DEFS[this.passiveId];
         if (passive) {
-            let stackEl = document.getElementById('stat-passive-stacks');
-            if (!stackEl) {
-                const panel = document.querySelector('#stats-panel > div:last-child');
-                if (panel) {
-                    const row = document.createElement('div');
-                    row.innerHTML = `<span style="color:${passive.color};">${passive.icon} ${passive.name.toUpperCase()}: <span id="stat-passive-stacks" style="color:#fff;font-weight:bold;">0</span></span>`;
-                    panel.appendChild(row);
-                    stackEl = row.querySelector('#stat-passive-stacks');
-                }
+            let row = document.getElementById('stat-passive-row');
+            const panel = document.querySelector('#stats-panel > div:last-child');
+            if (!row && panel) {
+                row = document.createElement('div');
+                row.id = 'stat-passive-row';
+                panel.appendChild(row);
             }
+            if (row && row.dataset.passive !== this.passiveId) {
+                row.dataset.passive = this.passiveId;
+                const localUrl = `passives/${passive.id}.png`;
+                const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : null;
+                row.innerHTML = `
+                    <span style="color:${passive.color};display:inline-flex;align-items:center;gap:4px;">
+                        <img class="passive-stat-icon" src="${localUrl}" alt=""
+                             onerror="this.onerror=null;${cdnUrl ? `this.src='${cdnUrl}'` : `this.style.display='none'`}"
+                             style="width:18px;height:18px;border-radius:4px;object-fit:cover;border:1px solid ${passive.color};vertical-align:middle;">
+                        ${passive.name.toUpperCase()}: <span id="stat-passive-stacks" style="color:#fff;font-weight:bold;">0</span>
+                    </span>`;
+            }
+            const stackEl = document.getElementById('stat-passive-stacks');
             if (stackEl) stackEl.textContent = String(this.passiveStacks || 0);
         }
 
