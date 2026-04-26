@@ -5046,10 +5046,118 @@ class DotsSurvivor {
             card.onclick = () => {
                 this.passiveId = p.id;
                 overlay.remove();
-                this.startGame();
+                this.showKitSelect();
             };
             grid.appendChild(card);
         }
+    }
+
+    showKitSelect() {
+        let overlay = document.getElementById('kit-select-overlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.id = 'kit-select-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(5,2,4,0.94);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:2rem;overflow-y:auto;';
+
+        // Primary attacks — only Fire Slash playable for now; rest are placeholders.
+        const ATTACKS = [
+            { id: 'fire_slash',      name: 'Fire Slash',       icon: '🔥', desc: 'Forward arc that ignites enemies. Burn DoT scales with mage power.', color: '#ff8a3c', enabled: true },
+            { id: 'frost_lance',     name: 'Frost Lance',      icon: '❄️', desc: 'Coming soon — pierce + slow.', color: '#7be3ff', enabled: false },
+            { id: 'shadow_strike',   name: 'Shadow Strike',    icon: '🌑', desc: 'Coming soon — short-range crit attack.', color: '#a070ff', enabled: false }
+        ];
+
+        // 4 base-stat shards — pick exactly 4. Player can repeat picks (so e.g.
+        // four ATK DMG is allowed for a glass-cannon build).
+        const SHARDS = [
+            { id: 'shard_atk',  name: '+5% Atk Damage', icon: '⚔', color: '#ff5c5c', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.05; } },
+            { id: 'shard_aspd', name: '+5% Atk Speed',  icon: '⚡', color: '#ffe066', apply: g => { g.weapons.bullet.fireRate *= (1 / 1.05); if (g._itemBaseFireRate != null) g._itemBaseFireRate *= (1 / 1.05); } },
+            { id: 'shard_crit', name: '+3% Crit',       icon: '🎯', color: '#ffb84d', apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.03; } },
+            { id: 'shard_hp',   name: '+25 Max HP',     icon: '❤', color: '#ff5c8a', apply: g => { g.player.maxHealth += 25; g.player.health += 25; if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 25; } },
+            { id: 'shard_spd',  name: '+10 Move Spd',   icon: '👟', color: '#5cd8ff', apply: g => { g.player.speed += 10; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 10; } },
+            { id: 'shard_mage', name: '+10% Mage Pwr',  icon: '📕', color: '#a070ff', apply: g => { g._kitMagePowerBoost = (g._kitMagePowerBoost || 1) * 1.10; g._itemMagePowerMult = (g._itemMagePowerMult || 1) * 1.10; } },
+            { id: 'shard_for',  name: '+10% Fortune',   icon: '🪙', color: '#ffd34d', apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.10; } },
+            { id: 'shard_regen',name: '+1 HP Regen',    icon: '✚', color: '#7be36e', apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; } }
+        ];
+
+        let chosenAttack = 'fire_slash';
+        const chosenShards = []; // up to 4 (allowing repeats)
+
+        const render = () => {
+            overlay.innerHTML = `
+                <div style="text-align:center;margin-bottom:1.4rem;max-width:920px;">
+                    <h1 style="color:#ffb84d;font-size:2.4rem;letter-spacing:3px;text-shadow:0 0 22px rgba(255,184,77,0.55);margin-bottom:.4rem;">BUILD YOUR KIT</h1>
+                    <div style="color:#bdf78c;font-size:1rem;">Pick one primary attack and four stat shards. These stack on top of items + passive scaling.</div>
+                </div>
+                <div style="width:100%;max-width:980px;">
+                    <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.6rem;">PRIMARY ATTACK</div>
+                    <div id="kit-attacks" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem;"></div>
+                    <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.4rem;">SHARDS · <span id="kit-shard-count" style="color:#7be3ff;">0</span> / 4</div>
+                    <div style="color:#888;font-size:.85rem;margin-bottom:.6rem;">Click a shard to add it (repeats allowed). Click your selections below to remove.</div>
+                    <div id="kit-shards" style="display:flex;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem;"></div>
+                    <div id="kit-selected" style="display:flex;gap:.5rem;flex-wrap:wrap;min-height:48px;padding:.6rem;border:1px dashed rgba(255,255,255,.18);border-radius:10px;margin-bottom:1.6rem;"></div>
+                    <div style="text-align:center;">
+                        <button id="kit-confirm" style="padding:1rem 2.4rem;background:linear-gradient(135deg,#ff8a3c,#c03a14);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:1.1rem;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 18px rgba(255,80,0,0.3);">ENTER THE DOMAIN →</button>
+                    </div>
+                </div>
+            `;
+            const aRow = overlay.querySelector('#kit-attacks');
+            for (const atk of ATTACKS) {
+                const sel = chosenAttack === atk.id;
+                const card = document.createElement('div');
+                const dim = atk.enabled ? 1 : 0.35;
+                card.style.cssText = `width:200px;padding:1rem;border:2px solid ${sel ? atk.color : 'rgba(255,255,255,.15)'};border-radius:12px;background:rgba(15,10,12,.9);opacity:${dim};cursor:${atk.enabled ? 'pointer' : 'not-allowed'};box-shadow:${sel ? '0 0 24px ' + atk.color + '88' : 'none'};transition:all .15s;`;
+                card.innerHTML = `
+                    <div style="text-align:center;font-size:2.4rem;line-height:1;margin-bottom:.4rem;">${atk.icon}</div>
+                    <div style="text-align:center;color:${atk.color};font-weight:800;font-size:1rem;margin-bottom:.3rem;">${atk.name}${atk.enabled ? '' : ' (locked)'}</div>
+                    <div style="text-align:center;color:#ccc;font-size:.78rem;line-height:1.35;">${atk.desc}</div>
+                `;
+                if (atk.enabled) card.onclick = () => { chosenAttack = atk.id; render(); };
+                aRow.appendChild(card);
+            }
+            const sRow = overlay.querySelector('#kit-shards');
+            for (const sh of SHARDS) {
+                const card = document.createElement('div');
+                const full = chosenShards.length >= 4;
+                card.style.cssText = `width:160px;padding:.7rem;border:2px solid ${sh.color};border-radius:10px;background:rgba(15,10,12,.85);cursor:${full ? 'not-allowed' : 'pointer'};opacity:${full ? 0.5 : 1};box-shadow:0 0 12px ${sh.color}44;transition:all .15s;`;
+                card.innerHTML = `
+                    <div style="text-align:center;font-size:1.6rem;line-height:1;margin-bottom:.2rem;">${sh.icon}</div>
+                    <div style="text-align:center;color:${sh.color};font-weight:800;font-size:.85rem;">${sh.name}</div>
+                `;
+                if (!full) card.onclick = () => { chosenShards.push(sh.id); render(); };
+                sRow.appendChild(card);
+            }
+            const selRow = overlay.querySelector('#kit-selected');
+            chosenShards.forEach((id, idx) => {
+                const sh = SHARDS.find(s => s.id === id);
+                if (!sh) return;
+                const chip = document.createElement('div');
+                chip.style.cssText = `padding:.4rem .7rem;border:1px solid ${sh.color};border-radius:999px;background:${sh.color}22;color:${sh.color};font-weight:700;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;`;
+                chip.innerHTML = `${sh.icon} ${sh.name} <span style="opacity:.6;font-size:.9em;">✕</span>`;
+                chip.onclick = () => { chosenShards.splice(idx, 1); render(); };
+                selRow.appendChild(chip);
+            });
+            overlay.querySelector('#kit-shard-count').textContent = chosenShards.length;
+            const btn = overlay.querySelector('#kit-confirm');
+            btn.disabled = chosenShards.length !== 4;
+            btn.style.opacity = chosenShards.length === 4 ? 1 : 0.45;
+            btn.style.cursor = chosenShards.length === 4 ? 'pointer' : 'not-allowed';
+            btn.onclick = () => {
+                if (chosenShards.length !== 4) return;
+                this.kitAttack = chosenAttack;
+                this.kitShards = chosenShards.slice();
+                overlay.remove();
+                this.startGame();
+                // Apply shards AFTER startGame initialized class state, so the
+                // _itemBase* snapshots the post-shard values.
+                for (const id of this.kitShards) {
+                    const sh = SHARDS.find(s => s.id === id);
+                    if (sh) try { sh.apply(this); } catch (e) { console.error('shard apply error', e); }
+                }
+                this.applyItemEffects();
+            };
+        };
+        document.body.appendChild(overlay);
+        render();
     }
 
     showStarterItemSelect(characterClass) {
@@ -10241,31 +10349,37 @@ class DotsSurvivor {
         this.combatTimer += dt;
         const inCombat = this.combatTimer < this.combatDuration;
 
-        // Sourced directly from inventory so the aura/heal can't desync from
-        // the picked item even if applyItemEffects hasn't run for some reason.
+        // Sourced directly from inventory so the aura/heal can't desync.
         const auraSlot = (this.inventory || []).find(it => it.id === 'healing_aura');
-        const auraRegen = auraSlot ? 3 * auraSlot.level : 0;
+
+        // ── Dedicated Healing Aura tick — independent of every other regen
+        //    path so it can't be silenced by combat state, applyItemEffects
+        //    desync, or hpRegen being zero.
+        if (auraSlot) {
+            this._healingAuraTickTimer = (this._healingAuraTickTimer || 0) + dt;
+            if (this._healingAuraTickTimer >= 1) {
+                this._healingAuraTickTimer = 0;
+                const auraHeal = 3 * auraSlot.level;
+                const healed = this.healPlayer(auraHeal);
+                if (healed > 0) {
+                    this.damageNumbers.push({
+                        x: this.player.x + (Math.random() - 0.5) * 18,
+                        y: this.player.y - this.player.radius - 8,
+                        value: `+${Math.round(healed)}`,
+                        lifetime: 0.9, color: '#7be36e', scale: 1.0,
+                        isText: true
+                    });
+                }
+            }
+        }
+
+        // Legacy hpRegen path (sigil-based) — pauses in combat as before.
         const baseRegen = (this.player.hpRegen || 0);
-        const totalRegen = baseRegen + auraRegen;
-        if (totalRegen > 0) {
+        if (baseRegen > 0 && !inCombat) {
             this.regenTimer += dt;
             if (this.regenTimer >= 1) {
                 this.regenTimer = 0;
-                // Healing Aura always ticks (even in combat); base hpRegen still
-                // pauses in combat to preserve the original sigil behavior.
-                const tickAmount = inCombat ? auraRegen : totalRegen;
-                if (tickAmount > 0) {
-                    const healed = this.healPlayer(tickAmount);
-                    if (healed > 0) {
-                        this.damageNumbers.push({
-                            x: this.player.x + (Math.random() - 0.5) * 18,
-                            y: this.player.y - this.player.radius - 8,
-                            value: `+${Math.round(healed)}`,
-                            lifetime: 0.7, color: '#7be36e', scale: 0.95,
-                            isText: true
-                        });
-                    }
-                }
+                this.healPlayer(baseRegen);
             }
         }
 
