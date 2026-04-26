@@ -147,8 +147,48 @@ const SHOP_OFFERS = [
     { id: 'pot_ccr',      name: "Sage's Brew",       icon: '🛡', desc: '+10% CC reduction',              cost: 6,  apply: g => { g.ccReduction = Math.min(0.85, (g.ccReduction || 0) + 0.10); } },
     { id: 'pot_fortune',  name: 'Lucky Charm',       icon: '🍀', desc: '+15% XP gain (permanent)',       cost: 5,  apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.15; } },
     { id: 'pot_burn',     name: 'Phoenix Oil',       icon: '🔥', desc: '+15% burn DPS multiplier',       cost: 7,  apply: g => { g.sovereignBurnDPSMult = (g.sovereignBurnDPSMult || 1) * 1.15; } },
-    { id: 'pot_max_stack',name: 'Pyre Crucible',     icon: '🌋', desc: '+1 max burn stacks',             cost: 7,  apply: g => { g.maxBurnStacks = (g.maxBurnStacks || 10) + 1; } }
+    { id: 'pot_max_stack',name: 'Pyre Crucible',     icon: '🌋', desc: '+1 max burn stacks',             cost: 7,  apply: g => { g.maxBurnStacks = (g.maxBurnStacks || 10) + 1; } },
+    // ─── Old stacking-item drops, now sold here (each buy adds a chunky one-shot stack) ──
+    { id: 'stk_heart',    name: 'Heart of Vitality', icon: '❤',  desc: '+30 max HP (forever, stacks)',   cost: 6,  apply: g => { g.player.maxHealth += 30; g.player.health = Math.min(g.player.maxHealth, g.player.health + 30); if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 30; } },
+    { id: 'stk_critblade',name: 'Crit Blade Shard',  icon: '🗡', desc: '+8% crit damage (stacks)',       cost: 7,  apply: g => { g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.08; } },
+    { id: 'stk_boots',    name: 'Swift Boots Strap', icon: '👟', desc: '+15 move speed (stacks forever)',cost: 5,  apply: g => { g.player.speed += 15; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 15; } },
+    { id: 'stk_ringxp',   name: 'XP Ring Sliver',    icon: '💍', desc: '+5% XP gain (stacks)',           cost: 6,  apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.05; } },
+    { id: 'stk_blood',    name: 'Blood Shield Sigil',icon: '🩸', desc: '+50 max HP, lifesteal +1%',      cost: 8,  apply: g => { g.player.maxHealth += 50; g.player.health = Math.min(g.player.maxHealth, g.player.health + 50); if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 50; g.vampireHeal = (g.vampireHeal || 0) + 0.01; } },
+    // ─── New attacks (each toggles a flag the game ticks every frame) ───
+    { id: 'atk_beam',     name: 'Beam of Despair',   icon: '☄',  desc: 'Every 3s: piercing dark beam at the nearest enemy. Stacks +25% beam damage per buy.', cost: 10, apply: g => { g.beamUnlocked = true; g.beamTimer = 0; g.beamDmgMult = (g.beamDmgMult || 1) + 0.25; } },
+    { id: 'atk_eye',      name: 'Eye of Doom',       icon: '👁', desc: 'Orbital eye fires at the nearest enemy every 1.5s. +1 eye per buy.', cost: 10, apply: g => { g.eyeCount = (g.eyeCount || 0) + 1; g.eyeAngle = g.eyeAngle || 0; g.eyeFireTimer = 0; } },
+    { id: 'atk_swords',   name: 'Blood Swords',      icon: '⚔',  desc: '+1 sword orbiting you, dealing contact damage.', cost: 10, apply: g => { g.bloodSwordsBought = (g.bloodSwordsBought || 0) + 1; } },
+    { id: 'atk_slowpulse',name: 'Slow Pulse',        icon: '🌀', desc: 'Every 5s: AoE slow + weak damage. Scales with mage power.', cost: 9, apply: g => { g.slowPulseUnlocked = true; g.slowPulseTimer = 0; g.slowPulseDmg = (g.slowPulseDmg || 30) + 5; } }
 ];
+
+// ============ SELECTABLE PASSIVES (Smolder / Aurelion Sol style) ============
+// Picked once at game start. Both stack infinitely — primary scaling source.
+const PASSIVE_DEFS = {
+    pyre_fuel: {
+        id: 'pyre_fuel',
+        name: 'Pyre Fuel',
+        icon: '🔥',
+        color: '#ff5c1c',
+        desc: 'Gain 1 Fuel stack per kill. Each stack = +0.5% damage. Infinite scaling.',
+        flavor: 'Every soul you take feeds the inferno.',
+        // Smolder analogue: kills add stacks, % damage per stack
+        onKill: (g) => { g.passiveStacks = (g.passiveStacks || 0) + 1; },
+        damageMult: (g) => 1 + (g.passiveStacks || 0) * 0.005
+    },
+    cosmic_stardust: {
+        id: 'cosmic_stardust',
+        name: 'Cosmic Stardust',
+        icon: '✦',
+        color: '#9b6cff',
+        desc: 'Gain 1 Stardust per skill cast and per 200 damage dealt. Each = +0.3% mage power. Infinite scaling.',
+        flavor: 'The void answers when you call.',
+        // Aurelion Sol analogue: stacks via casts + damage thresholds, mage power scales
+        onKill: () => {},
+        damageMult: () => 1
+        // Stardust stacks accrue via passiveStacks (incremented at Q/E activation
+        // and per 200 damage dealt — see passiveOnSkillCast / passiveOnDamage hooks)
+    }
+};
 
 // CloudFront CDN base path for all assets
 const SPRITE_BASE_PATH = '';
@@ -4956,13 +4996,51 @@ class DotsSurvivor {
     }
 
     showCharacterSelect() {
-        // Single character; no starter-item picker either — players build their
-        // inventory by hitting the level-up cards. Go straight into the game.
+        // Single character; no starter-item picker either. Player picks a
+        // PASSIVE here — that's what defines their scaling identity now.
         this.pendingCharacterClass = FIRE_SOVEREIGN_CLASS;
         this.selectedStarterItem = null;
         document.getElementById('gameover-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.add('hidden');
-        this.startGame();
+        this.showPassiveSelect();
+    }
+
+    showPassiveSelect() {
+        let overlay = document.getElementById('passive-select-overlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.id = 'passive-select-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(5,2,4,0.92);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;';
+        const passives = Object.values(PASSIVE_DEFS);
+        overlay.innerHTML = `
+            <div style="text-align:center;margin-bottom:1.6rem;">
+                <h1 style="color:#ffb84d;font-size:2.6rem;letter-spacing:4px;text-shadow:0 0 22px rgba(255,184,77,0.55);margin-bottom:.4rem;">CHOOSE YOUR PASSIVE</h1>
+                <div style="color:#bdf78c;font-size:1.05rem;">This stays with you for the entire run. Both stack infinitely.</div>
+            </div>
+            <div id="passive-cards" style="display:flex;gap:1.4rem;flex-wrap:wrap;justify-content:center;max-width:920px;"></div>
+        `;
+        document.body.appendChild(overlay);
+        const grid = overlay.querySelector('#passive-cards');
+        for (const p of passives) {
+            const card = document.createElement('div');
+            card.style.cssText = `width:300px;padding:1.4rem;border:3px solid ${p.color};border-radius:16px;background:rgba(15,10,12,0.92);box-shadow:0 0 30px ${p.color}55;cursor:pointer;transition:transform .18s, box-shadow .18s;`;
+            const localUrl = `passives/${p.id}.png`;
+            const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : null;
+            card.innerHTML = `
+                <img src="${localUrl}" alt="${p.name}" onerror="this.onerror=null;this.src='${cdnUrl || localUrl}';this.style.display='block'" style="display:block;width:200px;height:200px;margin:0 auto .8rem;border-radius:12px;border:2px solid ${p.color};box-shadow:0 0 18px ${p.color}88;background:#0a0508;object-fit:cover;">
+                <div style="text-align:center;color:${p.color};font-weight:900;font-size:1.5rem;letter-spacing:2px;margin-bottom:.4rem;">${p.name}</div>
+                <div style="text-align:center;color:#ddd;font-size:.92rem;line-height:1.45;margin-bottom:.4rem;">${p.desc}</div>
+                <div style="text-align:center;color:#888;font-size:.82rem;font-style:italic;">${p.flavor}</div>
+            `;
+            card.onmouseenter = () => { card.style.transform = 'translateY(-4px) scale(1.02)'; card.style.boxShadow = `0 0 48px ${p.color}aa`; };
+            card.onmouseleave = () => { card.style.transform = 'translateY(0) scale(1)'; card.style.boxShadow = `0 0 30px ${p.color}55`; };
+            card.onclick = () => {
+                this.passiveId = p.id;
+                overlay.remove();
+                this.startGame();
+            };
+            grid.appendChild(card);
+        }
     }
 
     showStarterItemSelect(characterClass) {
@@ -5379,6 +5457,24 @@ class DotsSurvivor {
         this.inventory = []; // [{ id, level }]
         this.shopOpen = false;
         this.lastShopWave = 0;     // tracks the wave a shop already opened on
+
+        // ── Selectable passive (Pyre Fuel / Cosmic Stardust) ──
+        this.passiveId = this.passiveId || null; // set by passive-select screen
+        this.passiveStacks = 0;
+        this._stardustDmgAccum = 0; // for Cosmic Stardust per-200-damage stacks
+        // New attack flags (set by shop)
+        this.beamUnlocked = false;
+        this.beamTimer = 0;
+        this.beamDmgMult = 1;
+        this.eyeCount = 0;
+        this.eyeAngle = 0;
+        this.eyeFireTimer = 0;
+        this.bloodSwordsBought = 0;
+        this.slowPulseUnlocked = false;
+        this.slowPulseTimer = 0;
+        this.slowPulseDmg = 30;
+        this.activeBeams = [];
+        this.activeSlowPulses = [];
         this._itemDmgMult = 1;
         this._itemCritFlat = 0;
         this._itemAtkSpdMult = 1;
@@ -8826,6 +8922,7 @@ class DotsSurvivor {
         this.updateProjectiles(effectiveDt);
         this.updatePickups(effectiveDt);
         this.updateMapEvents(effectiveDt);
+        this.updateShopAttacks(effectiveDt);
         this.updateParticles(effectiveDt);
         // Trail cosmetics removed
         this.updateDamageNumbers(effectiveDt);
@@ -10792,8 +10889,9 @@ class DotsSurvivor {
                 if ((this._frameCount & skipMask) !== (e.id & skipMask)) {
                     // Minimal update: simple movement toward player only
                     if (!e.passive && d > 0) {
-                        e.wx += (dx / d) * e.speed * dt;
-                        e.wy += (dy / d) * e.speed * dt;
+                        const slowM = (e.slowTimer > 0 ? (e.slowFactor || 0.5) : 1);
+                        e.wx += (dx / d) * e.speed * dt * slowM;
+                        e.wy += (dy / d) * e.speed * dt * slowM;
                     }
                     if (e.hitFlash > 0) e.hitFlash -= dt * 5;
                     if (e.attackCooldown > 0) e.attackCooldown -= dt;
@@ -11134,6 +11232,10 @@ class DotsSurvivor {
     }
 
     handleEnemyDeath(e, sx, sy, index) {
+        // Passive on-kill hook (Pyre Fuel adds a stack each kill)
+        const passive = PASSIVE_DEFS[this.passiveId];
+        if (passive && passive.onKill) passive.onKill(this);
+
         // Special handling for Consumer death (killed by player).
         // Don't run twice — once isDying is set, the death animation is in
         // progress and updateConsumer is responsible for removing the entity
@@ -11616,15 +11718,8 @@ class DotsSurvivor {
 
         // Boss drops - rewarding multi-drop loot table
         if (e.isBoss) {
-            // All bosses drop a stacking item (bypasses cooldown)
-            const allKeys = Object.keys(STACKING_ITEMS);
-            const availableKeys = allKeys.filter(key => !this.droppedItems.includes(key));
-            if (availableKeys.length > 0) {
-                const itemKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
-                const offsetX = (Math.random() - 0.5) * 60;
-                const offsetY = (Math.random() - 0.5) * 60;
-                this.pickups.push({ wx: e.wx + offsetX, wy: e.wy + offsetY, xp: 0, radius: 15, color: '#fbbf24', isItem: true, itemKey });
-            }
+            // Stacking items are now bought in the Soul Market (every 10 waves)
+            // instead of dropping. Bosses only drop the chest below.
 
             // 3) Boss drops a mystery chest (Chest of the Damned)
             const chestOffsetX = (Math.random() - 0.5) * 80;
@@ -11652,6 +11747,8 @@ class DotsSurvivor {
     }
 
     dropItem(wx, wy) {
+        // Stacking items now sold in the Soul Market — kill drops disabled.
+        return;
         // Check 3-minute cooldown since last item DROP (180000ms = 3 minutes)
         const itemCooldown = 180000;
         if (this.gameTime - this.lastItemDropTime < itemCooldown) return;
@@ -13260,6 +13357,10 @@ class DotsSurvivor {
 
         const classId = this.selectedClass?.id;
 
+        // Cosmic Stardust passive: gain 1 stack per skill cast
+        if (this.passiveId === 'cosmic_stardust') {
+            this.passiveStacks = (this.passiveStacks || 0) + 1;
+        }
         // Q unlocks at player level 5, E unlocks at level 10. Auto-unlock here
         // (in addition to the level-up handler) so a player who's already past
         // the threshold gets it the instant they press the key.
@@ -13882,12 +13983,17 @@ class DotsSurvivor {
         const w = this.weapons.bullet;
         const slashRange = 180;
         const slashArc = Math.PI * 0.375; // ~67° forward cone (half of original)
-        // Sword (flat) + Tome (mage power) + global mults stack into slash damage.
+        // Sword (flat) + Tome (mage power) + passive scaling all stack.
+        const passive = PASSIVE_DEFS[this.passiveId];
+        const passiveDmgMult = passive?.damageMult ? passive.damageMult(this) : 1;
+        // Cosmic Stardust scales mage power per stack (+0.3% each)
+        const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
         const baseDamage = Math.floor(
             (w.damage + (this._itemDmgFlat || 0)) *
             (this.damageMultiplier || 1) *
             (this._itemDmgMult || 1) *
-            (this._itemMagePowerMult || 1)
+            (this._itemMagePowerMult || 1) *
+            passiveDmgMult * stardustMult
         );
         const slashCount = 1 + (this._itemSlashMultiplier || 0);
 
@@ -13952,6 +14058,15 @@ class DotsSurvivor {
                 totalHits++;
 
                 this.updateStackingItems('damage', baseDamage);
+
+                // Cosmic Stardust: gain a stack per 200 damage dealt
+                if (this.passiveId === 'cosmic_stardust') {
+                    this._stardustDmgAccum = (this._stardustDmgAccum || 0) + baseDamage;
+                    while (this._stardustDmgAccum >= 200) {
+                        this._stardustDmgAccum -= 200;
+                        this.passiveStacks = (this.passiveStacks || 0) + 1;
+                    }
+                }
 
                 if (this.vampireHeal && this.vampireHeal > 0) {
                     const heal = Math.floor(baseDamage * this.vampireHeal);
@@ -15344,6 +15459,226 @@ class DotsSurvivor {
         }
     }
 
+    // ─── New shop-purchased attacks ──────────────────────────────────────
+    updateShopAttacks(dt) {
+        if (!this.player || this.player.health <= 0) return;
+        const passive = PASSIVE_DEFS[this.passiveId];
+        const passiveDmg = passive?.damageMult ? passive.damageMult(this) : 1;
+        const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
+        const dmgScale = (this._itemDmgMult || 1) * (this._itemMagePowerMult || 1) * passiveDmg * stardustMult;
+
+        // Beam of Despair — every 3s, fire piercing line at nearest enemy
+        if (this.beamUnlocked) {
+            this.beamTimer = (this.beamTimer || 0) + dt;
+            if (this.beamTimer >= 3) {
+                this.beamTimer = 0;
+                let nearest = null, nd = Infinity;
+                for (const e of this.enemies) {
+                    if (e.health <= 0) continue;
+                    const ddx = e.wx - this.worldX, ddy = e.wy - this.worldY;
+                    const dSq = ddx * ddx + ddy * ddy;
+                    if (dSq < nd) { nd = dSq; nearest = e; }
+                }
+                if (nearest) {
+                    const beamDmg = Math.floor(150 * (this.beamDmgMult || 1) * dmgScale);
+                    const tx = this.player.x + (nearest.wx - this.worldX);
+                    const ty = this.player.y + (nearest.wy - this.worldY);
+                    const angle = Math.atan2(ty - this.player.y, tx - this.player.x);
+                    this.activeBeams.push({ x: this.player.x, y: this.player.y, angle, length: 900, timer: 0.4, maxTimer: 0.4 });
+                    // Damage all enemies within ~30px of the beam line
+                    for (const e of this.enemies) {
+                        if (e.health <= 0) continue;
+                        const sx = this.player.x + (e.wx - this.worldX);
+                        const sy = this.player.y + (e.wy - this.worldY);
+                        const dx = sx - this.player.x, dy = sy - this.player.y;
+                        const proj = dx * Math.cos(angle) + dy * Math.sin(angle);
+                        if (proj < 0 || proj > 900) continue;
+                        const perp = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
+                        if (perp > 30 + e.radius) continue;
+                        e.health -= beamDmg;
+                        e.hitFlash = 1;
+                        this.damageNumbers.push({ x: sx, y: sy - 14, value: beamDmg, lifetime: 0.6, color: '#bb88ff', scale: 1.05 });
+                    }
+                    this.playSound('shoot');
+                }
+            }
+        }
+
+        // Eye of Doom — orbital eyes, fire at nearest enemy every 1.5s
+        if ((this.eyeCount || 0) > 0) {
+            this.eyeAngle = (this.eyeAngle || 0) + dt * 1.2;
+            this.eyeFireTimer = (this.eyeFireTimer || 0) + dt;
+            if (this.eyeFireTimer >= 1.5) {
+                this.eyeFireTimer = 0;
+                let nearest = null, nd = Infinity;
+                for (const e of this.enemies) {
+                    if (e.health <= 0) continue;
+                    const ddx = e.wx - this.worldX, ddy = e.wy - this.worldY;
+                    const dSq = ddx * ddx + ddy * ddy;
+                    if (dSq < nd) { nd = dSq; nearest = e; }
+                }
+                if (nearest) {
+                    const eyeDmg = Math.floor(60 * dmgScale);
+                    for (let i = 0; i < this.eyeCount; i++) {
+                        const eyeAng = this.eyeAngle + (i / this.eyeCount) * Math.PI * 2;
+                        const ex = this.player.x + Math.cos(eyeAng) * 70;
+                        const ey = this.player.y + Math.sin(eyeAng) * 70;
+                        const tx = this.player.x + (nearest.wx - this.worldX);
+                        const ty = this.player.y + (nearest.wy - this.worldY);
+                        const a = Math.atan2(ty - ey, tx - ex);
+                        this.projectiles.push({
+                            x: ex, y: ey, vx: Math.cos(a) * 600, vy: Math.sin(a) * 600,
+                            radius: 6, damage: eyeDmg, pierce: 0, color: '#cc66ff', hitEnemies: new Set()
+                        });
+                    }
+                }
+            }
+        }
+
+        // Slow Pulse — every 5s, expanding ring slows + damages
+        if (this.slowPulseUnlocked) {
+            this.slowPulseTimer = (this.slowPulseTimer || 0) + dt;
+            if (this.slowPulseTimer >= 5) {
+                this.slowPulseTimer = 0;
+                const dmg = Math.floor((this.slowPulseDmg || 30) * dmgScale);
+                this.activeSlowPulses.push({ x: this.player.x, y: this.player.y, radius: 0, maxRadius: 240, timer: 0.6, maxTimer: 0.6 });
+                // Apply damage + slow to all enemies in radius
+                for (const e of this.enemies) {
+                    if (e.health <= 0) continue;
+                    const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
+                    if (dx * dx + dy * dy > 240 * 240) continue;
+                    e.health -= dmg;
+                    e.hitFlash = 1;
+                    e.slowTimer = 2; // 2s slow
+                    e.slowFactor = 0.5;
+                    const sx = this.player.x + dx, sy = this.player.y + dy;
+                    this.damageNumbers.push({ x: sx, y: sy - 14, value: dmg, lifetime: 0.5, color: '#7be3ff', scale: 0.95 });
+                }
+            }
+            // Fade slow on enemies
+            for (const e of this.enemies) {
+                if (e.slowTimer > 0) e.slowTimer -= dt;
+            }
+        }
+
+        // Tick beam visuals
+        for (let i = this.activeBeams.length - 1; i >= 0; i--) {
+            this.activeBeams[i].timer -= dt;
+            if (this.activeBeams[i].timer <= 0) this.activeBeams.splice(i, 1);
+        }
+        // Tick slow-pulse ring expansion
+        for (let i = this.activeSlowPulses.length - 1; i >= 0; i--) {
+            const p = this.activeSlowPulses[i];
+            p.timer -= dt;
+            p.radius = p.maxRadius * (1 - p.timer / p.maxTimer);
+            if (p.timer <= 0) this.activeSlowPulses.splice(i, 1);
+        }
+
+        // Blood Swords — orbiting damage (only update positions; collision below)
+        if ((this.bloodSwordsBought || 0) > 0) {
+            this._bsAngle = (this._bsAngle || 0) + dt * 2.5;
+            const swordDmg = Math.floor(35 * dmgScale);
+            const N = this.bloodSwordsBought;
+            for (let i = 0; i < N; i++) {
+                const ang = this._bsAngle + (i / N) * Math.PI * 2;
+                const sx = this.player.x + Math.cos(ang) * 110;
+                const sy = this.player.y + Math.sin(ang) * 110;
+                // Damage tick — touch any enemy within 26px (1s per-enemy cooldown)
+                if (!this._bsHitCD) this._bsHitCD = new Map();
+                for (const e of this.enemies) {
+                    if (e.health <= 0) continue;
+                    const ex = this.player.x + (e.wx - this.worldX);
+                    const ey = this.player.y + (e.wy - this.worldY);
+                    const dx = ex - sx, dy = ey - sy;
+                    if (dx * dx + dy * dy > (26 + e.radius) * (26 + e.radius)) continue;
+                    const last = this._bsHitCD.get(e) || 0;
+                    if (this.gameTime - last < 800) continue;
+                    this._bsHitCD.set(e, this.gameTime);
+                    e.health -= swordDmg;
+                    e.hitFlash = 1;
+                    this.damageNumbers.push({ x: ex, y: ey - 12, value: swordDmg, lifetime: 0.45, color: '#ff5555', scale: 0.9 });
+                }
+            }
+        }
+    }
+
+    drawShopAttacks(ctx) {
+        // Beams
+        for (const b of (this.activeBeams || [])) {
+            const a = b.timer / b.maxTimer;
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.rotate(b.angle);
+            ctx.shadowBlur = 20; ctx.shadowColor = '#bb88ff';
+            const grad = ctx.createLinearGradient(0, -16, 0, 16);
+            grad.addColorStop(0, `rgba(170,80,255,0)`);
+            grad.addColorStop(0.5, `rgba(220,160,255,${0.85 * a})`);
+            grad.addColorStop(1, `rgba(170,80,255,0)`);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, -14, b.length, 28);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = `rgba(255,255,255,${a})`;
+            ctx.fillRect(0, -3, b.length, 6);
+            ctx.restore();
+        }
+        // Slow-pulse rings
+        for (const p of (this.activeSlowPulses || [])) {
+            const a = p.timer / p.maxTimer;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(123, 227, 255, ${a * 0.9})`;
+            ctx.lineWidth = 5;
+            ctx.shadowBlur = 18; ctx.shadowColor = '#7be3ff';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, Math.max(0, p.radius - 16), 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255,255,255,${a * 0.4})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+        }
+        // Eyes (orbiting)
+        if ((this.eyeCount || 0) > 0) {
+            const N = this.eyeCount, ang0 = this.eyeAngle || 0;
+            for (let i = 0; i < N; i++) {
+                const ang = ang0 + (i / N) * Math.PI * 2;
+                const ex = this.player.x + Math.cos(ang) * 70;
+                const ey = this.player.y + Math.sin(ang) * 70;
+                ctx.save();
+                ctx.beginPath(); ctx.arc(ex, ey, 12, 0, Math.PI * 2);
+                ctx.fillStyle = '#220033'; ctx.shadowBlur = 14; ctx.shadowColor = '#cc66ff';
+                ctx.fill(); ctx.shadowBlur = 0;
+                ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff66ff'; ctx.fill();
+                ctx.beginPath(); ctx.arc(ex - 1.5, ey - 1, 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff'; ctx.fill();
+                ctx.restore();
+            }
+        }
+        // Blood swords (orbiting)
+        if ((this.bloodSwordsBought || 0) > 0) {
+            const N = this.bloodSwordsBought, ang0 = this._bsAngle || 0;
+            for (let i = 0; i < N; i++) {
+                const ang = ang0 + (i / N) * Math.PI * 2;
+                const sx = this.player.x + Math.cos(ang) * 110;
+                const sy = this.player.y + Math.sin(ang) * 110;
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(ang + Math.PI / 2);
+                ctx.fillStyle = '#aa1122'; ctx.shadowBlur = 12; ctx.shadowColor = '#ff3344';
+                ctx.fillRect(-3, -16, 6, 28);
+                ctx.fillStyle = '#ff7788';
+                ctx.fillRect(-2, -16, 4, 28);
+                ctx.fillStyle = '#552233';
+                ctx.fillRect(-6, 12, 12, 4);
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            }
+        }
+    }
+
     showLevelUpMenu() {
         try {
         this.playSound('levelup');
@@ -16074,6 +16409,21 @@ class DotsSurvivor {
         const statSlashes = document.getElementById('stat-slashes');
         if (statSlashes) {
             statSlashes.textContent = String(1 + (this._itemSlashMultiplier || 0));
+        }
+        // Passive stack display
+        const passive = PASSIVE_DEFS[this.passiveId];
+        if (passive) {
+            let stackEl = document.getElementById('stat-passive-stacks');
+            if (!stackEl) {
+                const panel = document.querySelector('#stats-panel > div:last-child');
+                if (panel) {
+                    const row = document.createElement('div');
+                    row.innerHTML = `<span style="color:${passive.color};">${passive.icon} ${passive.name.toUpperCase()}: <span id="stat-passive-stacks" style="color:#fff;font-weight:bold;">0</span></span>`;
+                    panel.appendChild(row);
+                    stackEl = row.querySelector('#stat-passive-stacks');
+                }
+            }
+            if (stackEl) stackEl.textContent = String(this.passiveStacks || 0);
         }
 
         // Update CC Reduction stat
@@ -19315,6 +19665,9 @@ class DotsSurvivor {
         // Map events (Ring of Poison, Cube of Entrapment, etc.) render
         // beneath the player so the player can stand on top of them visibly.
         this.drawMapEvents(ctx);
+
+        // Shop-purchased attacks: beams, slow pulses, orbital eyes/swords.
+        this.drawShopAttacks(ctx);
 
         // Player
         this.drawPlayer();
