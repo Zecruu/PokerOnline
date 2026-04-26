@@ -1335,7 +1335,9 @@ const ENEMY_SPRITES = {
     wraith: 'enemies/wraith.png',               // Wave 8+ - Phasing demon
     magma_crawler: 'enemies/magma_crawler.png', // Wave 12+ - Heavy magma beetle
     leech: 'enemies/leech.png',                 // Wave 10+ - Healing parasite
-    pusher: 'enemies/pusher.png'                // Wave 8+ - Bodyslam brawler
+    pusher: 'enemies/pusher.png',               // Wave 8+ - Bodyslam brawler
+    heads: 'enemies/heads.png',                 // Wave 3+ - Floating flaming demon head
+    clowns: 'enemies/clowns.png'                // Wave 5+ - Purple jester
 };
 
 // Consumer boss has multi-frame animations (walk / eat / die, 6 frames each).
@@ -3644,10 +3646,16 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
     const types = ['swarm', 'swarm', 'swarm', 'swarm'];
     if (wave >= 2) types.push('swarm', 'swarm', 'basic');
 
-    // Waves 3-4: Add Runner (low weight)
+    // Waves 3-4: Add Runner (low weight) + Heads (enemy 2)
     if (wave >= 3 && wave <= 4) {
         types.push('runner'); // Low weight - only 1 entry
+        types.push('heads', 'heads'); // Heads — flaming demon head, mid weight
     }
+    // Wave 5+: Heads stays in the pool (weight added at higher waves below)
+    if (wave >= 5) types.push('heads');
+    // Wave 5+: Clowns (enemy 3) join the rotation
+    if (wave >= 5) types.push('clowns');
+    if (wave >= 7) types.push('clowns'); // more clowns later
 
     // Waves 5-6: Add either Tank OR Splitter (never both), Runner gets more weight
     if (wave >= 5 && wave <= 6) {
@@ -10805,7 +10813,9 @@ class DotsSurvivor {
             wraith: { radius: 22, speed: 100, health: 450, damage: 40, xp: 15, color: '#8866cc', icon: '', isWraith: true },
             magma_crawler: { radius: 30, speed: 40, health: 2500, damage: 80, xp: 30, color: '#ff4400', icon: '', isMagmaCrawler: true },
             leech: { radius: 20, speed: 70, health: 800, damage: 15, xp: 20, color: '#44cc44', icon: '', isLeech: true },
-            pusher: { radius: 26, speed: 95, health: 600, damage: 30, xp: 15, color: '#ff9900', icon: '👊', isPusher: true }
+            pusher: { radius: 26, speed: 95, health: 600, damage: 30, xp: 15, color: '#ff9900', icon: '👊', isPusher: true },
+            heads:  { radius: 22, speed: 95, health: 220, damage: 28, xp: 7,  color: '#cc3322', icon: '', floats: true },
+            clowns: { radius: 24, speed: 105, health: 320, damage: 32, xp: 9, color: '#7e2eaa', icon: '', isClown: true }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
