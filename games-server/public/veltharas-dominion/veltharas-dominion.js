@@ -129,7 +129,7 @@ const ITEM_DEFS = {
     // New items
     iron_charm:     { id: 'iron_charm',     name: 'Iron Charm',      icon: '🛡', color: '#7ec0e8', desc: '+5% CC reduction / lvl', statsAt: l => ({ ccrPct: 0.05 * l }) },
     bone_amulet:    { id: 'bone_amulet',    name: 'Bone Amulet',     icon: '🦴', color: '#c9c5b8', desc: '+3% damage reduction / lvl', statsAt: l => ({ drPct: 0.03 * l }) },
-    healing_aura:   { id: 'healing_aura',   name: 'Healing Aura',    icon: '✚',  color: '#7be36e', desc: '+1 HP regen / lvl',      statsAt: l => ({ regenFlat: 1 * l }) },
+    healing_aura:   { id: 'healing_aura',   name: 'Healing Aura',    icon: '✚',  color: '#7be36e', desc: '+3 HP regen/sec / lvl',  statsAt: l => ({ regenFlat: 3 * l }) },
     radiant_aegis:  { id: 'radiant_aegis',  name: 'Radiant Aegis',   icon: '✦',  color: '#7ec0ff', desc: '+5% healing received & +5 shield max / lvl', statsAt: l => ({ healPct: 0.05 * l, shieldMaxFlat: 5 * l }) }
 };
 // 11 items now; inventory is still 8 slots — players choose what to specialize.
@@ -10241,25 +10241,40 @@ class DotsSurvivor {
         this.combatTimer += dt;
         const inCombat = this.combatTimer < this.combatDuration;
 
-        // Perk-based regen (1 HP per second) - DISABLED while in combat
-        // Healing Aura item (regenFlat) ALWAYS regens, even in combat — that's its niche.
-        const totalRegen = (this.player.hpRegen || 0) + (this._itemRegenFlat || 0);
-        const regenInCombat = (this._itemRegenFlat || 0) > 0; // healing aura works in combat
-        if (totalRegen > 0 && (!inCombat || regenInCombat)) {
+        // Sourced directly from inventory so the aura/heal can't desync from
+        // the picked item even if applyItemEffects hasn't run for some reason.
+        const auraSlot = (this.inventory || []).find(it => it.id === 'healing_aura');
+        const auraRegen = auraSlot ? 3 * auraSlot.level : 0;
+        const baseRegen = (this.player.hpRegen || 0);
+        const totalRegen = baseRegen + auraRegen;
+        if (totalRegen > 0) {
             this.regenTimer += dt;
             if (this.regenTimer >= 1) {
                 this.regenTimer = 0;
-                const tickAmount = inCombat ? (this._itemRegenFlat || 0) : totalRegen;
-                if (tickAmount > 0) this.healPlayer(tickAmount);
+                // Healing Aura always ticks (even in combat); base hpRegen still
+                // pauses in combat to preserve the original sigil behavior.
+                const tickAmount = inCombat ? auraRegen : totalRegen;
+                if (tickAmount > 0) {
+                    const healed = this.healPlayer(tickAmount);
+                    if (healed > 0) {
+                        this.damageNumbers.push({
+                            x: this.player.x + (Math.random() - 0.5) * 18,
+                            y: this.player.y - this.player.radius - 8,
+                            value: `+${Math.round(healed)}`,
+                            lifetime: 0.7, color: '#7be36e', scale: 0.95,
+                            isText: true
+                        });
+                    }
+                }
             }
         }
 
         // Healing Aura visual: a soft green field that follows the player with
-        // a slow lag (Milio W feel). Only visible while the player owns the item.
-        const hasAura = (this._itemRegenFlat || 0) > 0;
+        // a slow lag (Milio W feel). Visible whenever the item is owned.
+        const hasAura = !!auraSlot;
         if (hasAura) {
             if (!this.healingAuraPos) this.healingAuraPos = { x: this.player.x, y: this.player.y };
-            const lerp = 1.6 * dt; // ~1.6/sec catch-up
+            const lerp = 1.6 * dt;
             this.healingAuraPos.x += (this.player.x - this.healingAuraPos.x) * Math.min(1, lerp);
             this.healingAuraPos.y += (this.player.y - this.healingAuraPos.y) * Math.min(1, lerp);
             this.healingAuraPhase = (this.healingAuraPhase || 0) + dt;
@@ -19803,11 +19818,13 @@ class DotsSurvivor {
         this.drawMapEvents(ctx);
 
         // Healing aura — soft green field that lags behind the player. Drawn
-        // beneath the player so they appear standing on top of it.
-        if (this.healingAuraPos && (this._itemRegenFlat || 0) > 0) {
+        // beneath the player so they appear standing on top of it. Sourced
+        // directly from the inventory so it can't desync from the item.
+        const _hasHealingAura = (this.inventory || []).some(it => it.id === 'healing_aura');
+        if (this.healingAuraPos && _hasHealingAura) {
             const ax = this.healingAuraPos.x, ay = this.healingAuraPos.y;
             const phase = this.healingAuraPhase || 0;
-            const radius = 90 + Math.sin(phase * 2) * 6;
+            const radius = 110 + Math.sin(phase * 2) * 8;
             ctx.save();
             const grad = ctx.createRadialGradient(ax, ay, radius * 0.2, ax, ay, radius);
             grad.addColorStop(0,    'rgba(190, 255, 170, 0.32)');
