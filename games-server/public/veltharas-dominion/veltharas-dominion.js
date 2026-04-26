@@ -12773,17 +12773,23 @@ class DotsSurvivor {
             if (this.corruptedBurnSelfDamage) {
                 this.player.health -= this.corruptedBurnSelfDamage * dt;
             }
-            // Burn damage numbers — direct push (no addDamageNumber stacking)
-            // so they don't accumulate into giant numbers on enemies that are
-            // burning for a long time. Small fixed scale matching slash style.
-            if (Math.random() < 0.05) {
+            // Accumulate fractional burn damage and feed integer chunks into
+            // addDamageNumber so the floating number STACKS (3 → 8 → 19 → ...)
+            // instead of spawning a fresh small number every frame. Capped
+            // scale ramp so the number doesn't balloon visually.
+            burn._numAccum = (burn._numAccum || 0) + tickDmg;
+            if (burn._numAccum >= 1) {
+                const chunk = Math.floor(burn._numAccum);
+                burn._numAccum -= chunk;
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
-                this.damageNumbers.push({
-                    x: sx, y: sy - 6, value: Math.ceil(totalDPS * 0.4),
-                    lifetime: 0.45, color: '#ff8844', scale: 0.85
+                this.addDamageNumber(sx, sy, chunk, '#ff8844', {
+                    enemyId: e.id,
+                    scale: 0.85,
+                    maxScale: 1.4,
+                    scaleStep: 0.04
                 });
-                this.spawnParticles(sx, sy, '#ff4400', 2);
+                if (Math.random() < 0.25) this.spawnParticles(sx, sy, '#ff4400', 2);
             }
         }
     }
@@ -16337,7 +16343,7 @@ class DotsSurvivor {
 
     // Stacked damage number system - combines damage on same target
     addDamageNumber(x, y, value, color, options = {}) {
-        const { scale = 1, lifetime = 0.8, enemyId = null, isText = false } = options;
+        const { scale = 1, lifetime = 0.8, enemyId = null, isText = false, maxScale = 2.5, scaleStep = 0.15 } = options;
 
         // If it's text (like "STUCK!" or "Rise!") or no enemy ID, just add normally
         if (isText || !enemyId || typeof value !== 'number') {
@@ -16357,7 +16363,7 @@ class DotsSurvivor {
             // Stack onto existing number
             existing.value += value;
             existing.lifetime = existing.maxLifetime; // Reset lifetime
-            existing.scale = Math.min(2.5, 1 + (existing.stackCount * 0.15)); // Grow with stacks
+            existing.scale = Math.min(existing.maxScale || maxScale, (existing.baseScale || 1) + (existing.stackCount * (existing.scaleStep || scaleStep)));
             existing.stackCount++;
             existing.pulseTimer = 0.15; // Trigger pulse animation
             existing.x = x; // Update position to latest hit
@@ -16371,6 +16377,9 @@ class DotsSurvivor {
                 maxLifetime: 1.2,
                 color,
                 scale,
+                baseScale: scale,
+                maxScale,
+                scaleStep,
                 enemyId,
                 stackCount: 1,
                 pulseTimer: 0,
