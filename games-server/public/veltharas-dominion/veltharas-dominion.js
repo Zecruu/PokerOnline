@@ -129,7 +129,8 @@ const ITEM_DEFS = {
     // New items
     iron_charm:     { id: 'iron_charm',     name: 'Iron Charm',      icon: '🛡', color: '#7ec0e8', desc: '+5% CC reduction / lvl', statsAt: l => ({ ccrPct: 0.05 * l }) },
     bone_amulet:    { id: 'bone_amulet',    name: 'Bone Amulet',     icon: '🦴', color: '#c9c5b8', desc: '+3% damage reduction / lvl', statsAt: l => ({ drPct: 0.03 * l }) },
-    healing_aura:   { id: 'healing_aura',   name: 'Healing Aura',    icon: '✚',  color: '#7be36e', desc: '+1 HP regen / lvl',      statsAt: l => ({ regenFlat: 1 * l }) }
+    healing_aura:   { id: 'healing_aura',   name: 'Healing Aura',    icon: '✚',  color: '#7be36e', desc: '+1 HP regen / lvl',      statsAt: l => ({ regenFlat: 1 * l }) },
+    radiant_aegis:  { id: 'radiant_aegis',  name: 'Radiant Aegis',   icon: '✦',  color: '#7ec0ff', desc: '+5% healing received & +5 shield max / lvl', statsAt: l => ({ healPct: 0.05 * l, shieldMaxFlat: 5 * l }) }
 };
 // 11 items now; inventory is still 8 slots — players choose what to specialize.
 
@@ -137,7 +138,7 @@ const ITEM_DEFS = {
 // 4 random offers, paid in souls. Buffs are FLAT and PERMANENT — they don't
 // scale per level like inventory items, they just add forever.
 const SHOP_OFFERS = [
-    { id: 'pot_heal',     name: 'Health Potion',     icon: '🧪', desc: 'Heal to full HP',                cost: 5,  apply: g => { g.player.health = g.player.maxHealth; } },
+    { id: 'pot_heal',     name: 'Health Potion',     icon: '🧪', desc: 'Heal to full HP',                cost: 5,  apply: g => { g.healPlayer(g.player.maxHealth); } },
     { id: 'pot_max_hp',   name: 'Vital Tonic',       icon: '❤',  desc: '+50 max HP, +50 HP heal',        cost: 6,  apply: g => { g.player.maxHealth += 50; g.player.health = Math.min(g.player.maxHealth, g.player.health + 50); } },
     { id: 'pot_damage',   name: 'Edge Whetstone',    icon: '⚔',  desc: '+20 base damage',                cost: 6,  apply: g => { g.weapons.bullet.damage += 20; } },
     { id: 'pot_crit',     name: "Hunter's Mark",     icon: '🎯', desc: '+5% crit chance',                cost: 7,  apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; } },
@@ -5475,6 +5476,22 @@ class DotsSurvivor {
         this.slowPulseDmg = 30;
         this.activeBeams = [];
         this.activeSlowPulses = [];
+
+        // ── Run statistics (shown on game over screen) ──
+        this.runDamageDealt = 0;
+        this.runHealingReceived = 0;
+
+        // ── Healing aura (Healing Aura item) — visual field that follows
+        //    the player with a slow lag, like Milio's W zone moving with you.
+        this.healingAuraPos = null; // {x,y} init lazily after first tick
+        this.healingAuraPhase = 0;
+
+        // ── Shield system (Radiant Aegis item) ──
+        // Shield buffer regenerates over time. Damage absorbs from shield first
+        // via the post-hoc delta check in updatePlayer.
+        this.shieldHp = 0;
+        this.shieldMaxHp = 0;
+        this._lastPlayerHealth = 0;
         this._itemDmgMult = 1;
         this._itemCritFlat = 0;
         this._itemAtkSpdMult = 1;
@@ -10224,11 +10241,40 @@ class DotsSurvivor {
             if (this.regenTimer >= 1) {
                 this.regenTimer = 0;
                 const tickAmount = inCombat ? (this._itemRegenFlat || 0) : totalRegen;
-                if (tickAmount > 0) {
-                    this.player.health = Math.min(this.player.maxHealth, this.player.health + tickAmount);
-                }
+                if (tickAmount > 0) this.healPlayer(tickAmount);
             }
         }
+
+        // Healing Aura visual: a soft green field that follows the player with
+        // a slow lag (Milio W feel). Only visible while the player owns the item.
+        const hasAura = (this._itemRegenFlat || 0) > 0;
+        if (hasAura) {
+            if (!this.healingAuraPos) this.healingAuraPos = { x: this.player.x, y: this.player.y };
+            const lerp = 1.6 * dt; // ~1.6/sec catch-up
+            this.healingAuraPos.x += (this.player.x - this.healingAuraPos.x) * Math.min(1, lerp);
+            this.healingAuraPos.y += (this.player.y - this.healingAuraPos.y) * Math.min(1, lerp);
+            this.healingAuraPhase = (this.healingAuraPhase || 0) + dt;
+        }
+
+        // Shield regen — pulses 1 HP / 2s up to shieldMaxHp while alive
+        if (this.shieldMaxHp > 0 && this.player.health > 0) {
+            this._shieldRegenTimer = (this._shieldRegenTimer || 0) + dt;
+            if (this._shieldRegenTimer >= 2) {
+                this._shieldRegenTimer = 0;
+                this.shieldHp = Math.min(this.shieldMaxHp, (this.shieldHp || 0) + 1);
+            }
+        }
+
+        // Post-hoc damage absorption: if player.health dropped this frame,
+        // drain the shield by the same amount (refunds the absorbed damage).
+        if (this._lastPlayerHealth > 0 && this.player.health < this._lastPlayerHealth && (this.shieldHp || 0) > 0) {
+            const dropped = this._lastPlayerHealth - this.player.health;
+            const absorb = Math.min(dropped, this.shieldHp);
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + absorb);
+            this.shieldHp -= absorb;
+            this.runDamageDealt = (this.runDamageDealt || 0); // unrelated, keep symmetry
+        }
+        this._lastPlayerHealth = this.player.health;
 
         // Heart of Vitality HP5 bonus (HP per 5 seconds)
         const hp5Bonus = this.stackingHp5Bonus || 0;
@@ -12720,16 +12766,23 @@ class DotsSurvivor {
                 burn.timer = this.burnStackDuration || 4;
             }
             const totalDPS = burn.stacks * burn.dpsPerStack * doubleBurn * burnMult;
-            e.health -= totalDPS * dt;
+            const tickDmg = totalDPS * dt;
+            e.health -= tickDmg;
+            this.runDamageDealt = (this.runDamageDealt || 0) + tickDmg;
             // Corrupted self-damage
             if (this.corruptedBurnSelfDamage) {
                 this.player.health -= this.corruptedBurnSelfDamage * dt;
             }
-            // Visual effects - burn damage numbers + particles
-            if (Math.random() < 0.15) {
+            // Burn damage numbers — direct push (no addDamageNumber stacking)
+            // so they don't accumulate into giant numbers on enemies that are
+            // burning for a long time. Small fixed scale matching slash style.
+            if (Math.random() < 0.05) {
                 const sx = this.player.x + (e.wx - this.worldX);
                 const sy = this.player.y + (e.wy - this.worldY);
-                this.addDamageNumber(sx, sy, Math.ceil(totalDPS * 0.5), '#ff6600', { enemyId: e.id, scale: 0.6 });
+                this.damageNumbers.push({
+                    x: sx, y: sy - 6, value: Math.ceil(totalDPS * 0.4),
+                    lifetime: 0.45, color: '#ff8844', scale: 0.85
+                });
                 this.spawnParticles(sx, sy, '#ff4400', 2);
             }
         }
@@ -14043,6 +14096,7 @@ class DotsSurvivor {
 
                 e.health -= baseDamage;
                 e.hitFlash = 1;
+                this.runDamageDealt = (this.runDamageDealt || 0) + baseDamage;
                 this.damageNumbers.push({ x: sx, y: sy - 14, value: baseDamage, lifetime: 0.5, color: '#ff7733', scale: 1.05 });
 
                 // Apply / refresh Sovereign Burn stacks (DoT)
@@ -14072,9 +14126,7 @@ class DotsSurvivor {
 
                 if (this.vampireHeal && this.vampireHeal > 0) {
                     const heal = Math.floor(baseDamage * this.vampireHeal);
-                    if (heal > 0 && this.player.health < this.player.maxHealth) {
-                        this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
-                    }
+                    if (heal > 0 && this.player.health < this.player.maxHealth) this.healPlayer(heal);
                 }
             }
         }
@@ -15287,7 +15339,7 @@ class DotsSurvivor {
 
         let dmgMult = 1, dmgFlat = 0, critFlat = 0, atkSpdMult = 1, moveSpdFlat = 0;
         let fortuneMult = 1, magePowerMult = 1, hpFlat = 0, drPct = 0, slashMult = 0;
-        let ccrPct = 0, regenFlat = 0;
+        let ccrPct = 0, regenFlat = 0, healPct = 0, shieldMaxFlat = 0;
         for (const it of this.inventory) {
             const def = ITEM_DEFS[it.id]; if (!def) continue;
             const s = def.statsAt(it.level);
@@ -15302,6 +15354,8 @@ class DotsSurvivor {
             drPct         += s.drPct || 0;
             ccrPct        += s.ccrPct || 0;
             regenFlat     += s.regenFlat || 0;
+            healPct       += s.healPct || 0;
+            shieldMaxFlat += s.shieldMaxFlat || 0;
             slashMult     += s.slashMultiplier || 0;
         }
         this._itemDmgMult = dmgMult;
@@ -15315,7 +15369,12 @@ class DotsSurvivor {
         this._itemDrPct = Math.min(0.75, drPct);  // cap 75% damage reduction
         this._itemCcrPct = Math.min(0.75, ccrPct); // cap 75% CC reduction
         this._itemRegenFlat = regenFlat;
+        this._itemHealMult = 1 + healPct;
         this._itemSlashMultiplier = slashMult;
+        // Update shield maximum; fill the shield up to its new cap when it grows.
+        const oldMax = this.shieldMaxHp || 0;
+        this.shieldMaxHp = shieldMaxFlat;
+        if (this.shieldMaxHp > oldMax) this.shieldHp = Math.min(this.shieldMaxHp, (this.shieldHp || 0) + (this.shieldMaxHp - oldMax));
         // Plumb item-derived CC reduction and regen into the existing player fields
         this.ccReduction = Math.max(this.ccReduction || 0, this._itemCcrPct);
 
@@ -15376,6 +15435,19 @@ class DotsSurvivor {
             choices.push(pick);
         }
         return choices;
+    }
+
+    // Centralized heal entry point. Applies the Radiant Aegis healing %
+    // multiplier and tracks total healing for the post-run summary.
+    healPlayer(amount) {
+        if (!this.player || amount <= 0) return 0;
+        const mult = this._itemHealMult || 1;
+        const before = this.player.health;
+        const target = Math.min(this.player.maxHealth, before + amount * mult);
+        const actualHealed = Math.max(0, target - before);
+        this.player.health = target;
+        this.runHealingReceived = (this.runHealingReceived || 0) + actualHealed;
+        return actualHealed;
     }
 
     pickItem(choice) {
@@ -16535,6 +16607,27 @@ class DotsSurvivor {
         document.getElementById('final-time').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         document.getElementById('final-kills').textContent = this.player.kills;
         document.getElementById('final-level').textContent = this.player.level;
+
+        // Append run-stat rows for damage dealt and healing received.
+        const finalStats = document.querySelector('#gameover-menu .final-stats');
+        if (finalStats) {
+            const fmt = (n) => Math.floor(n).toLocaleString();
+            let dmgRow = document.getElementById('final-dmg-row');
+            if (!dmgRow) {
+                dmgRow = document.createElement('p');
+                dmgRow.id = 'final-dmg-row';
+                finalStats.appendChild(dmgRow);
+            }
+            dmgRow.innerHTML = `⚔️ Damage Dealt: <span style="color:#ff7733;font-weight:bold;">${fmt(this.runDamageDealt || 0)}</span>`;
+            let healRow = document.getElementById('final-heal-row');
+            if (!healRow) {
+                healRow = document.createElement('p');
+                healRow.id = 'final-heal-row';
+                finalStats.appendChild(healRow);
+            }
+            healRow.innerHTML = `💚 Healing Received: <span style="color:#7be36e;font-weight:bold;">${fmt(this.runHealingReceived || 0)}</span>`;
+        }
+
         document.getElementById('gameover-menu').classList.remove('hidden');
 
         // Get or create account progression display element
@@ -19668,6 +19761,35 @@ class DotsSurvivor {
         // beneath the player so the player can stand on top of them visibly.
         this.drawMapEvents(ctx);
 
+        // Healing aura — soft green field that lags behind the player. Drawn
+        // beneath the player so they appear standing on top of it.
+        if (this.healingAuraPos && (this._itemRegenFlat || 0) > 0) {
+            const ax = this.healingAuraPos.x, ay = this.healingAuraPos.y;
+            const phase = this.healingAuraPhase || 0;
+            const radius = 90 + Math.sin(phase * 2) * 6;
+            ctx.save();
+            const grad = ctx.createRadialGradient(ax, ay, radius * 0.2, ax, ay, radius);
+            grad.addColorStop(0,    'rgba(190, 255, 170, 0.32)');
+            grad.addColorStop(0.55, 'rgba(123, 227, 110, 0.18)');
+            grad.addColorStop(1,    'rgba(40, 120, 30, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(ax, ay, radius, 0, Math.PI * 2); ctx.fill();
+            // Edge ring
+            ctx.beginPath(); ctx.arc(ax, ay, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(160, 255, 130, ${0.45 + 0.2 * Math.sin(phase * 3)})`;
+            ctx.lineWidth = 2; ctx.shadowBlur = 10; ctx.shadowColor = '#7be36e';
+            ctx.stroke(); ctx.shadowBlur = 0;
+            // Drifting motes
+            for (let k = 0; k < 4; k++) {
+                const a = phase * 0.6 + (k / 4) * Math.PI * 2;
+                const r = radius * 0.55;
+                ctx.beginPath();
+                ctx.arc(ax + Math.cos(a) * r, ay + Math.sin(a) * r, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#bdf78c'; ctx.fill();
+            }
+            ctx.restore();
+        }
+
         // Shop-purchased attacks: beams, slow pulses, orbital eyes/swords.
         this.drawShopAttacks(ctx);
 
@@ -19675,6 +19797,28 @@ class DotsSurvivor {
         this.drawPlayer();
         // Shield indicator
         if (this.shieldActive) { ctx.beginPath(); ctx.arc(this.player.x, this.player.y, this.player.radius + 12, 0, Math.PI * 2); ctx.strokeStyle = '#00aaff'; ctx.lineWidth = 3; ctx.stroke(); }
+
+        // Radiant Aegis shield — soft cyan ring whose alpha tracks current
+        // shield HP / max. Pulses gently when the shield is full.
+        if ((this.shieldMaxHp || 0) > 0 && (this.shieldHp || 0) > 0) {
+            const fill = this.shieldHp / this.shieldMaxHp;
+            const a = 0.35 + 0.45 * fill;
+            const r = this.player.radius + 14;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, r, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(126, 192, 255, ${a})`;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 12; ctx.shadowColor = '#7ec0ff';
+            ctx.stroke(); ctx.shadowBlur = 0;
+            // Fill arc proportional to remaining shield
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill);
+            ctx.strokeStyle = `rgba(220, 240, 255, ${0.7 * fill})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.restore();
+        }
 
         // Status overlays from map events
         if (this.poisonTimer > 0) {
