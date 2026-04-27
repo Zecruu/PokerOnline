@@ -4044,6 +4044,9 @@ class DotsSurvivor {
         // Effects
         this.particles = [];
         this.damageNumbers = [];
+        this._installDamageNumberInterceptor();
+        // Run stats — accumulate even when floating damage popups are disabled
+        this.runStats = { damageDealt: 0 };
 
         // Souls currency & Enhancement Runes
         this.souls = 0;
@@ -5426,6 +5429,8 @@ class DotsSurvivor {
         for (let i = 0; i < this.enemies.length; i++) this._releaseEnemy(this.enemies[i]);
         this.enemyPool.clear();
         this.enemies = []; this.projectiles = []; this.pickups = []; this.particles = []; this.damageNumbers = [];
+        this._installDamageNumberInterceptor();
+        this.runStats = { damageDealt: 0 };
         this.skulls = []; this.minions = []; this.items = {};
         this.skullElementIndex = 0; this.skullCycleTimer = 0;
         
@@ -5476,15 +5481,15 @@ class DotsSurvivor {
         this.fireZones = [];
         this.playerInFireZone = false; // Track if player is currently in a fire zone (for non-stacking damage)
 
-        // ── Map events (Ring of Poison, Cube of Entrapment, etc.) ──
-        // Hazards that spawn around the player and apply a status on touch.
-        this.mapEvents = [];
-        this.mapEventSpawnTimer = 30; // seconds until first event
-        // Player status fields driven by events
+        // ── Player-anchored hazards (Ring of Poison, Cube of Entrapment) ──
+        // Auto-trigger on a timer; visuals spawn ON the player rather than as
+        // pickup objects in the world.
+        this.hazardTimer = 30;       // seconds until next hazard
         this.poisonTimer = 0;        // seconds remaining
         this.poisonTickAccum = 0;    // sub-second accumulator
         this.poisonMaxHpFrac = 0.03; // 3% max HP per second
         this.entrappedTimer = 0;     // seconds remaining of root
+        this.entrappedSize = 110;    // half-side of the cage box
 
         // Sticky immobilization timer
 
@@ -14788,38 +14793,29 @@ class DotsSurvivor {
         }
     }
 
-    // ─── MAP EVENT SYSTEM ───────────────────────────────────────────────────
-    // Hazards spawn in the world around the player. Touching one triggers a
-    // status effect (poison, root, etc.) and consumes the entity.
+    // ─── PLAYER-ANCHORED HAZARDS ──────────────────────────────────────────
+    // Auto-trigger on a 25-45s rolling timer. Hazards manifest ON the player:
+    //   - Ring of Poison: green circle around player, ticks 3% max HP/s for 10s
+    //   - Cube of Entrapment: purple cage box around player, locks movement 3s
     updateMapEvents(dt) {
-        // Spawn cadence — drop a new event near the player every ~30s
-        this.mapEventSpawnTimer -= dt;
-        if (this.mapEventSpawnTimer <= 0) {
-            this.mapEventSpawnTimer = 25 + Math.random() * 20; // 25-45s
-            this.spawnMapEvent();
+        // Hazard cadence — fire one every ~25-45s
+        this.hazardTimer -= dt;
+        if (this.hazardTimer <= 0) {
+            this.hazardTimer = 25 + Math.random() * 20;
+            this._triggerHazard();
         }
 
         // Tick poison status (3% max HP/sec true damage, can't kill)
         if (this.poisonTimer > 0 && this.player && this.player.health > 1) {
             this.poisonTimer -= dt;
             this.poisonTickAccum = (this.poisonTickAccum || 0) + dt;
-            if (this.poisonTickAccum >= 0.5) { // tick twice per second for smoother feel
+            if (this.poisonTickAccum >= 0.5) {
                 const fracPerTick = this.poisonMaxHpFrac * 0.5;
                 let dmg = Math.max(1, Math.floor(this.player.maxHealth * fracPerTick));
-                // True damage: bypasses armor / shields / DR
                 const newHp = this.player.health - dmg;
                 this.player.health = Math.max(1, newHp); // clamp at 1 HP — can't kill
-                if (newHp < 1) {
-                    // We were going to die — heal up to 1 HP and stop poison
-                    this.poisonTimer = 0;
-                }
+                if (newHp < 1) this.poisonTimer = 0;
                 this.poisonTickAccum = 0;
-                // Floating poison damage number
-                this.damageNumbers.push({
-                    x: this.player.x + (Math.random() - 0.5) * 14,
-                    y: this.player.y - 24, value: `-${dmg}`,
-                    lifetime: 0.5, color: '#7be36e', scale: 0.95
-                });
             }
         } else if (this.poisonTimer > 0) {
             this.poisonTimer -= dt;
@@ -14827,119 +14823,34 @@ class DotsSurvivor {
 
         // Tick entrappment — count down (movement uses this elsewhere via gate)
         if (this.entrappedTimer > 0) this.entrappedTimer -= dt;
+    }
 
-        // Touch detection
-        for (let i = this.mapEvents.length - 1; i >= 0; i--) {
-            const ev = this.mapEvents[i];
-            const dx = this.worldX - ev.wx, dy = this.worldY - ev.wy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist <= ev.radius + 14) {
-                this.triggerMapEvent(ev);
-                this.mapEvents.splice(i, 1);
-                continue;
-            }
-            // Lifetime — events despawn after 60s if untouched
-            ev.life = (ev.life || 60) - dt;
-            if (ev.life <= 0) this.mapEvents.splice(i, 1);
+    _triggerHazard() {
+        // Avoid stacking — if one is already active, defer slightly
+        if (this.poisonTimer > 0 || this.entrappedTimer > 0) {
+            this.hazardTimer = 6;
+            return;
         }
-    }
-
-    spawnMapEvent() {
-        // Random direction, mid-range distance from player so it's reachable
-        // but not stepping on the player.
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 220 + Math.random() * 380;
-        const wx = this.worldX + Math.cos(angle) * dist;
-        const wy = this.worldY + Math.sin(angle) * dist;
-        const types = ['ring_of_poison', 'cube_of_entrapment'];
-        const type = types[Math.floor(Math.random() * types.length)];
-        const ev = (type === 'ring_of_poison')
-            ? { type, wx, wy, radius: 38, color: '#7be36e', life: 60 }
-            : { type, wx, wy, radius: 32, color: '#a070ff', life: 60 };
-        this.mapEvents.push(ev);
-        // Brief on-screen warning
-        this.damageNumbers.push({
-            x: this.canvas.width / 2, y: 90,
-            value: type === 'ring_of_poison' ? '🟢 Ring of Poison appeared nearby' : '🟪 Cube of Entrapment appeared nearby',
-            lifetime: 2, color: ev.color, scale: 1.05
-        });
-    }
-
-    triggerMapEvent(ev) {
-        if (ev.type === 'ring_of_poison') {
+        const pickPoison = Math.random() < 0.5;
+        if (pickPoison) {
             this.poisonTimer = 10;
             this.poisonTickAccum = 0;
             this.damageNumbers.push({
                 x: this.player.x, y: this.player.y - 40,
-                value: '☠️ POISONED — 10s', lifetime: 1.6, color: '#7be36e', scale: 1.4
+                value: 'POISONED — 10s', lifetime: 1.6, color: '#7be36e', scale: 1.4
             });
-        } else if (ev.type === 'cube_of_entrapment') {
+        } else {
             this.entrappedTimer = 3;
             this.damageNumbers.push({
                 x: this.player.x, y: this.player.y - 40,
-                value: '🔒 ENTRAPPED — 3s', lifetime: 1.6, color: '#a070ff', scale: 1.4
+                value: 'ENTRAPPED — 3s', lifetime: 1.6, color: '#a070ff', scale: 1.4
             });
         }
     }
 
     drawMapEvents(ctx) {
-        if (!this.mapEvents || this.mapEvents.length === 0) return;
-        const t = this.gameTime || 0;
-        for (const ev of this.mapEvents) {
-            const sx = this.player.x + (ev.wx - this.worldX);
-            const sy = this.player.y + (ev.wy - this.worldY);
-            // Cull off-screen
-            if (sx < -80 || sx > this.canvas.width + 80 || sy < -80 || sy > this.canvas.height + 80) continue;
-            const pulse = 0.5 + 0.5 * Math.sin(t / 220);
-            ctx.save();
-            if (ev.type === 'ring_of_poison') {
-                // Outer toxic glow
-                const grad = ctx.createRadialGradient(sx, sy, ev.radius * 0.4, sx, sy, ev.radius * 1.4);
-                grad.addColorStop(0, 'rgba(123, 227, 110, 0)');
-                grad.addColorStop(0.6, `rgba(123, 227, 110, ${0.18 + 0.12 * pulse})`);
-                grad.addColorStop(1, 'rgba(40, 90, 30, 0)');
-                ctx.fillStyle = grad;
-                ctx.beginPath(); ctx.arc(sx, sy, ev.radius * 1.4, 0, Math.PI * 2); ctx.fill();
-                // Bright ring
-                ctx.beginPath(); ctx.arc(sx, sy, ev.radius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(160, 255, 130, ${0.7 + 0.2 * pulse})`;
-                ctx.lineWidth = 4; ctx.shadowBlur = 14; ctx.shadowColor = '#7be36e';
-                ctx.stroke();
-                // Bubbling dots inside
-                for (let k = 0; k < 5; k++) {
-                    const a = (t / 600) + (k / 5) * Math.PI * 2;
-                    const r = ev.radius * 0.55;
-                    ctx.beginPath();
-                    ctx.arc(sx + Math.cos(a) * r, sy + Math.sin(a) * r, 3.5 + Math.sin(t / 180 + k) * 1.5, 0, Math.PI * 2);
-                    ctx.fillStyle = '#bdf78c'; ctx.fill();
-                }
-            } else if (ev.type === 'cube_of_entrapment') {
-                // Floating dark cube
-                const sz = ev.radius;
-                const bob = Math.sin(t / 280) * 4;
-                ctx.translate(sx, sy + bob);
-                ctx.rotate(t / 1400);
-                // Outer aura
-                ctx.shadowBlur = 16; ctx.shadowColor = '#a070ff';
-                ctx.fillStyle = `rgba(160, 112, 255, ${0.55 + 0.2 * pulse})`;
-                ctx.fillRect(-sz, -sz, sz * 2, sz * 2);
-                // Inner cube
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#1a0033';
-                ctx.fillRect(-sz * 0.7, -sz * 0.7, sz * 1.4, sz * 1.4);
-                ctx.strokeStyle = '#c9a3ff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(-sz * 0.7, -sz * 0.7, sz * 1.4, sz * 1.4);
-                // Crossed bars (lock motif)
-                ctx.beginPath();
-                ctx.moveTo(-sz * 0.5, 0); ctx.lineTo(sz * 0.5, 0);
-                ctx.moveTo(0, -sz * 0.5); ctx.lineTo(0, sz * 0.5);
-                ctx.strokeStyle = '#e6d3ff';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
+        // No-op — hazards now render via the player-anchored overlays in
+        // the main draw pass (poisonTimer / entrappedTimer blocks).
     }
 
     updatePickups(dt) {
@@ -16652,6 +16563,28 @@ class DotsSurvivor {
         }
     }
 
+    // Floating damage popups are disabled to reduce frame drops, but call sites
+    // still push entries via this.damageNumbers.push(...). Override push so:
+    //   - numeric values (actual damage) are accumulated to runStats.damageDealt
+    //     and discarded (never rendered)
+    //   - string values (notifications/warnings) keep working as before
+    // Re-installed every time the array is reassigned (game start / reset).
+    _installDamageNumberInterceptor() {
+        const arr = this.damageNumbers;
+        const game = this;
+        const orig = Array.prototype.push;
+        arr.push = function(...entries) {
+            for (const e of entries) {
+                if (e && typeof e.value === 'number') {
+                    if (game.runStats) game.runStats.damageDealt += e.value;
+                    continue; // skip storing — no popup rendered
+                }
+                orig.call(this, e);
+            }
+            return this.length;
+        };
+    }
+
     updateDamageNumbers(dt) {
         // Limit max active numbers
         if (this.damageNumbers.length > 50) {
@@ -16701,6 +16634,12 @@ class DotsSurvivor {
         document.getElementById('xp-bar').style.width = `${(this.player.xp / this.player.xpToLevel) * 100}%`;
         document.getElementById('level-display').textContent = `Lv. ${this.player.level}`;
         document.getElementById('kill-count').textContent = `💀 ${this.player.kills}`;
+
+        // Total damage dealt this run (replaces floating damage numbers)
+        const dmgEl = document.getElementById('dmg-total');
+        if (dmgEl && this.runStats) {
+            dmgEl.textContent = `⚔ ${this.formatCombatNumber(Math.floor(this.runStats.damageDealt))}`;
+        }
 
         // Soul count
         const soulEl = document.getElementById('soul-count');
@@ -20122,22 +20061,63 @@ class DotsSurvivor {
             ctx.restore();
         }
 
-        // Status overlays from map events
+        // Status overlays — player-anchored hazards (Ring of Poison, Cube of Entrapment)
         if (this.poisonTimer > 0) {
             const t = this.gameTime || 0;
-            const a = 0.45 + 0.25 * Math.sin(t / 140);
-            ctx.beginPath(); ctx.arc(this.player.x, this.player.y, this.player.radius + 6, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(123, 227, 110, ${a})`;
-            ctx.lineWidth = 3; ctx.shadowBlur = 12; ctx.shadowColor = '#7be36e';
+            const pulse = 0.5 + 0.5 * Math.sin(t / 220);
+            const radius = 110;
+            // Outer toxic glow
+            const grad = ctx.createRadialGradient(this.player.x, this.player.y, radius * 0.4, this.player.x, this.player.y, radius * 1.2);
+            grad.addColorStop(0, 'rgba(123, 227, 110, 0)');
+            grad.addColorStop(0.55, `rgba(123, 227, 110, ${0.18 + 0.10 * pulse})`);
+            grad.addColorStop(1, 'rgba(40, 90, 30, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(this.player.x, this.player.y, radius * 1.2, 0, Math.PI * 2); ctx.fill();
+            // Bright ring
+            ctx.beginPath(); ctx.arc(this.player.x, this.player.y, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(160, 255, 130, ${0.7 + 0.2 * pulse})`;
+            ctx.lineWidth = 4; ctx.shadowBlur = 16; ctx.shadowColor = '#7be36e';
             ctx.stroke(); ctx.shadowBlur = 0;
-            ctx.font = 'bold 11px Inter'; ctx.fillStyle = '#bdf78c'; ctx.textAlign = 'center';
-            ctx.fillText(`☠ ${this.poisonTimer.toFixed(1)}s`, this.player.x, this.player.y - this.player.radius - 12);
+            // Bubbling dots circling inside the ring
+            for (let k = 0; k < 8; k++) {
+                const a = (t / 500) + (k / 8) * Math.PI * 2;
+                const r = radius * 0.7;
+                ctx.beginPath();
+                ctx.arc(this.player.x + Math.cos(a) * r, this.player.y + Math.sin(a) * r, 4 + Math.sin(t / 180 + k) * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#bdf78c'; ctx.fill();
+            }
+            // Timer label
+            ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#bdf78c'; ctx.textAlign = 'center';
+            ctx.fillText(`POISONED ${this.poisonTimer.toFixed(1)}s`, this.player.x, this.player.y - radius - 8);
         }
         if (this.entrappedTimer > 0) {
-            ctx.beginPath(); ctx.arc(this.player.x, this.player.y, this.player.radius + 9, 0, Math.PI * 2);
-            ctx.strokeStyle = '#a070ff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
-            ctx.font = 'bold 11px Inter'; ctx.fillStyle = '#c9a3ff'; ctx.textAlign = 'center';
-            ctx.fillText(`🔒 ${this.entrappedTimer.toFixed(1)}s`, this.player.x, this.player.y - this.player.radius - 24);
+            const t = this.gameTime || 0;
+            const pulse = 0.5 + 0.5 * Math.sin(t / 200);
+            const sz = this.entrappedSize || 110;
+            // Outer purple aura behind the cage
+            ctx.fillStyle = `rgba(160, 112, 255, ${0.18 + 0.08 * pulse})`;
+            ctx.fillRect(this.player.x - sz, this.player.y - sz, sz * 2, sz * 2);
+            // Cage walls (thick purple frame)
+            ctx.strokeStyle = `rgba(201, 163, 255, ${0.85 + 0.15 * pulse})`;
+            ctx.lineWidth = 5;
+            ctx.shadowBlur = 18; ctx.shadowColor = '#a070ff';
+            ctx.strokeRect(this.player.x - sz, this.player.y - sz, sz * 2, sz * 2);
+            ctx.shadowBlur = 0;
+            // Vertical cage bars (dashed, every ~30px)
+            ctx.strokeStyle = 'rgba(201, 163, 255, 0.55)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            for (let k = 1; k < 7; k++) {
+                const x = this.player.x - sz + (k * sz * 2 / 7);
+                ctx.beginPath();
+                ctx.moveTo(x, this.player.y - sz);
+                ctx.lineTo(x, this.player.y + sz);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+            // Timer label above cage
+            ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#e6d3ff'; ctx.textAlign = 'center';
+            ctx.fillText(`ENTRAPPED ${this.entrappedTimer.toFixed(1)}s`, this.player.x, this.player.y - sz - 8);
         }
         // Blood Shield indicator (red bubble)
         if (this.bloodShield > 0 && this.bloodShieldEnabled) {
