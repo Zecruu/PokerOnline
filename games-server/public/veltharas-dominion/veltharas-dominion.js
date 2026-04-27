@@ -11048,28 +11048,31 @@ class DotsSurvivor {
         const difficultyTier = getDifficultyTier(this.wave);
         const waveMult = getWaveScalingMult(this.wave);
 
+        // armor: % damage reduction baked into EHP today (max=health * (1+armor/100)).
+        // The field is also stored on the enemy so a future armor-pen system can
+        // switch to true-formula damage (damage * 100/(100+max(armor-pen,0))).
         const data = {
-            swarm: { radius: 20, speed: 75, health: 100, damage: 25, xp: 2, color: '#ff66aa', icon: '' },
-            basic: { radius: 18, speed: 65, health: 150, damage: 35, xp: 6, color: '#ff4466', icon: '' },
-            runner: { radius: 20, speed: 120, health: 200, damage: 25, xp: 5, color: '#00ffff', icon: '💨' },
-            tank: { radius: 28, speed: 60, health: 1750, damage: 60, xp: 25, color: '#8844ff', icon: '' },
-            splitter: { radius: 22, speed: 85, health: 750, damage: 40, xp: 15, color: '#44ddff', icon: '💧', splits: true },
-            bomber: { radius: 20, speed: 105, health: 375, damage: 30, xp: 12, color: '#ff8800', icon: '💣', explodes: true },
-            mini: { radius: 12, speed: 140, health: 125, damage: 22, xp: 3, color: '#44ddff', icon: '' },
-            sticky: { radius: 18, speed: 120, health: 250, damage: 20, xp: 8, color: '#88ff00', icon: '🍯', stickies: true },
-            ice: { radius: 32, speed: 55, health: 1000, damage: 50, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true },
-            poison: { radius: 18, speed: 90, health: 400, damage: 30, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true },
-            goblin: { radius: 24, speed: 115, health: 200, damage: 20, xp: 0, color: '#44aa44', icon: '🧌', isGoblin: true, passive: true },
-            necromancer: { radius: 22, speed: 40, health: 600, damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true },
-            necro_sprite: { radius: 14, speed: 130, health: 75, damage: 20, xp: 0, color: '#aa44ff', icon: '👻' },
-            miniconsumer: { radius: 24, speed: 50, health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true },
-            cinder_wretch: { radius: 18, speed: 95, health: 140, damage: 25, xp: 6, color: '#ff4400', icon: '🔥', spawnsFireZone: true },
-            wraith: { radius: 22, speed: 100, health: 450, damage: 40, xp: 15, color: '#8866cc', icon: '', isWraith: true },
-            magma_crawler: { radius: 30, speed: 40, health: 2500, damage: 80, xp: 30, color: '#ff4400', icon: '', isMagmaCrawler: true },
-            leech: { radius: 20, speed: 70, health: 800, damage: 15, xp: 20, color: '#44cc44', icon: '', isLeech: true },
-            pusher: { radius: 26, speed: 95, health: 600, damage: 30, xp: 15, color: '#ff9900', icon: '👊', isPusher: true },
-            heads:  { radius: 22, speed: 95, health: 220, damage: 28, xp: 7,  color: '#cc3322', icon: '', floats: true },
-            clowns: { radius: 24, speed: 105, health: 320, damage: 32, xp: 9, color: '#7e2eaa', icon: '', isClown: true }
+            swarm:         { radius: 20, speed: 75,  health: 100,  damage: 25, xp: 2,  color: '#ff66aa', icon: '',    armor: 0 },
+            basic:         { radius: 18, speed: 65,  health: 150,  damage: 35, xp: 6,  color: '#ff4466', icon: '',    armor: 5 },
+            runner:        { radius: 20, speed: 120, health: 200,  damage: 25, xp: 5,  color: '#00ffff', icon: '💨', armor: 0 },
+            tank:          { radius: 28, speed: 60,  health: 1750, damage: 60, xp: 25, color: '#8844ff', icon: '',    armor: 40 },
+            splitter:      { radius: 22, speed: 85,  health: 750,  damage: 40, xp: 15, color: '#44ddff', icon: '💧', splits: true, armor: 10 },
+            bomber:        { radius: 20, speed: 105, health: 375,  damage: 30, xp: 12, color: '#ff8800', icon: '💣', explodes: true, armor: 5 },
+            mini:          { radius: 12, speed: 140, health: 125,  damage: 22, xp: 3,  color: '#44ddff', icon: '',    armor: 0 },
+            sticky:        { radius: 18, speed: 120, health: 250,  damage: 20, xp: 8,  color: '#88ff00', icon: '🍯', stickies: true, armor: 5 },
+            ice:           { radius: 32, speed: 55,  health: 1000, damage: 50, xp: 20, color: '#00ddff', icon: '🧊', freezesOnDeath: true, armor: 25 },
+            poison:        { radius: 18, speed: 90,  health: 400,  damage: 30, xp: 10, color: '#00cc44', icon: '☣️', explodes: true, isPoisonous: true, armor: 5 },
+            goblin:        { radius: 24, speed: 115, health: 200,  damage: 20, xp: 0,  color: '#44aa44', icon: '🧌', isGoblin: true, passive: true, armor: 0 },
+            necromancer:   { radius: 22, speed: 40,  health: 600,  damage: 25, xp: 20, color: '#8800aa', icon: '💀', isNecromancer: true, passive: true, armor: 15 },
+            necro_sprite:  { radius: 14, speed: 130, health: 75,   damage: 20, xp: 0,  color: '#aa44ff', icon: '👻', armor: 0 },
+            miniconsumer:  { radius: 24, speed: 50,  health: 1500, damage: 45, xp: 30, color: '#00ff44', icon: '🟢', isMiniConsumer: true, armor: 25 },
+            cinder_wretch: { radius: 18, speed: 95,  health: 140,  damage: 25, xp: 6,  color: '#ff4400', icon: '🔥', spawnsFireZone: true, armor: 5 },
+            wraith:        { radius: 22, speed: 100, health: 450,  damage: 40, xp: 15, color: '#8866cc', icon: '',    isWraith: true, armor: 0 },
+            magma_crawler: { radius: 30, speed: 40,  health: 2500, damage: 80, xp: 30, color: '#ff4400', icon: '',    isMagmaCrawler: true, armor: 30 },
+            leech:         { radius: 20, speed: 70,  health: 800,  damage: 15, xp: 20, color: '#44cc44', icon: '',    isLeech: true, armor: 5 },
+            pusher:        { radius: 26, speed: 95,  health: 600,  damage: 30, xp: 15, color: '#ff9900', icon: '👊', isPusher: true, armor: 25 },
+            heads:         { radius: 22, speed: 95,  health: 220,  damage: 28, xp: 7,  color: '#cc3322', icon: '',    floats: true, armor: 5 },
+            clowns:        { radius: 24, speed: 105, health: 320,  damage: 32, xp: 9,  color: '#7e2eaa', icon: '',    isClown: true, armor: 10 }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -11077,6 +11080,10 @@ class DotsSurvivor {
         const hordeSpeedMult = isHorde ? 0.6 : 1;
         const lateGameSizeMult = this.wave >= 15 ? 1.5 : 1;
         const lateGameStatMult = this.wave >= 15 ? 1.5 : 1;
+        // Armor: % damage reduction baked into EHP for now (true formula lands
+        // when armor pen items arrive). armor=40 → 1.40x effective HP.
+        const baseArmor = data.armor || 0;
+        const armorMult = 1 + baseArmor / 100;
         if (!this.enemyIdCounter) this.enemyIdCounter = 0;
         this.enemyIdCounter++;
         const tierHealthMult = difficultyTier.healthMult;
@@ -11091,8 +11098,9 @@ class DotsSurvivor {
         e.radius = Math.floor(data.radius * sizeMult * lateGameSizeMult);
         e.baseRadius = e.radius;
         e.speed = Math.floor(data.speed * GAME_SETTINGS.enemySpeedMult * hordeSpeedMult);
-        e.health = Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult * tierHealthMult);
+        e.health = Math.floor(data.health * waveMult * GAME_SETTINGS.enemyHealthMult * sizeMult * hordeHealthMult * lateGameStatMult * tierHealthMult * armorMult);
         e.maxHealth = e.health;
+        e.armor = baseArmor; // exposed for future armor-pen system + UI
         e.damage = Math.floor(data.damage * waveMult * GAME_SETTINGS.enemyDamageMult * lateGameStatMult * tierDamageMult);
         e.xp = Math.floor(data.xp * waveMult);
         e.color = data.color; e.icon = data.icon || '';
