@@ -162,6 +162,39 @@ const SHOP_OFFERS = [
     { id: 'atk_slowpulse',name: 'Slow Pulse',        icon: '🌀', desc: 'Every 5s: AoE slow + weak damage. Scales with mage power.', cost: 9, apply: g => { g.slowPulseUnlocked = true; g.slowPulseTimer = 0; g.slowPulseDmg = (g.slowPulseDmg || 30) + 5; } }
 ];
 
+// ============ RUNE TREES (LoL rune-page style) ============
+// Each tree has a KEYSTONE (the existing infinite-stack passive) + 2 MINOR
+// runes. Picking a tree grants all three. Minor effects are applied either
+// once (flat stat) or via per-frame / event hooks (burst MS on hit/cast).
+const TREE_DEFS = {
+    pyre: {
+        id: 'pyre',
+        name: 'Pyre Tree',
+        color: '#ff5c1c',
+        keystoneId: 'pyre_fuel',
+        keystoneName: 'Pyre Fuel',
+        keystoneDesc: 'Each kill grants a Fuel stack. +0.5% damage per stack.',
+        minors: [
+            { id: 'burning_fervor', name: 'Burning Fervor', icon: '🩸', desc: 'Dealing damage grants 30 + lvl move speed for 1.5s.' },
+            { id: 'eternal_embers', name: 'Eternal Embers', icon: '🌋', desc: 'Burn duration +50% (4s → 6s).',
+              applyOnce: g => { g.burnStackDuration = (g.burnStackDuration || 4) * 1.5; } }
+        ]
+    },
+    stardust: {
+        id: 'stardust',
+        name: 'Stardust Tree',
+        color: '#9b6cff',
+        keystoneId: 'cosmic_stardust',
+        keystoneName: 'Cosmic Stardust',
+        keystoneDesc: 'Skill casts and every 200 damage grant a Stardust. +0.3% mage power per stack.',
+        minors: [
+            { id: 'astral_drift', name: 'Astral Drift', icon: '✨', desc: 'Skill casts grant 50 + lvl move speed for 2s.' },
+            { id: 'voidsight',    name: 'Voidsight',    icon: '👁', desc: '+10% crit chance permanently.',
+              applyOnce: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.10; } }
+        ]
+    }
+};
+
 // ============ SELECTABLE PASSIVES (Smolder / Aurelion Sol style) ============
 // Picked once at game start. Both stack infinitely — primary scaling source.
 const PASSIVE_DEFS = {
@@ -5005,16 +5038,69 @@ class DotsSurvivor {
     }
 
     showCharacterSelect() {
-        // Single character; no starter-item picker either. Player picks a
-        // PASSIVE here — that's what defines their scaling identity now.
+        // Single character; flow goes character → rune tree → kit → game.
         this.pendingCharacterClass = FIRE_SOVEREIGN_CLASS;
         this.selectedStarterItem = null;
         document.getElementById('gameover-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.add('hidden');
-        this.showPassiveSelect();
+        this.showRuneTreeSelect();
     }
 
-    showPassiveSelect() {
+    showRuneTreeSelect() {
+        let overlay = document.getElementById('passive-select-overlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.id = 'passive-select-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(5,2,4,0.94);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;';
+        const trees = Object.values(TREE_DEFS);
+        overlay.innerHTML = `
+            <div style="text-align:center;margin-bottom:1.6rem;">
+                <h1 style="color:#ffb84d;font-size:2.6rem;letter-spacing:4px;text-shadow:0 0 22px rgba(255,184,77,0.55);margin-bottom:.4rem;">CHOOSE YOUR RUNE TREE</h1>
+                <div style="color:#bdf78c;font-size:1.05rem;">A keystone passive plus two minor runes. Picks last the entire run.</div>
+            </div>
+            <div id="tree-cards" style="display:flex;gap:1.4rem;flex-wrap:wrap;justify-content:center;max-width:980px;"></div>
+        `;
+        document.body.appendChild(overlay);
+        const grid = overlay.querySelector('#tree-cards');
+        for (const t of trees) {
+            const card = document.createElement('div');
+            card.style.cssText = `width:320px;padding:1.4rem;border:3px solid ${t.color};border-radius:16px;background:rgba(15,10,12,0.92);box-shadow:0 0 30px ${t.color}55;cursor:pointer;transition:transform .18s, box-shadow .18s;`;
+            const localUrl = `passives/${t.keystoneId}.png`;
+            const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : null;
+            card.innerHTML = `
+                <img src="${localUrl}" alt="${t.keystoneName}"
+                     onerror="this.onerror=null;${cdnUrl ? `this.src='${cdnUrl}'` : `this.style.display='none'`}"
+                     style="display:block;width:200px;height:200px;margin:0 auto .8rem;border-radius:12px;border:2px solid ${t.color};box-shadow:0 0 18px ${t.color}88;background:#0a0508;object-fit:cover;">
+                <div style="text-align:center;color:${t.color};font-weight:900;font-size:1.5rem;letter-spacing:2px;margin-bottom:.4rem;">${t.name.toUpperCase()}</div>
+                <div style="color:${t.color};font-weight:800;font-size:.85rem;text-align:center;margin-bottom:.2rem;">⭐ KEYSTONE · ${t.keystoneName}</div>
+                <div style="text-align:center;color:#ddd;font-size:.85rem;line-height:1.4;margin-bottom:.7rem;">${t.keystoneDesc}</div>
+                ${t.minors.map(m => `
+                    <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:.5rem;margin-top:.4rem;">
+                        <div style="color:${t.color}cc;font-weight:700;font-size:.82rem;">${m.icon} ${m.name}</div>
+                        <div style="color:#bbb;font-size:.78rem;line-height:1.35;">${m.desc}</div>
+                    </div>
+                `).join('')}
+            `;
+            card.onmouseenter = () => { card.style.transform = 'translateY(-4px) scale(1.02)'; card.style.boxShadow = `0 0 48px ${t.color}aa`; };
+            card.onmouseleave = () => { card.style.transform = 'translateY(0) scale(1)'; card.style.boxShadow = `0 0 30px ${t.color}55`; };
+            card.onclick = () => {
+                this.passiveTree = t.id;
+                this.passiveId = t.keystoneId;
+                this.passiveMinors = t.minors.map(m => m.id);
+                // Apply once-only minor effects (flat stat boosts).
+                for (const m of t.minors) {
+                    if (m.applyOnce) try { m.applyOnce(this); } catch (e) { console.error('rune apply error', e); }
+                }
+                overlay.remove();
+                this.showKitSelect();
+            };
+            grid.appendChild(card);
+        }
+    }
+
+    // Kept for backward compat; redirects to the new tree screen.
+    showPassiveSelect() { this.showRuneTreeSelect(); }
+    _legacyShowPassiveSelect_unused() {
         let overlay = document.getElementById('passive-select-overlay');
         if (overlay) overlay.remove();
         overlay = document.createElement('div');
@@ -5068,15 +5154,16 @@ class DotsSurvivor {
 
         // 4 base-stat shards — pick exactly 4. Player can repeat picks (so e.g.
         // four ATK DMG is allowed for a glass-cannon build).
+        // Flat values — picks must be visibly impactful at 1× weapon damage 8.
         const SHARDS = [
-            { id: 'shard_atk',  name: '+5% Atk Damage', icon: '⚔', color: '#ff5c5c', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.05; } },
-            { id: 'shard_aspd', name: '+5% Atk Speed',  icon: '⚡', color: '#ffe066', apply: g => { g.weapons.bullet.fireRate *= (1 / 1.05); if (g._itemBaseFireRate != null) g._itemBaseFireRate *= (1 / 1.05); } },
-            { id: 'shard_crit', name: '+3% Crit',       icon: '🎯', color: '#ffb84d', apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.03; } },
-            { id: 'shard_hp',   name: '+25 Max HP',     icon: '❤', color: '#ff5c8a', apply: g => { g.player.maxHealth += 25; g.player.health += 25; if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 25; } },
-            { id: 'shard_spd',  name: '+10 Move Spd',   icon: '👟', color: '#5cd8ff', apply: g => { g.player.speed += 10; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 10; } },
-            { id: 'shard_mage', name: '+10% Mage Pwr',  icon: '📕', color: '#a070ff', apply: g => { g._kitMagePowerBoost = (g._kitMagePowerBoost || 1) * 1.10; g._itemMagePowerMult = (g._itemMagePowerMult || 1) * 1.10; } },
-            { id: 'shard_for',  name: '+10% Fortune',   icon: '🪙', color: '#ffd34d', apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.10; } },
-            { id: 'shard_regen',name: '+1 HP Regen',    icon: '✚', color: '#7be36e', apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 1; } }
+            { id: 'shard_atk',  name: '+5 Base Damage', icon: '⚔', color: '#ff5c5c', apply: g => { g.weapons.bullet.damage += 5; } },
+            { id: 'shard_aspd', name: '+10% Atk Speed', icon: '⚡', color: '#ffe066', apply: g => { g.weapons.bullet.fireRate *= (1 / 1.10); if (g._itemBaseFireRate != null) g._itemBaseFireRate *= (1 / 1.10); } },
+            { id: 'shard_crit', name: '+5% Crit',       icon: '🎯', color: '#ffb84d', apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; } },
+            { id: 'shard_hp',   name: '+50 Max HP',     icon: '❤', color: '#ff5c8a', apply: g => { g.player.maxHealth += 50; g.player.health += 50; if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 50; } },
+            { id: 'shard_spd',  name: '+20 Move Spd',   icon: '👟', color: '#5cd8ff', apply: g => { g.player.speed += 20; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 20; } },
+            { id: 'shard_mage', name: '+20% Mage Pwr',  icon: '📕', color: '#a070ff', apply: g => { g._itemMagePowerMult = (g._itemMagePowerMult || 1) * 1.20; } },
+            { id: 'shard_for',  name: '+20% Fortune',   icon: '🪙', color: '#ffd34d', apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.20; } },
+            { id: 'shard_regen',name: '+2 HP Regen',    icon: '✚', color: '#7be36e', apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; } }
         ];
 
         let chosenAttack = 'fire_slash';
@@ -5578,8 +5665,13 @@ class DotsSurvivor {
 
         // ── Selectable passive (Pyre Fuel / Cosmic Stardust) ──
         this.passiveId = this.passiveId || null; // set by passive-select screen
+        this.passiveTree = this.passiveTree || null;
+        this.passiveMinors = this.passiveMinors || [];
         this.passiveStacks = 0;
         this._stardustDmgAccum = 0; // for Cosmic Stardust per-200-damage stacks
+        // Temporary move-speed buff (Burning Fervor / Astral Drift minor runes)
+        this.tempMSAmount = 0;
+        this.tempMSExpire = 0;
         // New attack flags (set by shop)
         this.beamUnlocked = false;
         this.beamTimer = 0;
@@ -10383,6 +10475,15 @@ class DotsSurvivor {
             }
         }
 
+        // Temp-MS buff (Burning Fervor / Astral Drift) — recompute speed each
+        // frame so the buff cleanly stacks on top of items + base.
+        const itemMoveBase = (this._itemBasePlayerSpeed != null)
+            ? (this._itemBasePlayerSpeed + (this._itemMoveSpdFlat || 0))
+            : this.player.speed;
+        const now = this.gameTime || 0;
+        const tempMS = (this.tempMSExpire && now < this.tempMSExpire) ? (this.tempMSAmount || 0) : 0;
+        this.player.speed = itemMoveBase + tempMS;
+
         // Healing Aura visual: a soft green field that follows the player with
         // a slow lag (Milio W feel). Visible whenever the item is owned.
         const hasAura = !!auraSlot;
@@ -12941,19 +13042,24 @@ class DotsSurvivor {
             this.heatConductionTimer = 0;
             this.heatConductionPulseVisual = { x: this.player.x, y: this.player.y, radius: 0, maxRadius: this.heatConductionRadius, timer: 0.5 };
             const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, this.heatConductionRadius);
+            const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
             for (const e of nearby) {
-                if (e.sovereignBurn && e.sovereignBurn.stacks > 0) {
-                    e.sovereignBurn.timer = this.burnStackDuration || 4;
-                    // Molten Core: instant damage
-                    if (this.moltenCoreActive) {
-                        const instantDmg = Math.floor(e.sovereignBurn.stacks * e.sovereignBurn.dpsPerStack * 0.3);
-                        e.health -= instantDmg;
-                        e.hitFlash = 0.5;
-                        const sx = this.player.x + (e.wx - this.worldX);
-                        const sy = this.player.y + (e.wy - this.worldY);
-                        this.addDamageNumber(sx, sy, instantDmg, '#ff8800', { enemyId: e.id });
-                        this.spawnParticles(sx, sy, '#ff8800', 5);
-                    }
+                if (e.health <= 0) continue;
+                // Apply / refresh Sovereign Burn to every nearby enemy — pulse
+                // burns ALL of them, not just ones already burning.
+                if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
+                const cap = this.maxBurnStacks || 10;
+                e.sovereignBurn.stacks = Math.min(cap, (e.sovereignBurn.stacks || 0) + 1);
+                e.sovereignBurn.timer = this.burnStackDuration || 4;
+                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1) * stardustMult;
+                if (this.moltenCoreActive) {
+                    const instantDmg = Math.floor(e.sovereignBurn.stacks * e.sovereignBurn.dpsPerStack * 0.3);
+                    e.health -= instantDmg;
+                    e.hitFlash = 0.5;
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.addDamageNumber(sx, sy, instantDmg, '#ff8800', { enemyId: e.id, target: e });
+                    this.spawnParticles(sx, sy, '#ff8800', 5);
                 }
             }
         }
@@ -13559,6 +13665,11 @@ class DotsSurvivor {
         // Cosmic Stardust passive: gain 1 stack per skill cast
         if (this.passiveId === 'cosmic_stardust') {
             this.passiveStacks = (this.passiveStacks || 0) + 1;
+        }
+        // Astral Drift (Stardust minor): MS burst on skill cast.
+        if (this.passiveMinors?.includes('astral_drift')) {
+            this.tempMSAmount = 50 + (this.player.level || 1);
+            this.tempMSExpire = (this.gameTime || 0) + 2000;
         }
         // Q unlocks at player level 5, E unlocks at level 10. Auto-unlock here
         // (in addition to the level-up handler) so a player who's already past
@@ -14248,6 +14359,11 @@ class DotsSurvivor {
                     lifetime: 0.5, color: '#ff7733', scale: 1.05,
                     target: e, wx: e.wx, wy: e.wy
                 });
+                // Burning Fervor (Pyre minor): MS burst on damage dealt.
+                if (this.passiveMinors?.includes('burning_fervor')) {
+                    this.tempMSAmount = 30 + (this.player.level || 1);
+                    this.tempMSExpire = (this.gameTime || 0) + 1500;
+                }
 
                 // Apply / refresh Sovereign Burn stacks (DoT)
                 if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
