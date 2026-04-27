@@ -3613,45 +3613,44 @@ const GAME_SETTINGS = {
     playerSpeedMult: 1.15        // Faster player movement
 };
 
-// Dynamic Difficulty Tiers (based on wave number)
-// Waves 1-5: EASY, Waves 6-10: NORMAL, Waves 11-15: HARD, Waves 16-20: INFERNAL
+// Dynamic Difficulty Tiers — stretched curve so player has time to build out.
+// Waves 1-10: EASY, 11-24: NORMAL, 25-34: HARD, 35+: INFERNAL
 const DIFFICULTY_TIERS = {
-    EASY: { name: 'Easy', icon: '🌱', color: '#44ff44', healthMult: 0.60, damageMult: 0.55, maxWave: 5 },
-    NORMAL: { name: 'Normal', icon: '⚔️', color: '#ffaa00', healthMult: 0.90, damageMult: 0.90, maxWave: 10 },
-    HARD: { name: 'Hard', icon: '🔥', color: '#ff4400', healthMult: 1.60, damageMult: 1.45, maxWave: 15 },
-    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 2.50, damageMult: 2.20, maxWave: 20 }
+    EASY:     { name: 'Easy',     icon: '🌱', color: '#44ff44', healthMult: 0.60, damageMult: 0.55, maxWave: 10 },
+    NORMAL:   { name: 'Normal',   icon: '⚔️', color: '#ffaa00', healthMult: 0.90, damageMult: 0.90, maxWave: 24 },
+    HARD:     { name: 'Hard',     icon: '🔥', color: '#ff4400', healthMult: 1.60, damageMult: 1.45, maxWave: 34 },
+    INFERNAL: { name: 'Infernal', icon: '💀', color: '#ff0044', healthMult: 2.50, damageMult: 2.20, maxWave: 999 }
 };
 
-// Get difficulty tier based on wave number
 function getDifficultyTier(wave) {
-    if (wave <= 5) return DIFFICULTY_TIERS.EASY;
-    if (wave <= 10) return DIFFICULTY_TIERS.NORMAL;
-    if (wave <= 15) return DIFFICULTY_TIERS.HARD;
+    if (wave <= 10) return DIFFICULTY_TIERS.EASY;
+    if (wave <= 24) return DIFFICULTY_TIERS.NORMAL;
+    if (wave <= 34) return DIFFICULTY_TIERS.HARD;
     return DIFFICULTY_TIERS.INFERNAL;
 }
 
-// Get spawn rate multiplier by wave (lower = more frequent spawns)
-// Base spawn rate = 500ms * this multiplier
+// Spawn rate multiplier by wave (lower = more frequent spawns).
+// Base spawn rate = 500ms * this multiplier.
+// Stretched: hard intensity (was wave 15) now at wave 25; swarm phase (was 16) at 30+.
 function getSpawnRateMultByWave(wave) {
-    // Higher = slower spawns (multiplier on baseSpawnRate ms-between-spawns).
-    // Halved early game per design intent + asserts in this file.
-    if (wave <= 3) return 1.10;   // Calm intro
-    if (wave <= 6) return 0.85;
-    if (wave <= 9) return 0.70;
-    if (wave <= 12) return 0.55;
-    if (wave <= 15) return 0.45;
-    return 0.35;                  // Waves 16+: aggressive
+    if (wave <= 5)  return 1.20;  // Calm intro
+    if (wave <= 10) return 1.00;
+    if (wave <= 15) return 0.85;
+    if (wave <= 20) return 0.70;
+    if (wave <= 25) return 0.55;
+    if (wave <= 30) return 0.45;
+    return 0.35;                  // Waves 31+: full swarm
 }
 
-// Get max alive enemy cap by wave
+// Max alive enemy cap by wave.
 function getMaxAliveByWave(wave) {
-    // Halved early-game per design intent + matches asserts further down.
-    if (wave <= 3) return 40;
-    if (wave <= 6) return 60;
-    if (wave <= 9) return 85;
-    if (wave <= 12) return 120;
-    if (wave <= 15) return 160;
-    return 200;
+    if (wave <= 5)  return 25;    // Lower start so early waves don't feel swarmed
+    if (wave <= 10) return 40;
+    if (wave <= 15) return 60;
+    if (wave <= 20) return 90;
+    if (wave <= 25) return 130;
+    if (wave <= 30) return 175;
+    return 220;                   // Waves 31+: heavy swarm endgame
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
@@ -3791,33 +3790,27 @@ function runSpawnSystemTests() {
         }
     }
 
-    // Test 1: maxAlive cap values are correct
-    assert(getMaxAliveByWave(1) === 40, 'Wave 1 maxAlive should be 40');
-    assert(getMaxAliveByWave(3) === 40, 'Wave 3 maxAlive should be 40');
-    assert(getMaxAliveByWave(4) === 60, 'Wave 4 maxAlive should be 60');
-    assert(getMaxAliveByWave(6) === 60, 'Wave 6 maxAlive should be 60');
-    assert(getMaxAliveByWave(7) === 85, 'Wave 7 maxAlive should be 85');
-    assert(getMaxAliveByWave(9) === 85, 'Wave 9 maxAlive should be 85');
-    assert(getMaxAliveByWave(10) === 120, 'Wave 10 maxAlive should be 120');
-    assert(getMaxAliveByWave(12) === 120, 'Wave 12 maxAlive should be 120');
-    assert(getMaxAliveByWave(13) === 160, 'Wave 13 maxAlive should be 160');
-    assert(getMaxAliveByWave(15) === 160, 'Wave 15 maxAlive should be 160');
-    assert(getMaxAliveByWave(16) === 200, 'Wave 16 maxAlive should be 200');
-    assert(getMaxAliveByWave(20) === 200, 'Wave 20 maxAlive should be 200');
+    // Test 1: maxAlive cap values match the stretched-curve breakpoints
+    assert(getMaxAliveByWave(1) === 25,  'Wave 1 maxAlive should be 25');
+    assert(getMaxAliveByWave(5) === 25,  'Wave 5 maxAlive should be 25');
+    assert(getMaxAliveByWave(6) === 40,  'Wave 6 maxAlive should be 40');
+    assert(getMaxAliveByWave(10) === 40, 'Wave 10 maxAlive should be 40');
+    assert(getMaxAliveByWave(11) === 60, 'Wave 11 maxAlive should be 60');
+    assert(getMaxAliveByWave(15) === 60, 'Wave 15 maxAlive should be 60');
+    assert(getMaxAliveByWave(20) === 90, 'Wave 20 maxAlive should be 90');
+    assert(getMaxAliveByWave(25) === 130,'Wave 25 maxAlive should be 130');
+    assert(getMaxAliveByWave(30) === 175,'Wave 30 maxAlive should be 175');
+    assert(getMaxAliveByWave(35) === 220,'Wave 35 maxAlive should be 220');
 
-    // Test 2: spawnRateMult values are correct
-    assert(getSpawnRateMultByWave(1) === 1.10, 'Wave 1 spawnRateMult should be 1.10');
-    assert(getSpawnRateMultByWave(3) === 1.10, 'Wave 3 spawnRateMult should be 1.10');
-    assert(getSpawnRateMultByWave(4) === 0.85, 'Wave 4 spawnRateMult should be 0.85');
-    assert(getSpawnRateMultByWave(6) === 0.85, 'Wave 6 spawnRateMult should be 0.85');
-    assert(getSpawnRateMultByWave(7) === 0.70, 'Wave 7 spawnRateMult should be 0.70');
-    assert(getSpawnRateMultByWave(9) === 0.70, 'Wave 9 spawnRateMult should be 0.70');
-    assert(getSpawnRateMultByWave(10) === 0.55, 'Wave 10 spawnRateMult should be 0.55');
-    assert(getSpawnRateMultByWave(12) === 0.55, 'Wave 12 spawnRateMult should be 0.55');
-    assert(getSpawnRateMultByWave(13) === 0.45, 'Wave 13 spawnRateMult should be 0.45');
-    assert(getSpawnRateMultByWave(15) === 0.45, 'Wave 15 spawnRateMult should be 0.45');
-    assert(getSpawnRateMultByWave(16) === 0.35, 'Wave 16 spawnRateMult should be 0.35');
-    assert(getSpawnRateMultByWave(20) === 0.35, 'Wave 20 spawnRateMult should be 0.35');
+    // Test 2: spawnRateMult breakpoints
+    assert(getSpawnRateMultByWave(1) === 1.20,  'Wave 1 spawnRateMult should be 1.20');
+    assert(getSpawnRateMultByWave(5) === 1.20,  'Wave 5 spawnRateMult should be 1.20');
+    assert(getSpawnRateMultByWave(10) === 1.00, 'Wave 10 spawnRateMult should be 1.00');
+    assert(getSpawnRateMultByWave(15) === 0.85, 'Wave 15 spawnRateMult should be 0.85');
+    assert(getSpawnRateMultByWave(20) === 0.70, 'Wave 20 spawnRateMult should be 0.70');
+    assert(getSpawnRateMultByWave(25) === 0.55, 'Wave 25 spawnRateMult should be 0.55');
+    assert(getSpawnRateMultByWave(30) === 0.45, 'Wave 30 spawnRateMult should be 0.45');
+    assert(getSpawnRateMultByWave(31) === 0.35, 'Wave 31 spawnRateMult should be 0.35');
 
     // Test 3: Wave 10 ramp applies - scaling increases significantly
     const scaling9 = getWaveScalingMult(9);
@@ -5650,6 +5643,9 @@ class DotsSurvivor {
         // Horde tracking
         this.hordeActive = false;
         this.hordeEnemyCount = 0;
+        // Themed horde + dramatic 3-2-1 countdown
+        this.hordeTheme = null;
+        this.hordeCountdown = 0;
 
         // Regen timer
         this.regenTimer = 0;
@@ -8753,7 +8749,7 @@ class DotsSurvivor {
                 // Reset boss tracking for new wave
                 this.bossesSpawnedThisWave = 0;
             }
-            this.checkHorde();
+            this.checkHorde(dt);
             this.update(dt);
         }
         this.render();
@@ -8768,13 +8764,12 @@ class DotsSurvivor {
       requestAnimationFrame((t) => { if (this._loopGen === gen) this.gameLoop(t); });
     }
 
-    checkHorde() {
+    checkHorde(dt = 0) {
         // Horde every 5 waves starting at wave 5
         const hordeWaveInterval = 5;
         const currentHordeCount = Math.floor(this.wave / hordeWaveInterval);
 
         if (this.wave >= 5 && currentHordeCount > this.lastHordeCount) {
-            // On boss waves, defer horde until boss is dead
             const isBossWave = this.wave === 10 || this.wave === 15 || this.wave === 20 || (this.wave >= 25 && this.wave % 5 === 0);
             const hasActiveBoss = this.enemies.some(e => e.isPlagueWeaver || e.isConsumer || e.isRiftLord);
             if (isBossWave && hasActiveBoss) {
@@ -8783,15 +8778,23 @@ class DotsSurvivor {
             }
             this.lastHordeCount = currentHordeCount;
             this.pendingHorde = false;
-            this.spawnHorde();
+            this._beginHordeCountdown();
         }
 
-        // Trigger deferred horde after boss dies
         if (this.pendingHorde) {
             const hasActiveBoss = this.enemies.some(e => e.isPlagueWeaver || e.isConsumer || e.isRiftLord);
             if (!hasActiveBoss) {
                 this.lastHordeCount = Math.floor(this.wave / hordeWaveInterval);
                 this.pendingHorde = false;
+                this._beginHordeCountdown();
+            }
+        }
+
+        // Tick countdown — when it hits zero, actually spawn the horde
+        if (this.hordeCountdown > 0) {
+            this.hordeCountdown -= dt;
+            if (this.hordeCountdown <= 0) {
+                this.hordeCountdown = 0;
                 this.spawnHorde();
             }
         }
@@ -8810,41 +8813,55 @@ class DotsSurvivor {
         }
     }
 
+    // Horde theme picker — gives each horde a name + flavor pool.
+    // Wave-gated so early hordes feel like tutorial swarms; late ones are themed.
+    _pickHordeTheme(wave) {
+        const themes = [
+            { id: 'swarm',  name: 'SWARM HORDE',   color: '#ff8866', types: ['swarm','swarm','swarm','swarm','runner'] },
+            { id: 'blood',  name: 'BLOOD HORDE',   color: '#ff3344', types: ['basic','basic','runner','runner','tank'] },
+            { id: 'plague', name: 'PLAGUE HORDE',  color: '#88cc44', types: ['poison','poison','sticky','swarm','basic'] },
+            { id: 'frost',  name: 'FROST HORDE',   color: '#88ddff', types: ['ice','ice','tank','swarm','basic'] },
+            { id: 'goblin', name: 'GOBLIN HORDE',  color: '#cc99ff', types: ['goblin','goblin','runner','swarm','basic'] },
+            { id: 'elite',  name: 'ELITE HORDE',   color: '#ffcc44', types: ['heads','clowns','tank','splitter','runner'] },
+        ];
+        let pool = [themes[0]];
+        if (wave >= 10) pool.push(themes[1]);
+        if (wave >= 15) pool.push(themes[2]);
+        if (wave >= 20) pool.push(themes[3]);
+        if (wave >= 25) pool.push(themes[4]);
+        if (wave >= 30) pool.push(themes[5]);
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // Pick the theme, store it, kick off a 3-2-1 countdown.
+    _beginHordeCountdown() {
+        this.hordeTheme = this._pickHordeTheme(this.wave);
+        this.hordeCountdown = 3;       // 3-2-1 dramatic banner
+        this.playHordeSound();          // play the warning siren immediately
+    }
+
     spawnHorde() {
-        // Spawn a massive wave of enemies surrounding the player
+        const theme = this.hordeTheme || this._pickHordeTheme(this.wave);
+        // Filter theme types to only those available at this wave
+        const allTypes = theme.types;
         const hordeSize = 30 + this.wave * 5;
 
-        // Show horde warning
-        this.damageNumbers.push({
-            x: this.canvas.width / 2,
-            y: this.canvas.height / 2 - 50,
-            value: '⚠️ HORDE INCOMING! ⚠️',
-            lifetime: 3,
-            color: '#ff0044'
-        });
-
         this.playSound('horde');
-        this.playHordeSound();
         this.hordeActive = true;
         this.hordeEnemyCount = hordeSize;
 
-        // Spawn enemies FAR from player - gives player time to prepare
         for (let i = 0; i < hordeSize; i++) {
             setTimeout(() => {
                 const angle = (i / hordeSize) * Math.PI * 2 + Math.random() * 0.3;
-                const dist = 500 + Math.random() * 200; // FARTHER spawn distance for horde
+                const dist = 500 + Math.random() * 200;
                 const wx = this.worldX + Math.cos(angle) * dist;
                 const wy = this.worldY + Math.sin(angle) * dist;
 
-                // Fixed: 'fast' -> 'runner', added sticky and ice to horde pool
-                const types = ['basic', 'runner', 'swarm', 'swarm', 'sticky'];
-                if (this.wave >= 8) types.push('ice'); // Ice mobs appear in hordes after wave 8
-                const type = types[Math.floor(Math.random() * types.length)];
-                // Pass isHorde=true for +50% health and 40% slower speed (slower horde)
+                const type = allTypes[Math.floor(Math.random() * allTypes.length)];
                 const enemy = this.createEnemy(wx, wy, type, false, true);
-                enemy.isHordeEnemy = true; // Mark as horde enemy for tracking
+                enemy.isHordeEnemy = true;
                 this.enemies.push(enemy);
-            }, i * 60); // Slightly more stagger for dramatic effect
+            }, i * 60);
         }
     }
 
@@ -20058,6 +20075,37 @@ class DotsSurvivor {
             ctx.strokeStyle = `rgba(220, 240, 255, ${0.7 * fill})`;
             ctx.lineWidth = 4;
             ctx.stroke();
+            ctx.restore();
+        }
+
+        // Horde countdown banner — dramatic 3-2-1 with theme name + colored flash
+        if (this.hordeCountdown > 0 && this.hordeTheme) {
+            const cd = this.hordeCountdown;
+            const num = Math.ceil(cd);
+            const frac = num - cd; // 0 at start of second, ~1 at end
+            const screenW = this.canvas.width, screenH = this.canvas.height;
+            ctx.save();
+            // Dim backdrop (pulses with the seconds)
+            ctx.fillStyle = `rgba(0,0,0,${0.32 + 0.28 * frac})`;
+            ctx.fillRect(0, screenH * 0.32, screenW, 220);
+            // Theme name
+            ctx.font = 'bold 36px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = this.hordeTheme.color;
+            ctx.shadowBlur = 18; ctx.shadowColor = this.hordeTheme.color;
+            ctx.fillText(this.hordeTheme.name, screenW / 2, screenH * 0.42);
+            ctx.shadowBlur = 0;
+            // Subtitle
+            ctx.font = 'bold 14px Inter';
+            ctx.fillStyle = 'rgba(255,255,255,0.75)';
+            ctx.fillText('INCOMING', screenW / 2, screenH * 0.42 + 30);
+            // Big countdown number with quick scale-down per second
+            const scale = 1.6 - frac * 0.6; // 1.6 → 1.0
+            ctx.font = `bold ${Math.floor(96 * scale)}px Inter`;
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 24; ctx.shadowColor = this.hordeTheme.color;
+            ctx.fillText(num, screenW / 2, screenH * 0.50 + 50);
             ctx.restore();
         }
 
