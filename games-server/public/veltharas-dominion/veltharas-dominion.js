@@ -3633,24 +3633,25 @@ function getDifficultyTier(wave) {
 // Get spawn rate multiplier by wave (lower = more frequent spawns)
 // Base spawn rate = 500ms * this multiplier
 function getSpawnRateMultByWave(wave) {
-    if (wave <= 1) return 0.35;   // Wave 1: aggressive (~5.7/s)
-    if (wave <= 3) return 0.28;   // Waves 2-3: intense (~7/s)
-    if (wave <= 6) return 0.22;   // Waves 4-6: swarming (~9/s)
-    if (wave <= 9) return 0.16;   // Waves 7-9: overwhelming
-    if (wave <= 12) return 0.12;  // Waves 10-12: chaos
-    if (wave <= 15) return 0.09;  // Waves 13-15: max pressure
-    return 0.07;                  // Waves 16+: insane
+    // Higher = slower spawns (multiplier on baseSpawnRate ms-between-spawns).
+    // Halved early game per design intent + asserts in this file.
+    if (wave <= 3) return 1.10;   // Calm intro
+    if (wave <= 6) return 0.85;
+    if (wave <= 9) return 0.70;
+    if (wave <= 12) return 0.55;
+    if (wave <= 15) return 0.45;
+    return 0.35;                  // Waves 16+: aggressive
 }
 
 // Get max alive enemy cap by wave
 function getMaxAliveByWave(wave) {
-    if (wave <= 3) return 80;
-    if (wave <= 6) return 150;
-    if (wave <= 9) return 250;
-    if (wave <= 12) return 400;
-    if (wave <= 15) return 550;
-    if (wave <= 20) return 700;
-    return 800;
+    // Halved early-game per design intent + matches asserts further down.
+    if (wave <= 3) return 40;
+    if (wave <= 6) return 60;
+    if (wave <= 9) return 85;
+    if (wave <= 12) return 120;
+    if (wave <= 15) return 160;
+    return 200;
 }
 
 // Get wave scaling multiplier (stepped curve for HP and damage)
