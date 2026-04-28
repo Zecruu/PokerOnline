@@ -161,6 +161,9 @@ const SHOP_OFFERS = [
     { id: 'atk_swords',   name: 'Blood Swords',      icon: '⚔',  desc: '+1 sword orbiting you, dealing contact damage.', cost: 10, apply: g => { g.bloodSwordsBought = (g.bloodSwordsBought || 0) + 1; } },
     { id: 'atk_slowpulse',name: 'Slow Pulse',        icon: '🌀', desc: 'Every 5s: AoE slow + weak damage. Scales with mage power.', cost: 9, apply: g => { g.slowPulseUnlocked = true; g.slowPulseTimer = 0; g.slowPulseDmg = (g.slowPulseDmg || 30) + 5; } }
 ];
+for (const offer of SHOP_OFFERS) {
+    offer.cost = offer.id.startsWith('atk_') ? 60 : 40;
+}
 
 // ============ RUNE TREES (LoL rune-page style) ============
 // Each tree has a KEYSTONE (the existing infinite-stack passive) + 2 MINOR
@@ -5163,6 +5166,13 @@ class DotsSurvivor {
             { id: 'shard_regen',name: '+2 HP Regen',    icon: '✚', color: '#7be36e', apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; } }
         ];
 
+        SHARDS.forEach((sh, idx) => { sh.iconIndex = idx; });
+        const shardIcon = (sh, size = 42) => {
+            const col = (sh.iconIndex || 0) % 4;
+            const row = Math.floor((sh.iconIndex || 0) / 4);
+            return `<span title="${sh.name}" style="display:inline-block;width:${size}px;height:${size}px;border-radius:12px;border:1px solid ${sh.color};background-image:url('stat-icons/kit-shards-sheet.png');background-size:400% 200%;background-position:${col * 33.333}% ${row * 100}%;box-shadow:0 0 14px ${sh.color}66;vertical-align:middle;"></span>`;
+        };
+
         let chosenAttack = 'fire_slash';
         const chosenShards = []; // up to 4 (allowing repeats)
 
@@ -5204,7 +5214,7 @@ class DotsSurvivor {
                 const full = chosenShards.length >= 4;
                 card.style.cssText = `width:160px;padding:.7rem;border:2px solid ${sh.color};border-radius:10px;background:rgba(15,10,12,.85);cursor:${full ? 'not-allowed' : 'pointer'};opacity:${full ? 0.5 : 1};box-shadow:0 0 12px ${sh.color}44;transition:all .15s;`;
                 card.innerHTML = `
-                    <div style="text-align:center;font-size:1.6rem;line-height:1;margin-bottom:.2rem;">${sh.icon}</div>
+                    <div style="text-align:center;line-height:1;margin-bottom:.35rem;">${shardIcon(sh, 48)}</div>
                     <div style="text-align:center;color:${sh.color};font-weight:800;font-size:.85rem;">${sh.name}</div>
                 `;
                 if (!full) card.onclick = () => { chosenShards.push(sh.id); render(); };
@@ -5216,7 +5226,7 @@ class DotsSurvivor {
                 if (!sh) return;
                 const chip = document.createElement('div');
                 chip.style.cssText = `padding:.4rem .7rem;border:1px solid ${sh.color};border-radius:999px;background:${sh.color}22;color:${sh.color};font-weight:700;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;`;
-                chip.innerHTML = `${sh.icon} ${sh.name} <span style="opacity:.6;font-size:.9em;">✕</span>`;
+                chip.innerHTML = `${shardIcon(sh, 24)} ${sh.name} <span style="opacity:.6;font-size:.9em;">x</span>`;
                 chip.onclick = () => { chosenShards.splice(idx, 1); render(); };
                 selRow.appendChild(chip);
             });
@@ -5482,7 +5492,7 @@ class DotsSurvivor {
             active: false,
             timer: 0,
             duration: 8,
-            radius: 110,
+            radius: 165,
             centerX: 0,
             centerY: 0
         };
@@ -5490,7 +5500,7 @@ class DotsSurvivor {
         this.poisonTickAccum = 0;    // sub-second accumulator
         this.poisonMaxHpFrac = 0.03; // 3% max HP per second
         this.entrappedTimer = 0;     // seconds remaining inside the cage
-        this.entrappedSize = 110;    // half-side of the cage box
+        this.entrappedSize = 165;    // half-side of the cage box
         this.entrappedCenterX = 0;
         this.entrappedCenterY = 0;
 
@@ -5655,6 +5665,8 @@ class DotsSurvivor {
         // Horde tracking
         this.hordeActive = false;
         this.hordeEnemyCount = 0;
+        this.hordeSpawning = false;
+        this.hordeSpawnedCount = 0;
         // Themed horde + dramatic 3-2-1 countdown
         this.hordeTheme = null;
         this.hordeCountdown = 0;
@@ -8829,7 +8841,7 @@ class DotsSurvivor {
     // Wave-gated so early hordes feel like tutorial swarms; late ones are themed.
     _pickHordeTheme(wave) {
         const themes = [
-            { id: 'swarm',  name: 'SWARM HORDE',   color: '#ff8866', types: ['swarm','swarm','swarm','swarm','runner'] },
+            { id: 'rabble', name: 'RABBLE HORDE',  color: '#ff8866', types: ['swarm','swarm','swarm','swarm','runner'] },
             { id: 'blood',  name: 'BLOOD HORDE',   color: '#ff3344', types: ['basic','basic','runner','runner','tank'] },
             { id: 'plague', name: 'PLAGUE HORDE',  color: '#88cc44', types: ['poison','poison','sticky','swarm','basic'] },
             { id: 'frost',  name: 'FROST HORDE',   color: '#88ddff', types: ['ice','ice','tank','swarm','basic'] },
@@ -8861,9 +8873,12 @@ class DotsSurvivor {
         this.playSound('horde');
         this.hordeActive = true;
         this.hordeEnemyCount = hordeSize;
+        this.hordeSpawning = true;
+        this.hordeSpawnedCount = 0;
 
         for (let i = 0; i < hordeSize; i++) {
             setTimeout(() => {
+                if (!this.gameRunning) return;
                 const angle = (i / hordeSize) * Math.PI * 2 + Math.random() * 0.3;
                 const dist = 500 + Math.random() * 200;
                 const wx = this.worldX + Math.cos(angle) * dist;
@@ -8873,12 +8888,17 @@ class DotsSurvivor {
                 const enemy = this.createEnemy(wx, wy, type, false, true);
                 enemy.isHordeEnemy = true;
                 this.enemies.push(enemy);
+                this.hordeSpawnedCount++;
+                if (this.hordeSpawnedCount >= this.hordeEnemyCount) {
+                    this.hordeSpawning = false;
+                }
             }, i * 60);
         }
     }
 
     checkHordeCompletion() {
         if (!this.hordeActive) return;
+        if (this.hordeSpawning) return;
 
         // Count remaining horde enemies
         const hordeEnemiesLeft = this.enemies.filter(e => e.isHordeEnemy).length;
@@ -10883,7 +10903,7 @@ class DotsSurvivor {
 
         // Cube of Entrapment - allow movement, but keep player inside the spawned cage.
         if (this.entrappedTimer > 0) {
-            const halfSize = this.entrappedSize || 110;
+            const halfSize = this.entrappedSize || 165;
             const minX = this.entrappedCenterX - halfSize;
             const maxX = this.entrappedCenterX + halfSize;
             const minY = this.entrappedCenterY - halfSize;
@@ -20334,7 +20354,7 @@ class DotsSurvivor {
         if (this.poisonRing && this.poisonRing.active) {
             const t = this.gameTime || 0;
             const pulse = 0.5 + 0.5 * Math.sin(t / 220);
-            const radius = this.poisonRing.radius || 110;
+            const radius = this.poisonRing.radius || 165;
             const ringX = this.player.x + (this.poisonRing.centerX - this.worldX);
             const ringY = this.player.y + (this.poisonRing.centerY - this.worldY);
             // Outer toxic glow
@@ -20378,7 +20398,7 @@ class DotsSurvivor {
         if (this.entrappedTimer > 0) {
             const t = this.gameTime || 0;
             const pulse = 0.5 + 0.5 * Math.sin(t / 200);
-            const sz = this.entrappedSize || 110;
+            const sz = this.entrappedSize || 165;
             const cageX = this.player.x + (this.entrappedCenterX - this.worldX);
             const cageY = this.player.y + (this.entrappedCenterY - this.worldY);
             // Outer purple aura behind the cage
