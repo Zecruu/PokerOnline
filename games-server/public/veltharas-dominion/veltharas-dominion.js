@@ -5478,11 +5478,21 @@ class DotsSurvivor {
         // Auto-trigger on a timer; visuals spawn ON the player rather than as
         // pickup objects in the world.
         this.hazardTimer = 30;       // seconds until next hazard
-        this.poisonTimer = 0;        // seconds remaining
+        this.poisonRing = {
+            active: false,
+            timer: 0,
+            duration: 8,
+            radius: 110,
+            centerX: 0,
+            centerY: 0
+        };
+        this.poisonTimer = 0;        // poison damage-over-time seconds remaining
         this.poisonTickAccum = 0;    // sub-second accumulator
         this.poisonMaxHpFrac = 0.03; // 3% max HP per second
-        this.entrappedTimer = 0;     // seconds remaining of root
+        this.entrappedTimer = 0;     // seconds remaining inside the cage
         this.entrappedSize = 110;    // half-side of the cage box
+        this.entrappedCenterX = 0;
+        this.entrappedCenterY = 0;
 
         // Sticky immobilization timer
 
@@ -5579,6 +5589,8 @@ class DotsSurvivor {
         this.pyreMomentumMax = 0;
         this.pyreMomentumRate = 0;
         this.pyreMomentumTimer = 0;
+        this.pyreSpeedBuffFlash = 0;
+        this.pyreSpeedBuffAmount = 0;
         this.solarCataclysmActive = false;
         this.solarCataclysmVisual = null;
         this.doubleBurnActive = false;
@@ -10506,6 +10518,7 @@ class DotsSurvivor {
         const now = this.gameTime || 0;
         const tempMS = (this.tempMSExpire && now < this.tempMSExpire) ? (this.tempMSAmount || 0) : 0;
         this.player.speed = itemMoveBase + tempMS;
+        if (this.pyreSpeedBuffFlash > 0) this.pyreSpeedBuffFlash -= dt;
 
         // Healing Aura visual: a soft green field that follows the player with
         // a slow lag (Milio W feel). Visible whenever the item is owned.
@@ -10699,9 +10712,6 @@ class DotsSurvivor {
         if (this.joystick.dx || this.joystick.dy) { dx = this.joystick.dx; dy = this.joystick.dy; }
         if (dx && dy) { const len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; }
 
-        // Cube of Entrapment: while the timer is active, no movement input.
-        if (this.entrappedTimer > 0) { dx = 0; dy = 0; }
-
         // Track last movement direction for shooting
         if (dx !== 0 || dy !== 0) {
             this.lastMoveDir = { x: dx, y: dy };
@@ -10869,6 +10879,17 @@ class DotsSurvivor {
             const bounds = this.checkCircleOfDoomBounds(newWorldX, newWorldY);
             newWorldX = bounds.x;
             newWorldY = bounds.y;
+        }
+
+        // Cube of Entrapment - allow movement, but keep player inside the spawned cage.
+        if (this.entrappedTimer > 0) {
+            const halfSize = this.entrappedSize || 110;
+            const minX = this.entrappedCenterX - halfSize;
+            const maxX = this.entrappedCenterX + halfSize;
+            const minY = this.entrappedCenterY - halfSize;
+            const maxY = this.entrappedCenterY + halfSize;
+            newWorldX = Math.max(minX, Math.min(maxX, newWorldX));
+            newWorldY = Math.max(minY, Math.min(maxY, newWorldY));
         }
 
         // Clamp to map boundaries (no more infinite kiting!)
@@ -13029,6 +13050,7 @@ class DotsSurvivor {
         const burnMult = this.sovereignBurnDPSMult || 1;
         for (let i = 0; i < this.enemies.length; i++) {
             const e = this.enemies[i];
+            if (e.burnIgniteFlash > 0) e.burnIgniteFlash -= dt;
             if (!e.sovereignBurn || e.sovereignBurn.stacks <= 0) continue;
             const burn = e.sovereignBurn;
             if (!this.eternalPyre) {
@@ -13071,7 +13093,18 @@ class DotsSurvivor {
         this.heatConductionTimer += dt;
         if (this.heatConductionTimer >= this.heatConductionInterval) {
             this.heatConductionTimer = 0;
-            this.heatConductionPulseVisual = { x: this.player.x, y: this.player.y, radius: 0, maxRadius: this.heatConductionRadius, timer: 0.5 };
+            this.heatConductionPulseVisual = {
+                x: this.player.x,
+                y: this.player.y,
+                radius: 0,
+                maxRadius: this.heatConductionRadius,
+                timer: 0.62,
+                maxTimer: 0.62,
+                spokes: Array.from({ length: 18 }, (_, i) => ({
+                    angle: (i / 18) * Math.PI * 2,
+                    length: 0.55 + Math.random() * 0.45
+                }))
+            };
             const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, this.heatConductionRadius);
             const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
             for (const e of nearby) {
@@ -13083,6 +13116,8 @@ class DotsSurvivor {
                 e.sovereignBurn.stacks = Math.min(cap, (e.sovereignBurn.stacks || 0) + 1);
                 e.sovereignBurn.timer = this.burnStackDuration || 4;
                 e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1) * stardustMult;
+                e.burnIgniteFlash = 0.45;
+                e.burnFxSeed = e.burnFxSeed ?? Math.random() * Math.PI * 2;
                 if (this.moltenCoreActive) {
                     const instantDmg = Math.floor(e.sovereignBurn.stacks * e.sovereignBurn.dpsPerStack * 0.3);
                     e.health -= instantDmg;
@@ -13098,7 +13133,8 @@ class DotsSurvivor {
         if (this.heatConductionPulseVisual) {
             const pulse = this.heatConductionPulseVisual;
             pulse.timer -= dt;
-            pulse.radius = pulse.maxRadius * (1 - pulse.timer / 0.5);
+            const maxTimer = pulse.maxTimer || 0.5;
+            pulse.radius = pulse.maxRadius * (1 - pulse.timer / maxTimer);
             if (pulse.timer <= 0) this.heatConductionPulseVisual = null;
         }
     }
@@ -13701,6 +13737,8 @@ class DotsSurvivor {
         if (this.passiveMinors?.includes('astral_drift')) {
             this.tempMSAmount = 50 + (this.player.level || 1);
             this.tempMSExpire = (this.gameTime || 0) + 2000;
+            this.pyreSpeedBuffFlash = 0.42;
+            this.pyreSpeedBuffAmount = this.tempMSAmount;
         }
         // Q unlocks at player level 5, E unlocks at level 10. Auto-unlock here
         // (in addition to the level-up handler) so a player who's already past
@@ -14366,7 +14404,16 @@ class DotsSurvivor {
             const slashAngle = baseAngle + s * angularSpread;
             this.activeFireSlashes.push({
                 x: this.player.x, y: this.player.y, angle: slashAngle,
-                range: slashRange, arc: slashArc, timer: 0.32, maxTimer: 0.32
+                range: slashRange,
+                arc: slashArc,
+                timer: 0.38,
+                maxTimer: 0.38,
+                embers: Array.from({ length: 14 }, (_, i) => ({
+                    angleT: (i + Math.random() * 0.65) / 14,
+                    radiusT: 0.35 + Math.random() * 0.65,
+                    size: 2 + Math.random() * 3,
+                    drift: (Math.random() - 0.5) * 18
+                }))
             });
             // Hit every enemy inside this arc
             for (const e of this.enemies) {
@@ -14394,6 +14441,8 @@ class DotsSurvivor {
                 if (this.passiveMinors?.includes('burning_fervor')) {
                     this.tempMSAmount = 30 + (this.player.level || 1);
                     this.tempMSExpire = (this.gameTime || 0) + 1500;
+                    this.pyreSpeedBuffFlash = 0.42;
+                    this.pyreSpeedBuffAmount = this.tempMSAmount;
                 }
 
                 // Apply / refresh Sovereign Burn stacks (DoT)
@@ -14406,8 +14455,11 @@ class DotsSurvivor {
                 // Cosmic Stardust passive — never with attack damage.
                 const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
                 e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1) * stardustMult;
+                e.burnIgniteFlash = 0.45;
+                e.burnFxSeed = e.burnFxSeed ?? Math.random() * Math.PI * 2;
 
-                this.spawnParticles(sx, sy, '#ff6622', 3);
+                this.spawnParticles(sx, sy, '#ff6622', 5);
+                this.spawnParticles(sx, sy, '#ffd36a', 2);
                 totalHits++;
 
                 this.updateStackingItems('damage', baseDamage);
@@ -14820,14 +14872,38 @@ class DotsSurvivor {
 
     // ─── PLAYER-ANCHORED HAZARDS ──────────────────────────────────────────
     // Auto-trigger on a 25-45s rolling timer. Hazards manifest ON the player:
-    //   - Ring of Poison: green circle around player, ticks 3% max HP/s for 10s
-    //   - Cube of Entrapment: purple cage box around player, locks movement 3s
+    //   - Ring of Poison: green circle around player; leaving it applies poison
+    //   - Cube of Entrapment: purple cage box around player; movement is clamped inside
     updateMapEvents(dt) {
         // Hazard cadence — fire one every ~25-45s
         this.hazardTimer -= dt;
         if (this.hazardTimer <= 0) {
             this.hazardTimer = 25 + Math.random() * 20;
             this._triggerHazard();
+        }
+
+        if (this.poisonRing && this.poisonRing.active) {
+            this.poisonRing.timer += dt;
+            const distFromCenter = Math.sqrt(
+                (this.worldX - this.poisonRing.centerX) ** 2 +
+                (this.worldY - this.poisonRing.centerY) ** 2
+            );
+
+            if (distFromCenter > this.poisonRing.radius) {
+                this.poisonRing.active = false;
+                this.poisonTimer = 10;
+                this.poisonTickAccum = 0;
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 40,
+                    value: 'POISONED - LEFT THE RING', lifetime: 1.6, color: '#7be36e', scale: 1.3
+                });
+            } else if (this.poisonRing.timer >= this.poisonRing.duration) {
+                this.poisonRing.active = false;
+                this.damageNumbers.push({
+                    x: this.player.x, y: this.player.y - 40,
+                    value: 'Poison ring fades', lifetime: 1.2, color: '#bdf78c', scale: 1.1
+                });
+            }
         }
 
         // Tick poison status (3% max HP/sec true damage, can't kill)
@@ -14852,23 +14928,27 @@ class DotsSurvivor {
 
     _triggerHazard() {
         // Avoid stacking — if one is already active, defer slightly
-        if (this.poisonTimer > 0 || this.entrappedTimer > 0) {
+        if ((this.poisonRing && this.poisonRing.active) || this.poisonTimer > 0 || this.entrappedTimer > 0) {
             this.hazardTimer = 6;
             return;
         }
         const pickPoison = Math.random() < 0.5;
         if (pickPoison) {
-            this.poisonTimer = 10;
-            this.poisonTickAccum = 0;
+            this.poisonRing.active = true;
+            this.poisonRing.timer = 0;
+            this.poisonRing.centerX = this.worldX;
+            this.poisonRing.centerY = this.worldY;
             this.damageNumbers.push({
                 x: this.player.x, y: this.player.y - 40,
-                value: 'POISONED — 10s', lifetime: 1.6, color: '#7be36e', scale: 1.4
+                value: 'STAY INSIDE THE POISON RING', lifetime: 1.6, color: '#7be36e', scale: 1.3
             });
         } else {
             this.entrappedTimer = 3;
+            this.entrappedCenterX = this.worldX;
+            this.entrappedCenterY = this.worldY;
             this.damageNumbers.push({
                 x: this.player.x, y: this.player.y - 40,
-                value: 'ENTRAPPED — 3s', lifetime: 1.6, color: '#a070ff', scale: 1.4
+                value: 'ENTRAPPED - STAY IN THE CUBE', lifetime: 1.6, color: '#a070ff', scale: 1.3
             });
         }
     }
@@ -19379,14 +19459,45 @@ class DotsSurvivor {
         // Heat Conduction Pulse (Fire Sovereign passive)
         if (this.heatConductionPulseVisual) {
             const pulse = this.heatConductionPulseVisual;
+            const maxTimer = pulse.maxTimer || 0.5;
+            const life = Math.max(0, pulse.timer / maxTimer);
+            const progress = 1 - life;
+            const corePulse = 0.65 + 0.35 * Math.sin((this.gameTime || 0) / 55);
             ctx.save();
+            const fireGrad = ctx.createRadialGradient(pulse.x, pulse.y, 0, pulse.x, pulse.y, Math.max(1, pulse.radius));
+            fireGrad.addColorStop(0, `rgba(255, 236, 158, ${0.24 * life})`);
+            fireGrad.addColorStop(0.42, `rgba(255, 116, 28, ${0.20 * life})`);
+            fireGrad.addColorStop(1, 'rgba(120, 20, 0, 0)');
             ctx.beginPath();
             ctx.arc(pulse.x, pulse.y, pulse.radius, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(255, 140, 0, ${0.6 * (pulse.timer / 0.5)})`;
-            ctx.lineWidth = 4;
-            ctx.shadowBlur = 15;
+            ctx.fillStyle = fireGrad;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(pulse.x, pulse.y, pulse.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 188, 74, ${0.85 * life})`;
+            ctx.lineWidth = 7 + progress * 9;
+            ctx.shadowBlur = 26;
             ctx.shadowColor = '#ff6600';
             ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(pulse.x, pulse.y, pulse.radius * 0.72, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 65, 0, ${0.45 * life})`;
+            ctx.lineWidth = 16;
+            ctx.stroke();
+
+            ctx.lineCap = 'round';
+            for (const spoke of (pulse.spokes || [])) {
+                const inner = pulse.radius * (0.18 + progress * 0.22);
+                const outer = pulse.radius * spoke.length;
+                ctx.beginPath();
+                ctx.moveTo(pulse.x + Math.cos(spoke.angle) * inner, pulse.y + Math.sin(spoke.angle) * inner);
+                ctx.lineTo(pulse.x + Math.cos(spoke.angle) * outer, pulse.y + Math.sin(spoke.angle) * outer);
+                ctx.strokeStyle = `rgba(255, ${120 + Math.floor(100 * corePulse)}, 42, ${0.32 * life})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
             ctx.shadowBlur = 0;
             ctx.restore();
         }
@@ -19414,13 +19525,57 @@ class DotsSurvivor {
         // Burn stack indicators on enemies (Fire Sovereign)
         if (this.selectedClass?.id === 'fire_sovereign') {
             ctx.save();
-            ctx.font = '10px sans-serif';
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const t = (this.gameTime || 0) / 1000;
             for (const e of this.enemies) {
                 if (e.sovereignBurn && e.sovereignBurn.stacks > 0) {
                     const sx = this.player.x + (e.wx - this.worldX);
                     const sy = this.player.y + (e.wy - this.worldY);
-                    ctx.fillStyle = '#ff6600';
+                    const stacks = e.sovereignBurn.stacks;
+                    const cap = this.maxBurnStacks || 10;
+                    const stackRatio = Math.min(1, stacks / cap);
+                    const seed = e.burnFxSeed || 0;
+                    const flash = Math.max(0, e.burnIgniteFlash || 0);
+                    const radius = e.radius + 5 + stackRatio * 10 + flash * 12;
+                    const pulse = 0.55 + 0.45 * Math.sin(t * 8 + seed);
+
+                    const grad = ctx.createRadialGradient(sx, sy, Math.max(1, e.radius * 0.2), sx, sy, radius * 1.45);
+                    grad.addColorStop(0, `rgba(255, 238, 154, ${0.12 + 0.20 * stackRatio + flash * 0.35})`);
+                    grad.addColorStop(0.42, `rgba(255, 96, 18, ${0.16 + 0.28 * stackRatio})`);
+                    grad.addColorStop(1, 'rgba(120, 15, 0, 0)');
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, radius * 1.45, 0, Math.PI * 2);
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, ${120 + Math.floor(80 * pulse)}, 38, ${0.22 + 0.48 * stackRatio})`;
+                    ctx.lineWidth = 1.5 + stackRatio * 3 + flash * 4;
+                    ctx.shadowBlur = 10 + stackRatio * 18;
+                    ctx.shadowColor = '#ff4a00';
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+
+                    const emberCount = Math.min(7, 2 + Math.ceil(stacks / 2));
+                    for (let k = 0; k < emberCount; k++) {
+                        const a = seed + t * (2.4 + stackRatio * 1.8) + (k / emberCount) * Math.PI * 2;
+                        const r = e.radius + 6 + Math.sin(t * 5 + k + seed) * 3;
+                        ctx.beginPath();
+                        ctx.arc(sx + Math.cos(a) * r, sy + Math.sin(a) * r, 1.6 + stackRatio * 2.2, 0, Math.PI * 2);
+                        ctx.fillStyle = k % 2 === 0 ? '#ffd36a' : '#ff5a1c';
+                        ctx.fill();
+                    }
+
+                    const labelY = sy - e.radius - 13;
+                    ctx.font = 'bold 10px Inter';
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = 'rgba(20, 4, 0, 0.9)';
+                    ctx.strokeText(`BURN x${stacks}`, sx, labelY);
+                    ctx.fillStyle = stackRatio >= 1 ? '#fff0a8' : '#ff9a3c';
+                    ctx.fillText(`BURN x${stacks}`, sx, labelY);
+                    ctx.fillStyle = 'rgba(255, 102, 0, 0)';
                     ctx.fillText(`🔥${e.sovereignBurn.stacks}`, sx, sy - e.radius - 8);
                 }
             }
@@ -19723,6 +19878,49 @@ class DotsSurvivor {
             ctx.restore();
         }
 
+        // Temp movement-speed burst indicator (Pyre Burning Fervor / Astral Drift)
+        if (this.tempMSExpire && (this.gameTime || 0) < this.tempMSExpire) {
+            const remaining = Math.max(0, this.tempMSExpire - (this.gameTime || 0));
+            const life = Math.min(1, remaining / 1500);
+            const flash = Math.max(0, this.pyreSpeedBuffFlash || 0);
+            const speedAmount = this.pyreSpeedBuffAmount || this.tempMSAmount || 0;
+            const t = (this.gameTime || 0) / 1000;
+            ctx.save();
+            ctx.translate(this.player.x, this.player.y);
+
+            const ringRadius = this.player.radius + 19 + flash * 18 + Math.sin(t * 16) * 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 142, 24, ${0.35 + 0.45 * life})`;
+            ctx.lineWidth = 2 + flash * 7;
+            ctx.shadowBlur = 18 + flash * 22;
+            ctx.shadowColor = '#ff7a18';
+            ctx.stroke();
+
+            ctx.lineCap = 'round';
+            for (let i = 0; i < 8; i++) {
+                const a = t * 5.5 + i * Math.PI / 4;
+                const inner = this.player.radius + 24;
+                const outer = inner + 18 + 10 * Math.sin(t * 8 + i);
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+                ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer);
+                ctx.strokeStyle = `rgba(255, 210, 90, ${0.22 + 0.35 * life})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            ctx.shadowBlur = 0;
+            ctx.font = 'bold 10px Inter';
+            ctx.textAlign = 'center';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(25, 6, 0, 0.85)';
+            ctx.strokeText(`+${speedAmount} MS`, 0, -this.player.radius - 36);
+            ctx.fillStyle = '#ffd36a';
+            ctx.fillText(`+${speedAmount} MS`, 0, -this.player.radius - 36);
+            ctx.restore();
+        }
+
         // Bone Pits (Necromancer Q ability) - Bone-colored slow zones
         if (this.bonePits) {
             this.bonePits.forEach(pit => {
@@ -19818,34 +20016,49 @@ class DotsSurvivor {
                 ctx.translate(s.x, s.y);
                 ctx.rotate(s.angle);
                 // Outer crescent — fiery wedge
-                const r0 = s.range * (0.45 + sweep * 0.55);
-                const r1 = s.range * (0.65 + sweep * 0.35);
+                const r0 = s.range * (0.34 + sweep * 0.34);
+                const r1 = s.range * (0.78 + sweep * 0.22);
+                const innerArc = s.arc * (0.50 + sweep * 0.30);
                 const grad = ctx.createRadialGradient(0, 0, r0 * 0.4, 0, 0, r1);
-                grad.addColorStop(0,   `rgba(255, 230, 160, ${0.0  * fade})`);
-                grad.addColorStop(0.4, `rgba(255, 140, 40,  ${0.55 * fade})`);
-                grad.addColorStop(0.8, `rgba(255, 60, 0,    ${0.45 * fade})`);
-                grad.addColorStop(1,   `rgba(80, 0, 0,      ${0.0  * fade})`);
+                grad.addColorStop(0, `rgba(255, 246, 190, ${0.08 * fade})`);
+                grad.addColorStop(0.35, `rgba(255, 182, 72, ${0.36 * fade})`);
+                grad.addColorStop(0.68, `rgba(255, 68, 6, ${0.58 * fade})`);
+                grad.addColorStop(1, 'rgba(72, 0, 0, 0)');
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
                 ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
                 ctx.closePath();
                 ctx.fillStyle = grad;
-                ctx.shadowBlur = 22; ctx.shadowColor = '#ff5500';
+                ctx.shadowBlur = 30; ctx.shadowColor = '#ff5500';
                 ctx.fill();
                 ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(0, 0, r1 * 0.92, -innerArc / 2, innerArc / 2);
+                ctx.strokeStyle = `rgba(255, 83, 0, ${0.62 * fade})`;
+                ctx.lineWidth = 18;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 24;
+                ctx.shadowColor = '#ff2a00';
+                ctx.stroke();
                 // Bright leading edge
                 ctx.beginPath();
                 ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
-                ctx.strokeStyle = `rgba(255, 220, 140, ${fade})`;
-                ctx.lineWidth = 3;
+                ctx.strokeStyle = `rgba(255, 238, 170, ${fade})`;
+                ctx.lineWidth = 4.5;
                 ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(0, 0, r1 * 0.72, -s.arc / 2.6, s.arc / 2.6);
+                ctx.strokeStyle = `rgba(255, 255, 220, ${0.55 * fade})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
                 // Inner ember wisps
-                for (let k = 0; k < 5; k++) {
-                    const a = (-s.arc / 2) + (s.arc * (k + 0.5) / 5);
-                    const r = r1 * (0.6 + Math.random() * 0.4);
+                for (const ember of (s.embers || [])) {
+                    const a = (-s.arc / 2) + (s.arc * ember.angleT) + sweep * 0.18;
+                    const r = r1 * ember.radiusT;
                     ctx.beginPath();
-                    ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 3 + Math.random() * 2, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(255, ${180 + Math.random() * 60 | 0}, 60, ${fade * 0.8})`;
+                    ctx.arc(Math.cos(a) * r, Math.sin(a) * r + ember.drift * sweep, ember.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 196, 72, ${fade * 0.82})`;
                     ctx.fill();
                 }
                 ctx.restore();
@@ -20118,19 +20331,21 @@ class DotsSurvivor {
         }
 
         // Status overlays — player-anchored hazards (Ring of Poison, Cube of Entrapment)
-        if (this.poisonTimer > 0) {
+        if (this.poisonRing && this.poisonRing.active) {
             const t = this.gameTime || 0;
             const pulse = 0.5 + 0.5 * Math.sin(t / 220);
-            const radius = 110;
+            const radius = this.poisonRing.radius || 110;
+            const ringX = this.player.x + (this.poisonRing.centerX - this.worldX);
+            const ringY = this.player.y + (this.poisonRing.centerY - this.worldY);
             // Outer toxic glow
-            const grad = ctx.createRadialGradient(this.player.x, this.player.y, radius * 0.4, this.player.x, this.player.y, radius * 1.2);
+            const grad = ctx.createRadialGradient(ringX, ringY, radius * 0.4, ringX, ringY, radius * 1.2);
             grad.addColorStop(0, 'rgba(123, 227, 110, 0)');
             grad.addColorStop(0.55, `rgba(123, 227, 110, ${0.18 + 0.10 * pulse})`);
             grad.addColorStop(1, 'rgba(40, 90, 30, 0)');
             ctx.fillStyle = grad;
-            ctx.beginPath(); ctx.arc(this.player.x, this.player.y, radius * 1.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(ringX, ringY, radius * 1.2, 0, Math.PI * 2); ctx.fill();
             // Bright ring
-            ctx.beginPath(); ctx.arc(this.player.x, this.player.y, radius, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(ringX, ringY, radius, 0, Math.PI * 2);
             ctx.strokeStyle = `rgba(160, 255, 130, ${0.7 + 0.2 * pulse})`;
             ctx.lineWidth = 4; ctx.shadowBlur = 16; ctx.shadowColor = '#7be36e';
             ctx.stroke(); ctx.shadowBlur = 0;
@@ -20139,41 +20354,57 @@ class DotsSurvivor {
                 const a = (t / 500) + (k / 8) * Math.PI * 2;
                 const r = radius * 0.7;
                 ctx.beginPath();
-                ctx.arc(this.player.x + Math.cos(a) * r, this.player.y + Math.sin(a) * r, 4 + Math.sin(t / 180 + k) * 1.5, 0, Math.PI * 2);
+                ctx.arc(ringX + Math.cos(a) * r, ringY + Math.sin(a) * r, 4 + Math.sin(t / 180 + k) * 1.5, 0, Math.PI * 2);
                 ctx.fillStyle = '#bdf78c'; ctx.fill();
             }
             // Timer label
             ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#bdf78c'; ctx.textAlign = 'center';
-            ctx.fillText(`POISONED ${this.poisonTimer.toFixed(1)}s`, this.player.x, this.player.y - radius - 8);
+            ctx.fillText(`STAY INSIDE ${(this.poisonRing.duration - this.poisonRing.timer).toFixed(1)}s`, ringX, ringY - radius - 8);
+        }
+        if (this.poisonTimer > 0) {
+            const t = this.gameTime || 0;
+            const pulse = 0.5 + 0.5 * Math.sin(t / 180);
+            ctx.beginPath();
+            ctx.arc(this.player.x, this.player.y, this.player.radius + 14 + pulse * 4, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(160, 255, 130, ${0.45 + 0.25 * pulse})`;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#7be36e';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#bdf78c'; ctx.textAlign = 'center';
+            ctx.fillText(`POISONED ${this.poisonTimer.toFixed(1)}s`, this.player.x, this.player.y - 34);
         }
         if (this.entrappedTimer > 0) {
             const t = this.gameTime || 0;
             const pulse = 0.5 + 0.5 * Math.sin(t / 200);
             const sz = this.entrappedSize || 110;
+            const cageX = this.player.x + (this.entrappedCenterX - this.worldX);
+            const cageY = this.player.y + (this.entrappedCenterY - this.worldY);
             // Outer purple aura behind the cage
             ctx.fillStyle = `rgba(160, 112, 255, ${0.18 + 0.08 * pulse})`;
-            ctx.fillRect(this.player.x - sz, this.player.y - sz, sz * 2, sz * 2);
+            ctx.fillRect(cageX - sz, cageY - sz, sz * 2, sz * 2);
             // Cage walls (thick purple frame)
             ctx.strokeStyle = `rgba(201, 163, 255, ${0.85 + 0.15 * pulse})`;
             ctx.lineWidth = 5;
             ctx.shadowBlur = 18; ctx.shadowColor = '#a070ff';
-            ctx.strokeRect(this.player.x - sz, this.player.y - sz, sz * 2, sz * 2);
+            ctx.strokeRect(cageX - sz, cageY - sz, sz * 2, sz * 2);
             ctx.shadowBlur = 0;
             // Vertical cage bars (dashed, every ~30px)
             ctx.strokeStyle = 'rgba(201, 163, 255, 0.55)';
             ctx.lineWidth = 2;
             ctx.setLineDash([8, 4]);
             for (let k = 1; k < 7; k++) {
-                const x = this.player.x - sz + (k * sz * 2 / 7);
+                const x = cageX - sz + (k * sz * 2 / 7);
                 ctx.beginPath();
-                ctx.moveTo(x, this.player.y - sz);
-                ctx.lineTo(x, this.player.y + sz);
+                ctx.moveTo(x, cageY - sz);
+                ctx.lineTo(x, cageY + sz);
                 ctx.stroke();
             }
             ctx.setLineDash([]);
             // Timer label above cage
             ctx.font = 'bold 12px Inter'; ctx.fillStyle = '#e6d3ff'; ctx.textAlign = 'center';
-            ctx.fillText(`ENTRAPPED ${this.entrappedTimer.toFixed(1)}s`, this.player.x, this.player.y - sz - 8);
+            ctx.fillText(`ENTRAPPED ${this.entrappedTimer.toFixed(1)}s`, cageX, cageY - sz - 8);
         }
         // Blood Shield indicator (red bubble)
         if (this.bloodShield > 0 && this.bloodShieldEnabled) {
