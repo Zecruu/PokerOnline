@@ -149,6 +149,7 @@ const SHOP_OFFERS = [
     { id: 'pot_fortune',  name: 'Lucky Charm',       icon: '🍀', desc: '+15% XP gain (permanent)',       cost: 5,  apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.15; } },
     { id: 'pot_burn',     name: 'Phoenix Oil',       icon: '🔥', desc: '+15% burn DPS multiplier',       cost: 7,  apply: g => { g.sovereignBurnDPSMult = (g.sovereignBurnDPSMult || 1) * 1.15; } },
     { id: 'pot_max_stack',name: 'Pyre Crucible',     icon: '🌋', desc: '+1 max burn stacks',             cost: 7,  apply: g => { g.maxBurnStacks = (g.maxBurnStacks || 10) + 1; } },
+    { id: 'pot_armor_pen',name: 'Armor Piercer',     icon: 'AP', desc: '+10 armor penetration',          cost: 7,  apply: g => { g.armorPen = Math.min(100, (g.armorPen || 0) + 10); } },
     // ─── Old stacking-item drops, now sold here (each buy adds a chunky one-shot stack) ──
     { id: 'stk_heart',    name: 'Heart of Vitality', icon: '❤',  desc: '+30 max HP (forever, stacks)',   cost: 6,  apply: g => { g.player.maxHealth += 30; g.player.health = Math.min(g.player.maxHealth, g.player.health + 30); if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 30; } },
     { id: 'stk_critblade',name: 'Crit Blade Shard',  icon: '🗡', desc: '+8% crit damage (stacks)',       cost: 7,  apply: g => { g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.08; } },
@@ -4061,6 +4062,7 @@ class DotsSurvivor {
             { id: 'speed', name: 'Swift Feet', icon: '👟', desc: 'Move 15 units faster', rarity: 'common', effect: (g) => g.player.speed += 15, getDesc: (g) => `Speed: ${g.player.speed} → ${g.player.speed + 15}` },
             { id: 'health', name: 'Vitality', icon: '❤️', desc: 'Increases max HP by 150', rarity: 'common', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; }, getDesc: (g) => `Max HP: ${g.player.maxHealth} → ${g.player.maxHealth + 150}` },
             { id: 'damage', name: 'Power Shot', icon: '💥', desc: 'Projectiles deal +25 damage', rarity: 'common', effect: (g) => g.weapons.bullet.damage += 25, getDesc: (g) => `Damage: ${g.weapons.bullet.damage} → ${g.weapons.bullet.damage + 25}` },
+            { id: 'armorpen', name: 'Sundering Edge', icon: 'AP', desc: '+10 armor penetration', rarity: 'rare', effect: (g) => { g.armorPen = Math.min(100, (g.armorPen || 0) + 10); }, getDesc: (g) => `Armor Pen: ${Math.floor(g.armorPen || 0)} → ${Math.min(100, Math.floor(g.armorPen || 0) + 10)}` },
             { id: 'firerate', name: 'Rapid Fire', icon: '🔫', desc: 'Shoot 10% faster', rarity: 'rare', effect: (g) => g.weapons.bullet.fireRate = Math.floor(g.weapons.bullet.fireRate * 0.9), getDesc: (g) => `Fire Rate: ${(1000 / g.weapons.bullet.fireRate).toFixed(1)}/s → ${(1000 / (g.weapons.bullet.fireRate * 0.9)).toFixed(1)}/s` },
             { id: 'multishot', name: 'Multi Shot', icon: '🎯', desc: 'Fire +1 projectile per shot', rarity: 'rare', effect: (g) => g.weapons.bullet.count++, getDesc: (g) => `Projectiles: ${g.weapons.bullet.count} → ${g.weapons.bullet.count + 1}` },
             { id: 'pierce', name: 'Piercing', icon: '🗡️', desc: 'Projectiles pass through +1 enemy & +3% range', rarity: 'rare', effect: (g) => { g.weapons.bullet.pierce++; g.projectileRangeBonus = (g.projectileRangeBonus || 1) * 1.03; }, getDesc: (g) => `Pierce: ${g.weapons.bullet.pierce} → ${g.weapons.bullet.pierce + 1}, Range: +3%` },
@@ -5163,11 +5165,15 @@ class DotsSurvivor {
             { id: 'shard_spd',  name: '+20 Move Spd',   icon: '👟', color: '#5cd8ff', apply: g => { g.player.speed += 20; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 20; } },
             { id: 'shard_mage', name: '+20% Mage Pwr',  icon: '📕', color: '#a070ff', apply: g => { g._itemMagePowerMult = (g._itemMagePowerMult || 1) * 1.20; } },
             { id: 'shard_for',  name: '+20% Fortune',   icon: '🪙', color: '#ffd34d', apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.20; } },
-            { id: 'shard_regen',name: '+2 HP Regen',    icon: '✚', color: '#7be36e', apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; } }
+            { id: 'shard_regen',name: '+2 HP Regen',    icon: '✚', color: '#7be36e', apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; } },
+            { id: 'shard_arpen',name: '+10 Armor Pen',  icon: 'AP', color: '#f0c46a', apply: g => { g.armorPen = Math.min(100, (g.armorPen || 0) + 10); } }
         ];
 
         SHARDS.forEach((sh, idx) => { sh.iconIndex = idx; });
         const shardIcon = (sh, size = 42) => {
+            if ((sh.iconIndex || 0) >= 8) {
+                return `<span title="${sh.name}" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:12px;border:1px solid ${sh.color};background:radial-gradient(circle at 35% 25%, #fff4b8, ${sh.color} 42%, #3b2410 100%);box-shadow:0 0 14px ${sh.color}66;color:#1b1208;font-size:${Math.max(10, Math.floor(size * 0.34))}px;font-weight:900;letter-spacing:-1px;vertical-align:middle;">${sh.icon}</span>`;
+            }
             const col = (sh.iconIndex || 0) % 4;
             const row = Math.floor((sh.iconIndex || 0) / 4);
             return `<span title="${sh.name}" style="display:inline-block;width:${size}px;height:${size}px;border-radius:12px;border:1px solid ${sh.color};background-image:url('stat-icons/kit-shards-sheet.png');background-size:400% 200%;background-position:${col * 33.333}% ${row * 100}%;box-shadow:0 0 14px ${sh.color}66;vertical-align:middle;"></span>`;
@@ -5698,6 +5704,7 @@ class DotsSurvivor {
         // Temporary move-speed buff (Burning Fervor / Astral Drift minor runes)
         this.tempMSAmount = 0;
         this.tempMSExpire = 0;
+        this.armorPen = 0;
         // New attack flags (set by shop)
         this.beamUnlocked = false;
         this.beamTimer = 0;
@@ -12125,6 +12132,20 @@ class DotsSurvivor {
         this.lastItemDropTime = this.gameTime;
     }
 
+    applyArmorPen(damage, enemy) {
+        if (!enemy || damage <= 0) return damage;
+        const armor = Math.max(0, enemy.armor || 0);
+        const pen = Math.max(0, this.armorPen || 0);
+        if (armor <= 0 || pen <= 0) return damage;
+
+        // Enemy armor is baked into max HP, so armor pen reverses that EHP.
+        const effectiveArmor = Math.max(0, armor - pen);
+        const originalEhpMult = 1 + armor / 100;
+        const effectiveEhpMult = 1 + effectiveArmor / 100;
+        const adjusted = damage * (originalEhpMult / effectiveEhpMult);
+        return damage < 1 ? adjusted : Math.max(1, Math.floor(adjusted));
+    }
+
     updateSkulls(dt) {
         // Initialize skull hit tracking if not exists
         if (!this.skullHits) this.skullHits = new Map();
@@ -12157,7 +12178,7 @@ class DotsSurvivor {
 
                     // Diminishing returns: damage reduces by 15% per consecutive hit, min 30% of base
                     const diminishFactor = Math.max(0.3, 1 - (hitData.hitCount - 1) * 0.15);
-                    const actualDamage = Math.floor(s.damage * diminishFactor);
+                    const actualDamage = this.applyArmorPen(Math.floor(s.damage * diminishFactor), e);
 
                     e.health -= actualDamage; e.hitFlash = 1;
 
@@ -12169,7 +12190,7 @@ class DotsSurvivor {
                         this.addDamageNumber(ex, ey, Math.floor(actualDamage * 1.5), '#ff4400', { enemyId: e.id });
                     } else if (s.element === 'dark') {
                         // Dark: High damage, life steal
-                        const darkBonus = Math.floor(actualDamage * 0.3);
+                        const darkBonus = this.applyArmorPen(Math.floor(actualDamage * 0.3), e);
                         e.health -= darkBonus;
                         this.player.health = Math.min(this.player.maxHealth, this.player.health + Math.floor(darkBonus * 0.1));
                         this.spawnParticles(ex, ey, '#6600aa', 5);
@@ -12189,11 +12210,12 @@ class DotsSurvivor {
                             }
                         }
                         if (chainTarget) {
-                            chainTarget.health -= Math.floor(actualDamage * 0.5);
+                            const chainDamage = this.applyArmorPen(Math.floor(actualDamage * 0.5), chainTarget);
+                            chainTarget.health -= chainDamage;
                             chainTarget.hitFlash = 1;
                             const chainEx = this.player.x + (chainTarget.wx - this.worldX);
                             const chainEy = this.player.y + (chainTarget.wy - this.worldY);
-                            this.addDamageNumber(chainEx, chainEy, Math.floor(actualDamage * 0.5), '#ffff00', { enemyId: chainTarget.id });
+                            this.addDamageNumber(chainEx, chainEy, chainDamage, '#ffff00', { enemyId: chainTarget.id });
                         }
                         this.spawnParticles(ex, ey, '#ffff00', 5);
                         this.addDamageNumber(ex, ey, actualDamage, '#ffff00', { enemyId: e.id });
@@ -13080,7 +13102,7 @@ class DotsSurvivor {
                 burn.timer = this.burnStackDuration || 4;
             }
             const totalDPS = burn.stacks * burn.dpsPerStack * doubleBurn * burnMult;
-            const tickDmg = totalDPS * dt;
+            const tickDmg = this.applyArmorPen(totalDPS * dt, e);
             e.health -= tickDmg;
             this.runDamageDealt = (this.runDamageDealt || 0) + tickDmg;
             // Corrupted self-damage
@@ -14449,11 +14471,12 @@ class DotsSurvivor {
                 while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
                 if (Math.abs(angleDiff) > slashArc / 2) continue;
 
-                e.health -= baseDamage;
+                const slashDamage = this.applyArmorPen(baseDamage, e);
+                e.health -= slashDamage;
                 e.hitFlash = 1;
-                this.runDamageDealt = (this.runDamageDealt || 0) + baseDamage;
+                this.runDamageDealt = (this.runDamageDealt || 0) + slashDamage;
                 this.damageNumbers.push({
-                    x: sx, y: sy - 14, value: baseDamage,
+                    x: sx, y: sy - 14, value: slashDamage,
                     lifetime: 0.5, color: '#ff7733', scale: 1.05,
                     target: e, wx: e.wx, wy: e.wy
                 });
@@ -14482,11 +14505,11 @@ class DotsSurvivor {
                 this.spawnParticles(sx, sy, '#ffd36a', 2);
                 totalHits++;
 
-                this.updateStackingItems('damage', baseDamage);
+                this.updateStackingItems('damage', slashDamage);
 
                 // Cosmic Stardust: gain a stack per 200 damage dealt
                 if (this.passiveId === 'cosmic_stardust') {
-                    this._stardustDmgAccum = (this._stardustDmgAccum || 0) + baseDamage;
+                    this._stardustDmgAccum = (this._stardustDmgAccum || 0) + slashDamage;
                     while (this._stardustDmgAccum >= 200) {
                         this._stardustDmgAccum -= 200;
                         this.passiveStacks = (this.passiveStacks || 0) + 1;
@@ -14494,7 +14517,7 @@ class DotsSurvivor {
                 }
 
                 if (this.vampireHeal && this.vampireHeal > 0) {
-                    const heal = Math.floor(baseDamage * this.vampireHeal);
+                    const heal = Math.floor(slashDamage * this.vampireHeal);
                     if (heal > 0 && this.player.health < this.player.maxHealth) this.healPlayer(heal);
                 }
             }
@@ -14623,6 +14646,7 @@ class DotsSurvivor {
                         continue;
                     }
 
+                    damage = this.applyArmorPen(damage, e);
                     e.health -= damage; e.hitFlash = 1;
                     p.hitEnemies.add(e);
 
@@ -14703,7 +14727,7 @@ class DotsSurvivor {
                             if (other === e) continue;
                             const odx = e.wx - other.wx, ody = e.wy - other.wy;
                             if (odx * odx + ody * ody < expRadSq) {
-                                const splashDmg = Math.floor(damage * 0.5);
+                                const splashDmg = this.applyArmorPen(Math.floor(damage * 0.5), other);
                                 other.health -= splashDmg;
                                 other.hitFlash = 1;
                                 const osx = this.player.x + (other.wx - this.worldX);
@@ -14727,9 +14751,10 @@ class DotsSurvivor {
                             if (ce === e || chained >= chainTargets) break;
                             const csx = this.player.x + (ce.wx - this.worldX);
                             const csy = this.player.y + (ce.wy - this.worldY);
-                            ce.health -= chainDmg;
+                            const adjustedChainDmg = this.applyArmorPen(chainDmg, ce);
+                            ce.health -= adjustedChainDmg;
                             ce.hitFlash = 0.3;
-                            this.addDamageNumber(csx, csy, chainDmg, '#ffff00', { enemyId: ce.id, scale: 0.8 });
+                            this.addDamageNumber(csx, csy, adjustedChainDmg, '#ffff00', { enemyId: ce.id, scale: 0.8 });
                             chainPoints.push({ x: csx, y: csy });
                             this.spawnParticles(csx, csy, '#ffff00', 5);
                             lastX = csx; lastY = csy;
@@ -15872,9 +15897,10 @@ class DotsSurvivor {
                         if (proj < 0 || proj > 900) continue;
                         const perp = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
                         if (perp > 30 + e.radius) continue;
-                        e.health -= beamDmg;
+                        const adjustedBeamDmg = this.applyArmorPen(beamDmg, e);
+                        e.health -= adjustedBeamDmg;
                         e.hitFlash = 1;
-                        this.damageNumbers.push({ x: sx, y: sy - 14, value: beamDmg, lifetime: 0.6, color: '#bb88ff', scale: 1.05 });
+                        this.damageNumbers.push({ x: sx, y: sy - 14, value: adjustedBeamDmg, lifetime: 0.6, color: '#bb88ff', scale: 1.05 });
                     }
                     this.playSound('shoot');
                 }
@@ -15924,12 +15950,13 @@ class DotsSurvivor {
                     if (e.health <= 0) continue;
                     const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
                     if (dx * dx + dy * dy > 240 * 240) continue;
-                    e.health -= dmg;
+                    const adjustedDmg = this.applyArmorPen(dmg, e);
+                    e.health -= adjustedDmg;
                     e.hitFlash = 1;
                     e.slowTimer = 2; // 2s slow
                     e.slowFactor = 0.5;
                     const sx = this.player.x + dx, sy = this.player.y + dy;
-                    this.damageNumbers.push({ x: sx, y: sy - 14, value: dmg, lifetime: 0.5, color: '#7be3ff', scale: 0.95 });
+                    this.damageNumbers.push({ x: sx, y: sy - 14, value: adjustedDmg, lifetime: 0.5, color: '#7be3ff', scale: 0.95 });
                 }
             }
             // Fade slow on enemies
@@ -15971,9 +15998,10 @@ class DotsSurvivor {
                     const last = this._bsHitCD.get(e) || 0;
                     if (this.gameTime - last < 800) continue;
                     this._bsHitCD.set(e, this.gameTime);
-                    e.health -= swordDmg;
+                    const adjustedSwordDmg = this.applyArmorPen(swordDmg, e);
+                    e.health -= adjustedSwordDmg;
                     e.hitFlash = 1;
-                    this.damageNumbers.push({ x: ex, y: ey - 12, value: swordDmg, lifetime: 0.45, color: '#ff5555', scale: 0.9 });
+                    this.damageNumbers.push({ x: ex, y: ey - 12, value: adjustedSwordDmg, lifetime: 0.45, color: '#ff5555', scale: 0.9 });
                 }
             }
         }
@@ -16600,7 +16628,7 @@ class DotsSurvivor {
         const all = [...this.baseUpgrades, ...(this.selectedClass.upgrades || [])];
 
         // Early waves (1-10): Only damage and HP related upgrades
-        const earlyWaveIds = ['damage', 'health', 'firerate', 'critdmg', 'devastation', 'armor'];
+        const earlyWaveIds = ['damage', 'armorpen', 'health', 'firerate', 'critdmg', 'devastation', 'armor'];
         let filtered;
         if (this.wave <= 10) {
             filtered = all.filter(u => earlyWaveIds.includes(u.id));
@@ -16830,6 +16858,10 @@ class DotsSurvivor {
         if (statFortune) {
             const fortunePct = Math.round(((this._itemFortuneMult || 1) - 1) * 100);
             statFortune.textContent = `+${fortunePct}%`;
+        }
+        const statArmorPen = document.getElementById('stat-armor-pen');
+        if (statArmorPen) {
+            statArmorPen.textContent = String(Math.floor(this.armorPen || 0));
         }
         const statSlashes = document.getElementById('stat-slashes');
         if (statSlashes) {
