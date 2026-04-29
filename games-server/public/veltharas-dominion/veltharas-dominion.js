@@ -3637,8 +3637,8 @@ function getDifficultyTier(wave) {
 // Base spawn rate = 500ms * this multiplier.
 // Stretched: hard intensity (was wave 15) now at wave 25; swarm phase (was 16) at 30+.
 function getSpawnRateMultByWave(wave) {
-    if (wave <= 5)  return 1.20;  // Calm intro
-    if (wave <= 10) return 1.00;
+    if (wave <= 5)  return 0.95;  // Brisk intro (bumped from 1.20 — was too sparse)
+    if (wave <= 10) return 0.85;  // Bumped from 1.00
     if (wave <= 15) return 0.85;
     if (wave <= 20) return 0.70;
     if (wave <= 25) return 0.55;
@@ -3648,8 +3648,8 @@ function getSpawnRateMultByWave(wave) {
 
 // Max alive enemy cap by wave.
 function getMaxAliveByWave(wave) {
-    if (wave <= 5)  return 25;    // Lower start so early waves don't feel swarmed
-    if (wave <= 10) return 40;
+    if (wave <= 5)  return 45;    // Bumped from 25 — early waves felt empty
+    if (wave <= 10) return 55;    // Bumped from 40
     if (wave <= 15) return 60;
     if (wave <= 20) return 90;
     if (wave <= 25) return 130;
@@ -3795,10 +3795,10 @@ function runSpawnSystemTests() {
     }
 
     // Test 1: maxAlive cap values match the stretched-curve breakpoints
-    assert(getMaxAliveByWave(1) === 25,  'Wave 1 maxAlive should be 25');
-    assert(getMaxAliveByWave(5) === 25,  'Wave 5 maxAlive should be 25');
-    assert(getMaxAliveByWave(6) === 40,  'Wave 6 maxAlive should be 40');
-    assert(getMaxAliveByWave(10) === 40, 'Wave 10 maxAlive should be 40');
+    assert(getMaxAliveByWave(1) === 45,  'Wave 1 maxAlive should be 45');
+    assert(getMaxAliveByWave(5) === 45,  'Wave 5 maxAlive should be 45');
+    assert(getMaxAliveByWave(6) === 55,  'Wave 6 maxAlive should be 55');
+    assert(getMaxAliveByWave(10) === 55, 'Wave 10 maxAlive should be 55');
     assert(getMaxAliveByWave(11) === 60, 'Wave 11 maxAlive should be 60');
     assert(getMaxAliveByWave(15) === 60, 'Wave 15 maxAlive should be 60');
     assert(getMaxAliveByWave(20) === 90, 'Wave 20 maxAlive should be 90');
@@ -3807,9 +3807,9 @@ function runSpawnSystemTests() {
     assert(getMaxAliveByWave(35) === 220,'Wave 35 maxAlive should be 220');
 
     // Test 2: spawnRateMult breakpoints
-    assert(getSpawnRateMultByWave(1) === 1.20,  'Wave 1 spawnRateMult should be 1.20');
-    assert(getSpawnRateMultByWave(5) === 1.20,  'Wave 5 spawnRateMult should be 1.20');
-    assert(getSpawnRateMultByWave(10) === 1.00, 'Wave 10 spawnRateMult should be 1.00');
+    assert(getSpawnRateMultByWave(1) === 0.95,  'Wave 1 spawnRateMult should be 0.95');
+    assert(getSpawnRateMultByWave(5) === 0.95,  'Wave 5 spawnRateMult should be 0.95');
+    assert(getSpawnRateMultByWave(10) === 0.85, 'Wave 10 spawnRateMult should be 0.85');
     assert(getSpawnRateMultByWave(15) === 0.85, 'Wave 15 spawnRateMult should be 0.85');
     assert(getSpawnRateMultByWave(20) === 0.70, 'Wave 20 spawnRateMult should be 0.70');
     assert(getSpawnRateMultByWave(25) === 0.55, 'Wave 25 spawnRateMult should be 0.55');
