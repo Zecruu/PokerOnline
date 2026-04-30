@@ -3644,7 +3644,7 @@ class Game {
         } else {
             // Fallback blue circle
             if (this._playerPixiSprite) this._playerPixiSprite.visible = false;
-            const gfx = this._gfx;
+            const gfx = this._entityGfx;
             gfx.beginFill(0x4FC3F7);
             gfx.lineStyle(2, 0xffffff);
             gfx.drawCircle(px, py, 10);

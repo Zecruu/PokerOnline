@@ -129,21 +129,23 @@ const PIXI_TILE_TEXTURES = {};
 let _pixiTexturesReady = false;
 
 function _loadPixiTex(path) {
-    // Try CDN first, fall back to local
+    // Load via <img> first so we get reliable onerror → local fallback,
+    // then wrap the resulting element in a PIXI texture.
     const cdnUrl = CDN_CONFIG.enabled ? `${CDN_CONFIG.baseUrl}/${path}` : null;
     const localUrl = CDN_CONFIG.localBasePath + path;
-    try {
-        const tex = PIXI.Texture.from(cdnUrl || localUrl);
-        // If CDN fails, the baseTexture error handler will switch to local
-        if (cdnUrl) {
-            tex.baseTexture.resource?.source?.addEventListener?.('error', () => {
-                try { tex.baseTexture.resource.source.src = localUrl; } catch(e) {}
-            });
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    let tex = null;
+    let triedLocal = false;
+    img.onload = () => { try { tex && tex.update(); } catch(e) {} };
+    img.onerror = () => {
+        if (!triedLocal && cdnUrl) {
+            triedLocal = true;
+            img.src = localUrl;
         }
-        return tex;
-    } catch(e) {
-        try { return PIXI.Texture.from(localUrl); } catch(e2) { return null; }
-    }
+    };
+    img.src = cdnUrl || localUrl;
+    try { tex = PIXI.Texture.from(img); return tex; } catch(e) { return null; }
 }
 
 function buildPixiTextures() {
@@ -210,7 +212,11 @@ function preloadPlayerSprites() {
     for (const [key, path] of Object.entries(defs)) {
         const img = new Image();
         img.crossOrigin = "anonymous";
-        const p = new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+        const localPath = CDN_CONFIG.localBasePath + path;
+        const p = new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = () => { img.src = localPath; img.onload = resolve; img.onerror = resolve; };
+        });
         img.src = getAssetUrl(path);
         PLAYER_SPRITES[key] = img;
         promises.push(p);
