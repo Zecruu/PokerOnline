@@ -290,6 +290,40 @@ const VOID_BLADE_SPRITES = {
     level21: 'characters/void-blade-lv21.png',   // Lv 21+: Void Blade Ascendant
 };
 
+// Demonic Monarch level progression sprites. The current generated art is
+// reused for every breakpoint until upgraded evolution art is produced.
+const DEMONIC_MONARCH_SPRITES = {
+    level1:  'characters/demonic-monarch-lv1.png',
+    level6:  'characters/demonic-monarch-lv6.png',
+    level11: 'characters/demonic-monarch-lv11.png',
+    level16: 'characters/demonic-monarch-lv16.png',
+    level21: 'characters/demonic-monarch-lv21.png',
+};
+
+const AUTO_ATTACK_DEFS = {
+    projectile: {
+        id: 'projectile',
+        name: 'Soul Shot',
+        icon: '•',
+        color: '#00ffaa',
+        desc: 'Standard auto-aim projectile.'
+    },
+    fire_slash: {
+        id: 'fire_slash',
+        name: 'Fire Slash',
+        icon: '🔥',
+        color: '#ff8a3c',
+        desc: 'Forward fire crescent that applies Sovereign Burn.'
+    },
+    demon_slash: {
+        id: 'demon_slash',
+        name: 'Demon Slash',
+        icon: '♛',
+        color: '#8b5cf6',
+        desc: 'Purple-black crescent that applies Demonic Decay.'
+    }
+};
+
 const WOLF_SPRITES = {
     standing: 'minions/wolf-idle.png',
     running1: 'minions/wolf-run.png',
@@ -1563,8 +1597,10 @@ function initSprites() {
     for (const [level, path] of Object.entries(SHADOW_MONARCH_SPRITES)) {
         loadSprite('sm_' + level, getAssetUrl(path) + '?v=2', true);
     }
-    // Demonic Monarch uses a generated single-form sprite.
-    loadSprite('dm_level1', getAssetUrl('characters/demonic-monarch-lv1.png') + '?v=1', true);
+    // Demonic Monarch sprites follow the same level-breakpoint key system.
+    for (const [level, path] of Object.entries(DEMONIC_MONARCH_SPRITES)) {
+        loadSprite('dm_' + level, getAssetUrl(path) + '?v=1', true);
+    }
     // Void Blade (Azura) sprites
     for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
         loadSprite('vb_' + level, getAssetUrl(path) + '?v=2', true);
@@ -1623,6 +1659,7 @@ const FIRE_SOVEREIGN_CLASS = {
         damage: 1.0,
         fireRate: 1
     },
+    autoAttack: 'fire_slash',
     skills: {
         homingFireballs: { name: 'Homing Fireballs', icon: '🔥', desc: 'Guaranteed-hit fireballs that home on enemies' },
         infernoVolley: { name: 'Inferno Volley', icon: '💥', desc: 'Burst of 5 enhanced homing fireballs (Q)' },
@@ -1836,6 +1873,7 @@ const DEMONIC_MONARCH_CLASS = {
         damage: 1.35,
         fireRate: 0.9,
     },
+    autoAttack: 'demon_slash',
     skills: {
         abyssalEyes: { name: 'Abyssal Eyes', icon: '👁️', desc: 'Demonic eyes fire crimson lances at marked enemies', level: 1 },
         royalGuard: { name: 'Royal Guard', icon: '👹', desc: 'A demon general fights beside you and grows from conquest', level: 1 },
@@ -1844,7 +1882,7 @@ const DEMONIC_MONARCH_CLASS = {
     passive: {
         name: 'Arise, Legion',
         icon: '👑',
-        desc: 'Starts with 2 abyssal eyes and a demon general. Every 90 kills forms another eye. Authority stacks increase demon damage.',
+        desc: 'Demon Slash applies Demonic Decay. Decayed kills grant Authority. Every 90 kills forms another eye.',
         effect: (g) => {
             g.shadowVoid = {
                 radius: 145,
@@ -1857,6 +1895,10 @@ const DEMONIC_MONARCH_CLASS = {
             g.monarchOrbKillThreshold = 90;
             g.monarchOrbMaxFromKills = 6;
             g.dominionOrbBonus = 0.03;
+            g.demonicDecayEnabled = true;
+            g.demonicDecayDPS = 4;
+            g.demonicDecayMaxStacks = 8;
+            g.demonicDecayDuration = 5;
         }
     },
     abilities: {},
@@ -5142,7 +5184,7 @@ class DotsSurvivor {
                 this.pendingCharacterClass = cls;
                 this.selectedStarterItem = null;
                 overlay.remove();
-                this.showRuneTreeSelect();
+                this.showKitSelect();
             });
             grid.appendChild(card);
         }
@@ -5154,6 +5196,8 @@ class DotsSurvivor {
     }
 
     showRuneTreeSelect() {
+        this.showKitSelect();
+        return;
         let overlay = document.getElementById('passive-select-overlay');
         if (overlay) overlay.remove();
         overlay = document.createElement('div');
@@ -5201,8 +5245,8 @@ class DotsSurvivor {
         }
     }
 
-    // Kept for backward compat; redirects to the new tree screen.
-    showPassiveSelect() { this.showRuneTreeSelect(); }
+    // Kept for backward compat; passives are now owned by each character.
+    showPassiveSelect() { this.showKitSelect(); }
     _legacyShowPassiveSelect_unused() {
         let overlay = document.getElementById('passive-select-overlay');
         if (overlay) overlay.remove();
@@ -5248,12 +5292,9 @@ class DotsSurvivor {
         overlay.id = 'kit-select-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(5,2,4,0.94);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:2rem;overflow-y:auto;';
 
-        // Primary attacks — only Fire Slash playable for now; rest are placeholders.
-        const ATTACKS = [
-            { id: 'fire_slash',      name: 'Fire Slash',       icon: '🔥', desc: 'Forward arc that ignites enemies. Burn DoT scales with mage power.', color: '#ff8a3c', enabled: true },
-            { id: 'frost_lance',     name: 'Frost Lance',      icon: '❄️', desc: 'Coming soon — pierce + slow.', color: '#7be3ff', enabled: false },
-            { id: 'shadow_strike',   name: 'Shadow Strike',    icon: '🌑', desc: 'Coming soon — short-range crit attack.', color: '#a070ff', enabled: false }
-        ];
+        const characterClass = this.pendingCharacterClass || this.selectedClass || FIRE_SOVEREIGN_CLASS;
+        const fixedAttackId = characterClass.autoAttack || 'projectile';
+        const fixedAttack = AUTO_ATTACK_DEFS[fixedAttackId] || AUTO_ATTACK_DEFS.projectile;
 
         // 4 base-stat shards — pick exactly 4. Player can repeat picks (so e.g.
         // four ATK DMG is allowed for a glass-cannon build).
@@ -5280,7 +5321,6 @@ class DotsSurvivor {
             return `<span title="${sh.name}" style="display:inline-block;width:${size}px;height:${size}px;border-radius:12px;border:1px solid ${sh.color};background-image:url('stat-icons/kit-shards-sheet.png');background-size:400% 200%;background-position:${col * 33.333}% ${row * 100}%;box-shadow:0 0 14px ${sh.color}66;vertical-align:middle;"></span>`;
         };
 
-        let chosenAttack = 'fire_slash';
         const chosenShards = []; // up to 4 (allowing repeats)
         const previewLabels = [
             ['damage', 'Damage', '', '#ff7a7a'],
@@ -5311,17 +5351,16 @@ class DotsSurvivor {
                     </div>
                 `).join('');
             const empty = `<div style="color:#777;font-size:.86rem;line-height:1.45;">Pick shards to preview the exact stats your run starts with.</div>`;
-            const tree = TREE_DEFS[this.passiveTree];
-            const treeLine = tree ? `
-                <div style="margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(255,255,255,.1);color:${tree.color};font-weight:800;font-size:.84rem;">
-                    ${tree.name}: ${tree.keystoneName}
+            const passiveLine = characterClass.passive ? `
+                <div style="margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(255,255,255,.1);color:${characterClass.color};font-weight:800;font-size:.84rem;line-height:1.35;">
+                    ${characterClass.passive.icon || characterClass.icon} ${characterClass.passive.name}: ${characterClass.passive.desc}
                 </div>
             ` : '';
             return `
                 <div style="height:100%;padding:1rem;border:1px solid rgba(255,190,110,.22);border-radius:14px;background:rgba(7,10,18,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);">
                     <div style="color:#ffd4a8;font-weight:900;letter-spacing:2px;margin-bottom:.65rem;">BUILD PREVIEW</div>
                     <div style="display:flex;flex-direction:column;gap:.35rem;">${rows || empty}</div>
-                    ${treeLine}
+                    ${passiveLine}
                 </div>
             `;
         };
@@ -5330,11 +5369,17 @@ class DotsSurvivor {
             overlay.innerHTML = `
                 <div style="text-align:center;margin-bottom:1.4rem;max-width:920px;">
                     <h1 style="color:#ffb84d;font-size:2.4rem;letter-spacing:3px;text-shadow:0 0 22px rgba(255,184,77,0.55);margin-bottom:.4rem;">BUILD YOUR KIT</h1>
-                    <div style="color:#bdf78c;font-size:1rem;">Pick one primary attack and four stat shards. These stack on top of items + passive scaling.</div>
+                    <div style="color:#bdf78c;font-size:1rem;">${characterClass.name} starts with ${fixedAttack.name}. Pick four stat shards to shape the run.</div>
                 </div>
                 <div style="width:100%;max-width:1120px;">
-                    <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.6rem;">PRIMARY ATTACK</div>
-                    <div id="kit-attacks" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem;"></div>
+                    <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.6rem;">CLASS AUTO ATTACK</div>
+                    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem;">
+                        <div style="width:240px;padding:1rem;border:2px solid ${fixedAttack.color};border-radius:12px;background:rgba(15,10,12,.9);box-shadow:0 0 24px ${fixedAttack.color}66;">
+                            <div style="text-align:center;font-size:2.4rem;line-height:1;margin-bottom:.4rem;">${fixedAttack.icon}</div>
+                            <div style="text-align:center;color:${fixedAttack.color};font-weight:800;font-size:1rem;margin-bottom:.3rem;">${fixedAttack.name}</div>
+                            <div style="text-align:center;color:#ccc;font-size:.78rem;line-height:1.35;">${fixedAttack.desc}</div>
+                        </div>
+                    </div>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;align-items:stretch;">
                         <div>
                             <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.4rem;">SHARDS - <span id="kit-shard-count" style="color:#7be3ff;">0</span> / 4</div>
@@ -5349,20 +5394,6 @@ class DotsSurvivor {
                     </div>
                 </div>
             `;
-            const aRow = overlay.querySelector('#kit-attacks');
-            for (const atk of ATTACKS) {
-                const sel = chosenAttack === atk.id;
-                const card = document.createElement('div');
-                const dim = atk.enabled ? 1 : 0.35;
-                card.style.cssText = `width:200px;padding:1rem;border:2px solid ${sel ? atk.color : 'rgba(255,255,255,.15)'};border-radius:12px;background:rgba(15,10,12,.9);opacity:${dim};cursor:${atk.enabled ? 'pointer' : 'not-allowed'};box-shadow:${sel ? '0 0 24px ' + atk.color + '88' : 'none'};transition:all .15s;`;
-                card.innerHTML = `
-                    <div style="text-align:center;font-size:2.4rem;line-height:1;margin-bottom:.4rem;">${atk.icon}</div>
-                    <div style="text-align:center;color:${atk.color};font-weight:800;font-size:1rem;margin-bottom:.3rem;">${atk.name}${atk.enabled ? '' : ' (locked)'}</div>
-                    <div style="text-align:center;color:#ccc;font-size:.78rem;line-height:1.35;">${atk.desc}</div>
-                `;
-                if (atk.enabled) card.onclick = () => { chosenAttack = atk.id; render(); };
-                aRow.appendChild(card);
-            }
             const sRow = overlay.querySelector('#kit-shards');
             for (const sh of SHARDS) {
                 const card = document.createElement('div');
@@ -5392,7 +5423,7 @@ class DotsSurvivor {
             btn.style.cursor = chosenShards.length === 4 ? 'pointer' : 'not-allowed';
             btn.onclick = () => {
                 if (chosenShards.length !== 4) return;
-                this.kitAttack = chosenAttack;
+                this.kitAttack = fixedAttackId;
                 this.kitShards = chosenShards.slice();
                 overlay.remove();
                 this.startGame();
@@ -5797,6 +5828,10 @@ class DotsSurvivor {
         this.deathDrainRange = 0;
         this.deathDrainDamageMult = 1;
         this.deathDrainEvolved = false;
+        this.demonicDecayEnabled = false;
+        this.demonicDecayDPS = 0;
+        this.demonicDecayMaxStacks = 0;
+        this.demonicDecayDuration = 0;
 
         // ABILITIES SYSTEM - Active abilities with cooldowns (Item abilities use 1 and 2 keys)
         this.abilities = {
@@ -5846,11 +5881,12 @@ class DotsSurvivor {
         this.lastShopWave = 0;     // tracks the wave a shop already opened on
 
         // ── Selectable passive (Pyre Fuel / Cosmic Stardust) ──
-        this.passiveId = this.passiveId || null; // set by passive-select screen
-        this.passiveTree = this.passiveTree || null;
-        this.passiveMinors = this.passiveMinors || [];
+        this.passiveId = null;
+        this.passiveTree = null;
+        this.passiveMinors = [];
         this.passiveStacks = 0;
-        this._stardustDmgAccum = 0; // for Cosmic Stardust per-200-damage stacks
+        this._stardustDmgAccum = 0;
+        this.autoAttackId = this.kitAttack || this.selectedClass.autoAttack || 'projectile';
         // Temporary move-speed buff (Burning Fervor / Astral Drift minor runes)
         this.tempMSAmount = 0;
         this.tempMSExpire = 0;
@@ -6133,6 +6169,14 @@ class DotsSurvivor {
                 this.characterAbilities.e.maxCooldown = 42;
                 this.despairBarrageDuration = 5;
                 this.despairBarrageDmgMult = 1.15;
+                this.demonSlashRange = 175;
+                this.demonSlashArc = Math.PI * 0.42;
+                this.demonicDecayEnabled = true;
+                this.demonicDecayDPS = 4;
+                this.demonicDecayDPSMult = 1;
+                this.demonicDecayMaxStacks = 8;
+                this.demonicDecayDuration = 5;
+                this.demonicDecayRuptureMult = 1.15;
                 this.thrallDamageBonus = (this.thrallDamageBonus || 1) * 1.20;
                 if (this.shadowThrall) {
                     this.shadowThrall.color = '#7f1d1d';
@@ -6265,16 +6309,6 @@ class DotsSurvivor {
         // Apply class passive effect
         if (this.selectedClass.passive && this.selectedClass.passive.effect) {
             this.selectedClass.passive.effect(this);
-        }
-
-        // Apply selected rune minors after run state is reset, so their
-        // one-time bonuses do not leak between runs or get wiped by init.
-        const selectedRuneTree = TREE_DEFS[this.passiveTree];
-        if (selectedRuneTree && Array.isArray(this.passiveMinors)) {
-            for (const minor of selectedRuneTree.minors) {
-                if (!this.passiveMinors.includes(minor.id) || !minor.applyOnce) continue;
-                try { minor.applyOnce(this); } catch (e) { console.error('rune apply error', e); }
-            }
         }
 
         // Apply starter item if selected (new class-locked evolving system)
@@ -9352,6 +9386,7 @@ class DotsSurvivor {
         this.updateCharacterAbilities(effectiveDt); // Q/E ability cooldowns
         this.updateInvisibility(effectiveDt);    // Shadow Master invisibility
         this.updateSovereignBurns(effectiveDt);   // Fire Sovereign burn stacks
+        this.updateDemonicDecay(effectiveDt);      // Demonic Monarch decay stacks
         this.updateHeatConduction(effectiveDt);  // Fire Sovereign heat conduction
         this.updatePyreMomentum(effectiveDt);    // Fire Sovereign pyre momentum
         this.updateSolarCataclysm(effectiveDt);  // Fire Sovereign solar cataclysm
@@ -11353,7 +11388,7 @@ class DotsSurvivor {
         e.bonePitSlow = false; e.bonePitSlowStrength = 0; e.bonePitSlowTimer = 0;
         e.orbMarked = false; e.orbMarkTimer = 0;
         e.tauntTimer = 0; e.tauntTarget = null;
-        e.impBurn = null; e.sovereignBurn = null;
+        e.impBurn = null; e.sovereignBurn = null; e.demonicDecay = null;
         e.isHordeEnemy = false; e.isElite = false;
         e.wanderAngle = 0; e.wanderTimer = 0;
         e.skullHitId = 0;
@@ -11770,9 +11805,12 @@ class DotsSurvivor {
     }
 
     handleEnemyDeath(e, sx, sy, index) {
-        // Passive on-kill hook (Pyre Fuel adds a stack each kill)
-        const passive = PASSIVE_DEFS[this.passiveId];
-        if (passive && passive.onKill) passive.onKill(this);
+        // Demonic Monarch: decayed kills are claimed by Authority.
+        if (this.selectedClass?.id === 'demonic_monarch' && e.demonicDecay?.stacks > 0) {
+            this.dominionStacks = Math.min(this.dominionMaxStacks || 10, (this.dominionStacks || 0) + 1);
+            const bonus = this.dominionOrbBonus || 0.03;
+            this.dominionDamageBonus = 1 + (this.dominionStacks || 0) * bonus;
+        }
 
         // Special handling for Consumer death (killed by player).
         // Don't run twice — once isDying is set, the death animation is in
@@ -13302,6 +13340,48 @@ class DotsSurvivor {
         }
     }
 
+    updateDemonicDecay(dt) {
+        if (this.selectedClass?.id !== 'demonic_monarch' || !this.demonicDecayEnabled) return;
+        const maxStacks = this.demonicDecayMaxStacks || 8;
+        const dpsPerStack = this.demonicDecayDPS || 4;
+        const decayMult = (this.demonicDecayDPSMult || 1) * (this._itemMagePowerMult || 1);
+        for (const e of this.enemies) {
+            if (e.decayIgniteFlash > 0) e.decayIgniteFlash -= dt;
+            if (!e.demonicDecay || e.demonicDecay.stacks <= 0) continue;
+            const decay = e.demonicDecay;
+            if (decay.ruptureLock) {
+                decay.ruptureLock = Math.max(0, decay.ruptureLock - dt);
+                if (decay.ruptureLock <= 0) decay.rupturedThisWindow = false;
+            }
+            decay.timer -= dt;
+            if (decay.timer <= 0) {
+                decay.stacks--;
+                decay.timer = decay.stacks > 0 ? (this.demonicDecayDuration || 5) : 0;
+                if (decay.stacks <= 0) continue;
+            }
+            const bossMult = e.isBoss ? 0.65 : 1;
+            const tickDmg = dpsPerStack * decay.stacks * decayMult * bossMult * dt;
+            e.health -= tickDmg;
+            this.runDamageDealt = (this.runDamageDealt || 0) + tickDmg;
+
+            decay._numAccum = (decay._numAccum || 0) + tickDmg;
+            if (decay._numAccum >= 1) {
+                const chunk = Math.floor(decay._numAccum);
+                decay._numAccum -= chunk;
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                this.addDamageNumber(sx, sy, chunk, decay.stacks >= maxStacks ? '#f0abfc' : '#a855f7', {
+                    enemyId: e.id,
+                    target: e,
+                    scale: 0.82,
+                    maxScale: 1.25,
+                    scaleStep: 0.035
+                });
+                if (Math.random() < 0.18) this.spawnParticles(sx, sy, '#6d28d9', 2);
+            }
+        }
+    }
+
     updateHeatConduction(dt) {
         if (!this.heatConductionActive) return;
         this.heatConductionTimer += dt;
@@ -13320,7 +13400,6 @@ class DotsSurvivor {
                 }))
             };
             const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, this.heatConductionRadius);
-            const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
             for (const e of nearby) {
                 if (e.health <= 0) continue;
                 // Apply / refresh Sovereign Burn to every nearby enemy — pulse
@@ -13329,7 +13408,7 @@ class DotsSurvivor {
                 const cap = this.maxBurnStacks || 10;
                 e.sovereignBurn.stacks = Math.min(cap, (e.sovereignBurn.stacks || 0) + 1);
                 e.sovereignBurn.timer = this.burnStackDuration || 4;
-                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1) * stardustMult;
+                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1);
                 e.burnIgniteFlash = 0.45;
                 e.burnFxSeed = e.burnFxSeed ?? Math.random() * Math.PI * 2;
                 if (this.moltenCoreActive) {
@@ -13943,17 +14022,6 @@ class DotsSurvivor {
 
         const classId = this.selectedClass?.id;
 
-        // Cosmic Stardust passive: gain 1 stack per skill cast
-        if (this.passiveId === 'cosmic_stardust') {
-            this.passiveStacks = (this.passiveStacks || 0) + 1;
-        }
-        // Astral Drift (Stardust minor): MS burst on skill cast.
-        if (this.passiveMinors?.includes('astral_drift')) {
-            this.tempMSAmount = 50 + (this.player.level || 1);
-            this.tempMSExpire = (this.gameTime || 0) + 2000;
-            this.pyreSpeedBuffFlash = 0.42;
-            this.pyreSpeedBuffAmount = this.tempMSAmount;
-        }
         // Q unlocks at player level 5, E unlocks at level 10. Auto-unlock here
         // (in addition to the level-up handler) so a player who's already past
         // the threshold gets it the instant they press the key.
@@ -14418,11 +14486,13 @@ class DotsSurvivor {
             return;
         }
 
-        // Fire Sovereign: forward fire slash arc instead of homing fireballs.
-        // Damage is applied on contact and Sovereign Burn stacks DoT continues
-        // ticking after the slash visual fades (so it "ticks damage on hit").
-        if (this.selectedClass?.id === 'fire_sovereign') {
+        const attackId = this.autoAttackId || this.selectedClass?.autoAttack || 'projectile';
+        if (attackId === 'fire_slash') {
             this.fireFireSlash();
+            return;
+        }
+        if (attackId === 'demon_slash') {
+            this.fireDemonSlash();
             return;
         }
 
@@ -14585,16 +14655,11 @@ class DotsSurvivor {
         const w = this.weapons.bullet;
         const slashRange = 180;
         const slashArc = Math.PI * 0.375; // ~67° forward cone (half of original)
-        // Slash now scales with ATTACK DAMAGE only — Sword (flat + dmgPct),
-        // Pyre Fuel (passive damageMult). Mage power and Cosmic Stardust go
-        // exclusively to burn DoT below, keeping the two scaling paths clean.
-        const passive = PASSIVE_DEFS[this.passiveId];
-        const passiveDmgMult = passive?.damageMult ? passive.damageMult(this) : 1;
+        // Slash scales with attack damage. Mage power is reserved for the burn DoT.
         const baseDamage = Math.floor(
             (w.damage + (this._itemDmgFlat || 0)) *
             (this.damageMultiplier || 1) *
-            (this._itemDmgMult || 1) *
-            passiveDmgMult
+            (this._itemDmgMult || 1)
         );
         const slashCount = 1 + (this._itemSlashMultiplier || 0);
 
@@ -14661,24 +14726,14 @@ class DotsSurvivor {
                     lifetime: 0.5, color: '#ff7733', scale: 1.05,
                     target: e, wx: e.wx, wy: e.wy
                 });
-                // Burning Fervor (Pyre minor): MS burst on damage dealt.
-                if (this.passiveMinors?.includes('burning_fervor')) {
-                    this.tempMSAmount = 30 + (this.player.level || 1);
-                    this.tempMSExpire = (this.gameTime || 0) + 1500;
-                    this.pyreSpeedBuffFlash = 0.42;
-                    this.pyreSpeedBuffAmount = this.tempMSAmount;
-                }
-
                 // Apply / refresh Sovereign Burn stacks (DoT)
                 if (!e.sovereignBurn) e.sovereignBurn = { stacks: 0, timer: 0, dpsPerStack: this.sovereignBurnDPS };
                 const cap = this.maxBurnStacks || 10;
                 // 1 stack per slash hit (was 2) — gentler burn ramp.
                 e.sovereignBurn.stacks = Math.min(cap, e.sovereignBurn.stacks + 1);
                 e.sovereignBurn.timer = this.burnStackDuration || 4;
-                // Burn DoT scales ONLY with mage power (Smudged Tome) +
-                // Cosmic Stardust passive — never with attack damage.
-                const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
-                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1) * stardustMult;
+                // Burn DoT scales with mage power, never with attack damage.
+                e.sovereignBurn.dpsPerStack = this.sovereignBurnDPS * (this.sovereignBurnDPSMult || 1) * (this._itemMagePowerMult || 1);
                 e.burnIgniteFlash = 0.45;
                 e.burnFxSeed = e.burnFxSeed ?? Math.random() * Math.PI * 2;
 
@@ -14688,19 +14743,113 @@ class DotsSurvivor {
 
                 this.updateStackingItems('damage', slashDamage);
 
-                // Cosmic Stardust: gain a stack per 200 damage dealt
-                if (this.passiveId === 'cosmic_stardust') {
-                    this._stardustDmgAccum = (this._stardustDmgAccum || 0) + slashDamage;
-                    while (this._stardustDmgAccum >= 200) {
-                        this._stardustDmgAccum -= 200;
-                        this.passiveStacks = (this.passiveStacks || 0) + 1;
-                    }
-                }
-
                 if (this.vampireHeal && this.vampireHeal > 0) {
                     const heal = Math.floor(slashDamage * this.vampireHeal);
                     if (heal > 0 && this.player.health < this.player.maxHealth) this.healPlayer(heal);
                 }
+            }
+        }
+        if (totalHits > 0) this.triggerScreenShake(2, 0.08);
+    }
+
+    fireDemonSlash() {
+        const w = this.weapons.bullet;
+        const slashRange = this.demonSlashRange || 175;
+        const slashArc = this.demonSlashArc || (Math.PI * 0.42);
+        const baseDamage = Math.floor(
+            (w.damage + (this._itemDmgFlat || 0)) *
+            0.95 *
+            (this.damageMultiplier || 1) *
+            (this._itemDmgMult || 1) *
+            (this.dominionDamageBonus || 1)
+        );
+        const slashCount = 1 + (this._itemSlashMultiplier || 0);
+
+        let nearest = null, nd = Infinity;
+        const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, slashRange + 90);
+        for (const e of nearby) {
+            if (e.health <= 0) continue;
+            const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
+            const dSq = dx * dx + dy * dy;
+            const priority = e.demonicDecay?.stacks > 0 ? dSq * 0.65 : dSq;
+            if (priority < nd) { nd = priority; nearest = e; }
+        }
+        if (!nearest) return;
+
+        const ex = this.player.x + (nearest.wx - this.worldX);
+        const ey = this.player.y + (nearest.wy - this.worldY);
+        const baseAngle = Math.atan2(ey - this.player.y, ex - this.player.x);
+
+        this.playSound('shoot');
+        if (!this.activeDemonSlashes) this.activeDemonSlashes = [];
+
+        const angularSpread = (Math.PI * 2) / slashCount;
+        let totalHits = 0;
+        for (let s = 0; s < slashCount; s++) {
+            const slashAngle = baseAngle + s * angularSpread;
+            this.activeDemonSlashes.push({
+                x: this.player.x,
+                y: this.player.y,
+                angle: slashAngle,
+                range: slashRange,
+                arc: slashArc,
+                timer: 0.42,
+                maxTimer: 0.42,
+                motes: Array.from({ length: 16 }, (_, i) => ({
+                    angleT: (i + Math.random() * 0.75) / 16,
+                    radiusT: 0.35 + Math.random() * 0.7,
+                    size: 2 + Math.random() * 3,
+                    drift: (Math.random() - 0.5) * 24
+                }))
+            });
+
+            for (const e of nearby) {
+                if (e.health <= 0) continue;
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const dx = sx - this.player.x, dy = sy - this.player.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > slashRange + e.radius) continue;
+                const angleToEnemy = Math.atan2(dy, dx);
+                let angleDiff = angleToEnemy - slashAngle;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                if (Math.abs(angleDiff) > slashArc / 2) continue;
+
+                let dmg = baseDamage;
+                const decayStacks = e.demonicDecay?.stacks || 0;
+                if (decayStacks > 0) dmg = Math.floor(dmg * (1 + Math.min(0.24, decayStacks * 0.03)));
+                const critChance = (this.critChance || 0) + (this.critChanceBonus || 0) + (this._itemCritFlat || 0) + (w.critChance || 0.05);
+                if (Math.random() < critChance) dmg = Math.floor(dmg * (w.critMultiplier || 2.0));
+
+                dmg = this.applyArmorPen(dmg, e);
+                e.health -= dmg;
+                e.hitFlash = 1;
+                this.runDamageDealt = (this.runDamageDealt || 0) + dmg;
+                this.addDamageNumber(sx, sy - 14, dmg, '#c084fc', { target: e, wx: e.wx, wy: e.wy });
+
+                if (!e.demonicDecay) e.demonicDecay = { stacks: 0, timer: 0, dpsPerStack: this.demonicDecayDPS || 4 };
+                const cap = this.demonicDecayMaxStacks || 8;
+                e.demonicDecay.stacks = Math.min(cap, (e.demonicDecay.stacks || 0) + 1);
+                e.demonicDecay.timer = this.demonicDecayDuration || 5;
+                e.demonicDecay.dpsPerStack = (this.demonicDecayDPS || 4) * (this.demonicDecayDPSMult || 1) * (this._itemMagePowerMult || 1);
+                e.decayIgniteFlash = 0.5;
+                e.decayFxSeed = e.decayFxSeed ?? Math.random() * Math.PI * 2;
+
+                if (e.demonicDecay.stacks >= cap && !e.demonicDecay.rupturedThisWindow) {
+                    const rupture = Math.floor((baseDamage * (this.demonicDecayRuptureMult || 1.15)) + (this.player.level || 1) * 6);
+                    e.health -= rupture;
+                    e.demonicDecay.stacks = Math.max(4, Math.floor(cap / 2));
+                    e.demonicDecay.rupturedThisWindow = true;
+                    e.demonicDecay.ruptureLock = 1.2;
+                    this.addDamageNumber(sx, sy - 34, rupture, '#f0abfc', { isText: false, scale: 1.25, target: e });
+                    this.spawnParticles(sx, sy, '#a855f7', 12);
+                    this.triggerScreenShake(3, 0.08);
+                }
+                this.spawnParticles(sx, sy, '#6d28d9', 5);
+                this.spawnParticles(sx, sy, '#111827', 3);
+                this.updateStackingItems('damage', dmg);
+                totalHits++;
             }
         }
         if (totalHits > 0) this.triggerScreenShake(2, 0.08);
@@ -16045,10 +16194,7 @@ class DotsSurvivor {
     // ─── New shop-purchased attacks ──────────────────────────────────────
     updateShopAttacks(dt) {
         if (!this.player || this.player.health <= 0) return;
-        const passive = PASSIVE_DEFS[this.passiveId];
-        const passiveDmg = passive?.damageMult ? passive.damageMult(this) : 1;
-        const stardustMult = this.passiveId === 'cosmic_stardust' ? 1 + (this.passiveStacks || 0) * 0.003 : 1;
-        const dmgScale = (this._itemDmgMult || 1) * (this._itemMagePowerMult || 1) * passiveDmg * stardustMult;
+        const dmgScale = (this._itemDmgMult || 1) * (this._itemMagePowerMult || 1);
 
         // Beam of Despair — every 3s, fire piercing line at nearest enemy
         if (this.beamUnlocked) {
@@ -17053,7 +17199,7 @@ class DotsSurvivor {
         // fresh run with a different passive doesn't show the previous one's
         // name/icon. Uses the passive sprite (passives/<id>.png) instead of
         // emoji, falling back to the emoji if the sprite hasn't loaded.
-        const passive = PASSIVE_DEFS[this.passiveId];
+        const passive = this.selectedClass?.passive;
         if (passive) {
             let row = document.getElementById('stat-passive-row');
             const panel = document.querySelector('#stats-panel > div:last-child');
@@ -17062,20 +17208,14 @@ class DotsSurvivor {
                 row.id = 'stat-passive-row';
                 panel.appendChild(row);
             }
-            if (row && row.dataset.passive !== this.passiveId) {
-                row.dataset.passive = this.passiveId;
-                const localUrl = `passives/${passive.id}.png`;
-                const cdnUrl = (typeof getAssetUrl === 'function') ? getAssetUrl(localUrl) : null;
+            if (row && row.dataset.passive !== this.selectedClass.id) {
+                row.dataset.passive = this.selectedClass.id;
                 row.innerHTML = `
-                    <span style="color:${passive.color};display:inline-flex;align-items:center;gap:4px;">
-                        <img class="passive-stat-icon" src="${localUrl}" alt=""
-                             onerror="this.onerror=null;${cdnUrl ? `this.src='${cdnUrl}'` : `this.style.display='none'`}"
-                             style="width:18px;height:18px;border-radius:4px;object-fit:cover;border:1px solid ${passive.color};vertical-align:middle;">
-                        ${passive.name.toUpperCase()}: <span id="stat-passive-stacks" style="color:#fff;font-weight:bold;">0</span>
+                    <span style="color:${this.selectedClass.color};display:inline-flex;align-items:center;gap:4px;">
+                        ${passive.icon || this.selectedClass.icon}
+                        ${passive.name.toUpperCase()}
                     </span>`;
             }
-            const stackEl = document.getElementById('stat-passive-stacks');
-            if (stackEl) stackEl.textContent = String(this.passiveStacks || 0);
         }
 
         // Update CC Reduction stat
@@ -19816,6 +19956,52 @@ class DotsSurvivor {
             ctx.restore();
         }
 
+        // Demonic Decay indicators on enemies (Demonic Monarch)
+        if (this.selectedClass?.id === 'demonic_monarch') {
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const t = (this.gameTime || 0) / 1000;
+            for (const e of this.enemies) {
+                if (!e.demonicDecay || e.demonicDecay.stacks <= 0) continue;
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const stacks = e.demonicDecay.stacks;
+                const cap = this.demonicDecayMaxStacks || 8;
+                const stackRatio = Math.min(1, stacks / cap);
+                const seed = e.decayFxSeed || 0;
+                const flash = Math.max(0, e.decayIgniteFlash || 0);
+                const radius = e.radius + 6 + stackRatio * 11 + flash * 12;
+                const pulse = 0.55 + 0.45 * Math.sin(t * 7 + seed);
+
+                const grad = ctx.createRadialGradient(sx, sy, Math.max(1, e.radius * 0.2), sx, sy, radius * 1.5);
+                grad.addColorStop(0, `rgba(240, 171, 252, ${0.08 + 0.20 * stackRatio + flash * 0.28})`);
+                grad.addColorStop(0.48, `rgba(109, 40, 217, ${0.16 + 0.28 * stackRatio})`);
+                grad.addColorStop(1, 'rgba(2, 6, 23, 0)');
+                ctx.beginPath();
+                ctx.arc(sx, sy, radius * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(${145 + Math.floor(70 * pulse)}, 90, 255, ${0.24 + 0.50 * stackRatio})`;
+                ctx.lineWidth = 1.5 + stackRatio * 3 + flash * 4;
+                ctx.shadowBlur = 12 + stackRatio * 18;
+                ctx.shadowColor = '#7c3aed';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                ctx.font = 'bold 10px Inter';
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(4, 1, 12, 0.92)';
+                ctx.strokeText(`DECAY x${stacks}`, sx, sy - e.radius - 13);
+                ctx.fillStyle = stackRatio >= 1 ? '#f5d0fe' : '#c084fc';
+                ctx.fillText(`DECAY x${stacks}`, sx, sy - e.radius - 13);
+            }
+            ctx.restore();
+        }
+
         // ========== VOID BLADE (AZURA) RENDERING ==========
 
         // Melee Slash Arc Visual
@@ -20298,6 +20484,63 @@ class DotsSurvivor {
                 ctx.restore();
                 s.timer -= 0.016;
                 if (s.timer <= 0) this.activeFireSlashes.splice(i, 1);
+            }
+        }
+
+        // Demon Slash Visual (Demonic Monarch auto-attack)
+        if (this.activeDemonSlashes && this.activeDemonSlashes.length > 0) {
+            for (let i = this.activeDemonSlashes.length - 1; i >= 0; i--) {
+                const s = this.activeDemonSlashes[i];
+                const t = Math.max(0, s.timer / s.maxTimer);
+                const fade = t;
+                const sweep = 1 - t;
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.rotate(s.angle);
+                const r0 = s.range * (0.30 + sweep * 0.30);
+                const r1 = s.range * (0.76 + sweep * 0.26);
+                const innerArc = s.arc * (0.54 + sweep * 0.32);
+                const grad = ctx.createRadialGradient(0, 0, r0 * 0.4, 0, 0, r1);
+                grad.addColorStop(0, `rgba(245, 208, 254, ${0.06 * fade})`);
+                grad.addColorStop(0.32, `rgba(168, 85, 247, ${0.32 * fade})`);
+                grad.addColorStop(0.70, `rgba(59, 7, 100, ${0.60 * fade})`);
+                grad.addColorStop(1, 'rgba(2, 6, 23, 0)');
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.shadowBlur = 32;
+                ctx.shadowColor = '#7c3aed';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, r1 * 0.92, -innerArc / 2, innerArc / 2);
+                ctx.strokeStyle = `rgba(88, 28, 135, ${0.78 * fade})`;
+                ctx.lineWidth = 20;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 28;
+                ctx.shadowColor = '#4c1d95';
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
+                ctx.strokeStyle = `rgba(240, 171, 252, ${0.92 * fade})`;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                for (const mote of (s.motes || [])) {
+                    const a = (-s.arc / 2) + (s.arc * mote.angleT) - sweep * 0.20;
+                    const r = r1 * mote.radiusT;
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(a) * r, Math.sin(a) * r + mote.drift * sweep, mote.size, 0, Math.PI * 2);
+                    ctx.fillStyle = mote.angleT > 0.5 ? `rgba(17, 24, 39, ${fade})` : `rgba(192, 132, 252, ${fade * 0.85})`;
+                    ctx.fill();
+                }
+                ctx.restore();
+                s.timer -= 0.016;
+                if (s.timer <= 0) this.activeDemonSlashes.splice(i, 1);
             }
         }
 
@@ -21507,7 +21750,11 @@ class DotsSurvivor {
         // Determine which level sprite to use based on player level
         let levelSpriteKey;
         if (this.selectedClass?.id === 'demonic_monarch') {
-            levelSpriteKey = 'dm_level1';
+            if (level >= 21) levelSpriteKey = 'dm_level21';
+            else if (level >= 16) levelSpriteKey = 'dm_level16';
+            else if (level >= 11) levelSpriteKey = 'dm_level11';
+            else if (level >= 6) levelSpriteKey = 'dm_level6';
+            else levelSpriteKey = 'dm_level1';
         } else if (this.selectedClass?.id === 'shadow_monarch') {
             // Shadow Monarch uses its own sprite progression
             if (level >= 21) levelSpriteKey = 'sm_level21';
