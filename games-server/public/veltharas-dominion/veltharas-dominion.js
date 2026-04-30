@@ -1563,6 +1563,8 @@ function initSprites() {
     for (const [level, path] of Object.entries(SHADOW_MONARCH_SPRITES)) {
         loadSprite('sm_' + level, getAssetUrl(path) + '?v=2', true);
     }
+    // Demonic Monarch uses a generated single-form sprite.
+    loadSprite('dm_level1', getAssetUrl('characters/demonic-monarch-lv1.png') + '?v=1', true);
     // Void Blade (Azura) sprites
     for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
         loadSprite('vb_' + level, getAssetUrl(path) + '?v=2', true);
@@ -1818,6 +1820,59 @@ const SHADOW_MONARCH_CLASS = {
     augments: []
 };
 
+// ========== DEMONIC MONARCH CLASS ==========
+const DEMONIC_MONARCH_CLASS = {
+    id: 'demonic_monarch',
+    name: 'Demonic Monarch',
+    icon: '👑',
+    portrait: 'characters/demonic-monarch-lv1.png',
+    color: '#dc2626',
+    desc: 'A ruler of conquered demons. Builds a demon army through executions, abyssal beams, and an empowered royal guard.',
+    bonuses: {
+        noProjectiles: true,
+        hasUmbralOrbs: true,
+        umbralOrbCount: 2,
+        hasShadowThrall: true,
+        damage: 1.35,
+        fireRate: 0.9,
+    },
+    skills: {
+        abyssalEyes: { name: 'Abyssal Eyes', icon: '👁️', desc: 'Demonic eyes fire crimson lances at marked enemies', level: 1 },
+        royalGuard: { name: 'Royal Guard', icon: '👹', desc: 'A demon general fights beside you and grows from conquest', level: 1 },
+        commandAuthority: { name: 'Command Authority', icon: '👑', desc: 'Kills and thrall hits build Authority stacks for more damage', level: 1 },
+    },
+    passive: {
+        name: 'Arise, Legion',
+        icon: '👑',
+        desc: 'Starts with 2 abyssal eyes and a demon general. Every 90 kills forms another eye. Authority stacks increase demon damage.',
+        effect: (g) => {
+            g.shadowVoid = {
+                radius: 145,
+                baseDPS: 22,
+                atkScaling: 0.12,
+                waveScaling: 2.3,
+                tickTimer: 0,
+                tickInterval: 0.5
+            };
+            g.monarchOrbKillThreshold = 90;
+            g.monarchOrbMaxFromKills = 6;
+            g.dominionOrbBonus = 0.03;
+        }
+    },
+    abilities: {},
+    sigils: [
+        { id: 'dm_eye_of_ruin', classReq: 'demonic_monarch', name: 'Faded Sigil: Eye of Ruin', icon: '👁️', desc: '+18% abyssal eye damage', tier: 'FADED', rarity: 'common', effect: (g) => { g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.18; }, getDesc: () => 'Eye damage +18%' },
+        { id: 'dm_demon_hide', classReq: 'demonic_monarch', name: 'Faded Sigil: Demon Hide', icon: '🛡️', desc: '+150 max HP, +5% damage reduction', tier: 'FADED', rarity: 'common', effect: (g) => { g.player.maxHealth += 150; g.player.health += 150; g.damageReduction = (g.damageReduction || 0) + 0.05; }, getDesc: () => 'HP +150, damage taken -5%' },
+        { id: 'dm_authority_surge', classReq: 'demonic_monarch', name: 'Runed Sigil: Authority Surge', icon: '👑', desc: 'Authority stacks grant +4% demon damage each', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.dominionOrbBonus = 0.04; }, getDesc: () => 'Authority +4%/stack' },
+        { id: 'dm_royal_guard', classReq: 'demonic_monarch', name: 'Runed Sigil: Royal Guard', icon: '👹', desc: '+35% demon general damage, +25% HP', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.thrallDamageBonus = (g.thrallDamageBonus || 1) * 1.35; g.thrallHPBonus = (g.thrallHPBonus || 1) * 1.25; if (g.shadowThrall) g.recalcThrallStats(); }, getDesc: () => 'Guard damage +35%, HP +25%' },
+        { id: 'dm_abyssal_command', classReq: 'demonic_monarch', name: 'Empowered Sigil: Abyssal Command', icon: '🔮', desc: 'Abyssal Edict lasts +2s and chains to +1 enemy', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'abyssalEyes', effect: (g) => { g.despairBarrageDuration = (g.despairBarrageDuration || 4) + 2; g.despairBarrageChains = (g.despairBarrageChains || 0) + 1; }, getDesc: () => 'Edict +2s, +1 chain' },
+        { id: 'dm_demon_general', classReq: 'demonic_monarch', name: 'Empowered Sigil: Demon General', icon: '🔥', desc: 'Royal Decree makes guard kills explode', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'royalGuard', effect: (g) => { g.thrallAoEBonus = (g.thrallAoEBonus || 1) * 1.45; g.thrallExplosionsOnKill = true; g.boundSigils.push('demon_general'); }, getDesc: () => 'Guard AoE +45%, kills explode' },
+        { id: 'dm_true_monarch', classReq: 'demonic_monarch', name: 'Ascendant Sigil: True Monarch', icon: '♛', desc: '+2 max Authority stacks. Guard respawns instantly.', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'commandAuthority', effect: (g) => { g.dominionMaxStacks = (g.dominionMaxStacks || 10) + 2; g.thrallInstantRespawn = true; g.boundSigils.push('true_monarch'); }, getDesc: (g) => `Max Authority: ${g.dominionMaxStacks || 10} → ${(g.dominionMaxStacks || 10) + 2}` },
+        { id: 'dm_legion_ascendant', classReq: 'demonic_monarch', name: 'Ascendant Sigil: Legion Ascendant', icon: '💀', desc: 'Abyssal eyes fire double beams and mark targets for the guard', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'abyssalEyes', effect: (g) => { g.doubleBeam = true; g.umbralOrbDamageBonus = (g.umbralOrbDamageBonus || 1) * 1.35; g.boundSigils.push('legion_ascendant'); }, getDesc: () => 'Double beams, eye damage +35%' },
+    ],
+    augments: []
+};
+
 // ========== VOID BLADE (AZURA) CLASS ==========
 const VOID_BLADE_CLASS = {
     id: 'void_blade',
@@ -1868,7 +1923,7 @@ const VOID_BLADE_CLASS = {
 };
 
 // All playable classes for character select
-const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
+const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, DEMONIC_MONARCH_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
 
 // Combined sigil pool — curated safe sigils from all classes for the single combined character
 const ALL_CLASS_SIGILS = [
@@ -1878,6 +1933,7 @@ const ALL_CLASS_SIGILS = [
     ...SHADOW_MONARCH_CLASS.sigils.filter(s =>
         ['sm_void_pulse','sm_dominion_bond_sigil','sm_abyssal_void'].includes(s.id)
     ),
+    ...DEMONIC_MONARCH_CLASS.sigils,
     // Void Blade — bleed stat sigils only (blood sword sigils replaced by ability sigils)
     ...VOID_BLADE_CLASS.sigils.filter(s =>
         ['vb_deep_cuts','vb_blood_scent','vb_keen_edge','vb_void_riposte','vb_exsanguinate','vb_hemorrhage'].includes(s.id)
@@ -4880,8 +4936,8 @@ class DotsSurvivor {
         // Recalculate Dominion Set bonuses based on loaded sigils
         recalculateDominionSets(this);
 
-        // Shadow Monarch state restoration
-        if (this.selectedClass?.id === 'shadow_monarch') {
+        // Monarch state restoration
+        if (this.selectedClass?.id === 'shadow_monarch' || this.selectedClass?.id === 'demonic_monarch') {
             this.dominionStacks = state.dominionStacks || 0;
             this.thrallDamageBonus = state.thrallDamageBonus || 1;
             this.thrallHPBonus = state.thrallHPBonus || 1;
@@ -5040,12 +5096,61 @@ class DotsSurvivor {
     }
 
     showCharacterSelect() {
-        // Single character; flow goes character → rune tree → kit → game.
-        this.pendingCharacterClass = FIRE_SOVEREIGN_CLASS;
-        this.selectedStarterItem = null;
+        let overlay = document.getElementById('character-select-overlay');
+        if (overlay) overlay.remove();
         document.getElementById('gameover-menu').classList.add('hidden');
         document.getElementById('start-menu').classList.add('hidden');
-        this.showRuneTreeSelect();
+        overlay = document.createElement('div');
+        overlay.id = 'character-select-overlay';
+        overlay.className = 'menu-overlay';
+        overlay.innerHTML = `
+            <div class="menu-content wide-panel">
+                <h1 style="color:#ffb84d;margin-bottom:.35rem;letter-spacing:3px;">CHOOSE YOUR HERO</h1>
+                <p style="color:#bdf78c;margin-bottom:1rem;">Each hero has a distinct combat engine, passive, and Q/E power spikes.</p>
+                <div class="char-select-grid"></div>
+                <button id="character-select-back" class="menu-btn secondary">BACK</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const grid = overlay.querySelector('.char-select-grid');
+        for (const cls of PLAYABLE_CLASSES) {
+            const card = document.createElement('div');
+            card.className = 'char-card';
+            card.style.borderColor = cls.color;
+            const skillList = Object.values(cls.skills || {}).slice(0, 3);
+            card.innerHTML = `
+                ${cls.portrait ? `<img class="char-portrait" src="${cls.portrait}" alt="${cls.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">` : ''}
+                <div class="char-icon" style="${cls.portrait ? 'display:none;' : ''}">${cls.icon}</div>
+                <div class="char-name" style="color:${cls.color};">${cls.name}</div>
+                <div class="char-desc">${cls.description || cls.desc || ''}</div>
+                <div class="char-skills">
+                    <div class="char-skills-label">Core Kit</div>
+                    ${skillList.map(s => `<div class="skill-row"><span>${s.icon || '-'}</span><span>${s.name}</span></div>`).join('')}
+                </div>
+                ${cls.passive ? `
+                    <div class="char-passive">
+                        <span class="passive-icon">${cls.passive.icon || cls.icon}</span>
+                        <div>
+                            <div class="passive-name">${cls.passive.name}</div>
+                            <div class="passive-desc">${cls.passive.desc}</div>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+            card.addEventListener('click', () => {
+                this.pendingCharacterClass = cls;
+                this.selectedStarterItem = null;
+                overlay.remove();
+                this.showRuneTreeSelect();
+            });
+            grid.appendChild(card);
+        }
+
+        overlay.querySelector('#character-select-back').addEventListener('click', () => {
+            overlay.remove();
+            document.getElementById('start-menu').classList.remove('hidden');
+        });
     }
 
     showRuneTreeSelect() {
@@ -5089,10 +5194,6 @@ class DotsSurvivor {
                 this.passiveTree = t.id;
                 this.passiveId = t.keystoneId;
                 this.passiveMinors = t.minors.map(m => m.id);
-                // Apply once-only minor effects (flat stat boosts).
-                for (const m of t.minors) {
-                    if (m.applyOnce) try { m.applyOnce(this); } catch (e) { console.error('rune apply error', e); }
-                }
                 overlay.remove();
                 this.showKitSelect();
             };
@@ -5158,15 +5259,15 @@ class DotsSurvivor {
         // four ATK DMG is allowed for a glass-cannon build).
         // Flat values — picks must be visibly impactful at 1× weapon damage 8.
         const SHARDS = [
-            { id: 'shard_atk',  name: '+5 Base Damage', icon: '⚔', color: '#ff5c5c', apply: g => { g.weapons.bullet.damage += 5; } },
-            { id: 'shard_aspd', name: '+10% Atk Speed', icon: '⚡', color: '#ffe066', apply: g => { g.weapons.bullet.fireRate *= (1 / 1.10); if (g._itemBaseFireRate != null) g._itemBaseFireRate *= (1 / 1.10); } },
-            { id: 'shard_crit', name: '+5% Crit',       icon: '🎯', color: '#ffb84d', apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; } },
-            { id: 'shard_hp',   name: '+50 Max HP',     icon: '❤', color: '#ff5c8a', apply: g => { g.player.maxHealth += 50; g.player.health += 50; if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 50; } },
-            { id: 'shard_spd',  name: '+20 Move Spd',   icon: '👟', color: '#5cd8ff', apply: g => { g.player.speed += 20; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 20; } },
-            { id: 'shard_mage', name: '+20% Mage Pwr',  icon: '📕', color: '#a070ff', apply: g => { g._itemMagePowerMult = (g._itemMagePowerMult || 1) * 1.20; } },
-            { id: 'shard_for',  name: '+20% Fortune',   icon: '🪙', color: '#ffd34d', apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.20; } },
-            { id: 'shard_regen',name: '+2 HP Regen',    icon: '✚', color: '#7be36e', apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; } },
-            { id: 'shard_arpen',name: '+10 Armor Pen',  icon: 'AP', color: '#f0c46a', apply: g => { g.armorPen = Math.min(100, (g.armorPen || 0) + 10); } }
+            { id: 'shard_atk',  name: '+5 Base Damage', icon: '⚔', color: '#ff5c5c', preview: { damage: 5 }, apply: g => { g.weapons.bullet.damage += 5; } },
+            { id: 'shard_aspd', name: '+10% Atk Speed', icon: '⚡', color: '#ffe066', preview: { attackSpeedPct: 10 }, apply: g => { g.weapons.bullet.fireRate *= (1 / 1.10); if (g._itemBaseFireRate != null) g._itemBaseFireRate *= (1 / 1.10); } },
+            { id: 'shard_crit', name: '+5% Crit',       icon: '🎯', color: '#ffb84d', preview: { critPct: 5 }, apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.05; } },
+            { id: 'shard_hp',   name: '+50 Max HP',     icon: '❤', color: '#ff5c8a', preview: { hp: 50 }, apply: g => { g.player.maxHealth += 50; g.player.health += 50; if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 50; } },
+            { id: 'shard_spd',  name: '+20 Move Spd',   icon: '👟', color: '#5cd8ff', preview: { moveSpeed: 20 }, apply: g => { g.player.speed += 20; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 20; } },
+            { id: 'shard_mage', name: '+20% Mage Pwr',  icon: '📕', color: '#a070ff', preview: { magePowerPct: 20 }, apply: g => { g._itemMagePowerMult = (g._itemMagePowerMult || 1) * 1.20; } },
+            { id: 'shard_for',  name: '+20% Fortune',   icon: '🪙', color: '#ffd34d', preview: { fortunePct: 20 }, apply: g => { g._itemFortuneMult = (g._itemFortuneMult || 1) * 1.20; } },
+            { id: 'shard_regen',name: '+2 HP Regen',    icon: '✚', color: '#7be36e', preview: { regen: 2 }, apply: g => { g.player.hpRegen = (g.player.hpRegen || 0) + 2; } },
+            { id: 'shard_arpen',name: '+10 Armor Pen',  icon: 'AP', color: '#f0c46a', preview: { armorPen: 10 }, apply: g => { g.armorPen = Math.min(100, (g.armorPen || 0) + 10); } }
         ];
 
         SHARDS.forEach((sh, idx) => { sh.iconIndex = idx; });
@@ -5181,6 +5282,49 @@ class DotsSurvivor {
 
         let chosenAttack = 'fire_slash';
         const chosenShards = []; // up to 4 (allowing repeats)
+        const previewLabels = [
+            ['damage', 'Damage', '', '#ff7a7a'],
+            ['attackSpeedPct', 'Attack speed', '%', '#ffe066'],
+            ['critPct', 'Crit', '%', '#ffb84d'],
+            ['hp', 'Max HP', '', '#ff7aa8'],
+            ['moveSpeed', 'Move speed', '', '#7be3ff'],
+            ['magePowerPct', 'Mage power', '%', '#b68cff'],
+            ['fortunePct', 'Fortune', '%', '#ffd34d'],
+            ['regen', 'HP regen', '/s', '#7be36e'],
+            ['armorPen', 'Armor pen', '', '#f0c46a']
+        ];
+        const buildPreviewHtml = () => {
+            const totals = {};
+            for (const id of chosenShards) {
+                const sh = SHARDS.find(s => s.id === id);
+                if (!sh || !sh.preview) continue;
+                for (const [key, value] of Object.entries(sh.preview)) {
+                    totals[key] = (totals[key] || 0) + value;
+                }
+            }
+            const rows = previewLabels
+                .filter(([key]) => totals[key])
+                .map(([key, label, suffix, color]) => `
+                    <div style="display:flex;justify-content:space-between;gap:1rem;padding:.34rem .5rem;border-radius:8px;background:rgba(255,255,255,.045);">
+                        <span style="color:#b8bfd0;">${label}</span>
+                        <span style="color:${color};font-weight:900;">+${totals[key]}${suffix}</span>
+                    </div>
+                `).join('');
+            const empty = `<div style="color:#777;font-size:.86rem;line-height:1.45;">Pick shards to preview the exact stats your run starts with.</div>`;
+            const tree = TREE_DEFS[this.passiveTree];
+            const treeLine = tree ? `
+                <div style="margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(255,255,255,.1);color:${tree.color};font-weight:800;font-size:.84rem;">
+                    ${tree.name}: ${tree.keystoneName}
+                </div>
+            ` : '';
+            return `
+                <div style="height:100%;padding:1rem;border:1px solid rgba(255,190,110,.22);border-radius:14px;background:rgba(7,10,18,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);">
+                    <div style="color:#ffd4a8;font-weight:900;letter-spacing:2px;margin-bottom:.65rem;">BUILD PREVIEW</div>
+                    <div style="display:flex;flex-direction:column;gap:.35rem;">${rows || empty}</div>
+                    ${treeLine}
+                </div>
+            `;
+        };
 
         const render = () => {
             overlay.innerHTML = `
@@ -5188,13 +5332,18 @@ class DotsSurvivor {
                     <h1 style="color:#ffb84d;font-size:2.4rem;letter-spacing:3px;text-shadow:0 0 22px rgba(255,184,77,0.55);margin-bottom:.4rem;">BUILD YOUR KIT</h1>
                     <div style="color:#bdf78c;font-size:1rem;">Pick one primary attack and four stat shards. These stack on top of items + passive scaling.</div>
                 </div>
-                <div style="width:100%;max-width:980px;">
+                <div style="width:100%;max-width:1120px;">
                     <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.6rem;">PRIMARY ATTACK</div>
                     <div id="kit-attacks" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem;"></div>
-                    <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.4rem;">SHARDS · <span id="kit-shard-count" style="color:#7be3ff;">0</span> / 4</div>
-                    <div style="color:#888;font-size:.85rem;margin-bottom:.6rem;">Click a shard to add it (repeats allowed). Click your selections below to remove.</div>
-                    <div id="kit-shards" style="display:flex;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem;"></div>
-                    <div id="kit-selected" style="display:flex;gap:.5rem;flex-wrap:wrap;min-height:48px;padding:.6rem;border:1px dashed rgba(255,255,255,.18);border-radius:10px;margin-bottom:1.6rem;"></div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;align-items:stretch;">
+                        <div>
+                            <div style="color:#ffd4a8;font-weight:800;letter-spacing:2px;margin-bottom:.4rem;">SHARDS - <span id="kit-shard-count" style="color:#7be3ff;">0</span> / 4</div>
+                            <div style="color:#888;font-size:.85rem;margin-bottom:.6rem;">Click a shard to add it (repeats allowed). Click your selections below to remove.</div>
+                            <div id="kit-shards" style="display:flex;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem;"></div>
+                            <div id="kit-selected" style="display:flex;gap:.5rem;flex-wrap:wrap;min-height:48px;padding:.6rem;border:1px dashed rgba(255,255,255,.18);border-radius:10px;margin-bottom:1.6rem;"></div>
+                        </div>
+                        <div>${buildPreviewHtml()}</div>
+                    </div>
                     <div style="text-align:center;">
                         <button id="kit-confirm" style="padding:1rem 2.4rem;background:linear-gradient(135deg,#ff8a3c,#c03a14);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:1.1rem;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 18px rgba(255,80,0,0.3);">ENTER THE DOMAIN →</button>
                     </div>
@@ -5520,6 +5669,7 @@ class DotsSurvivor {
         // New item effect properties
         this.vampiricHeal = 0;         // HP healed per kill
         this.critChance = 0;            // Crit chance (0-1)
+        this.critChanceBonus = 0;       // Run-scoped crit chance from shards, runes, and shops
         this.bulletPierce = 0;          // How many enemies bullets pierce
         this.damageMultiplier = 1;      // Bullet damage multiplier
         this.bulletExplosion = false;   // Whether bullets explode
@@ -5975,9 +6125,21 @@ class DotsSurvivor {
                 tickInterval: 0.5
             };
         }
-        if (this.selectedClass.id === 'shadow_monarch') {
+        if (this.selectedClass.id === 'shadow_monarch' || this.selectedClass.id === 'demonic_monarch') {
             this.characterAbilities.q.maxCooldown = 15;
             this.characterAbilities.e.maxCooldown = 45;
+            if (this.selectedClass.id === 'demonic_monarch') {
+                this.characterAbilities.q.maxCooldown = 13;
+                this.characterAbilities.e.maxCooldown = 42;
+                this.despairBarrageDuration = 5;
+                this.despairBarrageDmgMult = 1.15;
+                this.thrallDamageBonus = (this.thrallDamageBonus || 1) * 1.20;
+                if (this.shadowThrall) {
+                    this.shadowThrall.color = '#7f1d1d';
+                    this.shadowThrall.icon = '👹';
+                    this.recalcThrallStats();
+                }
+            }
         }
 
         // ========== VOID BLADE (AZURA) ==========
@@ -6103,6 +6265,16 @@ class DotsSurvivor {
         // Apply class passive effect
         if (this.selectedClass.passive && this.selectedClass.passive.effect) {
             this.selectedClass.passive.effect(this);
+        }
+
+        // Apply selected rune minors after run state is reset, so their
+        // one-time bonuses do not leak between runs or get wiped by init.
+        const selectedRuneTree = TREE_DEFS[this.passiveTree];
+        if (selectedRuneTree && Array.isArray(this.passiveMinors)) {
+            for (const minor of selectedRuneTree.minors) {
+                if (!this.passiveMinors.includes(minor.id) || !minor.applyOnce) continue;
+                try { minor.applyOnce(this); } catch (e) { console.error('rune apply error', e); }
+            }
         }
 
         // Apply starter item if selected (new class-locked evolving system)
@@ -8490,7 +8662,7 @@ class DotsSurvivor {
         if (!this.umbralOrbs || this.umbralOrbs.length === 0) return;
 
         const kills = this.player.kills || 0;
-        const threshold = 150;
+        const threshold = this.monarchOrbKillThreshold || 150;
         const maxFromPassive = this.monarchOrbMaxFromKills || 5;
 
         // Calculate how many orbs should have been spawned from kills
@@ -13958,7 +14130,7 @@ class DotsSurvivor {
             }
         }
         // ========== SHADOW MONARCH ABILITIES ==========
-        else if (classId === 'shadow_monarch') {
+        else if (classId === 'shadow_monarch' || classId === 'demonic_monarch') {
             if (abilityKey === 'q') {
                 // Despair Barrage: Orbs become super orbs firing beams of despair
                 if (this.umbralOrbs && this.umbralOrbs.length > 0) {
@@ -13970,7 +14142,10 @@ class DotsSurvivor {
                         orb.superOrb = true;
                         orb.superOrbPulse = 0;
                     }
-                    this.spawnParticles(this.player.x, this.player.y, '#cc00ff', 15);
+                    this.spawnParticles(this.player.x, this.player.y, classId === 'demonic_monarch' ? '#dc2626' : '#cc00ff', classId === 'demonic_monarch' ? 24 : 15);
+                    if (classId === 'demonic_monarch') {
+                        this.addDamageNumber(this.player.x, this.player.y - 38, 'ABYSSAL EDICT!', '#ff4444', { isText: true, scale: 1.25, lifetime: 1.4 });
+                    }
                     this.playSound('shoot');
                     this.triggerScreenShake(5, 0.15);
                     ability.ready = false;
@@ -13988,11 +14163,17 @@ class DotsSurvivor {
                     this.shadowThrall.ascended = true;
                     this.shadowThrall.ascendTimer = 8;
                     this.shadowThrall.radius *= 1.3;
+                    if (classId === 'demonic_monarch') {
+                        this.shadowThrall.radius *= 1.12;
+                        this.shadowThrall.color = '#dc2626';
+                        this.shadowThrall.icon = '👹';
+                        this.dominionStacks = Math.min(this.dominionMaxStacks || 10, (this.dominionStacks || 0) + 3);
+                    }
                     this.recalcThrallStats();
 
                     // Visual effects
-                    this.spawnParticles(this.shadowThrall.x, this.shadowThrall.y, '#7700cc', 15);
-                    this.spawnParticles(this.player.x, this.player.y, '#1a0033', 10);
+                    this.spawnParticles(this.shadowThrall.x, this.shadowThrall.y, classId === 'demonic_monarch' ? '#dc2626' : '#7700cc', classId === 'demonic_monarch' ? 24 : 15);
+                    this.spawnParticles(this.player.x, this.player.y, classId === 'demonic_monarch' ? '#7f1d1d' : '#1a0033', 10);
                     this.playSound('levelup');
                     this.triggerScreenShake(8, 0.3);
                     this.addDamageNumber(this.shadowThrall.x, this.shadowThrall.y - 30, '👑 ASCENDED!', '#bb66ff', { isText: true, scale: 1.5, lifetime: 2 });
@@ -16334,6 +16515,7 @@ class DotsSurvivor {
             const availableClassSigils = ALL_CLASS_SIGILS.filter(s => {
                 if (ownedIds.has(s.id)) return false;
                 if (usedIds.has(s.id)) return false;
+                if (s.classReq && s.classReq !== this.selectedClass?.id) return false;
                 // Check prerequisite
                 if (s.req && !ownedIds.has(s.req)) return false;
                 return true;
@@ -20509,7 +20691,7 @@ class DotsSurvivor {
             ctx.restore();
         }
 
-        if (this.shadowVoid && this.selectedClass?.id === 'shadow_monarch') {
+        if (this.shadowVoid && (this.selectedClass?.id === 'shadow_monarch' || this.selectedClass?.id === 'demonic_monarch')) {
             ctx.save();
             const voidRadius = this.shadowVoid.radius;
             const pulse = 1 + Math.sin(this.gameTime / 300) * 0.04;
@@ -21324,7 +21506,9 @@ class DotsSurvivor {
 
         // Determine which level sprite to use based on player level
         let levelSpriteKey;
-        if (this.selectedClass?.id === 'shadow_monarch') {
+        if (this.selectedClass?.id === 'demonic_monarch') {
+            levelSpriteKey = 'dm_level1';
+        } else if (this.selectedClass?.id === 'shadow_monarch') {
             // Shadow Monarch uses its own sprite progression
             if (level >= 21) levelSpriteKey = 'sm_level21';
             else if (level >= 16) levelSpriteKey = 'sm_level16';
@@ -21931,9 +22115,13 @@ class DotsSurvivor {
         } else if (classId === 'necromancer') {
             qAbility = { name: 'Bone Pit', icon: '🦴', key: 'Q', color: '#888866' };
             eAbility = { name: 'Soul Shield', icon: '🛡️', key: 'E', color: '#00cc66' };
-        } else if (classId === 'shadow_monarch') {
+        } else if (classId === 'shadow_monarch' || classId === 'demonic_monarch') {
             qAbility = { name: 'Despair Barrage', icon: '🔮', key: 'Q', color: '#7700cc' };
             eAbility = { name: "Monarch's Decree", icon: '👑', key: 'E', color: '#1a0033' };
+            if (classId === 'demonic_monarch') {
+                qAbility = { name: 'Abyssal Edict', icon: '👁️', key: 'Q', color: '#dc2626' };
+                eAbility = { name: "Demon King's Decree", icon: '👑', key: 'E', color: '#7f1d1d' };
+            }
         } else if (classId === 'void_blade') {
             qAbility = { name: 'Voidstep Dash', icon: '⚔️', key: 'Q', color: '#8B0000' };
             eAbility = { name: 'Crimson Catastrophe', icon: '🗡️', key: 'E', color: '#ff0000' };
@@ -22118,7 +22306,7 @@ class DotsSurvivor {
 
     // Shadow Monarch: Dominion Stacks HUD
     drawDominionStacks() {
-        if (!this.shadowThrall || this.selectedClass?.id !== 'shadow_monarch') return;
+        if (!this.shadowThrall || (this.selectedClass?.id !== 'shadow_monarch' && this.selectedClass?.id !== 'demonic_monarch')) return;
         const ctx = this.ctx;
         const stacks = this.dominionStacks || 0;
         const max = this.dominionMaxStacks || 10;
