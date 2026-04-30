@@ -160,10 +160,46 @@ const SHOP_OFFERS = [
     { id: 'atk_beam',     name: 'Beam of Despair',   icon: '☄',  desc: 'Every 3s: piercing dark beam at the nearest enemy. Stacks +25% beam damage per buy.', cost: 10, apply: g => { g.beamUnlocked = true; g.beamTimer = 0; g.beamDmgMult = (g.beamDmgMult || 1) + 0.25; } },
     { id: 'atk_eye',      name: 'Eye of Doom',       icon: '👁', desc: 'Orbital eye fires at the nearest enemy every 1.5s. +1 eye per buy.', cost: 10, apply: g => { g.eyeCount = (g.eyeCount || 0) + 1; g.eyeAngle = g.eyeAngle || 0; g.eyeFireTimer = 0; } },
     { id: 'atk_swords',   name: 'Blood Swords',      icon: '⚔',  desc: '+1 sword orbiting you, dealing contact damage.', cost: 10, apply: g => { g.bloodSwordsBought = (g.bloodSwordsBought || 0) + 1; } },
-    { id: 'atk_slowpulse',name: 'Slow Pulse',        icon: '🌀', desc: 'Every 5s: AoE slow + weak damage. Scales with mage power.', cost: 9, apply: g => { g.slowPulseUnlocked = true; g.slowPulseTimer = 0; g.slowPulseDmg = (g.slowPulseDmg || 30) + 5; } }
+    { id: 'atk_slowpulse',name: 'Slow Pulse',        icon: '🌀', desc: 'Every 5s: AoE slow + weak damage. Scales with mage power.', cost: 9, apply: g => { g.slowPulseUnlocked = true; g.slowPulseTimer = 0; g.slowPulseDmg = (g.slowPulseDmg || 30) + 5; } },
+
+    // Creative Soul Market pacts. Negative costs pay souls immediately and
+    // attach a drawback, making the market an economy decision instead of
+    // only a stat vending machine.
+    { id: 'pact_soul_bounty', name: 'Collector Contract', icon: '📜', desc: 'Next 60 non-boss kills award +1 extra soul.', marketCost: 35, mood: 'economy', apply: g => { g.soulBountyKills = (g.soulBountyKills || 0) + 60; } },
+    { id: 'pact_grave_interest', name: 'Grave Interest', icon: '🪙', desc: 'At each future market, gain 12% of your held souls.', marketCost: 45, mood: 'economy', apply: g => { g.graveInterestMarkets = (g.graveInterestMarkets || 0) + 1; } },
+    { id: 'pact_black_auction', name: 'Black Auction', icon: '🎲', desc: 'Random permanent high roll: damage, crit, speed, regen, or max HP.', marketCost: 30, mood: 'gamble', apply: g => {
+        const rolls = [
+            () => { g.weapons.bullet.damage += 55; g.damageNumbers.push({ x: g.canvas.width / 2, y: g.canvas.height / 2 - 40, value: 'Auction: +55 Damage', lifetime: 2, color: '#ffb84d', scale: 1.2 }); },
+            () => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.12; g.damageNumbers.push({ x: g.canvas.width / 2, y: g.canvas.height / 2 - 40, value: 'Auction: +12% Crit', lifetime: 2, color: '#ffb84d', scale: 1.2 }); },
+            () => { g.player.speed += 70; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed += 70; g.damageNumbers.push({ x: g.canvas.width / 2, y: g.canvas.height / 2 - 40, value: 'Auction: +70 Speed', lifetime: 2, color: '#ffb84d', scale: 1.2 }); },
+            () => { g.player.hpRegen = (g.player.hpRegen || 0) + 5; g.damageNumbers.push({ x: g.canvas.width / 2, y: g.canvas.height / 2 - 40, value: 'Auction: +5 Regen', lifetime: 2, color: '#ffb84d', scale: 1.2 }); },
+            () => { g.player.maxHealth += 140; g.player.health = Math.min(g.player.maxHealth, g.player.health + 140); if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth += 140; g.damageNumbers.push({ x: g.canvas.width / 2, y: g.canvas.height / 2 - 40, value: 'Auction: +140 Max HP', lifetime: 2, color: '#ffb84d', scale: 1.2 }); }
+        ];
+        rolls[Math.floor(Math.random() * rolls.length)]();
+    } },
+    { id: 'pact_soul_furnace', name: 'Soul Furnace', icon: '🔥', desc: 'Burn 20% of held souls into +2 damage each, after purchase.', marketCost: 25, mood: 'forge', apply: g => {
+        const burned = Math.floor((g.souls || 0) * 0.2);
+        g.souls = Math.max(0, (g.souls || 0) - burned);
+        g.weapons.bullet.damage += burned * 2;
+        g.damageNumbers.push({ x: g.canvas.width / 2, y: g.canvas.height / 2 - 40, value: `Furnace: ${burned} souls burned`, lifetime: 2, color: '#ff7043', scale: 1.2 });
+    } },
+    { id: 'pact_death_insurance', name: 'Death Insurance', icon: '⚰', desc: 'Unlock auto-revive at 50% HP. 15-wave cooldown after it saves you.', marketCost: 1000, mood: 'survival', apply: g => { g.deathInsuranceUnlocked = true; g.deathInsuranceReadyWave = g.deathInsuranceReadyWave || 0; } },
+    { id: 'curse_blood_loan', name: 'Blood Loan', icon: '🩸', desc: 'Gain 45 souls now. Lose 12% max HP forever.', marketCost: -45, mood: 'curse', apply: g => {
+        const loss = Math.max(20, Math.floor(g.player.maxHealth * 0.12));
+        g.player.maxHealth = Math.max(50, g.player.maxHealth - loss);
+        g.player.health = Math.min(g.player.health, g.player.maxHealth);
+        if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth = Math.max(50, g._itemBaseMaxHealth - loss);
+    } },
+    { id: 'curse_hungry_wave', name: 'Hungry Wave', icon: '🌀', desc: 'Gain 60 souls now. Skip the next safe gap and raise enemy pressure.', marketCost: -60, mood: 'curse', apply: g => { g.wave += 1; g.spawnInterval = Math.max(0.18, (g.spawnInterval || 1) * 0.85); } },
+    { id: 'curse_glass_crown', name: 'Glass Crown', icon: '👑', desc: 'Gain 35 souls now. +30% damage, -90 max HP.', marketCost: -35, mood: 'curse', apply: g => {
+        g.weapons.bullet.damage = Math.floor(g.weapons.bullet.damage * 1.3);
+        g.player.maxHealth = Math.max(45, g.player.maxHealth - 90);
+        g.player.health = Math.min(g.player.health, g.player.maxHealth);
+        if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth = Math.max(45, g._itemBaseMaxHealth - 90);
+    } }
 ];
 for (const offer of SHOP_OFFERS) {
-    offer.cost = offer.id.startsWith('atk_') ? 60 : 40;
+    offer.cost = offer.marketCost != null ? offer.marketCost : (offer.id.startsWith('atk_') ? 60 : 40);
 }
 
 // ============ RUNE TREES (LoL rune-page style) ============
@@ -9440,6 +9476,14 @@ class DotsSurvivor {
             this.spawnParticles(this.player.x, this.player.y, '#ff4400', 50);
             this.addDamageNumber(this.player.x, this.player.y - 40, '🐦‍🔥 PHOENIX!', '#ffcc00', { isText: true, scale: 1.5, lifetime: 2 });
         }
+        if (this.player.health <= 0 && this.deathInsuranceUnlocked && this.wave >= (this.deathInsuranceReadyWave || 0)) {
+            this.deathInsuranceReadyWave = this.wave + 15;
+            this.player.health = Math.floor(this.player.maxHealth * 0.5);
+            this.player.invincibleTime = 1.5;
+            this.triggerScreenShake(10, 0.35);
+            this.spawnParticles(this.player.x, this.player.y, '#bdf78c', 40);
+            this.addDamageNumber(this.player.x, this.player.y - 40, `DEATH INSURANCE CD: W${this.deathInsuranceReadyWave}`, '#bdf78c', { isText: true, scale: 1.35, lifetime: 2 });
+        }
         if (this.player.health <= 0) this.gameOver();
         this.updateHUD();
       } catch (err) {
@@ -11893,7 +11937,12 @@ class DotsSurvivor {
         }
 
         // Soul collection
-        this.souls += e.isBoss ? 25 : 1;
+        let soulGain = e.isBoss ? 25 : 1;
+        if (!e.isBoss && this.soulBountyKills > 0) {
+            soulGain += 1;
+            this.soulBountyKills--;
+        }
+        this.souls += soulGain;
 
         // Necromancer: Raise Dead - chance to raise killed enemy as ally
         if (this.raisedCorpses && !e.isBoss && !e.isRaised) {
@@ -16123,13 +16172,31 @@ class DotsSurvivor {
         if (this.shopOpen) return;
         this.shopOpen = true;
         this.gamePaused = true;
+        if (this.graveInterestMarkets) {
+            const interest = Math.max(1, Math.floor((this.souls || 0) * 0.12 * this.graveInterestMarkets));
+            this.souls += interest;
+            this.damageNumbers.push({
+                x: this.canvas.width / 2,
+                y: this.canvas.height / 2 - 50,
+                value: `Grave Interest +${interest} souls`,
+                lifetime: 2.5,
+                color: '#bdf78c',
+                scale: 1.2
+            });
+        }
 
-        // Pick 4 random offers
-        const pool = SHOP_OFFERS.slice();
+        // Pick 4 offers with at least one pact/curse/gamble when possible.
+        const creativePool = SHOP_OFFERS.filter(o => o.mood);
+        const normalPool = SHOP_OFFERS.filter(o => !o.mood);
         const offers = [];
+        if (creativePool.length > 0) {
+            const i = Math.floor(Math.random() * creativePool.length);
+            offers.push({ ...creativePool.splice(i, 1)[0] });
+        }
+        const pool = normalPool.concat(creativePool);
         while (offers.length < 4 && pool.length > 0) {
             const i = Math.floor(Math.random() * pool.length);
-            offers.push(pool.splice(i, 1)[0]);
+            offers.push({ ...pool.splice(i, 1)[0] });
         }
 
         let overlay = document.getElementById('shop-overlay');
@@ -16145,23 +16212,27 @@ class DotsSurvivor {
                 <div style="text-align:center;margin-bottom:1.2rem;">
                     <h1 style="color:#ffb84d;font-size:2.4rem;letter-spacing:3px;text-shadow:0 0 20px rgba(255,184,77,0.55);margin-bottom:.3rem;">⚜ SOUL MARKET ⚜</h1>
                     <div style="color:#bdf78c;font-size:1.05rem;">Wave ${this.wave} · Souls: <span style="color:#fff;font-weight:bold;">👻 ${souls}</span></div>
-                    <div style="color:#aaa;font-size:.85rem;margin-top:.3rem;">Buffs are flat and permanent. Buy what you can; the door closes when you continue.</div>
+                    <div style="color:#aaa;font-size:.85rem;margin-top:.3rem;">Buy power, take cursed payouts, or invest in soul income. Bought deals stay locked until you leave.</div>
                 </div>
                 <div id="shop-cards" style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;max-width:920px;"></div>
                 <button id="shop-leave-btn" style="margin-top:1.6rem;padding:.85rem 2.4rem;background:linear-gradient(135deg,#ff8a3c,#c03a14);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:1rem;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 18px rgba(255,80,0,0.3);">CONTINUE →</button>
             `;
             const cards = overlay.querySelector('#shop-cards');
             for (const offer of offers) {
-                const canAfford = souls >= offer.cost;
+                const isPayout = offer.cost < 0;
+                const canAfford = isPayout || souls >= offer.cost;
                 const card = document.createElement('div');
-                const tint = canAfford ? '#ffb84d' : '#555';
-                card.style.cssText = `width:200px;padding:1rem;border:3px solid ${tint};border-radius:14px;background:rgba(20,15,8,0.9);box-shadow:0 0 24px ${tint}33;cursor:${canAfford && !offer._bought ? 'pointer' : 'default'};opacity:${offer._bought ? 0.45 : 1};transition:transform .15s;`;
+                const tint = offer.mood === 'curse' ? '#ff6078' : offer.mood === 'economy' ? '#bdf78c' : offer.mood === 'gamble' ? '#bb88ff' : offer.mood === 'forge' ? '#ff7043' : canAfford ? '#ffb84d' : '#555';
+                const dealLabel = offer.mood ? offer.mood.toUpperCase() : (offer.id.startsWith('atk_') ? 'ATTACK' : 'PERMANENT');
+                const priceText = isPayout ? `GAIN ${Math.abs(offer.cost)}` : `${offer.cost}`;
+                card.style.cssText = `width:215px;min-height:250px;padding:1rem;border:3px solid ${canAfford ? tint : '#555'};border-radius:10px;background:${offer.mood === 'curse' ? 'rgba(35,8,16,0.92)' : 'rgba(20,15,8,0.9)'};box-shadow:0 0 24px ${tint}33;cursor:${canAfford && !offer._bought ? 'pointer' : 'default'};opacity:${offer._bought ? 0.45 : 1};transition:transform .15s;`;
                 card.innerHTML = `
+                    <div style="text-align:center;color:${tint};font-size:.68rem;font-weight:900;letter-spacing:2px;margin-bottom:.45rem;">${dealLabel}</div>
                     <div style="text-align:center;font-size:3rem;line-height:1;margin-bottom:.5rem;">${offer.icon}</div>
                     <div style="text-align:center;color:${tint};font-weight:800;font-size:1rem;">${offer.name}</div>
-                    <div style="text-align:center;color:#ddd;font-size:.85rem;margin-top:.3rem;">${offer.desc}</div>
+                    <div style="text-align:center;color:#ddd;font-size:.85rem;margin-top:.3rem;min-height:56px;line-height:1.35;">${offer.desc}</div>
                     <div style="text-align:center;margin-top:.7rem;font-weight:800;">
-                        <span style="color:${canAfford ? '#bdf78c' : '#ff7066'};">👻 ${offer.cost}${offer._bought ? ' · BOUGHT' : ''}</span>
+                        <span style="color:${isPayout ? '#ff9aac' : canAfford ? '#bdf78c' : '#ff7066'};">👻 ${priceText}${offer._bought ? ' · BOUGHT' : ''}</span>
                     </div>
                 `;
                 if (canAfford && !offer._bought) {
