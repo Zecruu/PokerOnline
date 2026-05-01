@@ -305,6 +305,21 @@ export function Navbar() {
 
           <div className="my-4 border-t border-white/10" />
 
+          <p className="text-xs text-white/40 uppercase tracking-wider px-3 mb-2">Help</p>
+          <a
+            href="mailto:nomnk5138@gmail.com?subject=Zecruu%20Games%20Support"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-3 px-3 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+          >
+            <span className="text-lg">✉️</span>
+            <div className="flex-1 min-w-0">
+              <span className="font-medium block">Contact Support</span>
+              <span className="text-xs text-white/40 truncate block">nomnk5138@gmail.com</span>
+            </div>
+          </a>
+
+          <div className="my-4 border-t border-white/10" />
+
           {isLoggedIn ? (
             <div className="space-y-1">
               <SidebarLink href="/profile" icon="👤" onClick={() => setSidebarOpen(false)}>Profile</SidebarLink>
