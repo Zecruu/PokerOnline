@@ -5,6 +5,14 @@ import { Navbar } from "@/components/navbar";
 import Link from "next/link";
 import { GAMES, getOwnedGames, type Game } from "@/lib/games";
 
+interface GameStats {
+  totalGamesPlayed?: number;
+  totalTimePlayed?: number; // milliseconds
+  highestWave?: number;
+  highestKills?: number;
+  highestScore?: number;
+}
+
 interface UserData {
   id: string;
   username: string;
@@ -15,13 +23,21 @@ interface UserData {
   library?: Array<{ gameId: string; purchasedAt?: string }>;
   wishlist?: string[];
   favorites?: string[];
-  dotsSurvivorStats?: {
-    totalGamesPlayed?: number;
-    totalTimePlayed?: number;
-    highestWave?: number;
-    highestKills?: number;
-    highestScore?: number;
-  };
+  // /api/auth/me returns the Velthara stats under `stats`. Older
+  // localStorage payloads stored it as `dotsSurvivorStats`, so we read
+  // both and prefer the fresh API field.
+  stats?: GameStats;
+  dotsSurvivorStats?: GameStats;
+}
+
+// Per-game stats entry for the Time Played list.
+interface GameTimeEntry {
+  gameId: string;
+  title: string;
+  thumbnail: string;
+  hrefOrPath: string;
+  hours: number;
+  topScore?: { label: string; value: string };
 }
 
 export default function ProfilePage() {
@@ -97,18 +113,35 @@ export default function ProfilePage() {
   const playableCount = playableGames.length;
   const purchasedCount = ownedIds.length;
 
-  const totalHours = (user.dotsSurvivorStats?.totalTimePlayed || 0) / 3600000;
+  // Read from `stats` first (current API), fall back to `dotsSurvivorStats`
+  // (legacy localStorage payloads).
+  const velthara: GameStats = user.stats || user.dotsSurvivorStats || {};
+  const veltharaHours = (velthara.totalTimePlayed || 0) / 3600000;
+  const totalHours = veltharaHours; // sum here as more games gain tracking
+
   const memberSince = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
     : null;
 
-  // Per-game stat blocks — extensible: add cases as games gain stats.
-  const velthara = user.dotsSurvivorStats;
-  const hasVeltharaStats =
-    !!velthara &&
-    ((velthara.totalGamesPlayed || 0) > 0 ||
-      (velthara.highestWave || 0) > 0 ||
-      (velthara.highestKills || 0) > 0);
+  // Build the Time Played list. Today only Velthara reports hours; new
+  // entries can be appended as we add per-game stat fields server-side.
+  const veltharaGame = GAMES.find((g) => g.id === "veltharas-dominion");
+  const timeEntries: GameTimeEntry[] = [];
+  if (veltharaGame && veltharaHours > 0) {
+    timeEntries.push({
+      gameId: veltharaGame.id,
+      title: veltharaGame.title,
+      thumbnail: veltharaGame.thumbnail,
+      hrefOrPath: veltharaGame.href,
+      hours: veltharaHours,
+      topScore: velthara.highestWave
+        ? { label: "Highest wave", value: String(velthara.highestWave) }
+        : undefined,
+    });
+  }
+  timeEntries.sort((a, b) => b.hours - a.hours);
+  const topGameHours = timeEntries[0]?.hours || 0;
+  const topGameTitle = timeEntries[0]?.title;
 
   return (
     <div className="min-h-screen">
@@ -163,60 +196,72 @@ export default function ProfilePage() {
               <StatTile label="High wave" value={String(velthara?.highestWave || 0)} />
             </section>
 
-            {/* Velthara per-game stats */}
-            {hasVeltharaStats && (
-              <section className="card-glass p-5 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src="https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg"
-                      alt=""
-                      className="w-10 h-10 rounded-lg object-cover ring-1 ring-white/10 flex-shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <h2 className="text-lg font-bold text-white truncate">
-                        Velthara&apos;s Dominion
-                      </h2>
-                      <p className="text-xs text-white/40">Roguelike survivor</p>
-                    </div>
-                  </div>
-                  <Link
-                    href="https://games.zecrugames.com/veltharas-dominion/"
-                    className="text-[rgb(0,212,170)] hover:underline text-sm font-medium flex-shrink-0 ml-3"
-                  >
-                    Play →
-                  </Link>
+            {/* Time Played — top game hours headline + per-game breakdown */}
+            <section className="card-glass p-5 sm:p-6">
+              <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+                <div>
+                  <p className="text-white/50 text-xs uppercase tracking-wider mb-1.5">
+                    Time Played
+                  </p>
+                  <p className="text-4xl sm:text-5xl font-black text-white tabular-nums leading-none">
+                    {totalHours.toFixed(1)}<span className="text-2xl text-white/50 font-bold ml-1">h</span>
+                  </p>
+                  {topGameTitle && topGameHours > 0 && (
+                    <p className="text-white/50 text-sm mt-2">
+                      Most in <span className="text-white font-semibold">{topGameTitle}</span>
+                      <span className="text-[rgb(0,212,170)] font-semibold ml-1.5">
+                        {topGameHours.toFixed(1)}h
+                      </span>
+                    </p>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <MicroStat label="Games played" value={String(velthara?.totalGamesPlayed || 0)} />
-                  <MicroStat label="Highest wave" value={String(velthara?.highestWave || 0)} accent="cyan" />
-                  <MicroStat label="Most kills" value={String(velthara?.highestKills || 0)} accent="red" />
-                  <MicroStat label="High score" value={String(velthara?.highestScore || 0)} accent="gold" />
-                  <MicroStat
-                    label="Time played"
-                    value={totalHours > 0 ? `${totalHours.toFixed(1)}h` : "0h"}
-                  />
-                </div>
-              </section>
-            )}
-
-            {!hasVeltharaStats && (
-              <section className="card-glass p-8 text-center">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-white/5 flex items-center justify-center text-2xl">
-                  🎯
-                </div>
-                <h2 className="text-lg font-bold text-white mb-1">No game stats yet</h2>
-                <p className="text-white/50 text-sm max-w-md mx-auto">
-                  Play any game in your library and your records show up here.
-                </p>
                 <Link
                   href="/library"
-                  className="btn-glass btn-glass-primary inline-flex mt-5 px-6 py-2.5 text-sm"
+                  className="text-[rgb(0,212,170)] hover:underline text-sm font-medium"
                 >
-                  Open Library
+                  Open Library →
                 </Link>
-              </section>
-            )}
+              </div>
+
+              {timeEntries.length > 0 ? (
+                <ul className="space-y-2">
+                  {timeEntries.map((e) => (
+                    <li key={e.gameId}>
+                      <Link
+                        href={e.hrefOrPath}
+                        className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/5 transition-colors group"
+                      >
+                        <img
+                          src={e.thumbnail}
+                          alt=""
+                          loading="lazy"
+                          className="w-12 h-12 rounded-lg object-cover ring-1 ring-white/10 flex-shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-white text-sm font-semibold truncate group-hover:text-[rgb(0,212,170)] transition-colors">
+                            {e.title}
+                          </p>
+                          {e.topScore && (
+                            <p className="text-white/40 text-xs truncate">
+                              {e.topScore.label}: <span className="text-white/70">{e.topScore.value}</span>
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-white font-bold tabular-nums">
+                            {e.hours.toFixed(1)}<span className="text-white/40 text-xs ml-0.5">h</span>
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-white/50 text-sm py-6 text-center">
+                  Hours will populate here once games start reporting time.
+                </p>
+              )}
+            </section>
           </div>
 
           {/* Right col: library preview */}
@@ -264,31 +309,6 @@ function StatTile({ label, value }: { label: string; value: string }) {
     <div className="card-glass p-4 text-center hover:!translate-y-0">
       <p className="text-2xl sm:text-3xl font-black text-white tabular-nums">{value}</p>
       <p className="text-white/50 text-xs mt-1 uppercase tracking-wider">{label}</p>
-    </div>
-  );
-}
-
-function MicroStat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: "cyan" | "red" | "gold";
-}) {
-  const color =
-    accent === "cyan"
-      ? "text-[rgb(0,212,170)]"
-      : accent === "red"
-      ? "text-[rgb(255,100,100)]"
-      : accent === "gold"
-      ? "text-[rgb(255,200,50)]"
-      : "text-white";
-  return (
-    <div className="bg-white/5 border border-white/5 rounded-xl p-3 text-center">
-      <p className={`text-xl font-bold tabular-nums ${color}`}>{value}</p>
-      <p className="text-white/50 text-xs mt-0.5">{label}</p>
     </div>
   );
 }
