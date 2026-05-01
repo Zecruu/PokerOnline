@@ -32,6 +32,15 @@
       </div>
     </div>
 
+    <!-- Critdex tracker — top-left, sits under the resourceBar/player-level -->
+    <div id="critdexHud" class="critdex-hud" title="Critdex — capture progression. Open Critterdex tab for details."
+         onclick="game.openBuildMenu && game.openBuildMenu(); UI.switchTab && UI.switchTab('critterdex')">
+      <span class="critdex-hud-label">Critdex</span>
+      <span class="critdex-hud-level">Lv.<span id="critdexHudLevel">1</span></span>
+      <div class="critdex-hud-bar"><div class="critdex-hud-bar-fill" id="critdexHudFill"></div></div>
+      <span class="critdex-hud-text" id="critdexHudText">0 / 30 commons</span>
+    </div>
+
     <!-- Resource Chart — bottom-left card -->
     <div id="resourceChart" class="resource-chart">
       <div class="rc-header">

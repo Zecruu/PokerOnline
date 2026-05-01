@@ -76,8 +76,8 @@ class Save {
             deadCritters: (game.deadCritters || []).slice(-20),
             discoveredSpecies: game.discoveredSpecies || [],
             critdex: game.critdex
-                ? { level: game.critdex.level || 1, xp: game.critdex.xp || 0 }
-                : { level: 1, xp: 0 },
+                ? { level: game.critdex.level || 1, captures: { ...(game.critdex.captures || {}) } }
+                : { level: 1, captures: {} },
             research: { ...game.research },
             researchInProgress: game.researchInProgress ? { ...game.researchInProgress } : null,
             doctrine: (typeof Doctrines !== 'undefined' && Doctrines.save) ? Doctrines.save() : (game.doctrine || null),

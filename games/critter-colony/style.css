@@ -463,6 +463,20 @@ canvas{position:fixed;top:0;left:0;z-index:0}
 #controlsHint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);font-size:.75rem;z-index:10;pointer-events:none}
 
 
+/* ========== CRITDEX TOP-LEFT HUD TRACKER ========== */
+.critdex-hud{position:fixed;top:46px;left:8px;z-index:9;display:flex;align-items:center;gap:.5rem;background:linear-gradient(135deg,rgba(60,40,20,.78),rgba(28,20,14,.85));border:1px solid rgba(180,140,90,.35);border-radius:10px;padding:6px 10px;font-size:.78rem;color:#f0e2c7;box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);cursor:pointer;backdrop-filter:blur(8px);transition:transform .12s ease,box-shadow .12s ease;font-family:'Segoe UI',system-ui,sans-serif}
+.critdex-hud:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.1);border-color:rgba(180,140,90,.6)}
+.critdex-hud-label{font-weight:800;letter-spacing:.04em}
+.critdex-hud-level{font-weight:800;color:#a5d6a7;background:rgba(165,214,167,.14);border:1px solid rgba(165,214,167,.32);padding:.05rem .4rem;border-radius:999px;font-size:.7rem;letter-spacing:.04em}
+.critdex-hud-bar{width:120px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;border:1px solid rgba(165,214,167,.18)}
+.critdex-hud-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#a5d6a7,#7cb342);transition:width .3s ease;box-shadow:0 0 6px rgba(124,179,66,.45)}
+.critdex-hud-text{font-family:monospace;font-size:.68rem;color:rgba(240,226,199,.65);letter-spacing:.04em;white-space:nowrap}
+@media (max-width:600px){
+    .critdex-hud{font-size:.7rem;padding:5px 8px}
+    .critdex-hud-bar{width:80px}
+    .critdex-hud-text{display:none}
+}
+
 /* ========== CRITDEX BOOK PANEL ========== */
 .critdex-book{display:flex;gap:18px;align-items:center;background:linear-gradient(135deg,rgba(60,40,20,.55),rgba(30,22,15,.7));border:1px solid rgba(180,140,90,.35);border-radius:14px;padding:14px;margin-bottom:18px;box-shadow:0 12px 32px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)}
 .critdex-book-art{flex-shrink:0;width:140px;height:96px;background:url('images/ui/critdex-book.png') center/cover no-repeat;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.45)}

@@ -38,8 +38,26 @@ class UI {
         document.getElementById('resWood').textContent = `${Math.floor(g.resources.wood)}/${getCap('wood')}`;
         document.getElementById('resStone').textContent = `${Math.floor(g.resources.stone)}/${getCap('stone')}`;
         document.getElementById('resFood').textContent = `${Math.floor(g.resources.food)}/${getCap('food')}`;
-        document.getElementById('trapCount').textContent = g.inventory.traps;
+        const trapEl = document.getElementById('trapCount');
+        if (trapEl) trapEl.textContent = g.inventory.traps || 0;
         document.getElementById('critterCount').textContent = `${g.critters.length}/${Buildings.getMaxCritters(g.buildings, g.research)}`;
+
+        // Critdex top-left tracker
+        const critdex = g.critdex || { level: 1, captures: {} };
+        const cdLevelEl = document.getElementById('critdexHudLevel');
+        if (cdLevelEl) cdLevelEl.textContent = critdex.level || 1;
+        const cdFillEl = document.getElementById('critdexHudFill');
+        const cdTextEl = document.getElementById('critdexHudText');
+        if (cdFillEl && cdTextEl && typeof Critters !== 'undefined' && Critters.getCritdexProgress) {
+            const prog = Critters.getCritdexProgress(critdex);
+            if (prog.maxed) {
+                cdFillEl.style.width = '100%';
+                cdTextEl.textContent = 'Mastered';
+            } else {
+                cdFillEl.style.width = Math.min(100, prog.ratio * 100) + '%';
+                cdTextEl.textContent = `${prog.current} / ${prog.required} ${prog.rarity}`;
+            }
+        }
 
         this.updatePanel();
     }
@@ -772,14 +790,16 @@ class UI {
             const foundCount = allSpecies.filter(([k]) => discovered.includes(k)).length;
 
             // Critdex book panel — capture progression
-            const critdex = g.critdex || { level: 1, xp: 0 };
+            const critdex = g.critdex || { level: 1, captures: {} };
             const lvl = critdex.level || 1;
-            const xp = critdex.xp || 0;
-            const xpToNext = (typeof Critters !== 'undefined' && Critters.getCritdexXpToNext)
-                ? Critters.getCritdexXpToNext(lvl) : 100;
-            const xpPct = xpToNext === Infinity ? 100 : Math.min(100, (xp / xpToNext) * 100);
+            const captures = critdex.captures || {};
             const TIERS = ['common', 'uncommon', 'rare', 'legendary'];
             const maxRarity = TIERS[Math.min(lvl, TIERS.length) - 1] || 'common';
+            const prog = (typeof Critters !== 'undefined' && Critters.getCritdexProgress)
+                ? Critters.getCritdexProgress(critdex)
+                : { maxed: true, ratio: 1 };
+            const progPct = Math.min(100, (prog.ratio || 0) * 100);
+            const rarityColor = prog.rarity && typeof RARITY_COLORS !== 'undefined' ? RARITY_COLORS[prog.rarity] : '#a5d6a7';
 
             html += `<div class="critdex-book">`;
             html += `<div class="critdex-book-art"></div>`;
@@ -789,15 +809,20 @@ class UI {
             html += `<span class="critdex-level">Lv.${lvl}</span>`;
             html += `</div>`;
             html += `<div class="critdex-sub">Capture ${maxRarity} and below • ${foundCount}/${totalCount} discovered</div>`;
-            html += `<div class="critdex-xpbar"><div class="critdex-xpbar-fill" style="width:${xpPct}%"></div></div>`;
-            html += `<div class="critdex-xptext">${xpToNext === Infinity ? 'Mastered' : `${xp} / ${xpToNext} XP to Lv.${lvl + 1}`}</div>`;
+            html += `<div class="critdex-xpbar"><div class="critdex-xpbar-fill" style="width:${progPct}%;background:linear-gradient(90deg,${rarityColor},${rarityColor}aa)"></div></div>`;
+            if (prog.maxed) {
+                html += `<div class="critdex-xptext">Mastered — all rarities unlocked</div>`;
+            } else {
+                html += `<div class="critdex-xptext">${prog.current} / ${prog.required} ${prog.rarity} captures to Lv.${lvl + 1}</div>`;
+            }
             html += `<div class="critdex-tiers">`;
             for (let i = 0; i < TIERS.length; i++) {
                 const tier = TIERS[i];
                 const tierLvl = i + 1;
                 const unlocked = lvl >= tierLvl;
                 const color = (typeof RARITY_COLORS !== 'undefined' && RARITY_COLORS[tier]) || '#888';
-                html += `<span class="critdex-tier ${unlocked ? 'unlocked' : 'locked'}" style="${unlocked ? `color:${color};border-color:${color}66;` : ''}">${unlocked ? '' : '🔒 '}Lv${tierLvl} ${tier}</span>`;
+                const count = captures[tier] || 0;
+                html += `<span class="critdex-tier ${unlocked ? 'unlocked' : 'locked'}" style="${unlocked ? `color:${color};border-color:${color}66;` : ''}">${unlocked ? '' : '🔒 '}${tier} <b style="opacity:.7">${count}</b></span>`;
             }
             html += `</div>`;
             html += `</div></div>`;

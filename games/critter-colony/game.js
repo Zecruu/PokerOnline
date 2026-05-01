@@ -25,7 +25,7 @@ class Game {
         this.deadCritters = []; // permadeath graveyard
         this.discoveredSpecies = []; // Critterdex — species IDs the player has captured
         // Critdex — capture progression book (replaces snares).
-        this.critdex = { level: 1, xp: 0 };
+        this.critdex = { level: 1, captures: { common: 0, uncommon: 0, rare: 0, legendary: 0 } };
 
         // Combat
         this.gunCooldown = 0;
@@ -330,10 +330,17 @@ class Game {
         delete this.inventory.iron_snare;
         delete this.inventory.gold_snare;
         delete this.inventory.diamond_snare;
-        // Restore or initialise Critdex (1..N capture progression book)
-        this.critdex = gs.critdex && typeof gs.critdex.level === 'number'
-            ? { level: gs.critdex.level, xp: gs.critdex.xp || 0 }
-            : { level: 1, xp: 0 };
+        // Restore or initialise Critdex (level + per-rarity capture counters)
+        const savedCd = gs.critdex || {};
+        this.critdex = {
+            level: typeof savedCd.level === 'number' ? savedCd.level : 1,
+            captures: {
+                common:    (savedCd.captures && savedCd.captures.common)    || 0,
+                uncommon:  (savedCd.captures && savedCd.captures.uncommon)  || 0,
+                rare:      (savedCd.captures && savedCd.captures.rare)     || 0,
+                legendary: (savedCd.captures && savedCd.captures.legendary) || 0,
+            },
+        };
         this.buildings = gs.buildings
             .filter(b => BUILDING_DEFS[b.type]) // skip removed buildings (e.g. research_lab from old saves)
             .map(b => {
@@ -398,7 +405,7 @@ class Game {
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
         // Snares were removed — capture is now gated by Critdex level.
         this.inventory = { ammo: 120 };
-        this.critdex = { level: 1, xp: 0 };
+        this.critdex = { level: 1, captures: { common: 0, uncommon: 0, rare: 0, legendary: 0 } };
         this.critters = []; this.deadCritters = [];
         this.discoveredSpecies = this.discoveredSpecies || [];
         this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0 };
@@ -532,14 +539,17 @@ class Game {
                 this.grantPlayerXp(Math.floor((10 + (closest.level || 1) * 2) * rarityMul));
                 this.sounds.capture();
                 UI.notify(`Captured ${SPECIES[result.captured.species].name}!`);
-                // Critdex feedback — XP gain + level-up announcement
+                // Critdex feedback — quota progress + level-up announcement
                 if (result.critdex) {
                     if (result.critdex.leveledUp) {
                         const unlocked = result.critdex.unlockedRarity;
                         const unlockTxt = unlocked ? ` — ${unlocked} critters unlocked!` : '';
                         UI.notify(`Critdex Lv.${result.critdex.newLevel}!${unlockTxt}`, 5000);
-                    } else if (result.critdex.gained > 0) {
-                        UI.notify(`+${result.critdex.gained} Critdex XP`, 1800);
+                    } else {
+                        const prog = Critters.getCritdexProgress(this.critdex);
+                        if (prog && !prog.maxed && prog.rarity === result.critdex.rarity) {
+                            UI.notify(`Critdex: ${prog.current}/${prog.required} ${prog.rarity}`, 1800);
+                        }
                     }
                 }
                 UI.update();

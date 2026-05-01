@@ -458,19 +458,28 @@ class Critters {
 
     // ── CRITDEX ──────────────────────────────────────────────────────
     // Capture progression book. Levels gate the rarity tier the player
-    // can capture. XP comes from successful captures.
-    //   Level 1 → Common
-    //   Level 2 → +Uncommon
-    //   Level 3 → +Rare
-    //   Level 4 → +Legendary
-    // Snares were ripped out — Critdex replaces that whole loop.
+    // can capture. Each level requires a quota of captures of a specific
+    // rarity (replaces the earlier XP-curve approach which advanced too
+    // fast on a couple of captures).
+    //   Lv1 → Common              start
+    //   Lv2 → + Uncommon          quota: 30 commons
+    //   Lv3 → + Rare              quota: 20 uncommons
+    //   Lv4 → + Legendary         quota: 10 rares
     static get CRITDEX_TIERS() {
         return ['common', 'uncommon', 'rare', 'legendary'];
     }
-    static get CRITDEX_XP_CURVE() {
-        // XP required to advance from each level → next.
-        // Index 0 = Lv1→2, index 1 = Lv2→3, etc.
-        return [100, 250, 500, 1000];
+    static get CRITDEX_LEVEL_REQS() {
+        // Indexed by the level being WORKED TOWARD. Each entry is the
+        // rarity to capture and the required count. Level 1 has no
+        // requirement (you start there).
+        return {
+            2: { rarity: 'common',   count: 30 },
+            3: { rarity: 'uncommon', count: 20 },
+            4: { rarity: 'rare',     count: 10 },
+        };
+    }
+    static get CRITDEX_MAX_LEVEL() {
+        return 4;
     }
     static getCritdexTierForRarity(rarity) {
         return Critters.CRITDEX_TIERS.indexOf(rarity) + 1; // 1..4, 0 if unknown
@@ -479,24 +488,39 @@ class Critters {
         const tier = Math.max(1, Math.min(level, Critters.CRITDEX_TIERS.length));
         return Critters.CRITDEX_TIERS[tier - 1];
     }
-    static getCritdexXpToNext(level) {
-        const curve = Critters.CRITDEX_XP_CURVE;
-        if (level >= curve.length + 1) return Infinity; // maxed out
-        return curve[level - 1];
+    static getCritdexNextRequirement(level) {
+        return Critters.CRITDEX_LEVEL_REQS[level + 1] || null;
     }
-    static awardCritdexXp(game, amount) {
-        if (!game.critdex) game.critdex = { level: 1, xp: 0 };
-        game.critdex.xp += amount;
-        const result = { gained: amount, leveledUp: false, newLevel: game.critdex.level };
-        // Drain XP through any pending level-ups
-        while (true) {
-            const need = Critters.getCritdexXpToNext(game.critdex.level);
-            if (game.critdex.xp < need || need === Infinity) break;
-            game.critdex.xp -= need;
-            game.critdex.level += 1;
+    static getCritdexProgress(critdex) {
+        // Returns { rarity, current, required, ratio, maxed }
+        const lvl = (critdex && critdex.level) || 1;
+        const req = Critters.getCritdexNextRequirement(lvl);
+        if (!req) return { maxed: true, rarity: null, current: 0, required: 0, ratio: 1 };
+        const captures = (critdex && critdex.captures) || {};
+        const current = Math.min(captures[req.rarity] || 0, req.count);
+        return {
+            maxed: false,
+            rarity: req.rarity,
+            current,
+            required: req.count,
+            ratio: req.count > 0 ? current / req.count : 1,
+        };
+    }
+    static recordCritdexCapture(game, rarity) {
+        if (!game.critdex) game.critdex = { level: 1, captures: {} };
+        if (!game.critdex.captures) game.critdex.captures = {};
+        const cd = game.critdex;
+        cd.captures[rarity] = (cd.captures[rarity] || 0) + 1;
+        const result = { rarity, leveledUp: false, newLevel: cd.level, unlockedRarity: null };
+        // Drain through any level-ups (each level needs its tier quota met)
+        while (cd.level < Critters.CRITDEX_MAX_LEVEL) {
+            const req = Critters.CRITDEX_LEVEL_REQS[cd.level + 1];
+            if (!req) break;
+            if ((cd.captures[req.rarity] || 0) < req.count) break;
+            cd.level += 1;
             result.leveledUp = true;
-            result.newLevel = game.critdex.level;
-            result.unlockedRarity = Critters.getCritdexLevelMaxRarity(game.critdex.level);
+            result.newLevel = cd.level;
+            result.unlockedRarity = Critters.getCritdexLevelMaxRarity(cd.level);
         }
         return result;
     }
@@ -523,13 +547,9 @@ class Critters {
 
         if (dist > CAPTURE_RANGE) return { success: false, reason: 'Too far away!' };
 
-        // Award Critdex XP based on whether this species was already
-        // discovered and on its rarity tier.
-        const awardXpForCapture = () => {
-            const isNew = !(game.discoveredSpecies || []).includes(critter.species);
-            const xpGain = isNew ? 50 * rarityTier : 5 * rarityTier;
-            return Critters.awardCritdexXp(game, xpGain);
-        };
+        // Each successful capture counts toward the Critdex quota for
+        // its rarity. Caller surfaces toasts via the returned `critdex`.
+        const recordCapture = () => Critters.recordCritdexCapture(game, sp.rarity);
 
         // Stunned = guaranteed capture
         if (critter.stunned) {
@@ -545,7 +565,7 @@ class Critters {
                 hunger: 100,
                 stars: 0,
             };
-            const critdex = awardXpForCapture();
+            const critdex = recordCapture();
             return { success: true, captured, critdex };
         }
 
@@ -573,7 +593,7 @@ class Critters {
                 hunger: 100,
                 stars: 0,
             };
-            const critdex = awardXpForCapture();
+            const critdex = recordCapture();
             return { success: true, captured, critdex };
         } else {
             // Fail — critter flees
