@@ -92,102 +92,119 @@ export default function Home() {
     <div className="min-h-screen">
       <Navbar />
 
-      {/* Hero — dual-feature: Velthara + Critter Colony */}
       <section className="relative overflow-hidden">
-        {/* Soft ambient backdrop blending the two key arts */}
         <div className="absolute inset-0 pointer-events-none">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: "url('https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg')",
-              filter: "blur(60px) brightness(0.25)",
-              transform: "scale(1.2)",
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[rgba(10,10,20,0.4)] via-transparent to-[rgb(10,10,20)]" />
+          <div className="absolute left-[-10%] top-[-15%] h-[32rem] w-[32rem] rounded-full bg-[rgba(0,212,170,0.10)] blur-3xl" />
+          <div className="absolute right-[-8%] top-[10%] h-[28rem] w-[28rem] rounded-full bg-[rgba(120,80,255,0.10)] blur-3xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_45%)]" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-8 pb-10 lg:pt-12 lg:pb-14">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            {/* Velthara feature card */}
-            <FeatureCard
-              title="Velthara's Dominion"
-              accent="cyan"
-              tagline="ROGUELIKE SURVIVOR"
-              description="Survive endless waves in this action-packed roguelike. Collect XP, level up, unlock upgrades, and see how long you last."
-              bgImage="https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg"
-              badge={ownsVelthara ? "OWNED" : "FEATURED"}
-              badgeKind={ownsVelthara ? "owned" : "featured"}
-              action={
-                ownsVelthara ? (
-                  <a
-                    href="https://games.zecrugames.com/veltharas-dominion/"
-                    onClick={handlePlayClick}
-                    className="btn-glass btn-glass-primary text-sm sm:text-base px-6 sm:px-7 py-3"
-                  >
-                    <span className="mr-1.5">▶</span> Play Now
-                  </a>
-                ) : veltharaInCart ? (
-                  <div className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 bg-white/10 text-white/70 cursor-default">
-                    ✓ In Cart
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleAddVeltharaToCart}
-                    className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 hover:scale-[1.02] transition-transform"
-                    style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#000" }}
-                  >
-                    {isLoggedIn ? "Add to Cart — $5" : "Login to Purchase"}
-                  </button>
-                )
-              }
-            />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-10 pb-12 lg:pt-14 lg:pb-16">
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_.95fr] items-stretch">
+            <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(15,18,28,0.92),rgba(12,14,22,0.88))] p-6 sm:p-8 lg:p-10 shadow-[0_24px_90px_rgba(0,0,0,0.32)]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/60">
+                Zecruu Games
+              </div>
+              <h1 className="mt-4 max-w-xl text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white">
+                Clean browser games, ready in one click.
+              </h1>
+              <p className="mt-4 max-w-xl text-base sm:text-lg leading-relaxed text-white/60">
+                Jump into the newest releases, check your library, and keep purchases and progress in one place.
+              </p>
 
-            {/* Critter Colony feature card */}
-            <FeatureCard
-              title="Critter Colony"
-              accent="green"
-              tagline="COZY AUTOMATION"
-              description="Capture critters, build workstations, and automate your colony. AFK gains keep your critters working while you're away."
-              bgImage="https://d2f5lfipdzhi8t.cloudfront.net/critter-colony/thumbnail.webp"
-              badge={ownsCritterColony ? "OWNED" : "PREMIUM"}
-              badgeKind={ownsCritterColony ? "owned" : "featured"}
-              action={
-                ownsCritterColony ? (
-                  <Link
-                    href="/games/critter-colony/index.html"
-                    className="btn-glass btn-glass-primary text-sm sm:text-base px-6 sm:px-7 py-3"
-                  >
-                    <span className="mr-1.5">▶</span> Play Now
-                  </Link>
-                ) : ccInCart ? (
-                  <div className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 bg-white/10 text-white/70 cursor-default">
-                    ✓ In Cart
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleAddCritterColonyToCart}
-                    className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 hover:scale-[1.02] transition-transform"
-                    style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#000" }}
-                  >
-                    {isLoggedIn ? "Add to Cart — $5" : "Login to Purchase"}
-                  </button>
-                )
-              }
-            />
+              <div className="mt-6 flex flex-wrap gap-3">
+                <a
+                  href="https://games.zecrugames.com/veltharas-dominion/"
+                  onClick={handlePlayClick}
+                  className="btn-glass btn-glass-primary px-5 py-3 text-sm sm:text-base"
+                >
+                  <span className="mr-2">▶</span> Play Velthara&apos;s Dominion
+                </a>
+                <Link href="/store" className="btn-glass btn-glass-secondary px-5 py-3 text-sm sm:text-base">
+                  Browse Store
+                </Link>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                <MiniStat label="Featured games" value="2" />
+                <MiniStat label="Account sync" value="Live" />
+                <MiniStat label="Cart + library" value="Unified" />
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <PromoTile
+                title="Velthara's Dominion"
+                eyebrow={ownsVelthara ? "Owned" : "Featured"}
+                badgeClassName={ownsVelthara ? "badge-owned" : "badge-featured"}
+                description="Wave survival roguelike with class-based combat and high-pressure build choices."
+                bgImage="https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg"
+                theme="cyan"
+                action={
+                  ownsVelthara ? (
+                    <a
+                      href="https://games.zecrugames.com/veltharas-dominion/"
+                      onClick={handlePlayClick}
+                      className="btn-glass btn-glass-primary px-4 py-2.5 text-sm"
+                    >
+                      Play now
+                    </a>
+                  ) : veltharaInCart ? (
+                    <div className="btn-glass px-4 py-2.5 text-sm bg-white/6 text-white/65 cursor-default">
+                      In cart
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleAddVeltharaToCart}
+                      className="btn-glass btn-glass-secondary px-4 py-2.5 text-sm"
+                    >
+                      {isLoggedIn ? "Add to cart" : "Login to buy"}
+                    </button>
+                  )
+                }
+              />
+
+              <PromoTile
+                title="Critter Colony"
+                eyebrow={ownsCritterColony ? "Owned" : "Premium"}
+                badgeClassName={ownsCritterColony ? "badge-owned" : "badge-premium"}
+                description="A calmer builder with automation, resource loops, and steady offline growth."
+                bgImage="https://d2f5lfipdzhi8t.cloudfront.net/critter-colony/thumbnail.webp"
+                theme="green"
+                action={
+                  ownsCritterColony ? (
+                    <Link href="/games/critter-colony/index.html" className="btn-glass btn-glass-primary px-4 py-2.5 text-sm">
+                      Play now
+                    </Link>
+                  ) : ccInCart ? (
+                    <div className="btn-glass px-4 py-2.5 text-sm bg-white/6 text-white/65 cursor-default">
+                      In cart
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleAddCritterColonyToCart}
+                      className="btn-glass btn-glass-secondary px-4 py-2.5 text-sm"
+                    >
+                      {isLoggedIn ? "Add to cart" : "Login to buy"}
+                    </button>
+                  )
+                }
+              />
+            </div>
           </div>
         </div>
       </section>
 
       {/* Games Grid Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-16 lg:py-20">
-        <div className="flex items-center justify-between mb-8 lg:mb-10">
-          <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 text-white">
-            <span className="text-3xl">🎮</span> All Games
-          </h2>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-10 lg:py-14">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">Catalog</p>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-black text-white">Browse games</h2>
+          </div>
           <Link
             href="/store"
-            className="text-white/50 hover:text-white transition-colors text-sm font-medium flex items-center gap-1"
+            className="text-white/50 hover:text-white transition-colors text-sm font-medium inline-flex items-center gap-1"
           >
             View All
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,12 +223,12 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-12">
-        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
+      <footer className="border-t border-white/6 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img src="/logo.jpg" alt="Zecruu Games" className="h-8 w-8 rounded-lg" />
-              <span className="text-white/40 text-sm">© 2026 Zecruu Games. All rights reserved.</span>
+              <span className="text-white/40 text-sm">© 2026 Zecruu Games</span>
             </div>
             <div className="flex items-center gap-6 text-white/40 text-sm">
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
@@ -225,71 +242,59 @@ export default function Home() {
   );
 }
 
-function FeatureCard({
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
+      <div className="text-[11px] uppercase tracking-[0.22em] text-white/40">{label}</div>
+      <div className="mt-1 text-lg font-bold text-white">{value}</div>
+    </div>
+  );
+}
+
+function PromoTile({
   title,
-  accent,
-  tagline,
+  eyebrow,
+  badgeClassName,
   description,
   bgImage,
-  badge,
-  badgeKind,
+  theme,
   action,
 }: {
   title: string;
-  accent: "cyan" | "green";
-  tagline: string;
+  eyebrow: string;
+  badgeClassName: string;
   description: string;
   bgImage: string;
-  badge: string;
-  badgeKind: "featured" | "owned" | "free";
+  theme: "cyan" | "green";
   action: React.ReactNode;
 }) {
-  const accentText = accent === "cyan" ? "text-[rgb(0,212,170)]" : "text-[rgb(165,214,167)]";
-  const accentGlow =
-    accent === "cyan"
-      ? "from-[rgba(0,212,170,0.18)] to-[rgba(120,80,255,0.12)]"
-      : "from-[rgba(165,214,167,0.18)] to-[rgba(255,193,7,0.12)]";
-  const badgeClass =
-    badgeKind === "owned" ? "badge-owned" : badgeKind === "free" ? "badge-free" : "badge-featured";
+  const themeClass =
+    theme === "cyan"
+      ? "from-[rgba(0,212,170,0.18)] to-[rgba(14,17,28,0.94)]"
+      : "from-[rgba(165,214,167,0.18)] to-[rgba(14,17,28,0.94)]";
 
   return (
-    <div className="group relative animate-slide-up">
-      {/* Subtle accent glow behind the card */}
-      <div className={`absolute -inset-2 bg-gradient-to-br ${accentGlow} rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
-
-      <article className="relative card-glass overflow-hidden">
-        {/* Hero art */}
-        <div className="relative aspect-[16/10] overflow-hidden">
-          <img
-            src={bgImage}
-            alt={title}
-            loading="eager"
-            decoding="async"
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-          />
-          {/* Readability gradient — heavier at bottom for text */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[rgb(15,15,25)] via-[rgba(15,15,25,0.6)] to-transparent" />
-          {/* Top badge */}
-          <div className="absolute top-4 left-4">
-            <span className={`badge ${badgeClass}`}>{badge}</span>
-          </div>
+    <article className={`overflow-hidden rounded-[24px] border border-white/8 bg-gradient-to-br ${themeClass} shadow-[0_20px_60px_rgba(0,0,0,0.24)]`}>
+      <div className="relative aspect-[16/9] overflow-hidden">
+        <img
+          src={bgImage}
+          alt={title}
+          loading="eager"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 hover:scale-[1.03]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[rgb(10,12,18)] via-[rgba(10,12,18,0.42)] to-transparent" />
+        <div className="absolute left-4 top-4">
+          <span className={`badge ${badgeClassName}`}>{eyebrow}</span>
         </div>
+      </div>
 
-        {/* Body */}
-        <div className="p-5 sm:p-6">
-          <p className={`text-[10px] font-bold tracking-[0.18em] uppercase mb-1.5 ${accentText}`}>
-            {tagline}
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none mb-2.5">
-            {title}
-          </h2>
-          <p className="text-white/60 text-sm sm:text-base leading-relaxed mb-4 line-clamp-2">
-            {description}
-          </p>
-          <div>{action}</div>
-        </div>
-      </article>
-    </div>
+      <div className="p-5 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">{title}</h2>
+        <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-white/58">{description}</p>
+        <div className="mt-4">{action}</div>
+      </div>
+    </article>
   );
 }
 
