@@ -125,7 +125,7 @@ const ITEM_DEFS = {
     bent_coin:      { id: 'bent_coin',      name: 'Bent Coin',       icon: '🪙', color: '#ffd34d', desc: '+8% XP gain / lvl',      statsAt: l => ({ fortunePct: 0.08 * l }) },
     smudged_tome:   { id: 'smudged_tome',   name: 'Smudged Tome',    icon: '📕', color: '#a070ff', desc: '+10% mage power / lvl',  statsAt: l => ({ magePowerPct: 0.10 * l }) },
     frayed_talisman:{ id: 'frayed_talisman',name: 'Frayed Talisman', icon: '📿', color: '#ff5c8a', desc: '+15 max HP / lvl',       statsAt: l => ({ hpFlat: 15 * l }) },
-    multiplier:     { id: 'multiplier',     name: 'Multiplier',      icon: '✦',  color: '#ff8c3c', desc: '+1 slash / lvl. Only way to fire more than one slash.', statsAt: l => ({ slashMultiplier: l }) },
+    multiplier:     { id: 'multiplier',     name: 'Multiplier',      icon: '✦',  color: '#ff8c3c', desc: '+1 slash / lvl, max 5. Only way to fire more than one slash.', maxLevel: 5, statsAt: l => ({ slashMultiplier: Math.min(l, 5) }) },
     // New items
     iron_charm:     { id: 'iron_charm',     name: 'Iron Charm',      icon: '🛡', color: '#7ec0e8', desc: '+5% CC reduction / lvl', statsAt: l => ({ ccrPct: 0.05 * l }) },
     bone_amulet:    { id: 'bone_amulet',    name: 'Bone Amulet',     icon: '🦴', color: '#c9c5b8', desc: '+3% damage reduction / lvl', statsAt: l => ({ drPct: 0.03 * l }) },
@@ -16115,7 +16115,12 @@ class DotsSurvivor {
     generateItemChoices(count = 3) {
         const choices = [];
         const ownedIds = new Set(this.inventory.map(i => i.id));
-        const ownedItems = this.inventory.slice();
+        // Items at their maxLevel cap drop out of the upgrade pool so a maxed
+        // item (e.g. Multiplier at Lv5) doesn't keep eating offer slots.
+        const ownedItems = this.inventory.slice().filter(it => {
+            const def = ITEM_DEFS[it.id];
+            return !def || !def.maxLevel || it.level < def.maxLevel;
+        });
         const newItems = Object.values(ITEM_DEFS).filter(d => !ownedIds.has(d.id));
         const inventoryFull = this.inventory.length >= INVENTORY_SLOTS;
 
