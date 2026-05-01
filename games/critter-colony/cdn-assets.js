@@ -29,6 +29,7 @@ function preloadBuildingSprites() {
         iron_mine: 'buildings/iron-mine.png',
         wall: 'buildings/wall.png',
         gate: 'buildings/gate.png',
+        resource_storage: 'buildings/gather-center.png',
     };
     const promises = [];
     for (const [key, path] of Object.entries(defs)) {
@@ -157,6 +158,7 @@ function buildPixiTextures() {
         turret: 'buildings/turret.png', doctrine_building: 'buildings/research-lab.png',
         workbench: 'buildings/workbench.png', iron_mine: 'buildings/iron-mine.png',
         wall: 'buildings/wall.png', gate: 'buildings/gate.png',
+        resource_storage: 'buildings/gather-center.png',
     };
     const critterDefs = {
         mossbun: 'critters/mossbun.png', pebblit: 'critters/pebblit.png',

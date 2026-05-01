@@ -803,7 +803,18 @@ class Game {
                 const maxW = Buildings.getMaxWorkersPerBuilding(this.research);
                 if (newB.workers.length >= maxW) { UI.notify(`Building full! (${maxW}/${maxW}) Research Workforce Training.`); return; }
                 newB.workers.push(critterId); critter.assignment = bid;
-                UI.notify(`${critter.nickname} assigned to ${BUILDING_DEFS[newB.type].name} (${newB.workers.length}/${maxW})`);
+                const newDef = BUILDING_DEFS[newB.type];
+                UI.notify(`${critter.nickname} assigned to ${newDef.name} (${newB.workers.length}/${maxW})`);
+                // Gather Center has no work to do if no tree/rock nodes are
+                // within radius. Tell the player up front.
+                if (newDef.isResourceStorage && this.world) {
+                    const bcx = newB.gridX + (newDef.size || 2) / 2;
+                    const bcy = newB.gridY + (newDef.size || 2) / 2;
+                    const node = this.world.findNearestNode(Math.floor(bcx), Math.floor(bcy), newDef.gatherRadius || 15);
+                    if (!node) {
+                        UI.notify('No trees or rocks within range — move the Gather Center closer to nodes.', 4500);
+                    }
+                }
             }
         } else { critter.assignment = null; }
         UI._forceRebuild = true;
@@ -842,12 +853,11 @@ class Game {
         if (openBuildings.length === 0) { UI.notify('All buildings are fully staffed!'); return; }
 
         let assigned = 0;
-        // Sort idle critters by total stats descending (best critters first)
-        idle.sort((a, b) => {
-            const sa = Object.values(a.stats).reduce((s, v) => s + v, 0);
-            const sb = Object.values(b.stats).reduce((s, v) => s + v, 0);
-            return sb - sa;
-        });
+        // Sort idle critters by Proficiency descending (handles both new
+        // proficiency field and the legacy stats shim — old code used
+        // Object.values(a.stats) which would throw on critters that lacked
+        // a stats object).
+        idle.sort((a, b) => Critters.getProficiency(b) - Critters.getProficiency(a));
 
         for (const critter of idle) {
             // Find best building for this critter (role match + proficiency)
