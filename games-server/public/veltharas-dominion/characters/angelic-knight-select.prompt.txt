@@ -1,0 +1,15 @@
+Intended use: a single south-facing character-select sprite frame for a top-down 2D action game.
+
+Subject:
+- Angelic Knight, holy armored guardian, facing south directly toward the camera in 3/4 top-down game perspective.
+- Canonical neutral idle frame for character select.
+- Chunky readable silhouette with broad white wings, gold halo, polished silver armor, blue-white tabard, kite shield, and upright sword.
+- Calm heroic stance, both feet visible, centered composition, foot anchor at bottom-center.
+
+Style:
+- High-resolution pixelated game sprite.
+- Crisp edges, limited surface shading, strong silhouette, consistent top-left light source.
+- Transparent runtime-ready background.
+
+Constraints:
+- No scenery, UI, text, watermark, frame numbers, shadow plane, attack pose, particles, projectile, or heavy glow.
