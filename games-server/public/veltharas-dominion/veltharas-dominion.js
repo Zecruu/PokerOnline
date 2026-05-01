@@ -124,12 +124,11 @@ const ITEM_DEFS = {
     tattered_boots: { id: 'tattered_boots', name: 'Tattered Boots',  icon: '🥾', color: '#5cd8ff', desc: '+8 move speed / lvl',    statsAt: l => ({ moveSpdFlat: 8 * l }) },
     bent_coin:      { id: 'bent_coin',      name: 'Bent Coin',       icon: '🪙', color: '#ffd34d', desc: '+8% XP gain / lvl',      statsAt: l => ({ fortunePct: 0.08 * l }) },
     smudged_tome:   { id: 'smudged_tome',   name: 'Smudged Tome',    icon: '📕', color: '#a070ff', desc: '+10% mage power / lvl',  statsAt: l => ({ magePowerPct: 0.10 * l }) },
-    frayed_talisman:{ id: 'frayed_talisman',name: 'Frayed Talisman', icon: '📿', color: '#ff5c8a', desc: '+15 max HP / lvl',       statsAt: l => ({ hpFlat: 15 * l }) },
     multiplier:     { id: 'multiplier',     name: 'Multiplier',      icon: '✦',  color: '#ff8c3c', desc: '+1 slash / lvl, max 5. Only way to fire more than one slash.', maxLevel: 5, statsAt: l => ({ slashMultiplier: Math.min(l, 5) }) },
-    // New items
-    iron_charm:     { id: 'iron_charm',     name: 'Iron Charm',      icon: '🛡', color: '#7ec0e8', desc: '+5% CC reduction / lvl', statsAt: l => ({ ccrPct: 0.05 * l }) },
-    bone_amulet:    { id: 'bone_amulet',    name: 'Bone Amulet',     icon: '🦴', color: '#c9c5b8', desc: '+3% damage reduction / lvl', statsAt: l => ({ drPct: 0.03 * l }) },
-    healing_aura:   { id: 'healing_aura',   name: 'Healing Aura',    icon: '✚',  color: '#7be36e', desc: '+3 HP regen/sec / lvl',  statsAt: l => ({ regenFlat: 3 * l }) },
+    // Iron Charm — combined defensive item (was previously Iron Charm + Bone Amulet)
+    iron_charm:     { id: 'iron_charm',     name: 'Iron Charm',      icon: '🛡', color: '#7ec0e8', desc: '+5% CC reduction & +3% damage reduction / lvl', statsAt: l => ({ ccrPct: 0.05 * l, drPct: 0.03 * l }) },
+    // Healing Aura — regen + max HP %. Replaces the old flat-HP Frayed Talisman.
+    healing_aura:   { id: 'healing_aura',   name: 'Healing Aura',    icon: '✚',  color: '#7be36e', desc: '+3 HP regen/sec & +3% max HP / lvl',  statsAt: l => ({ regenFlat: 3 * l, hpPctMult: 0.03 * l }) },
     radiant_aegis:  { id: 'radiant_aegis',  name: 'Radiant Aegis',   icon: '✦',  color: '#7ec0ff', desc: '+5% healing received & +5 shield max / lvl', statsAt: l => ({ healPct: 0.05 * l, shieldMaxFlat: 5 * l }) }
 };
 // 11 items now; inventory is still 8 slots — players choose what to specialize.
@@ -16050,7 +16049,7 @@ class DotsSurvivor {
         }
 
         let dmgMult = 1, dmgFlat = 0, critFlat = 0, atkSpdMult = 1, moveSpdFlat = 0;
-        let fortuneMult = 1, magePowerMult = 1, hpFlat = 0, drPct = 0, slashMult = 0;
+        let fortuneMult = 1, magePowerMult = 1, hpFlat = 0, hpPctMult = 1, drPct = 0, slashMult = 0;
         let ccrPct = 0, regenFlat = 0, healPct = 0, shieldMaxFlat = 0;
         for (const it of this.inventory) {
             const def = ITEM_DEFS[it.id]; if (!def) continue;
@@ -16063,6 +16062,7 @@ class DotsSurvivor {
             fortuneMult   *= 1 + (s.fortunePct || 0);
             magePowerMult *= 1 + (s.magePowerPct || 0);
             hpFlat        += s.hpFlat || 0;
+            hpPctMult     *= 1 + (s.hpPctMult || 0);
             drPct         += s.drPct || 0;
             ccrPct        += s.ccrPct || 0;
             regenFlat     += s.regenFlat || 0;
@@ -16094,9 +16094,12 @@ class DotsSurvivor {
         if (this.player && this._itemBasePlayerSpeed != null) {
             this.player.speed = this._itemBasePlayerSpeed + moveSpdFlat;
         }
+        this._itemHpPctMult = hpPctMult;
         if (this.player && this._itemBaseMaxHealth != null) {
             const oldMax = this.player.maxHealth;
-            this.player.maxHealth = this._itemBaseMaxHealth + hpFlat;
+            // Order: (base + flat) × pct multiplier — keeps Healing Aura's
+            // +3% / lvl scaling smoothly with future flat-HP additions.
+            this.player.maxHealth = Math.round((this._itemBaseMaxHealth + hpFlat) * hpPctMult);
             // Heal the player by the amount of new max-HP gained
             const gained = this.player.maxHealth - oldMax;
             if (gained > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + gained);
