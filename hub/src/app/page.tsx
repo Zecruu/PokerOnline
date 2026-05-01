@@ -78,115 +78,75 @@ export default function Home() {
     <div className="min-h-screen">
       <Navbar />
 
-      {/* Hero Banner - Premium Showcase */}
-      <section className="relative overflow-hidden min-h-[420px] lg:min-h-[520px]">
-        {/* Animated Background */}
-        <div className="absolute inset-0">
+      {/* Hero — dual-feature: Velthara + Critter Colony */}
+      <section className="relative overflow-hidden">
+        {/* Soft ambient backdrop blending the two key arts */}
+        <div className="absolute inset-0 pointer-events-none">
           <div
-            className="absolute inset-0 bg-cover bg-center scale-110"
+            className="absolute inset-0 bg-cover bg-center"
             style={{
               backgroundImage: "url('https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg')",
-              filter: "blur(40px) brightness(0.3)"
+              filter: "blur(60px) brightness(0.25)",
+              transform: "scale(1.2)",
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-[rgb(10,10,20)] via-transparent to-[rgb(10,10,20)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[rgb(10,10,20)] via-transparent to-[rgb(10,10,20)]/80" />
-          {/* Subtle grid pattern */}
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                               linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-              backgroundSize: '50px 50px'
-            }}
-          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[rgba(10,10,20,0.4)] via-transparent to-[rgb(10,10,20)]" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-14 lg:py-20 min-h-[420px] lg:min-h-[520px] flex items-center">
-          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center w-full">
-            {/* Text Content */}
-            <div className="animate-slide-up">
-              <span className="badge badge-featured mb-6 inline-flex items-center gap-2">
-                <span className="w-2 h-2 bg-[rgb(0,212,170)] rounded-full animate-pulse" />
-                FEATURED GAME
-              </span>
-
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black mb-6 text-white leading-[1.1] tracking-tight">
-                Velthara's<br />
-                <span className="text-gradient">Dominion</span>
-              </h1>
-
-              <p className="text-lg sm:text-xl text-white/60 mb-10 leading-relaxed max-w-lg">
-                Survive endless waves of enemies in this action-packed roguelike.
-                Collect XP, level up, unlock powerful upgrades, and see how long you can last.
-              </p>
-
-              <div className="flex gap-4 flex-wrap">
-                {ownsVelthara ? (
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-8 pb-10 lg:pt-12 lg:pb-14">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+            {/* Velthara feature card */}
+            <FeatureCard
+              title="Velthara's Dominion"
+              accent="cyan"
+              tagline="ROGUELIKE SURVIVOR"
+              description="Survive endless waves in this action-packed roguelike. Collect XP, level up, unlock upgrades, and see how long you last."
+              bgImage="https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg"
+              badge={ownsVelthara ? "OWNED" : "FEATURED"}
+              badgeKind={ownsVelthara ? "owned" : "featured"}
+              action={
+                ownsVelthara ? (
                   <a
                     href="https://games.zecrugames.com/veltharas-dominion/"
                     onClick={handlePlayClick}
-                    className="btn-glass btn-glass-primary text-base sm:text-lg px-8 sm:px-10 py-4"
+                    className="btn-glass btn-glass-primary text-sm sm:text-base px-6 sm:px-7 py-3"
                   >
-                    <span className="mr-2">▶</span> Play Now
+                    <span className="mr-1.5">▶</span> Play Now
                   </a>
                 ) : inCart ? (
-                  <div className="btn-glass text-base sm:text-lg px-8 sm:px-10 py-4 bg-white/10 text-white/70 cursor-default">
-                    ✓ Added to Cart
+                  <div className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 bg-white/10 text-white/70 cursor-default">
+                    ✓ In Cart
                   </div>
                 ) : (
                   <button
                     onClick={handleAddToCart}
-                    className="btn-glass text-base sm:text-lg px-8 sm:px-10 py-4 hover:scale-[1.02] transition-transform"
-                    style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', color: '#000' }}
+                    className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 hover:scale-[1.02] transition-transform"
+                    style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#000" }}
                   >
-                    {isLoggedIn ? "🛒 Add to Cart — $5" : "🔑 Login to Purchase"}
+                    {isLoggedIn ? "Add to Cart — $5" : "Login to Purchase"}
                   </button>
-                )}
+                )
+              }
+            />
+
+            {/* Critter Colony feature card */}
+            <FeatureCard
+              title="Critter Colony"
+              accent="green"
+              tagline="COZY AUTOMATION"
+              description="Capture critters, build workstations, and automate your colony. AFK gains keep your critters working while you're away."
+              bgImage="https://d2f5lfipdzhi8t.cloudfront.net/critter-colony/thumbnail.webp"
+              badge="FREE • NEW"
+              badgeKind="free"
+              action={
                 <Link
-                  href="/store/"
-                  className="btn-glass btn-glass-secondary text-base sm:text-lg px-6 sm:px-8 py-4"
+                  href="/games/critter-colony/index.html"
+                  className="btn-glass btn-glass-primary text-sm sm:text-base px-6 sm:px-7 py-3"
                 >
-                  Browse Store
+                  <span className="mr-1.5">▶</span> Play Now
                 </Link>
-              </div>
-            </div>
-
-            {/* Game Preview Card */}
-            <div className="hidden lg:block animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <div className="relative">
-                {/* Glow effect behind card */}
-                <div className="absolute -inset-4 bg-gradient-to-r from-[rgb(0,212,170)]/20 to-[rgb(120,80,255)]/20 rounded-3xl blur-2xl opacity-50" />
-
-                <div className="relative card-glass p-3 animate-float">
-                  <img
-                    src="https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg"
-                    alt="Velthara's Dominion"
-                    className="w-full aspect-video object-cover rounded-xl"
-                  />
-
-                  {/* Overlay info */}
-                  <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
-                    <div>
-                      {ownsVelthara ? (
-                        <span className="badge badge-owned text-xs">OWNED</span>
-                      ) : (
-                        <span className="badge badge-premium text-xs">PREMIUM</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-white/80 text-sm">
-                      <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                        </svg>
-                        2.4k
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              }
+            />
           </div>
         </div>
       </section>
@@ -233,6 +193,74 @@ export default function Home() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function FeatureCard({
+  title,
+  accent,
+  tagline,
+  description,
+  bgImage,
+  badge,
+  badgeKind,
+  action,
+}: {
+  title: string;
+  accent: "cyan" | "green";
+  tagline: string;
+  description: string;
+  bgImage: string;
+  badge: string;
+  badgeKind: "featured" | "owned" | "free";
+  action: React.ReactNode;
+}) {
+  const accentText = accent === "cyan" ? "text-[rgb(0,212,170)]" : "text-[rgb(165,214,167)]";
+  const accentGlow =
+    accent === "cyan"
+      ? "from-[rgba(0,212,170,0.18)] to-[rgba(120,80,255,0.12)]"
+      : "from-[rgba(165,214,167,0.18)] to-[rgba(255,193,7,0.12)]";
+  const badgeClass =
+    badgeKind === "owned" ? "badge-owned" : badgeKind === "free" ? "badge-free" : "badge-featured";
+
+  return (
+    <div className="group relative animate-slide-up">
+      {/* Subtle accent glow behind the card */}
+      <div className={`absolute -inset-2 bg-gradient-to-br ${accentGlow} rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
+
+      <article className="relative card-glass overflow-hidden">
+        {/* Hero art */}
+        <div className="relative aspect-[16/10] overflow-hidden">
+          <img
+            src={bgImage}
+            alt={title}
+            loading="eager"
+            decoding="async"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+          />
+          {/* Readability gradient — heavier at bottom for text */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[rgb(15,15,25)] via-[rgba(15,15,25,0.6)] to-transparent" />
+          {/* Top badge */}
+          <div className="absolute top-4 left-4">
+            <span className={`badge ${badgeClass}`}>{badge}</span>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 sm:p-6">
+          <p className={`text-[10px] font-bold tracking-[0.18em] uppercase mb-1.5 ${accentText}`}>
+            {tagline}
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none mb-2.5">
+            {title}
+          </h2>
+          <p className="text-white/60 text-sm sm:text-base leading-relaxed mb-4 line-clamp-2">
+            {description}
+          </p>
+          <div>{action}</div>
+        </div>
+      </article>
     </div>
   );
 }
