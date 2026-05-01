@@ -18732,121 +18732,146 @@ class DotsSurvivor {
                 ctx.fillRect(sx - rlbw / 2 + 1, sy - rlDisplayR - 11, (rlbw - 2) * (e.health / e.maxHealth), 10);
 
             } else if (e.isConsumer) {
-                // THE CONSUMER - Spiraling void with sprite and eyeball
+                // THE CONSUMER — a single giant bloodshot eyeball that
+                // grows angrier as its HP drops. Bloodshot veins pulse
+                // in red intensity; pupil tracks the player and dilates
+                // with damage taken.
                 ctx.save();
                 ctx.translate(sx, sy);
 
-                const spriteSize = e.spriteSize || 300;
-                const coreRadius = e.radius;
+                const t = (this.gameTime || 0);
+                const hpPct = Math.max(0, e.health / Math.max(1, e.maxHealth));
+                // Grow up to 1.6× as the boss takes damage, then a slow breathing pulse on top.
+                const growMul = 1 + (1 - hpPct) * 0.6;
+                const pulseMul = 1 + Math.sin(t / 380) * 0.04;
+                const fadeOut = e.isDying
+                    ? Math.max(0, 1 - Math.max(0, ((e.despawnTimer || 0) - 3.8) / 1.2))
+                    : 1;
+                const eyeSize = e.radius * 1.7 * growMul * pulseMul;
+                ctx.globalAlpha = fadeOut;
 
-                // Draw spiraling vacuum particles BEHIND the sprite (skip while dying)
-                if (e.vacuumParticles && !e.isDying) {
-                    for (const p of e.vacuumParticles) {
-                        ctx.beginPath();
-                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                        ctx.fillStyle = p.color;
-                        ctx.globalAlpha = p.alpha * 0.35;
-                        ctx.fill();
+                // 1. Outer red rage halo — pulses faster as HP drops.
+                const haloPulse = 0.5 + 0.5 * Math.sin(t / (220 - hpPct * 120));
+                const haloR = eyeSize * (1.55 + haloPulse * 0.15);
+                const halo = ctx.createRadialGradient(0, 0, eyeSize * 0.9, 0, 0, haloR);
+                halo.addColorStop(0, `rgba(180, 0, 30, ${0.30 + haloPulse * 0.18})`);
+                halo.addColorStop(0.6, 'rgba(120, 0, 40, 0.18)');
+                halo.addColorStop(1, 'rgba(40, 0, 20, 0)');
+                ctx.fillStyle = halo;
+                ctx.beginPath();
+                ctx.arc(0, 0, haloR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 2. Sclera (eyeball body) — bloodshot off-white with subtle inner shading.
+                const scleraGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize);
+                scleraGrad.addColorStop(0, '#ffe9d8');
+                scleraGrad.addColorStop(0.7, '#f4d4be');
+                scleraGrad.addColorStop(1, '#a07060');
+                ctx.fillStyle = scleraGrad;
+                ctx.beginPath();
+                ctx.arc(0, 0, eyeSize, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 3. Bloodshot veins — branching lines from the rim toward the iris.
+                //    Pulse intensity follows the rage halo so the whole eye throbs together.
+                if (!e._veinSeeds) {
+                    const seeds = [];
+                    const count = 14;
+                    for (let i = 0; i < count; i++) {
+                        seeds.push({
+                            angle: (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.2,
+                            len: 0.55 + Math.random() * 0.3,           // 0.55..0.85 of eyeSize
+                            wiggle: (Math.random() - 0.5) * 0.6,       // bend angle
+                            branchAt: 0.4 + Math.random() * 0.25,       // where the fork starts
+                            branchAngle: (Math.random() - 0.5) * 0.7,
+                            branchLen: 0.18 + Math.random() * 0.12,
+                            phase: Math.random() * Math.PI * 2,
+                            thickness: 1 + Math.random() * 1.4,
+                        });
                     }
-                    ctx.globalAlpha = 1;
+                    e._veinSeeds = seeds;
                 }
-
-                // Draw subtle void ring (skip while dying — boss is broken, no aura)
-                if (!e.isDying) {
-                    const spiralAngle = e.spiralAngle || 0;
-                    ctx.save();
-                    ctx.rotate(spiralAngle * 0.3);
+                const veinAlphaBase = 0.55 + (1 - hpPct) * 0.35; // angrier veins as HP drops
+                for (const v of e._veinSeeds) {
+                    const a = v.angle;
+                    const startX = Math.cos(a) * eyeSize * 0.95;
+                    const startY = Math.sin(a) * eyeSize * 0.95;
+                    const tipX   = Math.cos(a + v.wiggle) * eyeSize * (1 - v.len);
+                    const tipY   = Math.sin(a + v.wiggle) * eyeSize * (1 - v.len);
+                    const ctrlX  = Math.cos(a + v.wiggle * 0.5) * eyeSize * (1 - v.len * 0.4);
+                    const ctrlY  = Math.sin(a + v.wiggle * 0.5) * eyeSize * (1 - v.len * 0.4);
+                    const pulse = 0.55 + 0.45 * Math.sin(t / 260 + v.phase);
+                    ctx.strokeStyle = `rgba(180, 18, 32, ${(veinAlphaBase * pulse).toFixed(3)})`;
+                    ctx.lineWidth = v.thickness * (0.85 + 0.4 * pulse);
+                    ctx.lineCap = 'round';
                     ctx.beginPath();
-                    ctx.arc(0, 0, coreRadius * 1.2, 0, Math.PI * 2);
-                    ctx.strokeStyle = 'rgba(136, 0, 255, 0.12)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([12, 10]);
+                    ctx.moveTo(startX, startY);
+                    ctx.quadraticCurveTo(ctrlX, ctrlY, tipX, tipY);
                     ctx.stroke();
-                    ctx.setLineDash([]);
-                    ctx.restore();
-                }
-
-                // Draw the Consumer animation frame — walk loops, eat plays once
-                // then returns to walk, die plays once then holds while the
-                // sprite fades out over the despawn timer's last second.
-                const animName = e.anim || 'walk';
-                const animFrame = e.animFrame || 0;
-                const consumerSprite = SPRITE_CACHE[`consumer_${animName}_${animFrame}`] || SPRITE_CACHE['consumer'];
-                if (consumerSprite) {
-                    let alpha = 1;
-                    if (e.isDying) {
-                        // Fade out in the final 1.2s of the 5s despawn window
-                        alpha = Math.max(0, 1 - Math.max(0, ((e.despawnTimer || 0) - 3.8) / 1.2));
-                    }
-                    if (alpha < 1) ctx.globalAlpha = alpha;
-                    ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-                    if (e.hitFlash > 0 && !e.isDying) {
-                        ctx.globalCompositeOperation = 'lighter';
-                        ctx.globalAlpha = 0.15;
-                        ctx.drawImage(consumerSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
-                        ctx.globalCompositeOperation = 'source-over';
-                    }
-                    ctx.globalAlpha = 1;
-                } else {
-                    // Fallback: dark void circle if sprite not loaded
+                    // Fork — small branch off the main vein near branchAt
+                    const bx = startX + (ctrlX - startX) * v.branchAt;
+                    const by = startY + (ctrlY - startY) * v.branchAt;
+                    const bex = bx + Math.cos(a + v.branchAngle) * eyeSize * v.branchLen;
+                    const bey = by + Math.sin(a + v.branchAngle) * eyeSize * v.branchLen;
+                    ctx.lineWidth = v.thickness * 0.55 * (0.85 + 0.4 * pulse);
                     ctx.beginPath();
-                    ctx.arc(0, 0, coreRadius, 0, Math.PI * 2);
-                    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
-                    coreGrad.addColorStop(0, '#000000');
-                    coreGrad.addColorStop(0.6, '#1a0030');
-                    coreGrad.addColorStop(1, '#4400aa');
-                    ctx.fillStyle = coreGrad;
-                    ctx.fill();
-                }
-
-                // Eyeball + consume-radius indicator only render while alive — the
-                // animated death sprite carries the visuals during isDying.
-                if (!e.isDying) {
-                    const eyeSize = coreRadius * 0.35;
-
-                    // Eye white/red glow
-                    ctx.beginPath();
-                    ctx.arc(0, 0, eyeSize * 1.2, 0, Math.PI * 2);
-                    const eyeGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize * 1.2);
-                    eyeGlow.addColorStop(0, 'rgba(255, 0, 100, 0.8)');
-                    eyeGlow.addColorStop(0.7, 'rgba(200, 0, 80, 0.4)');
-                    eyeGlow.addColorStop(1, 'rgba(100, 0, 50, 0)');
-                    ctx.fillStyle = eyeGlow;
-                    ctx.fill();
-
-                    // Main eye (red, menacing)
-                    ctx.beginPath();
-                    ctx.ellipse(0, 0, eyeSize, eyeSize * 0.5, 0, 0, Math.PI * 2);
-                    ctx.fillStyle = '#cc0044';
-                    ctx.fill();
-                    ctx.strokeStyle = '#ff0066';
-                    ctx.lineWidth = 2;
+                    ctx.moveTo(bx, by);
+                    ctx.lineTo(bex, bey);
                     ctx.stroke();
+                }
+                ctx.lineCap = 'butt';
 
-                    // Pupil - follows player direction
+                // 4. Iris — angry red gradient.
+                const irisR = eyeSize * 0.5;
+                const irisGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, irisR);
+                irisGrad.addColorStop(0, '#ff2244');
+                irisGrad.addColorStop(0.7, '#aa0022');
+                irisGrad.addColorStop(1, '#440008');
+                ctx.fillStyle = irisGrad;
+                ctx.beginPath();
+                ctx.arc(0, 0, irisR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // 5. Pupil — tracks the player; dilates as HP drops.
+                if (!e.isDying) {
                     const playerDx = this.worldX - e.wx;
                     const playerDy = this.worldY - e.wy;
                     const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
-                    const pupilOffset = Math.min(eyeSize * 0.35, playerDist * 0.06);
+                    const pupilOffset = Math.min(irisR * 0.45, playerDist * 0.06);
                     const pupilX = playerDist > 0 ? (playerDx / playerDist) * pupilOffset : 0;
-                    const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset * 0.5 : 0;
-
-                    ctx.beginPath();
-                    ctx.ellipse(pupilX, pupilY, eyeSize * 0.3, eyeSize * 0.18, 0, 0, Math.PI * 2);
+                    const pupilY = playerDist > 0 ? (playerDy / playerDist) * pupilOffset : 0;
+                    const pupilR = irisR * (0.32 + (1 - hpPct) * 0.18);
                     ctx.fillStyle = '#000';
-                    ctx.fill();
-
-                    // Inner highlight (makes eye look alive)
                     ctx.beginPath();
-                    ctx.arc(pupilX - eyeSize * 0.12, pupilY - eyeSize * 0.06, eyeSize * 0.1, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.arc(pupilX, pupilY, pupilR, 0, Math.PI * 2);
                     ctx.fill();
+                    // Tiny corner highlight to keep the eye reading "alive"
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.beginPath();
+                    ctx.arc(pupilX - pupilR * 0.45, pupilY - pupilR * 0.45, pupilR * 0.22, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
 
-                    // Consume radius indicator (pulsing dashed circle)
-                    const pulseAlpha = 0.2 + Math.sin(e.spiralAngle * 2) * 0.1;
+                // Hit-flash overlay
+                if (e.hitFlash > 0 && !e.isDying) {
+                    ctx.globalAlpha = Math.min(0.4, e.hitFlash);
+                    ctx.fillStyle = '#ff8080';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, eyeSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+
+                // Consume radius indicator (gameplay tell — keep)
+                if (!e.isDying) {
+                    const pulseAlpha = 0.2 + Math.sin((e.spiralAngle || 0) * 2) * 0.1;
                     ctx.beginPath();
                     ctx.arc(0, 0, e.consumeRadius, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(136, 0, 255, ${pulseAlpha})`;
+                    ctx.strokeStyle = `rgba(180, 30, 40, ${pulseAlpha})`;
                     ctx.lineWidth = 3;
                     ctx.setLineDash([12, 8]);
                     ctx.stroke();
