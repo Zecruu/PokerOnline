@@ -4,91 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { GameCard } from "@/components/game-card";
-
-const ALL_GAMES = [
-  {
-    id: "poker",
-    title: "Poker Online",
-    description: "Experience the thrill of Texas Hold'em! Play with friends in real-time or challenge our trash-talking AI.",
-    thumbnail: "/games/poker/poker_thumbnail.png",
-    href: "/games/poker/poker.html",
-    badge: "HOT",
-    badgeColor: "gold" as const,
-    isFree: true,
-  },
-  {
-    id: "veltharas-dominion",
-    title: "Velthara's Dominion",
-    description: "Survive endless waves of enemies! Collect XP, level up, and choose powerful upgrades. How long can you last?",
-    thumbnail: "https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg",
-    href: "https://games.zecrugames.com/veltharas-dominion/",
-    badge: "FEATURED",
-    badgeColor: "green" as const,
-    isFree: false,
-    price: 5,
-    trailerUrl: "https://games.zecrugames.com/veltharas-dominion/game-trailer.mp4",
-  },
-  {
-    id: "zecru-tower-defense",
-    title: "Zecru Tower Defense",
-    description: "Build towers, stop the horde! 5 unique towers, 3 powerful Ascended towers, and 30 waves of enemies. Co-op multiplayer supported.",
-    thumbnail: "/games/zecru-tower-defense/thumbnail.png",
-    href: "/games/zecru-tower-defense/index.html",
-    badge: "NEW",
-    badgeColor: "green" as const,
-    isFree: true,
-  },
-  {
-    id: "zecru-15-clues",
-    title: "Zecru 15 Clues",
-    description: "One word. One chance. Can you crack the code? Give 1-word clues to help your partner guess 10 hidden words in 15 tries.",
-    thumbnail: "/games/zecru-15-clues/thumbnail.svg",
-    href: "/games/zecru-15-clues/index.html",
-    badge: "NEW",
-    badgeColor: "green" as const,
-    isFree: true,
-  },
-  {
-    id: "zecru-wordmaster",
-    title: "Zecru's WordMaster",
-    description: "Give clues and guess words — but avoid the doom word! A Codenames-style 2-player word game with a 5x5 grid.",
-    thumbnail: "/games/zecru-wordmaster/thumbnail.svg",
-    href: "/games/zecru-wordmaster/index.html",
-    badge: "NEW",
-    badgeColor: "green" as const,
-    isFree: true,
-  },
-  {
-    id: "realtyrush",
-    title: "RealtyRush",
-    description: "Buy, build, and bankrupt your friends in this real estate board game. Local & online multiplayer with stocks, cartels, and more.",
-    thumbnail: "/games/realtyrush/thumbnail.svg",
-    href: "/games/realtyrush/index.html",
-    badge: "NEW",
-    badgeColor: "green" as const,
-    isFree: true,
-  },
-  {
-    id: "critter-colony",
-    title: "Critter Colony",
-    description: "Capture critters, build workstations, and automate your colony! AFK gains keep your critters working while you're away.",
-    thumbnail: "https://d2f5lfipdzhi8t.cloudfront.net/critter-colony/thumbnail.webp",
-    href: "/games/critter-colony/index.html",
-    badge: "NEW",
-    badgeColor: "green" as const,
-    isFree: true,
-  },
-  {
-    id: "imposter",
-    title: "Who's The Imposter?",
-    description: "One word. One liar. Play in person or online — everyone gets the word except the imposter, who only gets a hint. Find the faker!",
-    thumbnail: "https://games.zecrugames.com/imposter/thumbnail.png",
-    href: "https://games.zecrugames.com/imposter/",
-    badge: "NEW",
-    badgeColor: "gold" as const,
-    isFree: true,
-  },
-];
+import { GAMES, getOwnedGames } from "@/lib/games";
 
 type FilterId = "library" | "favorites" | "wishlist";
 
@@ -138,13 +54,13 @@ export default function LibraryPage() {
     fetchUserData();
   }, []);
 
-  // Library = free games + owned paid + admin/tester gets all
+  // Library = free games + owned paid + admin/tester gets all (shared logic)
   const libraryGames = useMemo(
-    () => ALL_GAMES.filter((g) => g.isFree || isAdmin || ownedGames.includes(g.id)),
+    () => getOwnedGames({ ownedIds: ownedGames, isAdmin }),
     [isAdmin, ownedGames]
   );
-  const favoriteGames = useMemo(() => ALL_GAMES.filter((g) => favorites.includes(g.id)), [favorites]);
-  const wishlistGames = useMemo(() => ALL_GAMES.filter((g) => wishlist.includes(g.id)), [wishlist]);
+  const favoriteGames = useMemo(() => GAMES.filter((g) => favorites.includes(g.id)), [favorites]);
+  const wishlistGames = useMemo(() => GAMES.filter((g) => wishlist.includes(g.id)), [wishlist]);
 
   const filtered = useMemo(() => {
     const source =
@@ -213,7 +129,7 @@ export default function LibraryPage() {
           </div>
           <div className="relative flex-1 sm:max-w-xs sm:ml-auto">
             <svg
-              className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
+              className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none z-10"
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 17.5a6.5 6.5 0 100-13 6.5 6.5 0 000 13z" />
@@ -223,7 +139,8 @@ export default function LibraryPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search games…"
-              className="input-glass pl-10 py-2 text-sm"
+              className="input-glass text-sm"
+              style={{ paddingLeft: "2.5rem", paddingTop: "0.55rem", paddingBottom: "0.55rem" }}
             />
           </div>
         </div>
