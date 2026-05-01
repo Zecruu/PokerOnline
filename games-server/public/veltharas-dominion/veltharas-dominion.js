@@ -1904,7 +1904,8 @@ const DEMONIC_MONARCH_CLASS = {
     bonuses: {
         noProjectiles: true,
         hasUmbralOrbs: true,
-        umbralOrbCount: 2,
+        umbralOrbCount: 0, // Demonic Monarch starts WITHOUT abyssal eyes;
+                           // the first eye spawns after 90 kills via the passive.
         hasShadowThrall: true,
         damage: 1.35,
         fireRate: 0.9,
@@ -6150,7 +6151,8 @@ class DotsSurvivor {
         // ========== SHADOW MONARCH ==========
         if (this.selectedClass.bonuses.hasUmbralOrbs) {
             this.umbralOrbs = [];
-            this.umbralOrbCount = this.selectedClass.bonuses.umbralOrbCount || 1;
+            // Use ?? so a class can opt into 0 starter orbs (Demonic Monarch).
+            this.umbralOrbCount = this.selectedClass.bonuses.umbralOrbCount ?? 1;
             this.umbralOrbDamageBonus = 1;
             this.lancePierce = 0;
             this.doubleBeam = false;
@@ -8727,9 +8729,12 @@ class DotsSurvivor {
         };
     }
 
-    // Passive: every 30 kills spawns a new Umbral Orb (max 5 from passive)
+    // Passive: every N kills spawns a new Umbral Orb (max from passive
+    // controlled by class). Demonic Monarch uses this to grow from 0 → 6.
     updateMonarchOrbPassive() {
-        if (!this.umbralOrbs || this.umbralOrbs.length === 0) return;
+        if (!this.umbralOrbs) return;
+        // Only Monarch classes (SM / DM) have the orb passive.
+        if (!this.selectedClass?.bonuses?.hasUmbralOrbs) return;
 
         const kills = this.player.kills || 0;
         const threshold = this.monarchOrbKillThreshold || 150;
