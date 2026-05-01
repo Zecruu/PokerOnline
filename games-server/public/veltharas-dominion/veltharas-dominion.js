@@ -6767,7 +6767,7 @@ class DotsSurvivor {
             const shockRadius = 250 + (consumer.consumedCount * 3);
             if (shockDist < shockRadius && this.player.invincibleTime <= 0) {
                 const shockDmg = Math.floor(consumer.damage * 0.25);
-                this.player.health -= shockDmg;
+                this.player.health -= this._applyPlayerDamage(shockDmg);
                 this.player.invincibleTime = 0.5;
                 this.combatTimer = 0;
                 this.damageNumbers.push({
@@ -6817,7 +6817,7 @@ class DotsSurvivor {
             // Check player hit
             const bDist = Math.sqrt((this.worldX - bolt.wx) ** 2 + (this.worldY - bolt.wy) ** 2);
             if (bDist < bolt.radius + this.player.radius && this.player.invincibleTime <= 0) {
-                this.player.health -= bolt.damage;
+                this.player.health -= this._applyPlayerDamage(bolt.damage);
                 this.player.invincibleTime = 0.3;
                 this.combatTimer = 0;
                 this.damageNumbers.push({
@@ -7152,7 +7152,7 @@ class DotsSurvivor {
             const zdist = Math.sqrt(zdx * zdx + zdy * zdy);
             if (zdist < zone.radius + this.player.radius && this.player.invincibleTime <= 0) {
                 const zoneDmg = zone.damage * dt;
-                this.player.health -= zoneDmg;
+                this.player.health -= this._applyPlayerDamage(zoneDmg);
                 this.player.invincibleTime = 0.3;
                 this.combatTimer = 0;
                 if (Math.random() < 0.3) {
@@ -7228,7 +7228,7 @@ class DotsSurvivor {
                 const cDist = Math.sqrt((this.worldX - closestX) ** 2 + (this.worldY - closestY) ** 2);
 
                 if (cDist < tent.width + this.player.radius && this.player.invincibleTime <= 0) {
-                    this.player.health -= tent.damage;
+                    this.player.health -= this._applyPlayerDamage(tent.damage);
                     this.player.invincibleTime = 0.5;
                     this.combatTimer = 0;
                     this.damageNumbers.push({
@@ -7289,7 +7289,7 @@ class DotsSurvivor {
             const sdy = this.worldY - sp.wy;
             const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
             if (sDist < sp.radius + this.player.radius && this.player.invincibleTime <= 0) {
-                this.player.health -= sp.damage;
+                this.player.health -= this._applyPlayerDamage(sp.damage);
                 this.player.invincibleTime = 0.5;
                 this.combatTimer = 0;
                 this.damageNumbers.push({
@@ -7315,7 +7315,7 @@ class DotsSurvivor {
             // Burst damage if player is near
             const zdist = Math.sqrt((this.worldX - zone.wx) ** 2 + (this.worldY - zone.wy) ** 2);
             if (zdist < zone.radius * 1.5 && this.player.invincibleTime <= 0) {
-                this.player.health -= pw.damage * 0.5;
+                this.player.health -= this._applyPlayerDamage(pw.damage * 0.5);
                 this.player.invincibleTime = 1.0;
             }
         }
@@ -7623,7 +7623,7 @@ class DotsSurvivor {
                     const closestY = by1 + bdy * bt;
                     const bDist = Math.sqrt((this.worldX - closestX) ** 2 + (this.worldY - closestY) ** 2);
                     if (bDist < 15 + this.player.radius && this.player.invincibleTime <= 0) {
-                        this.player.health -= rl.damage * 0.3 * dt;
+                        this.player.health -= this._applyPlayerDamage(rl.damage * 0.3 * dt);
                         this.player.invincibleTime = 0.2;
                         this.combatTimer = 0;
                         if (Math.random() < 0.3) {
@@ -7733,7 +7733,8 @@ class DotsSurvivor {
                     const vdy = this.worldY - rl.voidSlam.wy;
                     const vDist = Math.sqrt(vdx * vdx + vdy * vdy);
                     if (vDist < rl.voidSlam.maxRadius + this.player.radius && this.player.invincibleTime <= 0) {
-                        this.player.health -= rl.voidSlam.damage;
+                        // Rift Lord void slam — telegraphed boss AOE, ignores DR.
+                        this.player.health -= this._applyPlayerDamage(rl.voidSlam.damage, { ignoresDR: true });
                         this.player.invincibleTime = 1.0;
                         this.combatTimer = 0;
                         this.damageNumbers.push({
@@ -7824,7 +7825,7 @@ class DotsSurvivor {
             const rdy = this.worldY - rb.wy;
             const rDist = Math.sqrt(rdx * rdx + rdy * rdy);
             if (rDist < rb.radius + this.player.radius && this.player.invincibleTime <= 0) {
-                this.player.health -= rb.damage;
+                this.player.health -= this._applyPlayerDamage(rb.damage);
                 this.player.invincibleTime = 0.5;
                 this.combatTimer = 0;
                 this.damageNumbers.push({
@@ -8010,7 +8011,8 @@ class DotsSurvivor {
                 this.spawnParticles(sx, sy, '#aa4400', 15);
                 const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
                 if (pd < 150) {
-                    this.player.health -= Math.floor(bq.damage * 0.8);
+                    // Brood Queen dash impact — telegraphed boss leap, ignores DR.
+                    this.player.health -= this._applyPlayerDamage(Math.floor(bq.damage * 0.8), { ignoresDR: true });
                     this.combatTimer = 0;
                 }
             }
@@ -8090,7 +8092,7 @@ class DotsSurvivor {
                 const dsy = this.player.y + (drop.wy - this.worldY);
                 const pd = Math.sqrt((dsx - this.player.x) ** 2 + (dsy - this.player.y) ** 2);
                 if (pd < drop.radius) {
-                    this.player.health -= Math.floor(bq.damage * 0.15 * dt);
+                    this.player.health -= this._applyPlayerDamage(Math.floor(bq.damage * 0.15 * dt));
                     this.combatTimer = 0;
                 }
             }
@@ -8294,7 +8296,7 @@ class DotsSurvivor {
                     const tsy = this.player.y + (trap.wy - this.worldY);
                     const pd = Math.sqrt((tsx - this.player.x) ** 2 + (tsy - this.player.y) ** 2);
                     if (pd < trap.radius) {
-                        this.player.health -= trap.damage;
+                        this.player.health -= this._applyPlayerDamage(trap.damage);
                         this.combatTimer = 0;
                         trap.triggered = true;
                         this.triggerScreenShake(5, 0.2);
@@ -8515,7 +8517,7 @@ class DotsSurvivor {
             const px = this.worldX, py = this.worldY;
             const closestDist = this.pointToLineDist(px, py, lev.wx, lev.wy, beamEndX, beamEndY);
             if (closestDist < 30) {
-                this.player.health -= Math.floor(lev.damage * 0.5 * dt);
+                this.player.health -= this._applyPlayerDamage(Math.floor(lev.damage * 0.5 * dt));
                 this.combatTimer = 0;
             }
         } else if (lev.beamTimer >= lev.beamCooldown) {
@@ -8534,7 +8536,8 @@ class DotsSurvivor {
             const tsy = this.player.y + (tail.wy - this.worldY);
             const pd = Math.sqrt((tsx - this.player.x) ** 2 + (tsy - this.player.y) ** 2);
             if (pd < 200) {
-                this.player.health -= Math.floor(lev.damage * 0.4);
+                // Leviathan tail shockwave — telegraphed sweep, ignores DR.
+                this.player.health -= this._applyPlayerDamage(Math.floor(lev.damage * 0.4), { ignoresDR: true });
                 this.combatTimer = 0;
                 this.addDamageNumber(this.player.x, this.player.y - 20, Math.floor(lev.damage * 0.4), '#226688', { scale: 1.2 });
             }
@@ -9221,7 +9224,7 @@ class DotsSurvivor {
                 // Apply burn damage
                 const burnDmg = Math.floor(this.ringOfFire.damagePerSecond * dt);
                 if (burnDmg > 0) {
-                    this.player.health -= burnDmg;
+                    this.player.health -= this._applyPlayerDamage(burnDmg);
                     this.combatTimer = 0; // Reset combat timer
                     if (Math.random() < 0.3) {
                         this.damageNumbers.push({
@@ -9288,7 +9291,7 @@ class DotsSurvivor {
             if (distFromCenter > this.circleOfDoom.currentRadius) {
                 const damage = Math.floor(this.circleOfDoom.damagePerSecond * dt);
                 if (damage > 0 && this.player.invincibleTime <= 0) {
-                    this.player.health -= damage;
+                    this.player.health -= this._applyPlayerDamage(damage);
                     this.combatTimer = 0; // Reset combat timer
                     this.damageNumbers.push({
                         x: this.player.x,
@@ -9808,7 +9811,7 @@ class DotsSurvivor {
         // Voracious Drain: Lose 2 HP per second passively
         if (this.corruptedHPDrain && this.corruptedHPDrain > 0) {
             const drain = this.corruptedHPDrain * dt;
-            this.player.health -= drain;
+            this.player.health -= this._applyPlayerDamage(drain);
             // Show occasional damage number
             if (Math.random() < dt * 0.5) {
                 this.damageNumbers.push({
@@ -9825,7 +9828,7 @@ class DotsSurvivor {
         if (this.corruptedOrbDrain && this.corruptedOrbDrain > 0 && this.skulls) {
             const orbDrain = this.corruptedOrbDrain * this.skulls.length * dt;
             if (orbDrain > 0) {
-                this.player.health -= orbDrain;
+                this.player.health -= this._applyPlayerDamage(orbDrain);
             }
         }
 
@@ -9838,7 +9841,7 @@ class DotsSurvivor {
                 this.corruptedStillBurn.timer = (this.corruptedStillBurn.timer || 0) + dt;
                 if (this.corruptedStillBurn.timer >= this.corruptedStillBurn.threshold) {
                     const burn = this.corruptedStillBurn.damage * dt;
-                    this.player.health -= burn;
+                    this.player.health -= this._applyPlayerDamage(burn);
                     if (Math.random() < dt) {
                         this.damageNumbers.push({
                             x: this.player.x + (Math.random() - 0.5) * 30,
@@ -11049,7 +11052,7 @@ class DotsSurvivor {
                     damage = Math.floor(damage);
 
                     if (damage > 0) {
-                        this.player.health -= damage;
+                        this.player.health -= this._applyPlayerDamage(damage);
                         this.combatTimer = 0; // Reset combat timer
 
                         // Visual feedback
@@ -11642,7 +11645,7 @@ class DotsSurvivor {
                 if (e.leechDrainTimer >= 0.5) {
                     e.leechDrainTimer = 0;
                     const drainDmg = Math.floor(e.damage * 0.5);
-                    this.player.health -= drainDmg;
+                    this.player.health -= this._applyPlayerDamage(drainDmg);
                     this.combatTimer = 0;
                     e.health += Math.floor(drainDmg * 0.5); // Heals itself
                     e.health = Math.min(e.health, e.maxHealth);
@@ -11788,7 +11791,7 @@ class DotsSurvivor {
 
                     // Apply remaining damage to health
                     if (remainingDamage > 0) {
-                        this.player.health -= remainingDamage;
+                        this.player.health -= this._applyPlayerDamage(remainingDamage);
                         this.player.invincibleTime = 0.5;
                         this.combatTimer = 0; // Reset combat timer - healing reduced for 3s
                         this.damageNumbers.push({ x: this.player.x, y: this.player.y - 20, value: -remainingDamage, lifetime: 1, color: '#ff4444', isText: true });
@@ -12166,7 +12169,7 @@ class DotsSurvivor {
             const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
             if (pd < explosionRadius) {
                 const dmg = Math.floor(e.damage * (e.isPoisonous ? 2 : 1.5));
-                this.player.health -= dmg;
+                this.player.health -= this._applyPlayerDamage(dmg);
                 this.combatTimer = 0; // Reset combat timer
                 this.damageNumbers.push({ 
                     x: this.player.x, 
@@ -12205,7 +12208,7 @@ class DotsSurvivor {
             const pd = Math.sqrt((sx - this.player.x) ** 2 + (sy - this.player.y) ** 2);
             if (pd < magmaRadius) {
                 const blastDmg = Math.floor(e.damage * 2);
-                this.player.health -= blastDmg;
+                this.player.health -= this._applyPlayerDamage(blastDmg);
                 this.combatTimer = 0;
                 this.damageNumbers.push({ x: this.player.x, y: this.player.y - 30, value: `🌋 ${-blastDmg}`, lifetime: 1.5, color: '#ff4400', scale: 1.3 });
             }
@@ -13041,7 +13044,7 @@ class DotsSurvivor {
         // Corrupted orb drain
         if (this.corruptedOrbDrain > 0 && this.umbralOrbs) {
             const drain = this.corruptedOrbDrain * this.umbralOrbs.length * dt;
-            this.player.health -= drain;
+            this.player.health -= this._applyPlayerDamage(drain);
         }
     }
 
@@ -13370,7 +13373,7 @@ class DotsSurvivor {
             this.runDamageDealt = (this.runDamageDealt || 0) + tickDmg;
             // Corrupted self-damage
             if (this.corruptedBurnSelfDamage) {
-                this.player.health -= this.corruptedBurnSelfDamage * dt;
+                this.player.health -= this._applyPlayerDamage(this.corruptedBurnSelfDamage * dt);
             }
             // Accumulate fractional burn damage and feed integer chunks into
             // addDamageNumber so the floating number STACKS (3 → 8 → 19 → ...)
@@ -16078,8 +16081,13 @@ class DotsSurvivor {
         this._itemFortuneMult = fortuneMult;
         this._itemMagePowerMult = magePowerMult;
         this._itemHpFlat = hpFlat;
-        this._itemDrPct = Math.min(0.75, drPct);  // cap 75% damage reduction
-        this._itemCcrPct = Math.min(0.75, ccrPct); // cap 75% CC reduction
+        // Diminishing returns toward a 75% asymptote so stacking Iron Charm
+        // never makes the player invincible. Each level gives less than the
+        // previous: Lv5 ≈ 14%, Lv10 ≈ 25%, Lv30 ≈ 52%, never reaches 75%.
+        // raw = sum of all per-level deltas; eff = 0.75 × (1 − e^(−raw / 0.75)).
+        const dimReturn = (raw, cap = 0.75) => cap * (1 - Math.exp(-raw / cap));
+        this._itemDrPct = dimReturn(drPct, 0.75);
+        this._itemCcrPct = dimReturn(ccrPct, 0.75);
         this._itemRegenFlat = regenFlat;
         this._itemHealMult = 1 + healPct;
         this._itemSlashMultiplier = slashMult;
@@ -17148,6 +17156,27 @@ class DotsSurvivor {
             }
             return this.length;
         };
+    }
+
+    // Centralized incoming-damage filter. Every player health-decrement
+    // site routes through this so item DR (Iron Charm), sigil DR (Demon
+    // Hide, Titan's Resolve), and future armor sources stack consistently.
+    //
+    //   opts.ignoresDR    — boss specials that bypass armor entirely. Tag
+    //                       telegraphed attacks with this so the player
+    //                       learns "stack of DR doesn't save you here."
+    //   opts.armorPenFlat — flat % subtracted from total DR before apply.
+    //
+    // Returns the actual damage to subtract from health.
+    _applyPlayerDamage(amount, opts = {}) {
+        if (!Number.isFinite(amount) || amount <= 0) return amount;
+        if (opts.ignoresDR) return amount;
+        // Stack item DR (already diminishing-returns) and sigil DR additively
+        // then cap at 0.85 so even a stacked legendary build isn't immortal.
+        let dr = (this._itemDrPct || 0) + (this.damageReduction || 0);
+        if (opts.armorPenFlat) dr = Math.max(0, dr - opts.armorPenFlat);
+        dr = Math.min(0.85, dr);
+        return amount * (1 - dr);
     }
 
     updateDamageNumbers(dt) {
