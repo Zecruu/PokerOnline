@@ -201,6 +201,83 @@ for (const offer of SHOP_OFFERS) {
     offer.cost = offer.marketCost != null ? offer.marketCost : (offer.id.startsWith('atk_') ? 60 : 40);
 }
 
+// ============ ALTAR OF THE TWIN GODS ============
+// Soul Market gamba. Spend souls to pray; you either earn the favor of
+// VELTHARION (Lord of the Crimson Pact — blessings) or wake the hunger of
+// MOR'THES (the Hollow — curses). Effect tier scales with the wave the
+// player is on, so high-wave prayers swing harder both ways.
+//
+//   Tier 1: waves 1-9   (small)
+//   Tier 2: waves 10-19 (medium)
+//   Tier 3: waves 20-29 (big)
+//   Tier 4: waves 30+   (build-defining)
+const ALTAR_PRAYER_COST = 50;
+const ALTAR_BLESS_CHANCE = 0.6; // 60% blessing / 40% curse — gambling tilted slightly favorable
+
+function _altarMaxHpDelta(g, pct) {
+    // Permanent max-HP shift, baseline-aware so Healing Aura / future
+    // multipliers re-derive correctly off this new base.
+    const delta = Math.floor(g.player.maxHealth * pct);
+    g.player.maxHealth = Math.max(50, g.player.maxHealth + delta);
+    g.player.health = Math.min(g.player.maxHealth, Math.max(1, g.player.health + (delta > 0 ? delta : 0)));
+    if (g._itemBaseMaxHealth != null) g._itemBaseMaxHealth = Math.max(50, g._itemBaseMaxHealth + delta);
+    return delta;
+}
+
+const ALTAR_BLESSINGS = [
+    // ── Tier 1 ── (early run)
+    { id: 'b1_dmg',   tier: 1, name: 'Whisper of Velthara',  desc: '+8% damage permanently', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.08; } },
+    { id: 'b1_hp',    tier: 1, name: 'Lesser Vigor',         desc: '+5% max HP, full heal',  apply: g => { _altarMaxHpDelta(g, 0.05); g.player.health = g.player.maxHealth; } },
+    { id: 'b1_speed', tier: 1, name: 'Wind Touch',           desc: '+10% move speed',        apply: g => { g.player.speed *= 1.10; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed *= 1.10; } },
+    // ── Tier 2 ──
+    { id: 'b2_dmg',   tier: 2, name: 'Crimson Edge',         desc: '+18% damage permanently', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.18; } },
+    { id: 'b2_crit',  tier: 2, name: "Hunter's Fortune",     desc: '+10% crit chance, +25% crit damage', apply: g => { g.critChanceBonus = (g.critChanceBonus || 0) + 0.10; g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25; } },
+    { id: 'b2_hp',    tier: 2, name: 'Greater Vigor',        desc: '+10% max HP, full heal',  apply: g => { _altarMaxHpDelta(g, 0.10); g.player.health = g.player.maxHealth; } },
+    // ── Tier 3 ──
+    { id: 'b3_dmg',   tier: 3, name: "Sovereign's Edict",    desc: '+30% damage, +15% attack speed', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.30; g.weapons.bullet.fireRate *= (1 / 1.15); } },
+    { id: 'b3_hp',    tier: 3, name: 'Sovereign Vigor',      desc: '+18% max HP, full heal, +5 HP regen', apply: g => { _altarMaxHpDelta(g, 0.18); g.player.health = g.player.maxHealth; g.player.hpRegen = (g.player.hpRegen || 0) + 5; } },
+    { id: 'b3_souls', tier: 3, name: 'Crown of Souls',       desc: 'Gain 200 souls now',     apply: g => { g.souls = (g.souls || 0) + 200; } },
+    // ── Tier 4 ── (build-defining)
+    { id: 'b4_dmg',   tier: 4, name: 'Crimson Apotheosis',   desc: '+50% damage permanently', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.50; } },
+    { id: 'b4_hp',    tier: 4, name: "Aegis of Velthara",    desc: '+25% max HP, full heal, +10 HP regen', apply: g => { _altarMaxHpDelta(g, 0.25); g.player.health = g.player.maxHealth; g.player.hpRegen = (g.player.hpRegen || 0) + 10; } },
+    { id: 'b4_pact',  tier: 4, name: 'Doubled Pact',         desc: 'Damage and crit damage +25% each, kept', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 1.25; g.weapons.bullet.critMultiplier = (g.weapons.bullet.critMultiplier || 2) + 0.25; } },
+];
+
+const ALTAR_CURSES = [
+    // ── Tier 1 ──
+    { id: 'c1_dmg',   tier: 1, name: 'Withered Hand',     desc: '-8% damage', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 0.92; } },
+    { id: 'c1_hp',    tier: 1, name: 'Hollow Touch',      desc: '-8% max HP', apply: g => { _altarMaxHpDelta(g, -0.08); } },
+    { id: 'c1_speed', tier: 1, name: 'Leaden Step',       desc: '-10% move speed', apply: g => { g.player.speed *= 0.90; if (g._itemBasePlayerSpeed != null) g._itemBasePlayerSpeed *= 0.90; } },
+    // ── Tier 2 ──
+    { id: 'c2_dmg',   tier: 2, name: 'Withering Curse',   desc: '-15% damage', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 0.85; } },
+    { id: 'c2_hp',    tier: 2, name: 'Hollow Embrace',    desc: '-15% max HP, halve current HP', apply: g => { _altarMaxHpDelta(g, -0.15); g.player.health = Math.max(1, Math.floor(g.player.health * 0.5)); } },
+    { id: 'c2_souls', tier: 2, name: 'Empty Pockets',     desc: 'Lose half your souls right now', apply: g => { g.souls = Math.floor((g.souls || 0) * 0.5); } },
+    // ── Tier 3 ──
+    { id: 'c3_dmg',   tier: 3, name: "Mor'thes Cripples", desc: '-25% damage', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 0.75; } },
+    { id: 'c3_atk',   tier: 3, name: 'Slow Hands',        desc: '-25% attack speed', apply: g => { g.weapons.bullet.fireRate *= 1.25; } },
+    { id: 'c3_dr',    tier: 3, name: 'Brittle Skin',      desc: '+25% damage taken (penalty stacks)', apply: g => { g.damageReduction = (g.damageReduction || 0) - 0.25; } },
+    // ── Tier 4 ──
+    { id: 'c4_doom',  tier: 4, name: "Mor'thes Doom",     desc: 'Set current HP to 1 immediately',
+      apply: g => { g.player.health = 1; } },
+    { id: 'c4_dmg',   tier: 4, name: 'Hollow Rot',        desc: '-40% damage permanently', apply: g => { g.damageMultiplier = (g.damageMultiplier || 1) * 0.60; } },
+    { id: 'c4_hp',    tier: 4, name: 'Hollow Reaping',    desc: '-25% max HP', apply: g => { _altarMaxHpDelta(g, -0.25); } },
+];
+
+function _altarTierForWave(wave) {
+    if (wave <= 9)  return 1;
+    if (wave <= 19) return 2;
+    if (wave <= 29) return 3;
+    return 4;
+}
+
+function _altarRollPool(pool, tier) {
+    // Prefer effects at the player's current tier; fall back to nearest available.
+    const exact = pool.filter(p => p.tier === tier);
+    const lower = pool.filter(p => p.tier === Math.max(1, tier - 1));
+    const usable = exact.length > 0 ? exact : (lower.length > 0 ? lower : pool);
+    return usable[Math.floor(Math.random() * usable.length)];
+}
+
 // ============ RUNE TREES (LoL rune-page style) ============
 // Each tree has a KEYSTONE (the existing infinite-stack passive) + 2 MINOR
 // runes. Picking a tree grants all three. Minor effects are applied either
@@ -4185,6 +4262,9 @@ class DotsSurvivor {
         this.pendingEnhancementRunes = 0;
         this.lastEnhancementRuneLevel = 0;
         this.enhancementRuneShowing = false;
+        // Altar of the Twin Gods — collected blessings (Veltharion) and curses (Mor'thes)
+        this.altarBlessings = [];
+        this.altarCurses = [];
 
         // Controls
         this.keys = {};
@@ -5617,6 +5697,9 @@ class DotsSurvivor {
         this.enhancementRuneLevels = { q: 0, e: 0, passive: 0 };
         this.lastEnhancementRuneLevel = 0;
         this.souls = 0;
+        // Reset Altar state at every fresh run start
+        this.altarBlessings = [];
+        this.altarCurses = [];
         // Clean up any leftover enhancement rune overlay
         const oldRuneOverlay = document.getElementById('enhancement-rune-overlay');
         if (oldRuneOverlay) oldRuneOverlay.remove();
@@ -16229,15 +16312,61 @@ class DotsSurvivor {
         }
         const renderShop = () => {
             const souls = Math.floor(this.souls || 0);
+            const tier = _altarTierForWave(this.wave || 1);
+            const altarBless = (this.altarBlessings || []).length;
+            const altarCurse = (this.altarCurses || []).length;
+            const lastResult = this._lastPrayerResult;
+            const canPray = souls >= ALTAR_PRAYER_COST;
+            const lastBlock = lastResult
+                ? `<div style="margin-top:.6rem;padding:.55rem .85rem;border-radius:8px;background:${lastResult.blessed ? 'rgba(60,140,60,0.18)' : 'rgba(140,30,30,0.22)'};border:1px solid ${lastResult.blessed ? 'rgba(165,214,167,0.5)' : 'rgba(255,90,90,0.5)'};color:${lastResult.blessed ? '#bdf78c' : '#ff9aac'};font-size:.85rem;text-align:center;">
+                    <b>${lastResult.blessed ? '✨ VELTHARION smiles' : '🜲 MOR&apos;THES feasts'}</b> — ${lastResult.item.name}: <span style="color:#fff">${lastResult.item.desc}</span>
+                </div>`
+                : '';
             overlay.innerHTML = `
                 <div style="text-align:center;margin-bottom:1.2rem;">
                     <h1 style="color:#ffb84d;font-size:2.4rem;letter-spacing:3px;text-shadow:0 0 20px rgba(255,184,77,0.55);margin-bottom:.3rem;">⚜ SOUL MARKET ⚜</h1>
                     <div style="color:#bdf78c;font-size:1.05rem;">Wave ${this.wave} · Souls: <span style="color:#fff;font-weight:bold;">👻 ${souls}</span></div>
                     <div style="color:#aaa;font-size:.85rem;margin-top:.3rem;">Buy power, take cursed payouts, or invest in soul income. Bought deals stay locked until you leave.</div>
                 </div>
+
+                <!-- ── Altar of the Twin Gods ── -->
+                <div style="width:min(920px,90vw);margin:0 auto 1.2rem;padding:1rem 1.2rem;border:2px solid rgba(255,140,80,0.45);border-radius:12px;background:linear-gradient(135deg,rgba(50,15,15,0.85),rgba(30,10,30,0.85));box-shadow:0 0 28px rgba(180,30,80,0.25);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:200px;">
+                            <div style="color:#ffb84d;font-weight:900;font-size:1.1rem;letter-spacing:2px;">🜲 ALTAR OF THE TWIN GODS</div>
+                            <div style="color:#ddd;font-size:.78rem;margin-top:.2rem;">
+                                <span style="color:#a5d6a7;font-weight:700;">VELTHARION</span> grants blessings ·
+                                <span style="color:#ff7a8a;font-weight:700;">MOR'THES</span> grants curses
+                            </div>
+                            <div style="color:#aaa;font-size:.72rem;margin-top:.15rem;">
+                                Tier ${tier} effects at wave ${this.wave} · 60% blessing / 40% curse
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:.45rem;">
+                            <button id="shop-pray-btn" style="padding:.7rem 1.8rem;background:${canPray ? 'linear-gradient(135deg,#c03a14,#ff8a3c)' : '#555'};border:none;border-radius:10px;color:#fff;font-weight:800;font-size:.95rem;letter-spacing:2px;cursor:${canPray ? 'pointer' : 'not-allowed'};box-shadow:${canPray ? '0 4px 18px rgba(255,80,0,0.45)' : 'none'};opacity:${canPray ? 1 : 0.6};">
+                                🙏 PRAY (${ALTAR_PRAYER_COST} 👻)
+                            </button>
+                            <div style="font-size:.7rem;color:#aaa;letter-spacing:1px;">
+                                <span style="color:#a5d6a7;">Blessings ${altarBless}</span> ·
+                                <span style="color:#ff7a8a;">Curses ${altarCurse}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${lastBlock}
+                </div>
+
                 <div id="shop-cards" style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;max-width:920px;"></div>
                 <button id="shop-leave-btn" style="margin-top:1.6rem;padding:.85rem 2.4rem;background:linear-gradient(135deg,#ff8a3c,#c03a14);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:1rem;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 18px rgba(255,80,0,0.3);">CONTINUE →</button>
             `;
+            const prayBtn = overlay.querySelector('#shop-pray-btn');
+            if (prayBtn && canPray) {
+                prayBtn.onclick = () => {
+                    if ((this.souls || 0) < ALTAR_PRAYER_COST) return;
+                    this.souls -= ALTAR_PRAYER_COST;
+                    this._lastPrayerResult = this.prayToGods();
+                    renderShop();
+                };
+            }
             const cards = overlay.querySelector('#shop-cards');
             for (const offer of offers) {
                 const isPayout = offer.cost < 0;
@@ -16281,6 +16410,24 @@ class DotsSurvivor {
         if (this.pendingUpgrades <= 0 && (this.pendingEnhancementRunes || 0) <= 0) {
             this.gamePaused = false;
         }
+    }
+
+    // ─── Altar of the Twin Gods ──────────────────────────────────────────
+    // Veltharion grants the player a tier-scaled blessing (60% chance) or
+    // Mor'thes drops a curse (40% chance). Caller (shop UI) is responsible
+    // for spending souls; this just rolls + applies + records.
+    prayToGods() {
+        const tier = _altarTierForWave(this.wave || 1);
+        const blessed = Math.random() < ALTAR_BLESS_CHANCE;
+        const pool = blessed ? ALTAR_BLESSINGS : ALTAR_CURSES;
+        const pick = _altarRollPool(pool, tier);
+        try { pick.apply(this); } catch (e) { console.error('altar apply error', e); }
+        const record = { id: pick.id, name: pick.name, desc: pick.desc, tier: pick.tier };
+        if (blessed) this.altarBlessings.push(record);
+        else this.altarCurses.push(record);
+        // Recompute downstream effects so item-stat plumbing reflects the prayer.
+        this.applyItemEffects();
+        return { blessed, item: record };
     }
 
     // ─── New shop-purchased attacks ──────────────────────────────────────
