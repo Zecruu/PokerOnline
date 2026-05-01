@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { GameCard } from "@/components/game-card";
 
@@ -89,8 +90,11 @@ const ALL_GAMES = [
   },
 ];
 
+type FilterId = "library" | "favorites" | "wishlist";
+
 export default function LibraryPage() {
-  const [activeTab, setActiveTab] = useState<"library" | "wishlist" | "favorites">("library");
+  const [activeFilter, setActiveFilter] = useState<FilterId>("library");
+  const [search, setSearch] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
@@ -101,28 +105,23 @@ export default function LibraryPage() {
     const token = localStorage.getItem("auth_token");
     setIsLoggedIn(!!token);
 
-    // Load favorites/wishlist from localStorage for now
     setFavorites(JSON.parse(localStorage.getItem("favorites") || "[]"));
     setWishlist(JSON.parse(localStorage.getItem("wishlist") || "[]"));
 
-    // Fetch fresh user data from API to get current library
     async function fetchUserData() {
       if (!token) return;
-
       try {
         const res = await fetch("https://www.zecrugames.com/api/auth/me", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const user = await res.json();
-          // Update localStorage with fresh data
           localStorage.setItem("user_data", JSON.stringify(user));
           setIsAdmin(user.isAdmin || user.isTester || false);
           const owned = (user.library || []).map((g: { gameId: string }) => g.gameId);
           setOwnedGames(owned);
         }
-      } catch (e) {
-        // Fallback to cached data
+      } catch {
         const userData = localStorage.getItem("user_data");
         if (userData) {
           try {
@@ -136,71 +135,135 @@ export default function LibraryPage() {
         }
       }
     }
-
     fetchUserData();
   }, []);
 
-  // Library includes: free games + owned paid games + all games for admin/tester
-  const libraryGames = ALL_GAMES.filter(g => g.isFree || isAdmin || ownedGames.includes(g.id));
-  const favoriteGames = ALL_GAMES.filter(g => favorites.includes(g.id));
-  const wishlistGames = ALL_GAMES.filter(g => wishlist.includes(g.id));
+  // Library = free games + owned paid + admin/tester gets all
+  const libraryGames = useMemo(
+    () => ALL_GAMES.filter((g) => g.isFree || isAdmin || ownedGames.includes(g.id)),
+    [isAdmin, ownedGames]
+  );
+  const favoriteGames = useMemo(() => ALL_GAMES.filter((g) => favorites.includes(g.id)), [favorites]);
+  const wishlistGames = useMemo(() => ALL_GAMES.filter((g) => wishlist.includes(g.id)), [wishlist]);
 
-  const getActiveGames = () => {
-    switch (activeTab) {
-      case "favorites": return favoriteGames;
-      case "wishlist": return wishlistGames;
-      default: return libraryGames;
-    }
-  };
+  const filtered = useMemo(() => {
+    const source =
+      activeFilter === "favorites"
+        ? favoriteGames
+        : activeFilter === "wishlist"
+        ? wishlistGames
+        : libraryGames;
+    const q = search.trim().toLowerCase();
+    if (!q) return source;
+    return source.filter(
+      (g) => g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)
+    );
+  }, [activeFilter, search, libraryGames, favoriteGames, wishlistGames]);
 
-  const tabs = [
-    { id: "library", label: "My Library", count: libraryGames.length },
-    { id: "favorites", label: "⭐ Favorites", count: favoriteGames.length },
-    { id: "wishlist", label: "💝 Wishlist", count: wishlistGames.length },
+  const filters: Array<{ id: FilterId; label: string; count: number }> = [
+    { id: "library", label: "Library", count: libraryGames.length },
+    { id: "favorites", label: "Favorites", count: favoriteGames.length },
+    { id: "wishlist", label: "Wishlist", count: wishlistGames.length },
   ];
 
   return (
     <div className="min-h-screen">
       <Navbar />
-      
-      <main className="max-w-6xl mx-auto px-8 py-8">
-        <h1 className="text-3xl font-bold mb-8">Your Games</h1>
 
-        {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-slate-700 pb-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "bg-[rgb(0,212,170)] text-slate-900"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700"
-              }`}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12">
+        {/* Header — name + summary stats */}
+        <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Your Games</h1>
+            <p className="text-white/50 text-sm mt-1.5">
+              {libraryGames.length} {libraryGames.length === 1 ? "game" : "games"} in library
+              {isAdmin && <span className="ml-2 badge badge-featured">ADMIN</span>}
+            </p>
+          </div>
+          {!isLoggedIn && (
+            <div className="text-white/50 text-sm">
+              <Link href="/" className="text-[rgb(0,212,170)] hover:underline font-medium">
+                Sign in
+              </Link>{" "}
+              to track owned games and favorites.
+            </div>
+          )}
+        </header>
+
+        {/* Filter row — chips + search */}
+        <div className="card-glass p-3 sm:p-4 mb-8 flex flex-col sm:flex-row gap-3 sm:items-center">
+          <div className="flex flex-wrap gap-2">
+            {filters.map((f) => {
+              const active = activeFilter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setActiveFilter(f.id)}
+                  className={
+                    "px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors border " +
+                    (active
+                      ? "bg-[rgba(0,212,170,0.18)] text-[rgb(0,212,170)] border-[rgba(0,212,170,0.4)]"
+                      : "bg-white/5 text-white/70 border-white/5 hover:text-white hover:bg-white/10")
+                  }
+                >
+                  {f.label} <span className="text-white/40 ml-1">{f.count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="relative flex-1 sm:max-w-xs sm:ml-auto">
+            <svg
+              className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
-              {tab.label} ({tab.count})
-            </button>
-          ))}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 17.5a6.5 6.5 0 100-13 6.5 6.5 0 000 13z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search games…"
+              className="input-glass pl-10 py-2 text-sm"
+            />
+          </div>
         </div>
 
-        {/* Games Grid */}
-        {getActiveGames().length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {getActiveGames().map((game) => (
+        {/* Games grid */}
+        {filtered.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+            {filtered.map((game) => (
               <GameCard key={game.id} game={game} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 text-slate-400">
-            <p className="text-xl mb-4">
-              {activeTab === "favorites" && "No favorite games yet. Add some from your library!"}
-              {activeTab === "wishlist" && "Your wishlist is empty. Browse the store!"}
-              {activeTab === "library" && "Your library is empty."}
-            </p>
-          </div>
+          <EmptyState filter={activeFilter} search={search} hasAny={(activeFilter === "library" ? libraryGames : activeFilter === "favorites" ? favoriteGames : wishlistGames).length > 0} />
         )}
       </main>
     </div>
   );
 }
 
+function EmptyState({ filter, search, hasAny }: { filter: FilterId; search: string; hasAny: boolean }) {
+  const isSearch = search.trim().length > 0 && hasAny;
+  const message = isSearch
+    ? `No games match "${search}".`
+    : filter === "favorites"
+    ? "No favorite games yet. Open a game and tap the star to add."
+    : filter === "wishlist"
+    ? "Your wishlist is empty. Browse the store to add games."
+    : "Your library is empty. Free games and games you own appear here.";
+
+  return (
+    <div className="card-glass p-12 text-center">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/5 flex items-center justify-center text-3xl">
+        {isSearch ? "🔍" : filter === "favorites" ? "⭐" : filter === "wishlist" ? "💝" : "📚"}
+      </div>
+      <p className="text-white/60 text-base mb-4 max-w-md mx-auto">{message}</p>
+      {!isSearch && filter !== "library" && (
+        <Link href="/store" className="btn-glass btn-glass-primary inline-flex">
+          Browse Store
+        </Link>
+      )}
+    </div>
+  );
+}

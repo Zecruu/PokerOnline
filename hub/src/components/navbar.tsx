@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AuthModal } from "./auth-modal";
 import { useCart } from "@/context/cart-context";
 
@@ -10,8 +10,11 @@ export function Navbar() {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [scrolled, setScrolled] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
   const { itemCount, openCart } = useCart();
 
   useEffect(() => {
@@ -22,6 +25,7 @@ export function Navbar() {
       try {
         const user = JSON.parse(storedUser);
         setUsername(user.username || "Player");
+        setEmail(user.email || "");
       } catch {
         setUsername("Player");
       }
@@ -34,6 +38,25 @@ export function Navbar() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Close user menu on outside click / escape
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setUserMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [userMenuOpen]);
 
   // Close sidebar when clicking outside
   useEffect(() => {
@@ -145,23 +168,71 @@ export function Navbar() {
           </button>
 
           {isLoggedIn ? (
-            <>
-              <Link
-                href="/profile"
-                className="flex items-center gap-2.5 px-2 sm:px-3 py-2 rounded-xl hover:bg-white/5 transition-colors"
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2 px-1.5 sm:px-2 py-1.5 rounded-xl hover:bg-white/5 transition-colors"
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-[rgb(0,212,170)] to-[rgb(0,180,145)] rounded-full flex items-center justify-center text-[rgb(10,10,15)] font-bold text-sm shadow-lg shadow-[rgba(0,212,170,0.2)]">
+                <div className="w-9 h-9 bg-gradient-to-br from-[rgb(0,212,170)] to-[rgb(0,180,145)] rounded-full flex items-center justify-center text-[rgb(10,10,15)] font-bold text-sm shadow-lg shadow-[rgba(0,212,170,0.2)] ring-1 ring-white/10">
                   {username.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-white font-medium hidden sm:block">{username}</span>
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="hidden sm:block px-4 py-2 text-white/50 hover:text-white transition-colors text-sm font-medium"
-              >
-                Logout
+                <span className="text-white font-medium hidden md:block max-w-[140px] truncate">{username}</span>
+                <svg
+                  className={`w-3.5 h-3.5 text-white/50 hidden md:block transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
-            </>
+
+              {userMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-64 modal-glass overflow-hidden animate-fade-in"
+                  style={{ borderRadius: "16px" }}
+                >
+                  {/* User card header */}
+                  <div className="px-4 py-3.5 border-b border-white/10 flex items-center gap-3">
+                    <div className="w-11 h-11 bg-gradient-to-br from-[rgb(0,212,170)] to-[rgb(0,180,145)] rounded-full flex items-center justify-center text-[rgb(10,10,15)] font-bold text-base shadow-lg shadow-[rgba(0,212,170,0.25)]">
+                      {username.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-white font-semibold text-sm truncate">{username}</div>
+                      {email && <div className="text-white/40 text-xs truncate">{email}</div>}
+                    </div>
+                  </div>
+
+                  {/* Menu items */}
+                  <div className="py-1.5">
+                    <UserMenuItem href="/profile" icon="👤" onClick={() => setUserMenuOpen(false)}>
+                      Profile
+                    </UserMenuItem>
+                    <UserMenuItem href="/library" icon="📚" onClick={() => setUserMenuOpen(false)}>
+                      My Library
+                    </UserMenuItem>
+                    <UserMenuItem href="/store" icon="🛒" onClick={() => setUserMenuOpen(false)}>
+                      Store
+                    </UserMenuItem>
+                  </div>
+
+                  <div className="border-t border-white/10 py-1.5">
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-white/70 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium"
+                      role="menuitem"
+                    >
+                      <span className="text-base w-5 text-center">🚪</span>
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <button
@@ -299,6 +370,20 @@ function SidebarLink({ href, icon, children, onClick }: { href: string; icon: st
     >
       <span className="text-lg">{icon}</span>
       <span className="font-medium">{children}</span>
+    </Link>
+  );
+}
+
+function UserMenuItem({ href, icon, children, onClick }: { href: string; icon: string; children: React.ReactNode; onClick?: () => void }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium"
+      role="menuitem"
+    >
+      <span className="text-base w-5 text-center">{icon}</span>
+      <span>{children}</span>
     </Link>
   );
 }

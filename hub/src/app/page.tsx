@@ -184,7 +184,7 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Banner - Premium Showcase */}
-      <section className="relative overflow-hidden min-h-[600px]">
+      <section className="relative overflow-hidden min-h-[420px] lg:min-h-[520px]">
         {/* Animated Background */}
         <div className="absolute inset-0">
           <div
@@ -207,8 +207,8 @@ export default function Home() {
           />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-24 min-h-[600px] flex items-center">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center w-full">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-14 lg:py-20 min-h-[420px] lg:min-h-[520px] flex items-center">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center w-full">
             {/* Text Content */}
             <div className="animate-slide-up">
               <span className="badge badge-featured mb-6 inline-flex items-center gap-2">
@@ -297,8 +297,8 @@ export default function Home() {
       </section>
 
       {/* Games Grid Section */}
-      <main className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20">
-        <div className="flex items-center justify-between mb-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-16 lg:py-20">
+        <div className="flex items-center justify-between mb-8 lg:mb-10">
           <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 text-white">
             <span className="text-3xl">🎮</span> All Games
           </h2>
@@ -313,9 +313,9 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
           {GAMES.map((game, index) => (
-            <div key={game.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
+            <div key={game.id} className="animate-slide-up" style={{ animationDelay: `${Math.min(index * 0.05, 0.4)}s` }}>
               <GameCard game={game} />
             </div>
           ))}
