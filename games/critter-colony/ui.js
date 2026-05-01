@@ -505,25 +505,22 @@ class UI {
                 html = '<div class="panel-empty">⚠️ Walk near your Workbench to craft!<br><br>Workbench must be within range to use.</div>';
             } else {
                 const ct = Buildings.getCraftTime(wb, g.critters);
-                const crafting = (wb.workers.length > 0 && (wb.craftQueue > 0 || wb.ammoQueue > 0)) || wb._manualCrafting;
+                const crafting = (wb.workers.length > 0 && wb.ammoQueue > 0) || wb._manualCrafting;
                 const pct = crafting ? Math.min(100, ((wb.craftProgress || 0) / ct) * 100) : 0;
 
                 html += `<div class="wb-panel">`;
                 html += `<div class="wb-speed-info">Craft speed: ${ct.toFixed(1)}s per item (${wb.workers.length} workers)</div>`;
 
                 if (crafting) {
-                    const label = wb.activeRecipe === 'ammo' ? 'Bullets' : wb.activeRecipe === 'iron_snare' ? 'Iron Snare' : wb.activeRecipe === 'gold_snare' ? 'Gold Snare' : wb.activeRecipe === 'diamond_snare' ? 'Diamond Snare' : 'Trap';
+                    const label = wb.activeRecipe === 'ammo' ? 'Bullets' : wb.activeRecipe || 'Item';
                     html += `<div class="wb-progress"><div class="wb-prog-bar"><div class="wb-prog-fill" style="width:${pct}%"></div></div>`;
                     html += `<span class="wb-prog-text">Crafting ${label}... ${Math.floor(pct)}%</span></div>`;
                 }
 
-                // Recipes
+                // Recipes — snares were removed (replaced by Critdex level
+                // gating). Workbench now only crafts ammo.
                 const recipes = [
-                    { id: 'trap', name: 'Rope Snare', desc: 'Catches common critters', cost: {wood:5,stone:3}, icon: '🪤', result: 'traps', qty: 1 },
                     { id: 'ammo', name: 'Bullets x5', desc: 'Ammo for tamer gun', cost: {iron:2,stone:1}, icon: '💥', result: 'ammo', qty: 5 },
-                    { id: 'iron_snare', name: 'Iron Snare', desc: 'Catches uncommon critters', cost: {wood:5,iron:3}, icon: '⛓️', result: 'iron_snare', qty: 1, req: 'ironSnare' },
-                    { id: 'gold_snare', name: 'Gold Snare', desc: 'Catches rare critters', cost: {iron:3,gold:2}, icon: '✨', result: 'gold_snare', qty: 1, req: 'goldSnare' },
-                    { id: 'diamond_snare', name: 'Diamond Snare', desc: 'Catches legendary critters', cost: {gold:2,diamond:1}, icon: '💎', result: 'diamond_snare', qty: 1, req: 'diamondSnare' },
                 ];
 
                 for (const r of recipes) {
@@ -642,7 +639,7 @@ class UI {
                     }
                     if (def.isWorkbench && b.workers.length > 0) {
                         const ct = Buildings.getCraftTime(b, g.critters);
-                        html += `<div class="mb-prod">${ct.toFixed(1)}s/trap${b.craftQueue > 0 ? ` | ${b.craftQueue} queued` : ''}</div>`;
+                        html += `<div class="mb-prod">${ct.toFixed(1)}s/item${b.ammoQueue > 0 ? ` | ${b.ammoQueue} queued` : ''}</div>`;
                     }
                     // Research lab removed — research is now Skill Point based via Tech Tree
 
@@ -774,11 +771,36 @@ class UI {
             const totalCount = allSpecies.length;
             const foundCount = allSpecies.filter(([k]) => discovered.includes(k)).length;
 
-            html += `<div class="cdex-header">`;
-            html += `<span class="cdex-title">Critterdex</span>`;
-            html += `<span class="cdex-progress">${foundCount}/${totalCount} Discovered</span>`;
-            html += `<div class="cdex-bar"><div class="cdex-bar-fill" style="width:${totalCount > 0 ? (foundCount/totalCount*100) : 0}%"></div></div>`;
+            // Critdex book panel — capture progression
+            const critdex = g.critdex || { level: 1, xp: 0 };
+            const lvl = critdex.level || 1;
+            const xp = critdex.xp || 0;
+            const xpToNext = (typeof Critters !== 'undefined' && Critters.getCritdexXpToNext)
+                ? Critters.getCritdexXpToNext(lvl) : 100;
+            const xpPct = xpToNext === Infinity ? 100 : Math.min(100, (xp / xpToNext) * 100);
+            const TIERS = ['common', 'uncommon', 'rare', 'legendary'];
+            const maxRarity = TIERS[Math.min(lvl, TIERS.length) - 1] || 'common';
+
+            html += `<div class="critdex-book">`;
+            html += `<div class="critdex-book-art"></div>`;
+            html += `<div class="critdex-book-body">`;
+            html += `<div class="critdex-title-row">`;
+            html += `<span class="critdex-title">Critdex</span>`;
+            html += `<span class="critdex-level">Lv.${lvl}</span>`;
             html += `</div>`;
+            html += `<div class="critdex-sub">Capture ${maxRarity} and below • ${foundCount}/${totalCount} discovered</div>`;
+            html += `<div class="critdex-xpbar"><div class="critdex-xpbar-fill" style="width:${xpPct}%"></div></div>`;
+            html += `<div class="critdex-xptext">${xpToNext === Infinity ? 'Mastered' : `${xp} / ${xpToNext} XP to Lv.${lvl + 1}`}</div>`;
+            html += `<div class="critdex-tiers">`;
+            for (let i = 0; i < TIERS.length; i++) {
+                const tier = TIERS[i];
+                const tierLvl = i + 1;
+                const unlocked = lvl >= tierLvl;
+                const color = (typeof RARITY_COLORS !== 'undefined' && RARITY_COLORS[tier]) || '#888';
+                html += `<span class="critdex-tier ${unlocked ? 'unlocked' : 'locked'}" style="${unlocked ? `color:${color};border-color:${color}66;` : ''}">${unlocked ? '' : '🔒 '}Lv${tierLvl} ${tier}</span>`;
+            }
+            html += `</div>`;
+            html += `</div></div>`;
 
             html += '<div class="cdex-grid">';
             for (const [key, sp] of allSpecies) {

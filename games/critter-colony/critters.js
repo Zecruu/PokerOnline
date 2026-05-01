@@ -1,7 +1,7 @@
 /* ============================================================
    Critter Colony — Critter System
    ============================================================
-   All data (SPECIES, CRITTER_TYPES, PASSIVES, SNARE_TIERS, etc.)
+   All data (SPECIES, CRITTER_TYPES, PASSIVES, etc.)
    is loaded from data/*.json by config.js before this file runs.
    Edit the JSON files in data/ to mod critter stats, passives, etc.
    ============================================================ */
@@ -456,29 +456,63 @@ class Critters {
         }
     }
 
-    // Find the best snare tier the player can use for this critter's rarity
-    static getBestSnare(inventory, critterRarity) {
-        const tiers = Object.entries(SNARE_TIERS).reverse(); // check highest first
-        for (const [key, snare] of tiers) {
-            if ((inventory[key] || 0) > 0 && snare.captures.includes(critterRarity)) {
-                return key;
-            }
+    // ── CRITDEX ──────────────────────────────────────────────────────
+    // Capture progression book. Levels gate the rarity tier the player
+    // can capture. XP comes from successful captures.
+    //   Level 1 → Common
+    //   Level 2 → +Uncommon
+    //   Level 3 → +Rare
+    //   Level 4 → +Legendary
+    // Snares were ripped out — Critdex replaces that whole loop.
+    static get CRITDEX_TIERS() {
+        return ['common', 'uncommon', 'rare', 'legendary'];
+    }
+    static get CRITDEX_XP_CURVE() {
+        // XP required to advance from each level → next.
+        // Index 0 = Lv1→2, index 1 = Lv2→3, etc.
+        return [100, 250, 500, 1000];
+    }
+    static getCritdexTierForRarity(rarity) {
+        return Critters.CRITDEX_TIERS.indexOf(rarity) + 1; // 1..4, 0 if unknown
+    }
+    static getCritdexLevelMaxRarity(level) {
+        const tier = Math.max(1, Math.min(level, Critters.CRITDEX_TIERS.length));
+        return Critters.CRITDEX_TIERS[tier - 1];
+    }
+    static getCritdexXpToNext(level) {
+        const curve = Critters.CRITDEX_XP_CURVE;
+        if (level >= curve.length + 1) return Infinity; // maxed out
+        return curve[level - 1];
+    }
+    static awardCritdexXp(game, amount) {
+        if (!game.critdex) game.critdex = { level: 1, xp: 0 };
+        game.critdex.xp += amount;
+        const result = { gained: amount, leveledUp: false, newLevel: game.critdex.level };
+        // Drain XP through any pending level-ups
+        while (true) {
+            const need = Critters.getCritdexXpToNext(game.critdex.level);
+            if (game.critdex.xp < need || need === Infinity) break;
+            game.critdex.xp -= need;
+            game.critdex.level += 1;
+            result.leveledUp = true;
+            result.newLevel = game.critdex.level;
+            result.unlockedRarity = Critters.getCritdexLevelMaxRarity(game.critdex.level);
         }
-        // Fallback to old traps for backwards compat
-        if ((inventory.traps || 0) > 0 && critterRarity === 'common') return '_legacy_trap';
-        return null;
+        return result;
     }
 
     static attemptCapture(critter, game) {
         const sp = SPECIES[critter.species];
-        const snareKey = Critters.getBestSnare(game.inventory, sp.rarity);
+        const rarityTier = Critters.getCritdexTierForRarity(sp.rarity);
+        if (!game.critdex) game.critdex = { level: 1, xp: 0 };
+        const critdexLevel = game.critdex.level;
 
-        if (!snareKey) {
-            if (sp.rarity !== 'common') {
-                const needed = sp.rarity === 'uncommon' ? 'Iron Snare' : sp.rarity === 'rare' ? 'Gold Snare' : 'Diamond Snare';
-                return { success: false, reason: `Need ${needed} for ${sp.rarity} critters!` };
-            }
-            return { success: false, reason: 'No snares!' };
+        if (rarityTier > critdexLevel) {
+            const needRarity = Critters.getCritdexLevelMaxRarity(rarityTier);
+            return {
+                success: false,
+                reason: `Critdex Lv${rarityTier} needed for ${needRarity} critters (you're Lv${critdexLevel}).`,
+            };
         }
 
         const px = game.player.x;
@@ -489,9 +523,13 @@ class Critters {
 
         if (dist > CAPTURE_RANGE) return { success: false, reason: 'Too far away!' };
 
-        // Consume the snare
-        if (snareKey === '_legacy_trap') game.inventory.traps--;
-        else game.inventory[snareKey] = (game.inventory[snareKey] || 0) - 1;
+        // Award Critdex XP based on whether this species was already
+        // discovered and on its rarity tier.
+        const awardXpForCapture = () => {
+            const isNew = !(game.discoveredSpecies || []).includes(critter.species);
+            const xpGain = isNew ? 50 * rarityTier : 5 * rarityTier;
+            return Critters.awardCritdexXp(game, xpGain);
+        };
 
         // Stunned = guaranteed capture
         if (critter.stunned) {
@@ -507,7 +545,8 @@ class Critters {
                 hunger: 100,
                 stars: 0,
             };
-            return { success: true, captured };
+            const critdex = awardXpForCapture();
+            return { success: true, captured, critdex };
         }
 
         // HP bonus: lower HP = easier capture
@@ -534,7 +573,8 @@ class Critters {
                 hunger: 100,
                 stars: 0,
             };
-            return { success: true, captured };
+            const critdex = awardXpForCapture();
+            return { success: true, captured, critdex };
         } else {
             // Fail — critter flees
             critter.fleeing = true;

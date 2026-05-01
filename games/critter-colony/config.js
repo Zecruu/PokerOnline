@@ -28,7 +28,7 @@ const GameConfig = {
     async loadAll() {
         const files = [
             'species', 'critter-types', 'passives', 'buildings',
-            'research', 'equipment', 'snares', 'world', 'balance', 'biomes', 'enemies', 'tech',
+            'research', 'equipment', 'world', 'balance', 'biomes', 'enemies', 'tech',
             'doctrines'
         ];
 
@@ -154,11 +154,6 @@ const GameConfig = {
                 techDefs[k] = v;
             }
             window.TECH_DEFS = techDefs;
-        }
-
-        // ── SNARES ──
-        if (d.snares) {
-            window.SNARE_TIERS = d.snares;
         }
 
         // ── BUILDINGS ──

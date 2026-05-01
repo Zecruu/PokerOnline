@@ -28,12 +28,9 @@
     "afkCap":         { "name": "Extended AFK",        "desc": "+2 hours offline cap per level", "branch": "economy", "tier": 4, "cost": 2, "maxLevel": 4, "prereq": ["smelting"] },
 
     "captureBonus":   { "name": "Capture Mastery",     "desc": "+10% capture rate per level", "branch": "capture", "tier": 1, "cost": 1, "maxLevel": 5 },
-    "ironSnare":      { "name": "Iron Snares",         "desc": "Craft Iron Snares (catches uncommon)", "branch": "capture", "tier": 1, "cost": 1, "maxLevel": 1 },
-    "goldSnare":      { "name": "Gold Snares",         "desc": "Craft Gold Snares (catches rare)", "branch": "capture", "tier": 2, "cost": 2, "maxLevel": 1, "prereq": ["ironSnare"] },
     "companionSlots": { "name": "Companion Bond",      "desc": "+1 companion slot per level", "branch": "capture", "tier": 2, "cost": 1, "maxLevel": 3, "prereq": ["captureBonus"] },
     "bodyguardSlots": { "name": "Bodyguard Training",  "desc": "+1 bodyguard slot per level", "branch": "capture", "tier": 2, "cost": 1, "maxLevel": 3, "prereq": ["captureBonus"] },
-    "diamondSnare":   { "name": "Diamond Snares",      "desc": "Craft Diamond Snares (catches legendary)", "branch": "capture", "tier": 3, "cost": 3, "maxLevel": 1, "prereq": ["goldSnare"] },
-    "passiveLab":     { "name": "Passive Lab",         "desc": "Unlocks Passive Lab (transfer passives)", "branch": "capture", "tier": 4, "cost": 3, "maxLevel": 1, "prereq": ["diamondSnare"] },
+    "passiveLab":     { "name": "Passive Lab",         "desc": "Unlocks Passive Lab (transfer passives)", "branch": "capture", "tier": 3, "cost": 3, "maxLevel": 1, "prereq": ["captureBonus"] },
 
     "oilDrilling":    { "name": "Oil Drilling",        "desc": "Unlocks Oil Pump (place on oil nodes)", "branch": "extraction", "tier": 1, "cost": 1, "maxLevel": 1 },
     "crystalExtract": { "name": "Crystal Extraction",  "desc": "Unlocks Crystal Extractor", "branch": "extraction", "tier": 1, "cost": 1, "maxLevel": 1 },

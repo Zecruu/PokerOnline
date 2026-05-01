@@ -190,24 +190,21 @@ class Buildings {
 
             // Workbench: multi-recipe craft queue
             if (def.isWorkbench) {
-                if (!b.craftQueue) b.craftQueue = 0;
                 if (!b.ammoQueue) b.ammoQueue = 0;
                 if (!b.craftProgress) b.craftProgress = 0;
 
-                // Recipe definitions with costs
+                // Recipe definitions with costs. Snares were removed
+                // (replaced by Critdex level-gated capture) — workbench
+                // now only crafts ammo.
                 const CRAFT_RECIPES = {
-                    trap:          { cost: {wood:5, stone:3},   result: 'traps',         qty: 1, queue: 'craftQueue' },
-                    ammo:          { cost: {iron:2, stone:1},   result: 'ammo',          qty: 10, queue: 'ammoQueue' },
-                    iron_snare:    { cost: {wood:5, iron:3},    result: 'iron_snare',    qty: 1, queue: 'ironSnareQueue' },
-                    gold_snare:    { cost: {iron:3, gold:2},    result: 'gold_snare',    qty: 1, queue: 'goldSnareQueue' },
-                    diamond_snare: { cost: {gold:2, diamond:1}, result: 'diamond_snare', qty: 1, queue: 'diamondSnareQueue' },
+                    ammo: { cost: {iron:2, stone:1}, result: 'ammo', qty: 10, queue: 'ammoQueue' },
                 };
 
                 // Init queues
                 for (const r of Object.values(CRAFT_RECIPES)) { if (!b[r.queue]) b[r.queue] = 0; }
 
                 let recipe = null;
-                if (b._manualCrafting) recipe = b._manualRecipe || 'trap';
+                if (b._manualCrafting) recipe = b._manualRecipe || 'ammo';
                 else if (b.workers.length > 0) {
                     // Find first queued recipe
                     for (const [rid, rd] of Object.entries(CRAFT_RECIPES)) {

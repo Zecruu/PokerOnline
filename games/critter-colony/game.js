@@ -17,13 +17,15 @@ class Game {
 
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 }; // 30 = forage
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
-        this.inventory = { traps: 5, ammo: 120 };
+        this.inventory = { ammo: 120 };
         this.buildings = [];
         this.critters = [];
         this.wildCritters = [];
         this.projectiles = [];
         this.deadCritters = []; // permadeath graveyard
         this.discoveredSpecies = []; // Critterdex — species IDs the player has captured
+        // Critdex — capture progression book (replaces snares).
+        this.critdex = { level: 1, xp: 0 };
 
         // Combat
         this.gunCooldown = 0;
@@ -322,7 +324,16 @@ class Game {
         this.techUnlocks = gs.techUnlocks || {};
         this.resources = { ...gs.resources };
         this.resourceCaps = gs.resourceCaps || { wood: 200, stone: 200, food: 150 };
+        // Migrate inventory: snares were removed. Strip them from old saves.
         this.inventory = { ...gs.inventory };
+        delete this.inventory.traps;
+        delete this.inventory.iron_snare;
+        delete this.inventory.gold_snare;
+        delete this.inventory.diamond_snare;
+        // Restore or initialise Critdex (1..N capture progression book)
+        this.critdex = gs.critdex && typeof gs.critdex.level === 'number'
+            ? { level: gs.critdex.level, xp: gs.critdex.xp || 0 }
+            : { level: 1, xp: 0 };
         this.buildings = gs.buildings
             .filter(b => BUILDING_DEFS[b.type]) // skip removed buildings (e.g. research_lab from old saves)
             .map(b => {
@@ -385,9 +396,12 @@ class Game {
         this.player.x = 0; this.player.y = 0;
         this.resources = { wood: 50, stone: 50, food: 30, iron: 0 }; // 30 = forage
         this.resourceCaps = { wood: 200, stone: 200, food: 150, iron: 100, oil: 50, gold: 30, diamond: 15, crystal: 50, metal: 50 };
-        this.inventory = { traps: 5, ammo: 120 };
+        // Snares were removed — capture is now gated by Critdex level.
+        this.inventory = { ammo: 120 };
+        this.critdex = { level: 1, xp: 0 };
         this.critters = []; this.deadCritters = [];
-        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0, ironSnare:0, goldSnare:0, diamondSnare:0 };
+        this.discoveredSpecies = this.discoveredSpecies || [];
+        this.research = { gunDamage:0, storageCap:0, captureBonus:0, turretDamage:0, turretRange:0, afkCap:0, colonyRadius:0, critterCap:0, workersPerB:0, baseHp:0, baseTurret:0, bodyguardSlots:0, storageBuilding:0, smelting:0, greenhouse:0, barracks:0, refinery:0, healingHut:0, oilDrilling:0, goldMining:0, diamondDrill:0, crystalExtract:0, gasRefining:0, generators:0, companionSlots:0, passiveLab:0 };
         this.researchInProgress = null;
         this.doctrine = { active: null, unlocked: [], pendingSelection: false };
         // Place HQ at colony center
@@ -517,9 +531,18 @@ class Game {
                 const rarityMul = { common: 1.2, uncommon: 1.8, rare: 2.6, legendary: 4.5 }[rarity] || 1;
                 this.grantPlayerXp(Math.floor((10 + (closest.level || 1) * 2) * rarityMul));
                 this.sounds.capture();
-                // MP broadcast
-                // multiplayer removed
-                UI.notify(`Captured ${SPECIES[result.captured.species].name}!`); UI.update();
+                UI.notify(`Captured ${SPECIES[result.captured.species].name}!`);
+                // Critdex feedback — XP gain + level-up announcement
+                if (result.critdex) {
+                    if (result.critdex.leveledUp) {
+                        const unlocked = result.critdex.unlockedRarity;
+                        const unlockTxt = unlocked ? ` — ${unlocked} critters unlocked!` : '';
+                        UI.notify(`Critdex Lv.${result.critdex.newLevel}!${unlockTxt}`, 5000);
+                    } else if (result.critdex.gained > 0) {
+                        UI.notify(`+${result.critdex.gained} Critdex XP`, 1800);
+                    }
+                }
+                UI.update();
             } else UI.notify(result.reason);
         }
     }
@@ -967,14 +990,14 @@ class Game {
     }
 
     manualCraft(buildingId, recipe) {
-        recipe = recipe || 'trap';
+        recipe = recipe || 'ammo';
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
         if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
-        if (recipe === 'trap') {
-            if ((this.resources.wood||0) < 5 || (this.resources.stone||0) < 3) { UI.notify('Need 5 wood + 3 stone!'); return; }
-        } else if (recipe === 'ammo') {
+        if (recipe === 'ammo') {
             if ((this.resources.iron||0) < 2 || (this.resources.stone||0) < 1) { UI.notify('Need 2 iron + 1 stone!'); return; }
+        } else {
+            return; // unknown recipe (snares were removed)
         }
         b._manualCrafting = true;
         b._manualRecipe = recipe;
@@ -988,14 +1011,12 @@ class Game {
         const b = this.buildings.find(b => b.id === buildingId);
         if (!b || !BUILDING_DEFS[b.type].isWorkbench) return;
         if (!this._isNearWorkbench(buildingId)) { UI.notify('Get closer to the Workbench!'); return; }
-        const queueMap = {
-            trap: 'craftQueue', ammo: 'ammoQueue',
-            iron_snare: 'ironSnareQueue', gold_snare: 'goldSnareQueue', diamond_snare: 'diamondSnareQueue',
-        };
-        const qKey = queueMap[recipe] || 'craftQueue';
+        // Snares were removed — only ammo crafting remains.
+        const queueMap = { ammo: 'ammoQueue' };
+        const qKey = queueMap[recipe] || 'ammoQueue';
         if (!b[qKey]) b[qKey] = 0;
         b[qKey] += amount;
-        const names = { trap:'traps', ammo:'ammo batches', iron_snare:'Iron Snares', gold_snare:'Gold Snares', diamond_snare:'Diamond Snares' };
+        const names = { ammo: 'ammo batches' };
         UI.notify(`${amount} ${names[recipe]||recipe} queued (${b[qKey]} total)`);
         UI.update();
     }
@@ -3306,17 +3327,19 @@ class Game {
             gfx.lineStyle(0);
         }
 
-        // Name label with capture-aware color
+        // Name label with capture-aware color (Critdex tier check)
         if (!critter.stunned) {
-            const snareKey = Critters.getBestSnare(this.inventory || {}, sp.rarity);
+            const requiredTier = Critters.getCritdexTierForRarity(sp.rarity);
+            const critdexLevel = (this.critdex?.level) || 1;
+            const canCapture = requiredTier <= critdexLevel;
             let fillColor;
-            if (sp.rarity === 'legendary') {
+            if (sp.rarity === 'legendary' && canCapture) {
                 const hue = (this.time * 80) % 360;
                 fillColor = this._hslToHex(hue, 100, 60);
-            } else if (snareKey) {
-                fillColor = 0x4ade80; // green — can capture
+            } else if (canCapture) {
+                fillColor = 0x4ade80; // green — Critdex level high enough
             } else {
-                fillColor = 0xfacc15; // yellow — missing snare
+                fillColor = 0xf87171; // red — Critdex too low for this rarity
             }
             const hasHpBar = critter.hp < critter.maxHp;
             const nameY = sy + bob - r - (hasHpBar ? 16 : 10);

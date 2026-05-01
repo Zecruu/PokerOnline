@@ -26,8 +26,5 @@
     "gasRefining":    { "name": "Gas Refining",          "desc": "Unlocks Gas Refinery (oil -> gasoline)", "maxLevel": 1,"costBase": { "wood": 50, "stone": 60, "iron": 15 }, "costScale": "flat","time": 40 },
     "generators":     { "name": "Power Generators",     "desc": "Unlocks Generator (powers extractors)",  "maxLevel": 1,"costBase": { "wood": 60, "stone": 70, "iron": 25 }, "costScale": "flat","time": 50 },
     "companionSlots": { "name": "Companion Bond",       "desc": "+1 companion slot (max 4)",       "maxLevel": 3, "costBase": { "wood": 40, "stone": 30, "food": 30 }, "costScale": "multiply", "time": 40 },
-    "passiveLab":     { "name": "Passive Lab",           "desc": "Unlocks Passive Lab (transfer passives)","maxLevel": 1,"costBase": { "wood": 60, "stone": 60, "gold": 5 },"costScale": "flat","time": 50 },
-    "ironSnare":      { "name": "Iron Snares",           "desc": "Craft Iron Snares (catches uncommon)",   "maxLevel": 1,"costBase": { "wood": 40, "stone": 40, "iron": 10 },"costScale": "flat","time": 30 },
-    "goldSnare":      { "name": "Gold Snares",           "desc": "Craft Gold Snares (catches rare)",       "maxLevel": 1,"costBase": { "wood": 50, "stone": 50, "gold": 5 }, "costScale": "flat","time": 45 },
-    "diamondSnare":   { "name": "Diamond Snares",        "desc": "Craft Diamond Snares (catches legendary)","maxLevel": 1,"costBase": { "wood": 60, "stone": 60, "diamond": 3 },"costScale": "flat","time": 60 }
+    "passiveLab":     { "name": "Passive Lab",           "desc": "Unlocks Passive Lab (transfer passives)","maxLevel": 1,"costBase": { "wood": 60, "stone": 60, "gold": 5 },"costScale": "flat","time": 50 }
 }
