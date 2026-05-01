@@ -41,9 +41,9 @@ export function GameCard({ game }: { game: Game }) {
           setOwnsGame(true);
           return;
         }
-        // Check library
+        // Check library — ownership is per-game, no cross-grant
         const owned = (user.library || []).some(
-          (g: { gameId: string }) => g.gameId === game.id || g.gameId === "veltharas-dominion"
+          (g: { gameId: string }) => g.gameId === game.id
         );
         setOwnsGame(owned);
       } catch (e) {

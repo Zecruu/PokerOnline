@@ -2431,6 +2431,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 // Game pricing configuration
 const GAME_PRICES = {
     'veltharas-dominion': { price: 500, name: "Velthara's Dominion" }, // 500 cents = $5
+    'critter-colony': { price: 500, name: "Critter Colony" }, // 500 cents = $5
     'stripe-test': { price: 50, name: "Stripe Test Game" } // 50 cents = $0.50 (Stripe minimum)
 };
 

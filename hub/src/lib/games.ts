@@ -92,7 +92,8 @@ export const GAMES: Game[] = [
     href: "/games/critter-colony/index.html",
     badge: "NEW",
     badgeColor: "green",
-    isFree: true,
+    isFree: false,
+    price: 5,
   },
   {
     id: "kingdom-conquest",

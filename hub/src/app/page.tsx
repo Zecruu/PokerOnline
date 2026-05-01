@@ -9,6 +9,7 @@ import { GAMES } from "@/lib/games";
 
 export default function Home() {
   const [ownsVelthara, setOwnsVelthara] = useState(false);
+  const [ownsCritterColony, setOwnsCritterColony] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { addToCart, isInCart } = useCart();
 
@@ -22,29 +23,41 @@ export default function Home() {
         const user = JSON.parse(userData);
         if (user.isAdmin || user.isTester) {
           setOwnsVelthara(true);
+          setOwnsCritterColony(true);
           return;
         }
-        const owned = (user.library || []).some(
-          (g: { gameId: string }) => g.gameId === "veltharas-dominion"
-        );
-        setOwnsVelthara(owned);
-      } catch (e) {
+        const lib: Array<{ gameId: string }> = user.library || [];
+        setOwnsVelthara(lib.some((g) => g.gameId === "veltharas-dominion"));
+        setOwnsCritterColony(lib.some((g) => g.gameId === "critter-colony"));
+      } catch {
         console.error("Failed to parse user data");
       }
     }
   }, []);
 
-  const handleAddToCart = () => {
+  const handleAddVeltharaToCart = () => {
     if (!isLoggedIn) {
       window.location.href = "/login";
       return;
     }
-
     addToCart({
       id: "veltharas-dominion",
       title: "Velthara's Dominion",
       price: 5,
       thumbnail: "https://games.zecrugames.com/veltharas-dominion/velthara-bg.jpg",
+    });
+  };
+
+  const handleAddCritterColonyToCart = () => {
+    if (!isLoggedIn) {
+      window.location.href = "/login";
+      return;
+    }
+    addToCart({
+      id: "critter-colony",
+      title: "Critter Colony",
+      price: 5,
+      thumbnail: "https://d2f5lfipdzhi8t.cloudfront.net/critter-colony/thumbnail.webp",
     });
   };
 
@@ -73,7 +86,8 @@ export default function Home() {
     window.location.href = gameUrl;
   };
 
-  const inCart = isInCart("veltharas-dominion");
+  const veltharaInCart = isInCart("veltharas-dominion");
+  const ccInCart = isInCart("critter-colony");
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -113,13 +127,13 @@ export default function Home() {
                   >
                     <span className="mr-1.5">▶</span> Play Now
                   </a>
-                ) : inCart ? (
+                ) : veltharaInCart ? (
                   <div className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 bg-white/10 text-white/70 cursor-default">
                     ✓ In Cart
                   </div>
                 ) : (
                   <button
-                    onClick={handleAddToCart}
+                    onClick={handleAddVeltharaToCart}
                     className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 hover:scale-[1.02] transition-transform"
                     style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#000" }}
                   >
@@ -136,15 +150,29 @@ export default function Home() {
               tagline="COZY AUTOMATION"
               description="Capture critters, build workstations, and automate your colony. AFK gains keep your critters working while you're away."
               bgImage="https://d2f5lfipdzhi8t.cloudfront.net/critter-colony/thumbnail.webp"
-              badge="FREE • NEW"
-              badgeKind="free"
+              badge={ownsCritterColony ? "OWNED" : "PREMIUM"}
+              badgeKind={ownsCritterColony ? "owned" : "featured"}
               action={
-                <Link
-                  href="/games/critter-colony/index.html"
-                  className="btn-glass btn-glass-primary text-sm sm:text-base px-6 sm:px-7 py-3"
-                >
-                  <span className="mr-1.5">▶</span> Play Now
-                </Link>
+                ownsCritterColony ? (
+                  <Link
+                    href="/games/critter-colony/index.html"
+                    className="btn-glass btn-glass-primary text-sm sm:text-base px-6 sm:px-7 py-3"
+                  >
+                    <span className="mr-1.5">▶</span> Play Now
+                  </Link>
+                ) : ccInCart ? (
+                  <div className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 bg-white/10 text-white/70 cursor-default">
+                    ✓ In Cart
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleAddCritterColonyToCart}
+                    className="btn-glass text-sm sm:text-base px-6 sm:px-7 py-3 hover:scale-[1.02] transition-transform"
+                    style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#000" }}
+                  >
+                    {isLoggedIn ? "Add to Cart — $5" : "Login to Purchase"}
+                  </button>
+                )
               }
             />
           </div>
