@@ -134,10 +134,10 @@ export function Navbar() {
           <Link href="/" className="flex items-center gap-3 group">
             <div className="relative">
               <div className="absolute -inset-1 bg-gradient-to-r from-[rgb(0,212,170)] to-[rgb(120,80,255)] rounded-xl blur opacity-0 group-hover:opacity-40 transition-opacity" />
-              <img src="/logo.jpg" alt="Zecruu Games" className="relative h-10 w-10 rounded-xl" />
+              <img src="/logo.jpg" alt="Zecru Games" className="relative h-10 w-10 rounded-xl" />
             </div>
             <span className="text-xl font-bold text-white hidden sm:block">
-              Zecruu <span className="text-gradient">Games</span>
+              Zecru <span className="text-gradient">Games</span>
             </span>
           </Link>
         </div>
@@ -265,9 +265,9 @@ export function Navbar() {
         {/* Sidebar Header */}
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3" onClick={() => setSidebarOpen(false)}>
-            <img src="/logo.jpg" alt="Zecruu Games" className="h-10 w-10 rounded-xl" />
+            <img src="/logo.jpg" alt="Zecru Games" className="h-10 w-10 rounded-xl" />
             <span className="text-lg font-bold text-white">
-              Zecruu <span className="text-gradient">Games</span>
+              Zecru <span className="text-gradient">Games</span>
             </span>
           </Link>
           <button
@@ -307,7 +307,7 @@ export function Navbar() {
 
           <p className="text-xs text-white/40 uppercase tracking-wider px-3 mb-2">Help</p>
           <a
-            href="mailto:nomnk5138@gmail.com?subject=Zecruu%20Games%20Support"
+            href="mailto:nomnk5138@gmail.com?subject=Zecru%20Games%20Support"
             onClick={() => setSidebarOpen(false)}
             className="flex items-center gap-3 px-3 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all"
           >
@@ -351,7 +351,7 @@ export function Navbar() {
 
         {/* Sidebar Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <p className="text-xs text-white/30 text-center">© 2025 Zecruu Games</p>
+          <p className="text-xs text-white/30 text-center">© 2025 Zecru Games</p>
         </div>
       </div>
 
