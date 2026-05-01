@@ -47,6 +47,10 @@ const CDN_ASSETS = {
             idle: 'characters/necromancer-idle.png',
             walk: 'characters/necromancer-walk.png',
             dead: 'characters/necromancer-dead.png',
+        },
+        angelicKnight: {
+            select: 'characters/angelic-knight-select.png',
+            idleSouth: 'characters/angelic-knight-idle-s.png',
         }
     },
 
@@ -140,4 +144,3 @@ const CDN_ASSETS = {
         theEndIsNear: 'audio/the-end-is-near.mp3',
     }
 };
-
