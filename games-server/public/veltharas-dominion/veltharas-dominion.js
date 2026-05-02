@@ -421,6 +421,14 @@ const ANGELIC_KNIGHT_SPRITES = {
     level16: 'characters/angelic-knight-select.png',
     level21: 'characters/angelic-knight-select.png',
 };
+const ANGELIC_KNIGHT_IDLE_SPRITE = {
+    path: 'characters/angelic-knight-idle-s.png',
+    frameWidth: 256,
+    frameHeight: 256,
+    frameCount: 10,
+    columns: 5,
+    fps: 8,
+};
 
 const AUTO_ATTACK_DEFS = {
     projectile: {
@@ -1734,6 +1742,7 @@ function initSprites() {
     for (const [level, path] of Object.entries(ANGELIC_KNIGHT_SPRITES)) {
         loadSprite('ak_' + level, getAssetUrl(path) + '?v=1', true);
     }
+    loadSprite('ak_idle_s', getAssetUrl(ANGELIC_KNIGHT_IDLE_SPRITE.path) + '?v=2', true);
     // Void Blade (Azura) sprites
     for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
         loadSprite('vb_' + level, getAssetUrl(path) + '?v=2', true);
@@ -22622,7 +22631,30 @@ class DotsSurvivor {
             ctx.save();
             ctx.translate(p.x, p.y);
             const size = p.radius * 4; // Mage sprite display size
-            ctx.drawImage(playerSprite, -size / 2, -size / 2, size, size);
+            if (this.selectedClass?.id === 'angelic_knight') {
+                const idleSheet = SPRITE_CACHE.ak_idle_s;
+                const idle = ANGELIC_KNIGHT_IDLE_SPRITE;
+                if (idleSheet) {
+                    const frame = Math.floor((this.gameTime || 0) / (1000 / idle.fps)) % idle.frameCount;
+                    const sx = (frame % idle.columns) * idle.frameWidth;
+                    const sy = Math.floor(frame / idle.columns) * idle.frameHeight;
+                    ctx.drawImage(
+                        idleSheet,
+                        sx,
+                        sy,
+                        idle.frameWidth,
+                        idle.frameHeight,
+                        -size / 2,
+                        -size / 2,
+                        size,
+                        size
+                    );
+                } else {
+                    ctx.drawImage(playerSprite, -size / 2, -size / 2, size, size);
+                }
+            } else {
+                ctx.drawImage(playerSprite, -size / 2, -size / 2, size, size);
+            }
             ctx.restore();
         } else {
             // Fallback to circle
