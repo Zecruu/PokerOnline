@@ -14629,6 +14629,7 @@ class DotsSurvivor {
                 const radius = this.seraphicAegisRadius || 220;
                 const shieldGain = Math.floor((this.player.maxHealth * 0.28 + 90) * (this.seraphicAegisShieldMult || 1));
                 const heal = Math.floor(this.player.maxHealth * 0.18 * (this.seraphicAegisHealMult || 1));
+                const mageScale = this._itemMagePowerMult || 1;
                 this.divineBulwarkMaxShield = Math.max(this.divineBulwarkMaxShield || 0, shieldGain);
                 this.divineBulwarkShield = Math.min(this.divineBulwarkMaxShield, (this.divineBulwarkShield || 0) + shieldGain);
                 if (this.seraphicAegisRefreshBulwark) {
@@ -14638,7 +14639,7 @@ class DotsSurvivor {
                 this.healPlayer(heal);
                 this.player.invincibleTime = Math.max(this.player.invincibleTime || 0, this.seraphicAegisIframes || 0.8);
                 const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, radius + 80);
-                const pulseDmg = Math.floor(this.weapons.bullet.damage * 2.2 * (this.damageMultiplier || 1));
+                const pulseDmg = Math.floor(this.weapons.bullet.damage * 2.2 * (this.damageMultiplier || 1) * mageScale);
                 for (const e of nearby) {
                     if (e.health <= 0) continue;
                     const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
@@ -15277,6 +15278,7 @@ class DotsSurvivor {
         const w = this.weapons.bullet;
         const slashRange = this.lightSlashRange || 165;
         const slashArc = this.lightSlashArc || (Math.PI * 0.56);
+        const slashCount = 1 + (this._itemSlashMultiplier || 0);
         let baseDamage = Math.floor(
             (w.damage + (this._itemDmgFlat || 0)) *
             (this.damageMultiplier || 1) *
@@ -15304,50 +15306,61 @@ class DotsSurvivor {
 
         this.playSound('shoot');
         if (!this.activeLightSlashes) this.activeLightSlashes = [];
-        this.activeLightSlashes.push({
-            x: this.player.x,
-            y: this.player.y,
-            angle: baseAngle,
-            range: slashRange,
-            arc: slashArc,
-            timer: 0.34,
-            maxTimer: 0.34,
-            sparks: Array.from({ length: 14 }, (_, i) => ({
-                angleT: (i + Math.random() * 0.65) / 14,
-                radiusT: 0.35 + Math.random() * 0.65,
-                size: 2 + Math.random() * 3,
-                drift: (Math.random() - 0.5) * 14
-            }))
-        });
 
+        const angularSpread = (Math.PI * 2) / slashCount;
         let totalHits = 0;
-        for (const e of nearby) {
-            if (e.health <= 0) continue;
-            const sx = this.player.x + (e.wx - this.worldX);
-            const sy = this.player.y + (e.wy - this.worldY);
-            const dx = sx - this.player.x, dy = sy - this.player.y;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            if (d > slashRange + e.radius) continue;
-            const angleToEnemy = Math.atan2(dy, dx);
-            let angleDiff = angleToEnemy - baseAngle;
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-            if (Math.abs(angleDiff) > slashArc / 2) continue;
+        const hitSlashAngles = [];
+        for (let s = 0; s < slashCount; s++) {
+            const slashAngle = baseAngle + s * angularSpread;
+            this.activeLightSlashes.push({
+                x: this.player.x,
+                y: this.player.y,
+                angle: slashAngle,
+                range: slashRange,
+                arc: slashArc,
+                timer: 0.34,
+                maxTimer: 0.34,
+                sparks: Array.from({ length: 14 }, (_, i) => ({
+                    angleT: (i + Math.random() * 0.65) / 14,
+                    radiusT: 0.35 + Math.random() * 0.65,
+                    size: 2 + Math.random() * 3,
+                    drift: (Math.random() - 0.5) * 14
+                }))
+            });
 
-            const dmg = this.applyArmorPen(baseDamage, e);
-            e.health -= dmg;
-            e.hitFlash = 1;
-            this.runDamageDealt = (this.runDamageDealt || 0) + dmg;
-            this.addDamageNumber(sx, sy - 14, dmg, '#fff2a8', { target: e, wx: e.wx, wy: e.wy });
-            this.applyRadiantMark(e, 1);
-            this.spawnParticles(sx, sy, '#f8e58c', 5);
-            this.spawnParticles(sx, sy, '#ffffff', 2);
-            this.updateStackingItems('damage', dmg);
-            totalHits++;
+            let slashHits = 0;
+            for (const e of nearby) {
+                if (e.health <= 0) continue;
+                const sx = this.player.x + (e.wx - this.worldX);
+                const sy = this.player.y + (e.wy - this.worldY);
+                const dx = sx - this.player.x, dy = sy - this.player.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > slashRange + e.radius) continue;
+                const angleToEnemy = Math.atan2(dy, dx);
+                let angleDiff = angleToEnemy - slashAngle;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                if (Math.abs(angleDiff) > slashArc / 2) continue;
+
+                const dmg = this.applyArmorPen(baseDamage, e);
+                e.health -= dmg;
+                e.hitFlash = 1;
+                this.runDamageDealt = (this.runDamageDealt || 0) + dmg;
+                this.addDamageNumber(sx, sy - 14, dmg, '#fff2a8', { target: e, wx: e.wx, wy: e.wy });
+                this.applyRadiantMark(e, 1);
+                this.spawnParticles(sx, sy, '#f8e58c', 5);
+                this.spawnParticles(sx, sy, '#ffffff', 2);
+                this.updateStackingItems('damage', dmg);
+                slashHits++;
+                totalHits++;
+            }
+            if (slashHits > 0) hitSlashAngles.push(slashAngle);
         }
 
-        if (this.lightSlashWave && totalHits > 0) {
-            this.fireRadiantLance(baseAngle, 0.42, slashRange + 120, Math.floor(baseDamage * 0.55));
+        if (this.lightSlashWave && hitSlashAngles.length > 0) {
+            for (const slashAngle of hitSlashAngles) {
+                this.fireRadiantLance(slashAngle, 0.42, slashRange + 120, Math.floor(baseDamage * 0.55));
+            }
         }
         if (totalHits > 0) this.triggerScreenShake(2, 0.08);
     }
@@ -15366,7 +15379,11 @@ class DotsSurvivor {
         if (!enemy?.radiantMark?.stacks) return 0;
         const stacks = enemy.radiantMark.stacks;
         const radius = this.radiantMarkExplosionRadius || 90;
-        const burst = Math.floor(((sourceDamage || this.weapons.bullet.damage) * (0.55 + stacks * 0.25)) * (this.radiantMarkExplosionMult || 1));
+        const burst = Math.floor(
+            ((sourceDamage || this.weapons.bullet.damage) * (0.55 + stacks * 0.25)) *
+            (this.radiantMarkExplosionMult || 1) *
+            (this._itemMagePowerMult || 1)
+        );
         enemy.radiantMark.stacks = 0;
         enemy.radiantMark.timer = 0;
 
@@ -15395,7 +15412,10 @@ class DotsSurvivor {
         const range = rangeOverride || this.radiantLanceRange || 520;
         const width = (this.radiantLanceWidth || 42) * widthMult;
         const ndx = Math.cos(angle), ndy = Math.sin(angle);
-        const baseDmg = damageOverride ?? Math.floor(this.weapons.bullet.damage * 3.2 * (this.damageMultiplier || 1) * (this.radiantLanceDmgMult || 1));
+        const baseDmg = Math.floor(
+            (damageOverride ?? (this.weapons.bullet.damage * 3.2 * (this.damageMultiplier || 1) * (this.radiantLanceDmgMult || 1))) *
+            (this._itemMagePowerMult || 1)
+        );
         const nearby = this.enemyGrid.getNearby(this.worldX + ndx * range * 0.5, this.worldY + ndy * range * 0.5, range * 0.65 + width);
         let hits = 0;
         for (const e of nearby) {
@@ -23238,6 +23258,9 @@ class DotsSurvivor {
                 qAbility = { name: 'Abyssal Edict', icon: '👁️', key: 'Q', color: '#dc2626' };
                 eAbility = { name: "Demon King's Decree", icon: '👑', key: 'E', color: '#7f1d1d' };
             }
+        } else if (classId === 'angelic_knight') {
+            qAbility = { name: 'Radiant Lance', icon: 'Q', key: 'Q', color: '#fff2a8' };
+            eAbility = { name: 'Seraphic Aegis', icon: 'E', key: 'E', color: '#7dd3fc' };
         } else if (classId === 'void_blade') {
             qAbility = { name: 'Voidstep Dash', icon: '⚔️', key: 'Q', color: '#8B0000' };
             eAbility = { name: 'Crimson Catastrophe', icon: '🗡️', key: 'E', color: '#ff0000' };
