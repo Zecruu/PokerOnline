@@ -22654,7 +22654,18 @@ class DotsSurvivor {
             if (this.selectedClass?.id === 'angelic_knight') {
                 const idleSheet = SPRITE_CACHE.ak_idle_s;
                 const idle = ANGELIC_KNIGHT_IDLE_SPRITE;
-                if (idleSheet) {
+                const isMoving = !!(
+                    this.keys?.w || this.keys?.arrowup ||
+                    this.keys?.s || this.keys?.arrowdown ||
+                    this.keys?.a || this.keys?.arrowleft ||
+                    this.keys?.d || this.keys?.arrowright
+                );
+                const isActing = !!(
+                    this.activeLightSlashes?.length ||
+                    this.radiantLances?.length ||
+                    this.seraphicAegisVisual
+                );
+                if (idleSheet && !isMoving && !isActing) {
                     const frame = Math.floor((this.gameTime || 0) / (1000 / idle.fps)) % idle.frameCount;
                     const sx = (frame % idle.columns) * idle.frameWidth;
                     const sy = Math.floor(frame / idle.columns) * idle.frameHeight;
