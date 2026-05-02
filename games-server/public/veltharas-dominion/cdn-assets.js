@@ -82,6 +82,11 @@ const CDN_ASSETS = {
             attack: 'enemies/ice-giant-ice-attack.png',
             death: 'enemies/ice-giant-ice-death.png',
         },
+        fireBlobCinderWretch: {
+            walk: 'enemies/fire-blob-cinder-wretch-walk.png',
+            attack: 'enemies/fire-blob-cinder-wretch-attack.png',
+            death: 'enemies/fire-blob-cinder-wretch-death.png',
+        },
         swarm: 'enemies/swarm.png',
         basic: 'enemies/basic.png',
         runner: 'enemies/runner.png',

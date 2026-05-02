@@ -41,6 +41,12 @@ ICE_EDGE = (31, 124, 176, 255)
 ICE_SHADOW = (14, 45, 72, 230)
 ICE_RUNE = (65, 255, 255, 220)
 
+FIRE_BODY = (235, 62, 18, 245)
+FIRE_CORE = (255, 190, 49, 255)
+FIRE_HOT = (255, 244, 139, 255)
+FIRE_EDGE = (107, 18, 18, 245)
+FIRE_SMOKE = (72, 37, 31, 140)
+
 
 def line(draw: ImageDraw.ImageDraw, points, fill, width=2):
     draw.line(points, fill=fill, width=width, joint="curve")
@@ -330,6 +336,81 @@ def draw_ice_giant(draw: ImageDraw.ImageDraw, frame: int, action: str):
             draw.line([(x, 55), (x + 3, 48), (x + 7, 55)], fill=ICE_EDGE, width=1)
 
 
+def draw_fire_blob(draw: ImageDraw.ImageDraw, frame: int, action: str):
+    phase = frame / FRAMES
+    pulse = sin(phase * pi * 2)
+    wobble = sin(phase * pi * 4) * 1.5
+    cx = 32
+    cy = 35 + pulse * 1.5
+    collapse = frame / (FRAMES - 1) if action == "death" else 0
+    flare = sin(min(1, phase * 1.2) * pi) if action == "attack" else 0
+
+    if action == "death":
+        cy += collapse * 10
+        alpha = int(245 * (1 - collapse * 0.65))
+        body = (FIRE_BODY[0], FIRE_BODY[1], FIRE_BODY[2], max(70, alpha))
+        core = (FIRE_CORE[0], FIRE_CORE[1], FIRE_CORE[2], max(80, alpha))
+    else:
+        body = FIRE_BODY
+        core = FIRE_CORE
+
+    draw.ellipse((13, 50, 51, 57), fill=(0, 0, 0, 52))
+
+    if action == "death" and frame >= 4:
+        for i in range(10):
+            x = 18 + i * 3 + (i % 2) * 2
+            y = 47 - (i % 3) * 3
+            draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=(FIRE_CORE[0], FIRE_CORE[1], FIRE_CORE[2], 120))
+        for i in range(5):
+            x = 20 + i * 6
+            y = 36 - i % 2 * 4
+            draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=FIRE_SMOKE)
+        return
+
+    rx = 15 + abs(pulse) * 2 + flare * 4
+    ry = 14 - abs(pulse) + flare * 2
+    blob = [
+        (cx, cy - ry - 12 - flare * 4),
+        (cx + 7, cy - ry - 2),
+        (cx + rx, cy - 4),
+        (cx + rx - 2, cy + 11),
+        (cx + 8, cy + ry),
+        (cx + 2, cy + ry + 3 + wobble),
+        (cx - 6, cy + ry),
+        (cx - rx, cy + 9),
+        (cx - rx - 1, cy - 4),
+        (cx - 7, cy - ry),
+    ]
+    draw.polygon(blob, fill=body)
+    draw.line(blob + [blob[0]], fill=FIRE_EDGE, width=2, joint="curve")
+
+    inner = [
+        (cx - 2, cy - ry - 3),
+        (cx + 7, cy - 3),
+        (cx + 8, cy + 8),
+        (cx + 1, cy + 14),
+        (cx - 8, cy + 7),
+        (cx - 6, cy - 3),
+    ]
+    draw.polygon(inner, fill=core)
+    draw.polygon([(cx - 1, cy - 5), (cx + 4, cy + 3), (cx, cy + 10), (cx - 5, cy + 2)], fill=FIRE_HOT)
+
+    eye_y = cy - 2
+    draw.rectangle((cx - 8, eye_y - 2, cx - 4, eye_y + 1), fill=(35, 9, 8, 255))
+    draw.rectangle((cx + 4, eye_y - 2, cx + 8, eye_y + 1), fill=(35, 9, 8, 255))
+    draw.rectangle((cx - 7, eye_y - 1, cx - 6, eye_y), fill=FIRE_HOT)
+    draw.rectangle((cx + 6, eye_y - 1, cx + 7, eye_y), fill=FIRE_HOT)
+    draw.arc((cx - 7, cy + 5, cx + 7, cy + 12), 205, 335, fill=FIRE_EDGE, width=2)
+
+    if action == "attack" and 2 <= frame <= 4:
+        draw.arc((8, 15, 58, 55), 210, 345, fill=(255, 166, 35, 160), width=4)
+        for i in range(5):
+            fx = 15 + i * 8
+            fy = 48 + (i % 2) * 4
+            draw.polygon([(fx, fy - 9), (fx + 4, fy), (fx, fy + 4), (fx - 4, fy)], fill=FIRE_CORE)
+            draw.line([(fx, fy - 9), (fx + 4, fy), (fx, fy + 4), (fx - 4, fy), (fx, fy - 9)], fill=FIRE_EDGE, width=1)
+
+
 def make_sheet(draw_fn, action: str) -> Image.Image:
     sheet = Image.new("RGBA", (FRAME * FRAMES, FRAME), (0, 0, 0, 0))
     for frame in range(FRAMES):
@@ -381,6 +462,7 @@ def main():
     save_set("eyes-mouth-basic", draw_eyes_mouth)
     save_set("evil-ghost-runner", draw_evil_ghost)
     save_set("ice-giant-ice", draw_ice_giant)
+    save_set("fire-blob-cinder-wretch", draw_fire_blob)
 
 
 if __name__ == "__main__":
