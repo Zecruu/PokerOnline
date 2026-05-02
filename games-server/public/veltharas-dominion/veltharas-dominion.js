@@ -1570,6 +1570,11 @@ const ENEMY_ANIM_SHEETS = {
         walk: { key: 'enemy_runner_walk', path: 'enemies/evil-ghost-runner-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
         attack: { key: 'enemy_runner_attack', path: 'enemies/evil-ghost-runner-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 },
         death: { key: 'enemy_runner_death', path: 'enemies/evil-ghost-runner-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    ice: {
+        walk: { key: 'enemy_ice_walk', path: 'enemies/ice-giant-ice-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 7 },
+        attack: { key: 'enemy_ice_attack', path: 'enemies/ice-giant-ice-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
+        death: { key: 'enemy_ice_death', path: 'enemies/ice-giant-ice-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     }
 };
 

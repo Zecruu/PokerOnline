@@ -77,6 +77,11 @@ const CDN_ASSETS = {
             attack: 'enemies/evil-ghost-runner-attack.png',
             death: 'enemies/evil-ghost-runner-death.png',
         },
+        iceGiantIce: {
+            walk: 'enemies/ice-giant-ice-walk.png',
+            attack: 'enemies/ice-giant-ice-attack.png',
+            death: 'enemies/ice-giant-ice-death.png',
+        },
         swarm: 'enemies/swarm.png',
         basic: 'enemies/basic.png',
         runner: 'enemies/runner.png',

@@ -35,6 +35,12 @@ GHOST_EDGE = (25, 94, 125, 220)
 GHOST_DARK = (16, 24, 39, 245)
 GHOST_RUNE = (255, 66, 155, 210)
 
+ICE_BODY = (132, 226, 255, 245)
+ICE_CORE = (226, 252, 255, 255)
+ICE_EDGE = (31, 124, 176, 255)
+ICE_SHADOW = (14, 45, 72, 230)
+ICE_RUNE = (65, 255, 255, 220)
+
 
 def line(draw: ImageDraw.ImageDraw, points, fill, width=2):
     draw.line(points, fill=fill, width=width, joint="curve")
@@ -254,6 +260,76 @@ def draw_evil_ghost(draw: ImageDraw.ImageDraw, frame: int, action: str):
             draw.line((cx - 18 + i * 18, cy + 17, cx - 23 + i * 19, cy + 25), fill=(255, 66, 155, 100), width=2)
 
 
+def draw_ice_giant(draw: ImageDraw.ImageDraw, frame: int, action: str):
+    phase = frame / FRAMES
+    stomp = sin(phase * pi * 2)
+    bob = abs(stomp) * -2
+    cx = 32
+    ground = 56
+    collapse = frame / (FRAMES - 1) if action == "death" else 0
+    slam = sin(min(1, phase * 1.18) * pi) if action == "attack" else 0
+
+    if action == "death":
+        cy_shift = collapse * 12
+        alpha = int(255 * (1 - collapse * 0.55))
+        body = (ICE_BODY[0], ICE_BODY[1], ICE_BODY[2], max(80, alpha))
+        core = (ICE_CORE[0], ICE_CORE[1], ICE_CORE[2], max(90, alpha))
+    else:
+        cy_shift = bob
+        body = ICE_BODY
+        core = ICE_CORE
+
+    draw.ellipse((12, ground - 5, 52, ground + 2), fill=(0, 0, 0, 50))
+
+    if action == "death" and frame >= 4:
+        shards = [(16, 50), (23, 42), (31, 53), (39, 43), (48, 51)]
+        for x, y in shards:
+            draw.polygon([(x, y - 7), (x + 5, y), (x, y + 5), (x - 5, y)], fill=body)
+            draw.line([(x, y - 7), (x + 5, y), (x, y + 5), (x - 5, y), (x, y - 7)], fill=ICE_EDGE, width=2)
+        return
+
+    head_y = 14 + cy_shift
+    torso_y = 29 + cy_shift
+    hip_y = 43 + cy_shift
+    left_leg = cx - 9 - stomp * 2
+    right_leg = cx + 9 + stomp * 2
+
+    # Legs and icy boots.
+    draw.polygon([(left_leg - 5, hip_y), (left_leg + 4, hip_y), (left_leg + 7, ground), (left_leg - 8, ground)], fill=body)
+    draw.line([(left_leg - 5, hip_y), (left_leg + 4, hip_y), (left_leg + 7, ground), (left_leg - 8, ground), (left_leg - 5, hip_y)], fill=ICE_EDGE, width=2)
+    draw.polygon([(right_leg - 4, hip_y), (right_leg + 5, hip_y), (right_leg + 8, ground), (right_leg - 7, ground)], fill=body)
+    draw.line([(right_leg - 4, hip_y), (right_leg + 5, hip_y), (right_leg + 8, ground), (right_leg - 7, ground), (right_leg - 4, hip_y)], fill=ICE_EDGE, width=2)
+
+    # Torso as a heavy ice slab.
+    torso = [(cx - 15, torso_y - 11), (cx + 15, torso_y - 11), (cx + 18, torso_y + 9), (cx + 8, hip_y), (cx - 8, hip_y), (cx - 18, torso_y + 9)]
+    draw.polygon(torso, fill=body)
+    draw.line(torso + [torso[0]], fill=ICE_EDGE, width=2, joint="curve")
+    draw.polygon([(cx - 7, torso_y - 5), (cx + 6, torso_y - 2), (cx + 3, torso_y + 9), (cx - 8, torso_y + 7)], fill=core)
+
+    # Head and crown shards.
+    draw.polygon([(cx - 10, head_y - 4), (cx - 4, head_y - 12), (cx + 2, head_y - 5), (cx + 8, head_y - 11), (cx + 12, head_y - 2), (cx + 8, head_y + 8), (cx - 8, head_y + 8), (cx - 13, head_y)], fill=body)
+    draw.line([(cx - 10, head_y - 4), (cx - 4, head_y - 12), (cx + 2, head_y - 5), (cx + 8, head_y - 11), (cx + 12, head_y - 2), (cx + 8, head_y + 8), (cx - 8, head_y + 8), (cx - 13, head_y), (cx - 10, head_y - 4)], fill=ICE_EDGE, width=2)
+    draw.rectangle((cx - 7, head_y, cx - 4, head_y + 2), fill=ICE_SHADOW)
+    draw.rectangle((cx + 4, head_y, cx + 7, head_y + 2), fill=ICE_SHADOW)
+    draw.rectangle((cx - 6, head_y, cx - 5, head_y), fill=ICE_RUNE)
+    draw.rectangle((cx + 5, head_y, cx + 6, head_y), fill=ICE_RUNE)
+
+    # Arms, with a heavier slam pose during attack.
+    arm_drop = 12 * slam
+    left_hand = (cx - 22 - slam * 3, torso_y + 11 + arm_drop)
+    right_hand = (cx + 22 + slam * 3, torso_y + 11 + arm_drop)
+    line(draw, [(cx - 14, torso_y - 4), (cx - 20, torso_y + 7), left_hand], ICE_EDGE, 7)
+    line(draw, [(cx - 14, torso_y - 4), (cx - 20, torso_y + 7), left_hand], body, 4)
+    line(draw, [(cx + 14, torso_y - 4), (cx + 20, torso_y + 7), right_hand], ICE_EDGE, 7)
+    line(draw, [(cx + 14, torso_y - 4), (cx + 20, torso_y + 7), right_hand], body, 4)
+
+    if action == "attack" and 2 <= frame <= 4:
+        draw.arc((8, 26, 56, 62), 190, 350, fill=(145, 245, 255, 155), width=4)
+        for x in (18, 27, 38, 47):
+            draw.polygon([(x, 55), (x + 3, 48), (x + 7, 55)], fill=ICE_CORE)
+            draw.line([(x, 55), (x + 3, 48), (x + 7, 55)], fill=ICE_EDGE, width=1)
+
+
 def make_sheet(draw_fn, action: str) -> Image.Image:
     sheet = Image.new("RGBA", (FRAME * FRAMES, FRAME), (0, 0, 0, 0))
     for frame in range(FRAMES):
@@ -304,6 +380,7 @@ def main():
     save_set("skeleton-swarm", draw_skeleton)
     save_set("eyes-mouth-basic", draw_eyes_mouth)
     save_set("evil-ghost-runner", draw_evil_ghost)
+    save_set("ice-giant-ice", draw_ice_giant)
 
 
 if __name__ == "__main__":
