@@ -1688,7 +1688,7 @@ function initSprites() {
     }
     for (const anims of Object.values(ENEMY_ANIM_SHEETS)) {
         for (const anim of Object.values(anims)) {
-            loadSprite(anim.key, `${anim.path}?v=2`, true);
+            loadSprite(anim.key, getAssetUrl(anim.path), true);
         }
     }
     // Load Consumer boss animation frames — already transparent, skip BG processing.
