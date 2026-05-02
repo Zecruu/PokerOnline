@@ -51,6 +51,7 @@ const CDN_ASSETS = {
         angelicKnight: {
             select: 'characters/angelic-knight-select.png',
             idleSouth: 'characters/angelic-knight-idle-s.png',
+            walkSouth: 'characters/angelic-knight-walk-s.png',
         }
     },
 

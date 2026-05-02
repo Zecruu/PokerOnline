@@ -429,6 +429,14 @@ const ANGELIC_KNIGHT_IDLE_SPRITE = {
     columns: 5,
     fps: 8,
 };
+const ANGELIC_KNIGHT_WALK_SPRITE = {
+    path: 'characters/angelic-knight-walk-s.png',
+    frameWidth: 256,
+    frameHeight: 256,
+    frameCount: 10,
+    columns: 5,
+    fps: 11,
+};
 
 const AUTO_ATTACK_DEFS = {
     projectile: {
@@ -1743,6 +1751,7 @@ function initSprites() {
         loadSprite('ak_' + level, getAssetUrl(path) + '?v=1', true);
     }
     loadSprite('ak_idle_s', getAssetUrl(ANGELIC_KNIGHT_IDLE_SPRITE.path) + '?v=2', true);
+    loadSprite('ak_walk_s', getAssetUrl(ANGELIC_KNIGHT_WALK_SPRITE.path) + '?v=1', true);
     // Void Blade (Azura) sprites
     for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
         loadSprite('vb_' + level, getAssetUrl(path) + '?v=2', true);
@@ -22653,7 +22662,9 @@ class DotsSurvivor {
             const size = p.radius * 4; // Mage sprite display size
             if (this.selectedClass?.id === 'angelic_knight') {
                 const idleSheet = SPRITE_CACHE.ak_idle_s;
+                const walkSheet = SPRITE_CACHE.ak_walk_s;
                 const idle = ANGELIC_KNIGHT_IDLE_SPRITE;
+                const walk = ANGELIC_KNIGHT_WALK_SPRITE;
                 const isMoving = !!(
                     this.keys?.w || this.keys?.arrowup ||
                     this.keys?.s || this.keys?.arrowdown ||
@@ -22665,16 +22676,18 @@ class DotsSurvivor {
                     this.radiantLances?.length ||
                     this.seraphicAegisVisual
                 );
-                if (idleSheet && !isMoving && !isActing) {
-                    const frame = Math.floor((this.gameTime || 0) / (1000 / idle.fps)) % idle.frameCount;
-                    const sx = (frame % idle.columns) * idle.frameWidth;
-                    const sy = Math.floor(frame / idle.columns) * idle.frameHeight;
+                const sheetDef = isMoving && !isActing && walkSheet ? walk : (!isMoving && !isActing && idleSheet ? idle : null);
+                const sheet = sheetDef === walk ? walkSheet : (sheetDef === idle ? idleSheet : null);
+                if (sheet && sheetDef) {
+                    const frame = Math.floor((this.gameTime || 0) / (1000 / sheetDef.fps)) % sheetDef.frameCount;
+                    const sx = (frame % sheetDef.columns) * sheetDef.frameWidth;
+                    const sy = Math.floor(frame / sheetDef.columns) * sheetDef.frameHeight;
                     ctx.drawImage(
-                        idleSheet,
+                        sheet,
                         sx,
                         sy,
-                        idle.frameWidth,
-                        idle.frameHeight,
+                        sheetDef.frameWidth,
+                        sheetDef.frameHeight,
                         -size / 2,
                         -size / 2,
                         size,
