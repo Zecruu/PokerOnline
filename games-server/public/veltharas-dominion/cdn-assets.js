@@ -57,10 +57,20 @@ const CDN_ASSETS = {
 
     // ========== ENEMIES ==========
     enemies: {
+        skeletonSwarm: {
+            walk: 'enemies/skeleton-swarm-walk.png',
+            attack: 'enemies/skeleton-swarm-attack.png',
+            death: 'enemies/skeleton-swarm-death.png',
+        },
         skeletonBasic: {
             walk: 'enemies/skeleton-basic-walk.png',
             attack: 'enemies/skeleton-basic-attack.png',
             death: 'enemies/skeleton-basic-death.png',
+        },
+        eyesMouthBasic: {
+            walk: 'enemies/eyes-mouth-basic-walk.png',
+            attack: 'enemies/eyes-mouth-basic-attack.png',
+            death: 'enemies/eyes-mouth-basic-death.png',
         },
         swarm: 'enemies/swarm.png',
         basic: 'enemies/basic.png',

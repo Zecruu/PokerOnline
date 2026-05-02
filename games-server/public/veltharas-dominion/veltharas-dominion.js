@@ -1556,10 +1556,15 @@ const ENEMY_SPRITES = {
 };
 
 const ENEMY_ANIM_SHEETS = {
+    swarm: {
+        walk: { key: 'enemy_swarm_walk', path: 'enemies/skeleton-swarm-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
+        attack: { key: 'enemy_swarm_attack', path: 'enemies/skeleton-swarm-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
+        death: { key: 'enemy_swarm_death', path: 'enemies/skeleton-swarm-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
     basic: {
-        walk: { key: 'enemy_basic_walk', path: 'enemies/skeleton-basic-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
-        attack: { key: 'enemy_basic_attack', path: 'enemies/skeleton-basic-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
-        death: { key: 'enemy_basic_death', path: 'enemies/skeleton-basic-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+        walk: { key: 'enemy_basic_walk', path: 'enemies/eyes-mouth-basic-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
+        attack: { key: 'enemy_basic_attack', path: 'enemies/eyes-mouth-basic-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        death: { key: 'enemy_basic_death', path: 'enemies/eyes-mouth-basic-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     }
 };
 
