@@ -1580,6 +1580,11 @@ const ENEMY_ANIM_SHEETS = {
         walk: { key: 'enemy_cinder_wretch_walk', path: 'enemies/fire-blob-cinder-wretch-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
         attack: { key: 'enemy_cinder_wretch_attack', path: 'enemies/fire-blob-cinder-wretch-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
         death: { key: 'enemy_cinder_wretch_death', path: 'enemies/fire-blob-cinder-wretch-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    poison: {
+        walk: { key: 'enemy_poison_walk', path: 'enemies/evil-flower-poison-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
+        attack: { key: 'enemy_poison_attack', path: 'enemies/evil-flower-poison-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        death: { key: 'enemy_poison_death', path: 'enemies/evil-flower-poison-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     }
 };
 
@@ -6758,6 +6763,7 @@ class DotsSurvivor {
             critResistance: 0.85,  // 85% crit resistance
             lifeTimer: 0,
             maxLifeTime: 90, // 1:30 survival time
+            cuteSpawnDuration: 3,
             vacuumParticles: [], // For vacuum effect
             spiralParticles: [], // For spiraling void effect
             attackCooldown: 0, // For attack speed system
@@ -6849,6 +6855,11 @@ class DotsSurvivor {
 
         // Update life timer
         consumer.lifeTimer += dt;
+        if (consumer.lifeTimer < (consumer.cuteSpawnDuration || 0)) {
+            consumer.rotationAngle += dt * 0.6;
+            consumer.spiralAngle = (consumer.spiralAngle || 0) + dt * 0.8;
+            return;
+        }
 
         // Warning at 60 seconds
         if (consumer.lifeTimer >= 60 && consumer.lifeTimer < 60 + dt) {
@@ -12149,12 +12160,12 @@ class DotsSurvivor {
         return distToPlayer <= attackRange ? 'attack' : 'walk';
     }
 
-    drawEnemyAnimSprite(ctx, e, sx, sy, state, flash = false) {
+    drawEnemyAnimSprite(ctx, e, sx, sy, state, flash = false, sizeMult = 3.2) {
         const def = ENEMY_ANIM_SHEETS[e.type]?.[state];
         const sheet = def ? SPRITE_CACHE[def.key] : null;
         if (!def || !sheet) return false;
         const frame = Math.floor((this.gameTime || 0) / (1000 / def.fps)) % def.frames;
-        const size = e.radius * 3.2;
+        const size = e.radius * sizeMult;
         if (flash) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -18919,10 +18930,13 @@ class DotsSurvivor {
             // ======== LOD SIMPLIFIED RENDERING ========
             if (e._lod >= 2 && !e.isBoss) {
                 // Tier 2: tiny colored circle only
-                ctx.beginPath();
-                ctx.arc(sx, sy, Math.max(e.radius * 0.6, 4), 0, Math.PI * 2);
-                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
-                ctx.fill();
+                const animState = this.getEnemyAnimState(e, sx, sy);
+                if (!animState || !this.drawEnemyAnimSprite(ctx, e, sx, sy, animState, false, 1.8)) {
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, Math.max(e.radius * 0.6, 4), 0, Math.PI * 2);
+                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                    ctx.fill();
+                }
                 return;
             }
             if (e._lod === 1 && !e.isBoss) {
@@ -18930,10 +18944,13 @@ class DotsSurvivor {
                 // drawImage costs ~10x a circle fill and the sprite detail is
                 // mostly invisible at this range — saves a lot of GPU work
                 // when many enemies are off-camera.
-                ctx.beginPath();
-                ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
-                ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
-                ctx.fill();
+                const animState = this.getEnemyAnimState(e, sx, sy);
+                if (!animState || !this.drawEnemyAnimSprite(ctx, e, sx, sy, animState, e.hitFlash > 0, 2.4)) {
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : e.color;
+                    ctx.fill();
+                }
                 const bw = Math.max(e.radius * 2.2, 22);
                 this.drawCombatBar(ctx, sx - bw / 2, sy - e.radius - 9, bw, 5, e.health / e.maxHealth, e.color, {
                     backdrop: 'rgba(3,6,12,0.72)',
@@ -19468,6 +19485,55 @@ class DotsSurvivor {
                     : 1;
                 const eyeSize = e.radius * 1.7 * growMul * pulseMul;
                 ctx.globalAlpha = fadeOut;
+
+                const cuteSpawn = !e.isDying && e.lifeTimer < (e.cuteSpawnDuration || 0);
+                if (cuteSpawn) {
+                    const cuteProgress = Math.max(0, Math.min(1, e.lifeTimer / Math.max(0.1, e.cuteSpawnDuration || 3)));
+                    const cuteHaloR = eyeSize * (1.3 + Math.sin(t / 260) * 0.05);
+                    const cuteHalo = ctx.createRadialGradient(0, 0, eyeSize * 0.45, 0, 0, cuteHaloR);
+                    cuteHalo.addColorStop(0, 'rgba(255, 220, 245, 0.38)');
+                    cuteHalo.addColorStop(0.72, 'rgba(255, 160, 220, 0.16)');
+                    cuteHalo.addColorStop(1, 'rgba(255, 160, 220, 0)');
+                    ctx.fillStyle = cuteHalo;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, cuteHaloR, 0, Math.PI * 2);
+                    ctx.fill();
+                    const cuteBody = ctx.createRadialGradient(-eyeSize * 0.2, -eyeSize * 0.22, 0, 0, 0, eyeSize);
+                    cuteBody.addColorStop(0, '#fff8f0');
+                    cuteBody.addColorStop(0.75, '#ffd9ea');
+                    cuteBody.addColorStop(1, '#d992b8');
+                    ctx.fillStyle = cuteBody;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, eyeSize * 0.92, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = `rgba(255, 110, 170, ${0.35 + 0.25 * Math.sin(t / 170)})`;
+                    ctx.beginPath();
+                    ctx.arc(-eyeSize * 0.42, eyeSize * 0.12, eyeSize * 0.13, 0, Math.PI * 2);
+                    ctx.arc(eyeSize * 0.42, eyeSize * 0.12, eyeSize * 0.13, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#3a2430';
+                    ctx.lineWidth = Math.max(3, eyeSize * 0.045);
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.arc(-eyeSize * 0.28, -eyeSize * 0.1, eyeSize * 0.13, Math.PI * 0.08, Math.PI * 0.92);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(eyeSize * 0.28, -eyeSize * 0.1, eyeSize * 0.13, Math.PI * 0.08, Math.PI * 0.92);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(0, eyeSize * 0.12, eyeSize * 0.2, 0.12 * Math.PI, 0.88 * Math.PI);
+                    ctx.stroke();
+                    if (cuteProgress > 0.72) {
+                        const redAlpha = (cuteProgress - 0.72) / 0.28;
+                        ctx.fillStyle = `rgba(255, 0, 32, ${redAlpha})`;
+                        ctx.beginPath();
+                        ctx.arc(-eyeSize * 0.28, -eyeSize * 0.04, eyeSize * 0.08, 0, Math.PI * 2);
+                        ctx.arc(eyeSize * 0.28, -eyeSize * 0.04, eyeSize * 0.08, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                    return;
+                }
 
                 // 1. Outer red rage halo — pulses faster as HP drops.
                 const haloPulse = 0.5 + 0.5 * Math.sin(t / (220 - hpPct * 120));

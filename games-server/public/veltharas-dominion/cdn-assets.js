@@ -87,6 +87,11 @@ const CDN_ASSETS = {
             attack: 'enemies/fire-blob-cinder-wretch-attack.png',
             death: 'enemies/fire-blob-cinder-wretch-death.png',
         },
+        evilFlowerPoison: {
+            walk: 'enemies/evil-flower-poison-walk.png',
+            attack: 'enemies/evil-flower-poison-attack.png',
+            death: 'enemies/evil-flower-poison-death.png',
+        },
         swarm: 'enemies/swarm.png',
         basic: 'enemies/basic.png',
         runner: 'enemies/runner.png',

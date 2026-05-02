@@ -47,6 +47,14 @@ FIRE_HOT = (255, 244, 139, 255)
 FIRE_EDGE = (107, 18, 18, 245)
 FIRE_SMOKE = (72, 37, 31, 140)
 
+FLOWER_STEM = (28, 111, 48, 255)
+FLOWER_LEAF = (58, 174, 70, 255)
+FLOWER_PETAL = (176, 40, 204, 255)
+FLOWER_PETAL_DARK = (82, 19, 108, 255)
+FLOWER_CORE = (255, 221, 76, 255)
+FLOWER_TOOTH = (244, 242, 218, 255)
+FLOWER_VENOM = (77, 255, 108, 190)
+
 
 def line(draw: ImageDraw.ImageDraw, points, fill, width=2):
     draw.line(points, fill=fill, width=width, joint="curve")
@@ -411,6 +419,58 @@ def draw_fire_blob(draw: ImageDraw.ImageDraw, frame: int, action: str):
             draw.line([(fx, fy - 9), (fx + 4, fy), (fx, fy + 4), (fx - 4, fy), (fx, fy - 9)], fill=FIRE_EDGE, width=1)
 
 
+def draw_evil_flower(draw: ImageDraw.ImageDraw, frame: int, action: str):
+    phase = frame / FRAMES
+    sway = sin(phase * pi * 2) * 3
+    bite = sin(min(1, phase * 1.2) * pi) if action == "attack" else 0
+    collapse = frame / (FRAMES - 1) if action == "death" else 0
+    cx = 32 + sway * 0.4
+    cy = 29 + sin(phase * pi * 2) * 1.5 + collapse * 13
+    ground = 56
+
+    draw.ellipse((15, ground - 4, 49, ground + 2), fill=(0, 0, 0, 42))
+
+    if action == "death" and frame >= 4:
+        line(draw, [(30, 55), (32, 48), (35, 55)], FLOWER_STEM, 4)
+        for i in range(8):
+            x = 17 + i * 4
+            y = 43 + (i % 3) * 3
+            draw.ellipse((x - 3, y - 2, x + 3, y + 2), fill=(FLOWER_PETAL[0], FLOWER_PETAL[1], FLOWER_PETAL[2], 150))
+        return
+
+    # Root and stem.
+    line(draw, [(cx, cy + 13), (32 + sway * 0.15, 45), (29, ground)], FLOWER_STEM, 7)
+    line(draw, [(cx, cy + 13), (32 + sway * 0.15, 45), (29, ground)], (105, 224, 84, 255), 3)
+    draw.ellipse((18, 45, 32, 54), fill=FLOWER_LEAF, outline=FLOWER_STEM, width=2)
+    draw.ellipse((33, 44, 48, 54), fill=FLOWER_LEAF, outline=FLOWER_STEM, width=2)
+
+    # Petal mouth around a snapping core.
+    petal_r = 10 + bite * 3
+    for i in range(8):
+        a = i / 8 * pi * 2 + phase * 0.2
+        px = cx + cos(a) * (10 + bite * 2)
+        py = cy + sin(a) * (9 + bite * 2)
+        rx = 7 if i % 2 == 0 else 6
+        ry = 10 if i % 2 == 0 else 8
+        draw.ellipse((px - rx, py - ry, px + rx, py + ry), fill=FLOWER_PETAL, outline=FLOWER_PETAL_DARK, width=2)
+
+    draw.ellipse((cx - petal_r, cy - petal_r, cx + petal_r, cy + petal_r), fill=FLOWER_PETAL_DARK, outline=OUTLINE, width=2)
+    mouth_open = 5 + bite * 8
+    draw.ellipse((cx - 8, cy - 2, cx + 8, cy + mouth_open), fill=(21, 8, 24, 255), outline=(255, 68, 180, 255), width=2)
+    for tx in (-5, 0, 5):
+        draw.polygon([(cx + tx - 2, cy), (cx + tx + 2, cy), (cx + tx, cy + 5 + bite * 2)], fill=FLOWER_TOOTH)
+    for tx in (-4, 3):
+        draw.polygon([(cx + tx - 2, cy + mouth_open), (cx + tx + 2, cy + mouth_open), (cx + tx, cy + mouth_open - 4)], fill=FLOWER_TOOTH)
+    draw.ellipse((cx - 3, cy - 9, cx + 3, cy - 3), fill=FLOWER_CORE, outline=FLOWER_PETAL_DARK, width=1)
+
+    if action == "attack" and 2 <= frame <= 4:
+        draw.arc((8, 9, 58, 55), 205, 335, fill=FLOWER_VENOM, width=3)
+        for i in range(5):
+            x = 18 + i * 7
+            y = 48 + (i % 2) * 3
+            draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=FLOWER_VENOM)
+
+
 def make_sheet(draw_fn, action: str) -> Image.Image:
     sheet = Image.new("RGBA", (FRAME * FRAMES, FRAME), (0, 0, 0, 0))
     for frame in range(FRAMES):
@@ -463,6 +523,7 @@ def main():
     save_set("evil-ghost-runner", draw_evil_ghost)
     save_set("ice-giant-ice", draw_ice_giant)
     save_set("fire-blob-cinder-wretch", draw_fire_blob)
+    save_set("evil-flower-poison", draw_evil_flower)
 
 
 if __name__ == "__main__":
