@@ -1565,6 +1565,11 @@ const ENEMY_ANIM_SHEETS = {
         walk: { key: 'enemy_basic_walk', path: 'enemies/eyes-mouth-basic-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
         attack: { key: 'enemy_basic_attack', path: 'enemies/eyes-mouth-basic-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
         death: { key: 'enemy_basic_death', path: 'enemies/eyes-mouth-basic-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    runner: {
+        walk: { key: 'enemy_runner_walk', path: 'enemies/evil-ghost-runner-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        attack: { key: 'enemy_runner_attack', path: 'enemies/evil-ghost-runner-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 },
+        death: { key: 'enemy_runner_death', path: 'enemies/evil-ghost-runner-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     }
 };
 

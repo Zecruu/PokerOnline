@@ -29,6 +29,12 @@ TOOTH = (238, 233, 207, 255)
 EYE_WHITE = (233, 246, 255, 255)
 IRIS = (255, 218, 74, 255)
 
+GHOST_BODY = (70, 205, 235, 210)
+GHOST_CORE = (176, 247, 255, 235)
+GHOST_EDGE = (25, 94, 125, 220)
+GHOST_DARK = (16, 24, 39, 245)
+GHOST_RUNE = (255, 66, 155, 210)
+
 
 def line(draw: ImageDraw.ImageDraw, points, fill, width=2):
     draw.line(points, fill=fill, width=width, joint="curve")
@@ -176,6 +182,78 @@ def draw_eyes_mouth(draw: ImageDraw.ImageDraw, frame: int, action: str):
         draw.arc((cx - 23, cy - 19, cx + 23, cy + 24), 25, 150, fill=(255, 218, 74, 130), width=3)
 
 
+def draw_evil_ghost(draw: ImageDraw.ImageDraw, frame: int, action: str):
+    phase = frame / FRAMES
+    bob = sin(phase * pi * 2) * 4
+    sway = sin(phase * pi * 2) * 3
+    cx = 32 + sway * 0.45
+    cy = 28 + bob
+    collapse = frame / (FRAMES - 1) if action == "death" else 0
+    lunge = sin(min(1, phase * 1.2) * pi) if action == "attack" else 0
+
+    if action == "death":
+        cy += collapse * 12
+        alpha = int(220 * (1 - collapse * 0.75))
+        body = (GHOST_BODY[0], GHOST_BODY[1], GHOST_BODY[2], max(55, alpha))
+        core = (GHOST_CORE[0], GHOST_CORE[1], GHOST_CORE[2], max(70, alpha + 20))
+    else:
+        body = GHOST_BODY
+        core = GHOST_CORE
+
+    draw.ellipse((15, 49, 49, 56), fill=(0, 0, 0, 38))
+
+    if action == "death" and frame >= 4:
+        for i in range(9):
+            ang = i / 9 * pi * 2 + phase
+            x = 32 + cos(ang) * (6 + i % 3 * 3)
+            y = 42 + sin(ang) * (4 + i % 2 * 2)
+            draw.rectangle((x - 1, y - 1, x + 1, y + 1), fill=(GHOST_BODY[0], GHOST_BODY[1], GHOST_BODY[2], 120))
+        return
+
+    top = cy - 16
+    left = cx - 16 - lunge * 2
+    right = cx + 16 + lunge * 2
+    bottom = cy + 18
+    tail_y = cy + 24 + sin(phase * pi * 4) * 2
+
+    outline = [
+        (cx, top),
+        (right - 5, cy - 10),
+        (right, cy + 7),
+        (cx + 10, bottom),
+        (cx + 5, tail_y),
+        (cx, bottom + 2),
+        (cx - 6, tail_y - 1),
+        (cx - 11, bottom),
+        (left, cy + 7),
+        (left + 5, cy - 10),
+    ]
+    draw.polygon(outline, fill=body)
+    draw.line(outline + [outline[0]], fill=GHOST_EDGE, width=2, joint="curve")
+
+    draw.ellipse((cx - 12, cy - 12, cx + 12, cy + 13), fill=core)
+
+    arm_y = cy + 2
+    left_hand = (cx - 22 - lunge * 5, arm_y + 8)
+    right_hand = (cx + 22 + lunge * 5, arm_y + 8)
+    line(draw, [(cx - 11, arm_y), (cx - 17, arm_y + 5), left_hand], GHOST_EDGE, 5)
+    line(draw, [(cx - 11, arm_y), (cx - 17, arm_y + 5), left_hand], body, 3)
+    line(draw, [(cx + 11, arm_y), (cx + 17, arm_y + 5), right_hand], GHOST_EDGE, 5)
+    line(draw, [(cx + 11, arm_y), (cx + 17, arm_y + 5), right_hand], body, 3)
+
+    eye_slant = 2 if action == "attack" else 0
+    draw.polygon([(cx - 9, cy - 4), (cx - 3, cy - 2 - eye_slant), (cx - 5, cy + 2), (cx - 10, cy + 1)], fill=GHOST_DARK)
+    draw.polygon([(cx + 9, cy - 4), (cx + 3, cy - 2 - eye_slant), (cx + 5, cy + 2), (cx + 10, cy + 1)], fill=GHOST_DARK)
+    draw.rectangle((cx - 7, cy - 2, cx - 6, cy - 1), fill=GHOST_RUNE)
+    draw.rectangle((cx + 6, cy - 2, cx + 7, cy - 1), fill=GHOST_RUNE)
+    draw.arc((cx - 7, cy + 4, cx + 7, cy + 12), 205, 335, fill=GHOST_DARK, width=2)
+
+    if action == "attack" and 2 <= frame <= 4:
+        draw.arc((cx - 25, cy - 20, cx + 25, cy + 24), 205, 330, fill=(255, 66, 155, 150), width=3)
+        for i in range(3):
+            draw.line((cx - 18 + i * 18, cy + 17, cx - 23 + i * 19, cy + 25), fill=(255, 66, 155, 100), width=2)
+
+
 def make_sheet(draw_fn, action: str) -> Image.Image:
     sheet = Image.new("RGBA", (FRAME * FRAMES, FRAME), (0, 0, 0, 0))
     for frame in range(FRAMES):
@@ -225,6 +303,7 @@ def main():
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     save_set("skeleton-swarm", draw_skeleton)
     save_set("eyes-mouth-basic", draw_eyes_mouth)
+    save_set("evil-ghost-runner", draw_evil_ghost)
 
 
 if __name__ == "__main__":
