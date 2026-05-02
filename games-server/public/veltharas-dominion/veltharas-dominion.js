@@ -1528,32 +1528,39 @@ function applyDominionSetBonuses(game) {
 
 // Enemy Sprite System - Load custom images for enemies
 const ENEMY_SPRITES = {
-    // Define sprite paths for each enemy type (set to null for default circle rendering)
-    swarm: 'enemies/swarm.png',
-    basic: 'enemies/basic.png',
-    runner: 'enemies/runner.png',
-    tank: 'enemies/tank.png',
-    splitter: 'enemies/splitter.png',
-    bomber: 'enemies/bomber.png',
-    mini: 'enemies/mini.png',
-    sticky: 'enemies/sticky.png',
-    ice: 'enemies/ice.png',
-    poison: 'enemies/poison.png',
-    boss: 'enemies/boss-consumer.png',
-    general: 'enemies/demon-king.png',
-    consumer: 'enemies/the-consumer.png',  // The Consumer boss - void spiral
-    // New enemies - Wave 5+
-    goblin: 'enemies/goblin.png',           // Wave 5 - Passive XP stealer
-    necromancer: 'enemies/necromancer-enemy.png', // Wave 6 - Spawns sprites
-    necro_sprite: 'enemies/necro-sprite.png',     // Necromancer's minions
-    miniconsumer: 'enemies/mini-consumer.png', // Wave 10 - Grows with deaths
-    cinder_wretch: 'enemies/cinder_wretch.png', // Wave 6+ - Fire enemy, spawns Fire Zone on death
-    wraith: 'enemies/wraith.png',               // Wave 8+ - Phasing demon
-    magma_crawler: 'enemies/magma_crawler.png', // Wave 12+ - Heavy magma beetle
-    leech: 'enemies/leech.png',                 // Wave 10+ - Healing parasite
-    pusher: 'enemies/pusher.png',               // Wave 8+ - Bodyslam brawler
-    heads: 'enemies/heads.png',                 // Wave 3+ - Floating flaming demon head
-    clowns: 'enemies/clowns.png'                // Wave 5+ - Purple jester
+    // Old static enemy sprite paths are disabled while enemies are rebuilt one by one.
+    swarm: null,
+    basic: null,
+    runner: null,
+    tank: null,
+    splitter: null,
+    bomber: null,
+    mini: null,
+    sticky: null,
+    ice: null,
+    poison: null,
+    boss: null,
+    general: null,
+    consumer: null,
+    goblin: null,
+    necromancer: null,
+    necro_sprite: null,
+    miniconsumer: null,
+    cinder_wretch: null,
+    wraith: null,
+    magma_crawler: null,
+    leech: null,
+    pusher: null,
+    heads: null,
+    clowns: null
+};
+
+const ENEMY_ANIM_SHEETS = {
+    basic: {
+        walk: { key: 'enemy_basic_walk', path: 'enemies/skeleton-basic-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
+        attack: { key: 'enemy_basic_attack', path: 'enemies/skeleton-basic-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        death: { key: 'enemy_basic_death', path: 'enemies/skeleton-basic-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    }
 };
 
 // Consumer boss has multi-frame animations (walk / eat / die, 6 frames each).
@@ -1673,6 +1680,11 @@ function initSprites() {
     // Load enemy sprites
     for (const [type, path] of Object.entries(ENEMY_SPRITES)) {
         if (path) loadSprite(type, path);
+    }
+    for (const anims of Object.values(ENEMY_ANIM_SHEETS)) {
+        for (const anim of Object.values(anims)) {
+            loadSprite(anim.key, getAssetUrl(anim.path) + '?v=1', true);
+        }
     }
     // Load Consumer boss animation frames — already transparent, skip BG processing.
     for (const anim of CONSUMER_ANIMS) {
@@ -4351,6 +4363,7 @@ class DotsSurvivor {
 
         // Enemies
         this.enemies = [];
+        this.enemyDeathAnims = [];
         this.enemyGrid = new SpatialGrid(150);
         this.enemyPool = new EnemyPool(300);
         this.enemySpawnRate = 1200;
@@ -5853,6 +5866,7 @@ class DotsSurvivor {
         for (let i = 0; i < this.enemies.length; i++) this._releaseEnemy(this.enemies[i]);
         this.enemyPool.clear();
         this.enemies = []; this.projectiles = []; this.pickups = []; this.particles = []; this.damageNumbers = [];
+        this.enemyDeathAnims = [];
         this._installDamageNumberInterceptor();
         this.runStats = { damageDealt: 0 };
         this.skulls = []; this.minions = []; this.items = {};
@@ -12108,6 +12122,76 @@ class DotsSurvivor {
         }
     }
 
+    getEnemyAnimState(e, sx, sy) {
+        if (!ENEMY_ANIM_SHEETS[e.type]) return null;
+        const attackRange = e.radius + this.player.radius + 30;
+        const distToPlayer = Math.hypot(sx - this.player.x, sy - this.player.y);
+        return distToPlayer <= attackRange ? 'attack' : 'walk';
+    }
+
+    drawEnemyAnimSprite(ctx, e, sx, sy, state, flash = false) {
+        const def = ENEMY_ANIM_SHEETS[e.type]?.[state];
+        const sheet = def ? SPRITE_CACHE[def.key] : null;
+        if (!def || !sheet) return false;
+        const frame = Math.floor((this.gameTime || 0) / (1000 / def.fps)) % def.frames;
+        const size = e.radius * 3.2;
+        if (flash) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.5;
+        }
+        ctx.drawImage(
+            sheet,
+            frame * def.frameWidth,
+            0,
+            def.frameWidth,
+            def.frameHeight,
+            sx - size / 2,
+            sy - size / 2,
+            size,
+            size
+        );
+        if (flash) ctx.restore();
+        return true;
+    }
+
+    spawnEnemyDeathAnim(e) {
+        if (!ENEMY_ANIM_SHEETS[e.type]?.death) return;
+        if (!this.enemyDeathAnims) this.enemyDeathAnims = [];
+        this.enemyDeathAnims.push({
+            type: e.type,
+            wx: e.wx,
+            wy: e.wy,
+            radius: e.radius,
+            startedAt: this.gameTime || 0,
+            durationMs: 520
+        });
+    }
+
+    drawEnemyDeathAnims(ctx) {
+        if (!this.enemyDeathAnims?.length) return;
+        const now = this.gameTime || 0;
+        for (let i = this.enemyDeathAnims.length - 1; i >= 0; i--) {
+            const d = this.enemyDeathAnims[i];
+            const def = ENEMY_ANIM_SHEETS[d.type]?.death;
+            const sheet = def ? SPRITE_CACHE[def.key] : null;
+            if (!def || !sheet) {
+                this.enemyDeathAnims.splice(i, 1);
+                continue;
+            }
+            const elapsed = now - d.startedAt;
+            if (elapsed > d.durationMs) {
+                this.enemyDeathAnims.splice(i, 1);
+                continue;
+            }
+            const frame = Math.min(def.frames - 1, Math.floor(elapsed / (1000 / def.fps)));
+            const sx = this.player.x + (d.wx - this.worldX);
+            const sy = this.player.y + (d.wy - this.worldY);
+            const size = d.radius * 3.2;
+            ctx.drawImage(sheet, frame * def.frameWidth, 0, def.frameWidth, def.frameHeight, sx - size / 2, sy - size / 2, size, size);
+        }
+    }
+
     handleEnemyDeath(e, sx, sy, index) {
         // Demonic Monarch: decayed kills are claimed by Authority.
         if (this.selectedClass?.id === 'demonic_monarch' && e.demonicDecay?.stacks > 0) {
@@ -12165,6 +12249,7 @@ class DotsSurvivor {
             return;
         }
 
+        this.spawnEnemyDeathAnim(e);
         this.player.kills++;
         this.playSound('kill');
 
@@ -18853,8 +18938,11 @@ class DotsSurvivor {
                 ctx.strokeStyle = (e.hitFlash > 0 ? '#fff' : e.color) + '66';
                 ctx.lineWidth = 2;
                 ctx.stroke();
+                const animState = this.getEnemyAnimState(e, sx, sy);
+                const drewAnim = animState && this.drawEnemyAnimSprite(ctx, e, sx, sy, animState);
+                if (drewAnim && e.hitFlash > 0) this.drawEnemyAnimSprite(ctx, e, sx, sy, animState, true);
                 const sprite = SPRITE_CACHE[e.type];
-                if (sprite) {
+                if (!drewAnim && sprite) {
                     // Render sprite at ~3.0x radius — bigger than the original
                     // 2.6× so the demonic art reads, but not so large that the
                     // ~30 simultaneous drawImages spike the GPU compositor.
@@ -18867,7 +18955,7 @@ class DotsSurvivor {
                         ctx.globalCompositeOperation = 'source-over';
                         ctx.globalAlpha = alpha;
                     }
-                } else {
+                } else if (!drewAnim) {
                     // Fallback: colored circle while sprite still loads (or if none exists)
                     ctx.beginPath();
                     ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
@@ -21617,6 +21705,7 @@ class DotsSurvivor {
 
         // Shop-purchased attacks: beams, slow pulses, orbital eyes/swords.
         this.drawShopAttacks(ctx);
+        this.drawEnemyDeathAnims(ctx);
 
         // Player
         this.drawPlayer();

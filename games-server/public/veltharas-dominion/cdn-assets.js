@@ -57,6 +57,11 @@ const CDN_ASSETS = {
 
     // ========== ENEMIES ==========
     enemies: {
+        skeletonBasic: {
+            walk: 'enemies/skeleton-basic-walk.png',
+            attack: 'enemies/skeleton-basic-attack.png',
+            death: 'enemies/skeleton-basic-death.png',
+        },
         swarm: 'enemies/swarm.png',
         basic: 'enemies/basic.png',
         runner: 'enemies/runner.png',
