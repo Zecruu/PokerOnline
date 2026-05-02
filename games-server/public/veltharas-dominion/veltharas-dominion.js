@@ -336,6 +336,16 @@ const DEMONIC_MONARCH_SPRITES = {
     level21: 'characters/demonic-monarch-lv21.png',
 };
 
+// Angelic Knight currently has one polished select/idle anchor, reused across
+// level breakpoints until evolution art is produced.
+const ANGELIC_KNIGHT_SPRITES = {
+    level1:  'characters/angelic-knight-select.png',
+    level6:  'characters/angelic-knight-select.png',
+    level11: 'characters/angelic-knight-select.png',
+    level16: 'characters/angelic-knight-select.png',
+    level21: 'characters/angelic-knight-select.png',
+};
+
 const AUTO_ATTACK_DEFS = {
     projectile: {
         id: 'projectile',
@@ -350,6 +360,13 @@ const AUTO_ATTACK_DEFS = {
         icon: '🔥',
         color: '#ff8a3c',
         desc: 'Forward fire crescent that applies Sovereign Burn.'
+    },
+    light_slash: {
+        id: 'light_slash',
+        name: 'Light Slash',
+        icon: 'AK',
+        color: '#f8e58c',
+        desc: 'Holy crescent that marks enemies and rewards shielded aggression.'
     },
     demon_slash: {
         id: 'demon_slash',
@@ -1637,6 +1654,10 @@ function initSprites() {
     for (const [level, path] of Object.entries(DEMONIC_MONARCH_SPRITES)) {
         loadSprite('dm_' + level, getAssetUrl(path) + '?v=1', true);
     }
+    // Angelic Knight sprites
+    for (const [level, path] of Object.entries(ANGELIC_KNIGHT_SPRITES)) {
+        loadSprite('ak_' + level, getAssetUrl(path) + '?v=1', true);
+    }
     // Void Blade (Azura) sprites
     for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
         loadSprite('vb_' + level, getAssetUrl(path) + '?v=2', true);
@@ -2000,8 +2021,52 @@ const VOID_BLADE_CLASS = {
     augments: []
 };
 
+// ========== ANGELIC KNIGHT CLASS ==========
+const ANGELIC_KNIGHT_CLASS = {
+    id: 'angelic_knight',
+    name: 'Angelic Knight',
+    icon: 'AK',
+    portrait: 'characters/angelic-knight-select.png',
+    color: '#f8e58c',
+    description: 'A winged guardian who carves enemies with holy light, marks targets for judgment, and survives through radiant shields.',
+    bonuses: {
+        noProjectiles: true,
+        hasLightSlash: true,
+        damage: 1.15,
+        fireRate: 1.05
+    },
+    autoAttack: 'light_slash',
+    skills: {
+        lightSlash: { name: 'Light Slash', icon: 'AK', desc: 'Holy melee crescent that applies Radiant Mark' },
+        radiantLance: { name: 'Radiant Lance', icon: 'Q', desc: 'Piercing beam that detonates marked enemies' },
+        seraphicAegis: { name: 'Seraphic Aegis', icon: 'E', desc: 'Shield, heal, and knock enemies away' },
+    },
+    passive: {
+        name: 'Divine Bulwark',
+        icon: 'DB',
+        desc: 'Every 10s gain a holy shield. While shielded, Light Slash deals +25% damage and Radiant Marks last longer.',
+        effect: (g) => {
+            g.divineBulwarkEnabled = true;
+            g.divineBulwarkMaxShield = Math.max(70, Math.floor(g.player.maxHealth * 0.18));
+            g.divineBulwarkShield = g.divineBulwarkMaxShield;
+            g.divineBulwarkTimer = 0;
+            g.divineBulwarkCooldown = 10;
+        }
+    },
+    abilities: {},
+    sigils: [
+        { id: 'ak_blessed_edge', classReq: 'angelic_knight', name: 'Faded Sigil: Blessed Edge', icon: 'AK', desc: '+18% Light Slash damage', tier: 'FADED', rarity: 'common', effect: (g) => { g.lightSlashDmgMult = (g.lightSlashDmgMult || 1) * 1.18; }, getDesc: () => 'Light Slash damage +18%' },
+        { id: 'ak_stalwart_wings', classReq: 'angelic_knight', name: 'Faded Sigil: Stalwart Wings', icon: 'DB', desc: '+20% Divine Bulwark shield', tier: 'FADED', rarity: 'common', effect: (g) => { g.divineBulwarkMaxShield = Math.floor((g.divineBulwarkMaxShield || 70) * 1.20); g.divineBulwarkShield = Math.min(g.divineBulwarkMaxShield, (g.divineBulwarkShield || 0) + 40); }, getDesc: () => 'Bulwark shield +20%' },
+        { id: 'ak_radiant_sentence', classReq: 'angelic_knight', name: 'Runed Sigil: Radiant Sentence', icon: 'Q', desc: 'Radiant Mark detonation +35% damage', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.radiantMarkExplosionMult = (g.radiantMarkExplosionMult || 1) * 1.35; }, getDesc: () => 'Mark burst +35%' },
+        { id: 'ak_swift_judgment', classReq: 'angelic_knight', name: 'Runed Sigil: Swift Judgment', icon: 'Q', desc: 'Radiant Lance cooldown -2s', tier: 'RUNED', rarity: 'rare', effect: (g) => { g.characterAbilities.q.maxCooldown = Math.max(4, g.characterAbilities.q.maxCooldown - 2); }, getDesc: () => 'Radiant Lance cooldown -2s' },
+        { id: 'ak_seraphic_vow', classReq: 'angelic_knight', name: 'Empowered Sigil: Seraphic Vow', icon: 'E', desc: 'Seraphic Aegis heals 50% more and grants +1s invulnerability', tier: 'EMPOWERED', rarity: 'epic', isSkillUpgrade: true, skill: 'seraphicAegis', effect: (g) => { g.seraphicAegisHealMult = (g.seraphicAegisHealMult || 1) * 1.5; g.seraphicAegisIframes = (g.seraphicAegisIframes || 0.8) + 1; }, getDesc: () => 'Aegis heal +50%, invulnerability +1s' },
+        { id: 'ak_sunlit_arsenal', classReq: 'angelic_knight', name: 'Ascendant Sigil: Sunlit Arsenal', icon: 'AK', desc: 'Light Slash fires a short secondary holy wave', tier: 'ASCENDANT', rarity: 'legendary', isSkillUpgrade: true, skill: 'lightSlash', effect: (g) => { g.lightSlashWave = true; }, getDesc: () => 'Light Slash gains holy wave' },
+    ],
+    augments: []
+};
+
 // All playable classes for character select
-const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, DEMONIC_MONARCH_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
+const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, DEMONIC_MONARCH_CLASS, ANGELIC_KNIGHT_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
 
 // Combined sigil pool — curated safe sigils from all classes for the single combined character
 const ALL_CLASS_SIGILS = [
@@ -2012,6 +2077,7 @@ const ALL_CLASS_SIGILS = [
         ['sm_void_pulse','sm_dominion_bond_sigil','sm_abyssal_void'].includes(s.id)
     ),
     ...DEMONIC_MONARCH_CLASS.sigils,
+    ...ANGELIC_KNIGHT_CLASS.sigils,
     // Void Blade — bleed stat sigils only (blood sword sigils replaced by ability sigils)
     ...VOID_BLADE_CLASS.sigils.filter(s =>
         ['vb_deep_cuts','vb_blood_scent','vb_keen_edge','vb_void_riposte','vb_exsanguinate','vb_hemorrhage'].includes(s.id)
@@ -2333,6 +2399,38 @@ const ENHANCEMENT_RUNES = {
                 { name: 'Consuming Void', desc: '+20% radius, +25% DPS', effect: (g) => { if (g.shadowVoid) { g.shadowVoid.radius = Math.floor(g.shadowVoid.radius * 1.20); g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.25); } } },
                 { name: 'Soul Siphon', desc: 'Shadow Void heals 1.5% of dmg dealt', effect: (g) => { g.shadowVoidHeal = true; g.shadowVoidHealPercent = 0.015; } },
                 { name: 'Event Horizon', desc: 'Enemies in void are slowed 35%, +50% DPS', effect: (g) => { if (g.shadowVoid) g.shadowVoid.baseDPS = Math.floor(g.shadowVoid.baseDPS * 1.50); g.shadowVoidSlow = Math.max(g.shadowVoidSlow || 0, 0.35); } },
+            ]
+        }
+    },
+    angelic_knight: {
+        q: {
+            name: 'Radiant Lance', icon: 'Q',
+            upgrades: [
+                { name: 'Longer Lance', desc: '+25% beam length', effect: (g) => { g.radiantLanceRange = Math.floor((g.radiantLanceRange || 520) * 1.25); } },
+                { name: 'Brighter Judgment', desc: '+35% lance damage', effect: (g) => { g.radiantLanceDmgMult = (g.radiantLanceDmgMult || 1) * 1.35; } },
+                { name: 'Swift Judgment', desc: '-2s cooldown', effect: (g) => { g.characterAbilities.q.maxCooldown = Math.max(4, g.characterAbilities.q.maxCooldown - 2); } },
+                { name: 'Cleansing Light', desc: 'Lance detonates marks in wider radius', effect: (g) => { g.radiantMarkExplosionRadius = (g.radiantMarkExplosionRadius || 90) + 35; } },
+                { name: 'Twin Lances', desc: 'Radiant Lance fires a second angled beam', effect: (g) => { g.radiantLanceTwin = true; } },
+            ]
+        },
+        e: {
+            name: 'Seraphic Aegis', icon: 'E',
+            upgrades: [
+                { name: 'Deeper Ward', desc: '+30% shield', effect: (g) => { g.seraphicAegisShieldMult = (g.seraphicAegisShieldMult || 1) * 1.30; } },
+                { name: 'Graceful Recovery', desc: '+30% heal', effect: (g) => { g.seraphicAegisHealMult = (g.seraphicAegisHealMult || 1) * 1.30; } },
+                { name: 'Quick Benediction', desc: '-6s cooldown', effect: (g) => { g.characterAbilities.e.maxCooldown = Math.max(16, g.characterAbilities.e.maxCooldown - 6); } },
+                { name: 'Repelling Wings', desc: '+45% knockback radius', effect: (g) => { g.seraphicAegisRadius = Math.floor((g.seraphicAegisRadius || 220) * 1.45); } },
+                { name: 'Guardian Ascendant', desc: 'Aegis also refreshes Divine Bulwark', effect: (g) => { g.seraphicAegisRefreshBulwark = true; } },
+            ]
+        },
+        passive: {
+            name: 'Divine Bulwark', icon: 'DB',
+            upgrades: [
+                { name: 'Thicker Halo', desc: '+25% Bulwark shield', effect: (g) => { g.divineBulwarkMaxShield = Math.floor((g.divineBulwarkMaxShield || 70) * 1.25); } },
+                { name: 'Blessed Tempo', desc: 'Bulwark cooldown -2s', effect: (g) => { g.divineBulwarkCooldown = Math.max(6, (g.divineBulwarkCooldown || 10) - 2); } },
+                { name: 'Consecrated Guard', desc: 'Shielded Light Slash +15% more damage', effect: (g) => { g.bulwarkDamageBonus = (g.bulwarkDamageBonus || 0.25) + 0.15; } },
+                { name: 'Merciful Radiance', desc: 'Marked enemy kills heal 3% max HP', effect: (g) => { g.radiantMarkKillHeal = 0.03; } },
+                { name: 'Unbroken Vow', desc: 'Bulwark instantly reforms once after breaking', effect: (g) => { g.divineBulwarkSecondWind = true; } },
             ]
         }
     },
@@ -5682,6 +5780,15 @@ class DotsSurvivor {
         this.bloodShieldRate = 0;       // % of damage dealt that becomes shield
         this.bloodShieldCooldown = 0;   // Cooldown timer after shield breaks (30 seconds)
         this.bloodShieldCooldownMax = 30; // 30 second rebuild cooldown
+        this.divineBulwarkEnabled = false;
+        this.divineBulwarkShield = 0;
+        this.divineBulwarkMaxShield = 0;
+        this.divineBulwarkTimer = 0;
+        this.divineBulwarkCooldown = 10;
+        this.divineBulwarkSecondWindReady = false;
+        this.activeLightSlashes = [];
+        this.radiantLances = [];
+        this.seraphicAegisVisual = null;
 
         this.wave = 1; this.waveTimer = 0; this.gameTime = 0;
 
@@ -6101,6 +6208,7 @@ class DotsSurvivor {
         this.fireAmpTimer = 0;
 
         // ========== SHADOW MASTER ==========
+        this.hasLightSlash = false;
         if (this.selectedClass.bonuses.hasWhipAttack) {
             this.hasWhipAttack = true;
             this.whipRange = 120;
@@ -6145,6 +6253,32 @@ class DotsSurvivor {
         }
         if (this.selectedClass.bonuses.noProjectiles) {
             this.noProjectiles = true;
+        }
+
+        // ========== ANGELIC KNIGHT ==========
+        if (this.selectedClass.id === 'angelic_knight') {
+            this.hasLightSlash = true;
+            this.noProjectiles = true;
+            this.lightSlashRange = 165;
+            this.lightSlashArc = Math.PI * 0.56;
+            this.lightSlashDmgMult = 1;
+            this.lightSlashMarkDuration = 5;
+            this.radiantMarkExplosionMult = 1;
+            this.radiantMarkExplosionRadius = 90;
+            this.radiantLanceRange = 520;
+            this.radiantLanceWidth = 42;
+            this.radiantLanceDmgMult = 1;
+            this.radiantLanceTwin = false;
+            this.seraphicAegisRadius = 220;
+            this.seraphicAegisShieldMult = 1;
+            this.seraphicAegisHealMult = 1;
+            this.seraphicAegisIframes = 0.8;
+            this.bulwarkDamageBonus = 0.25;
+            this.divineBulwarkSecondWindReady = !!this.divineBulwarkSecondWind;
+            this.weapons.bullet.color = '#f8e58c';
+            this.weapons.bullet.fireRate = 780;
+            this.characterAbilities.q.maxCooldown = 9;
+            this.characterAbilities.e.maxCooldown = 32;
         }
 
         // ========== SHADOW MONARCH ==========
@@ -9420,6 +9554,7 @@ class DotsSurvivor {
         this.updateShadowLances(effectiveDt);     // Shadow Monarch laser cleanup
         this.updateMonarchDecree(effectiveDt);    // Shadow Monarch ultimate
         this.updateCharacterAbilities(effectiveDt); // Q/E ability cooldowns
+        this.updateAngelicKnight(effectiveDt);     // Angelic Knight marks and bulwark
         this.updateInvisibility(effectiveDt);    // Shadow Master invisibility
         this.updateSovereignBurns(effectiveDt);   // Fire Sovereign burn stacks
         this.updateDemonicDecay(effectiveDt);      // Demonic Monarch decay stacks
@@ -11755,6 +11890,23 @@ class DotsSurvivor {
                     // Berserker Rage power-up: +25% damage taken
                     if (this.activePowerUps && this.activePowerUps.berserker) remainingDamage = Math.floor(remainingDamage * 1.25);
 
+                    // Angelic Knight: Divine Bulwark absorbs damage before HP.
+                    if ((this.divineBulwarkShield || 0) > 0) {
+                        const absorbed = Math.min(this.divineBulwarkShield, remainingDamage);
+                        this.divineBulwarkShield -= absorbed;
+                        remainingDamage -= absorbed;
+                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 54, value: `BULWARK -${Math.floor(absorbed)}`, lifetime: 0.8, color: '#fff2a8', isText: true });
+                        this.spawnParticles(this.player.x, this.player.y, '#fff2a8', 6);
+                        if (this.divineBulwarkShield <= 0) {
+                            this.divineBulwarkTimer = 0;
+                            if (this.divineBulwarkSecondWindReady) {
+                                this.divineBulwarkSecondWindReady = false;
+                                this.divineBulwarkShield = Math.floor((this.divineBulwarkMaxShield || 70) * 0.45);
+                                this.addDamageNumber(this.player.x, this.player.y - 72, 'UNBROKEN VOW', '#fff7c2', { isText: true, scale: 1, lifetime: 1.2 });
+                            }
+                        }
+                    }
+
                     // Starter Blood Shield absorbs damage first (Azura - Guard of Blood Oath)
                     if (this.bloodShieldAmount > 0) {
                         const absorbed = Math.min(this.bloodShieldAmount, remainingDamage);
@@ -11907,6 +12059,19 @@ class DotsSurvivor {
 
         this.player.kills++;
         this.playSound('kill');
+
+        if (this.selectedClass?.id === 'angelic_knight' && e.radiantMark?.stacks > 0) {
+            if (this.radiantMarkKillHeal) {
+                const heal = Math.floor(this.player.maxHealth * this.radiantMarkKillHeal);
+                if (heal > 0) {
+                    this.healPlayer(heal);
+                    this.addDamageNumber(this.player.x, this.player.y - 34, `+${heal}`, '#fff2a8', { isText: true, scale: 0.9, lifetime: 0.8 });
+                }
+            }
+            if ((this.divineBulwarkShield || 0) > 0) {
+                this.divineBulwarkShield = Math.min(this.divineBulwarkMaxShield || 0, this.divineBulwarkShield + 8);
+            }
+        }
 
         // Kill Nova Sigil: Every N kills, release AoE nova
         if (this.boundSigils?.includes('killnova')) {
@@ -13309,6 +13474,45 @@ class DotsSurvivor {
         }
     }
 
+    updateAngelicKnight(dt) {
+        if (this.selectedClass?.id !== 'angelic_knight') return;
+
+        if (this.divineBulwarkEnabled && (this.divineBulwarkShield || 0) <= 0) {
+            this.divineBulwarkTimer = (this.divineBulwarkTimer || 0) + dt;
+            if (this.divineBulwarkSecondWind && !this.divineBulwarkSecondWindReady) {
+                this.divineBulwarkSecondWindReady = true;
+                this.divineBulwarkTimer = Math.max(this.divineBulwarkTimer, (this.divineBulwarkCooldown || 10) * 0.5);
+            }
+            if (this.divineBulwarkTimer >= (this.divineBulwarkCooldown || 10)) {
+                this.divineBulwarkTimer = 0;
+                this.divineBulwarkShield = this.divineBulwarkMaxShield || Math.max(70, Math.floor(this.player.maxHealth * 0.18));
+                this.spawnParticles(this.player.x, this.player.y, '#fff2a8', 16);
+                this.addDamageNumber(this.player.x, this.player.y - 34, 'BULWARK', '#fff2a8', { isText: true, scale: 1, lifetime: 1 });
+            }
+        }
+
+        for (const e of this.enemies) {
+            if (e.radiantFlash > 0) e.radiantFlash -= dt;
+            if (!e.radiantMark || e.radiantMark.stacks <= 0) continue;
+            e.radiantMark.timer -= dt;
+            if (e.radiantMark.timer <= 0) {
+                e.radiantMark.stacks = 0;
+                e.radiantMark.timer = 0;
+            }
+        }
+
+        if (this.radiantLances) {
+            for (let i = this.radiantLances.length - 1; i >= 0; i--) {
+                this.radiantLances[i].timer -= dt;
+                if (this.radiantLances[i].timer <= 0) this.radiantLances.splice(i, 1);
+            }
+        }
+        if (this.seraphicAegisVisual) {
+            this.seraphicAegisVisual.timer -= dt;
+            if (this.seraphicAegisVisual.timer <= 0) this.seraphicAegisVisual = null;
+        }
+    }
+
     // Shadow Master: Invisibility state
     updateInvisibility(dt) {
         if (!this.isInvisible) return;
@@ -14300,6 +14504,68 @@ class DotsSurvivor {
                 }
             }
         }
+        // ========== ANGELIC KNIGHT ABILITIES ==========
+        else if (classId === 'angelic_knight') {
+            if (abilityKey === 'q') {
+                let nearest = null, nd = Infinity;
+                const nearbyAim = this.enemyGrid.getNearby(this.worldX, this.worldY, this.radiantLanceRange || 520);
+                for (const e of nearbyAim) {
+                    if (e.health <= 0) continue;
+                    const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
+                    const dSq = dx * dx + dy * dy;
+                    const priority = e.radiantMark?.stacks > 0 ? dSq * 0.55 : dSq;
+                    if (priority < nd) { nd = priority; nearest = e; }
+                }
+                if (!nearest) return;
+                const angle = Math.atan2(nearest.wy - this.worldY, nearest.wx - this.worldX);
+                const hits = this.fireRadiantLance(angle);
+                if (this.radiantLanceTwin) this.fireRadiantLance(angle + 0.22, 0.72, null, Math.floor(this.weapons.bullet.damage * 2.0));
+                this.playSound('shoot');
+                this.triggerScreenShake(hits > 0 ? 6 : 3, 0.18);
+                this.spawnParticles(this.player.x, this.player.y, '#fff2a8', 18);
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+            else if (abilityKey === 'e') {
+                const radius = this.seraphicAegisRadius || 220;
+                const shieldGain = Math.floor((this.player.maxHealth * 0.28 + 90) * (this.seraphicAegisShieldMult || 1));
+                const heal = Math.floor(this.player.maxHealth * 0.18 * (this.seraphicAegisHealMult || 1));
+                this.divineBulwarkMaxShield = Math.max(this.divineBulwarkMaxShield || 0, shieldGain);
+                this.divineBulwarkShield = Math.min(this.divineBulwarkMaxShield, (this.divineBulwarkShield || 0) + shieldGain);
+                if (this.seraphicAegisRefreshBulwark) {
+                    this.divineBulwarkShield = this.divineBulwarkMaxShield;
+                    this.divineBulwarkTimer = 0;
+                }
+                this.healPlayer(heal);
+                this.player.invincibleTime = Math.max(this.player.invincibleTime || 0, this.seraphicAegisIframes || 0.8);
+                const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, radius + 80);
+                const pulseDmg = Math.floor(this.weapons.bullet.damage * 2.2 * (this.damageMultiplier || 1));
+                for (const e of nearby) {
+                    if (e.health <= 0) continue;
+                    const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
+                    const d = Math.sqrt(dx * dx + dy * dy);
+                    if (d > radius + e.radius) continue;
+                    const dmg = this.applyArmorPen(pulseDmg, e);
+                    e.health -= dmg;
+                    e.hitFlash = 1;
+                    if (d > 0) {
+                        e.wx += (dx / d) * 65;
+                        e.wy += (dy / d) * 65;
+                    }
+                    this.applyRadiantMark(e, 1);
+                    const sx = this.player.x + (e.wx - this.worldX);
+                    const sy = this.player.y + (e.wy - this.worldY);
+                    this.addDamageNumber(sx, sy - 16, dmg, '#fff7c2', { target: e, wx: e.wx, wy: e.wy });
+                }
+                this.seraphicAegisVisual = { x: this.player.x, y: this.player.y, radius: 0, maxRadius: radius, timer: 0.65, maxTimer: 0.65 };
+                this.playSound('levelup');
+                this.triggerScreenShake(8, 0.25);
+                this.spawnParticles(this.player.x, this.player.y, '#fff2a8', 30);
+                this.addDamageNumber(this.player.x, this.player.y - 42, 'SERAPHIC AEGIS', '#fff2a8', { isText: true, scale: 1.15, lifetime: 1.2 });
+                ability.ready = false;
+                ability.cooldown = ability.maxCooldown;
+            }
+        }
         // ========== VOID BLADE (AZURA) ABILITIES ==========
         else if (classId === 'void_blade') {
             if (abilityKey === 'q') {
@@ -14542,6 +14808,10 @@ class DotsSurvivor {
         }
         if (attackId === 'demon_slash') {
             this.fireDemonSlash();
+            return;
+        }
+        if (attackId === 'light_slash') {
+            this.fireLightSlash();
             return;
         }
 
@@ -14902,6 +15172,162 @@ class DotsSurvivor {
             }
         }
         if (totalHits > 0) this.triggerScreenShake(2, 0.08);
+    }
+
+    fireLightSlash() {
+        const w = this.weapons.bullet;
+        const slashRange = this.lightSlashRange || 165;
+        const slashArc = this.lightSlashArc || (Math.PI * 0.56);
+        let baseDamage = Math.floor(
+            (w.damage + (this._itemDmgFlat || 0)) *
+            (this.damageMultiplier || 1) *
+            (this._itemDmgMult || 1) *
+            (this.lightSlashDmgMult || 1)
+        );
+        if ((this.divineBulwarkShield || 0) > 0) {
+            baseDamage = Math.floor(baseDamage * (1 + (this.bulwarkDamageBonus || 0.25)));
+        }
+
+        let nearest = null, nd = Infinity;
+        const nearby = this.enemyGrid.getNearby(this.worldX, this.worldY, slashRange + 90);
+        for (const e of nearby) {
+            if (e.health <= 0) continue;
+            const dx = e.wx - this.worldX, dy = e.wy - this.worldY;
+            const dSq = dx * dx + dy * dy;
+            const priority = e.radiantMark?.stacks > 0 ? dSq * 0.7 : dSq;
+            if (priority < nd) { nd = priority; nearest = e; }
+        }
+        if (!nearest) return;
+
+        const ex = this.player.x + (nearest.wx - this.worldX);
+        const ey = this.player.y + (nearest.wy - this.worldY);
+        const baseAngle = Math.atan2(ey - this.player.y, ex - this.player.x);
+
+        this.playSound('shoot');
+        if (!this.activeLightSlashes) this.activeLightSlashes = [];
+        this.activeLightSlashes.push({
+            x: this.player.x,
+            y: this.player.y,
+            angle: baseAngle,
+            range: slashRange,
+            arc: slashArc,
+            timer: 0.34,
+            maxTimer: 0.34,
+            sparks: Array.from({ length: 14 }, (_, i) => ({
+                angleT: (i + Math.random() * 0.65) / 14,
+                radiusT: 0.35 + Math.random() * 0.65,
+                size: 2 + Math.random() * 3,
+                drift: (Math.random() - 0.5) * 14
+            }))
+        });
+
+        let totalHits = 0;
+        for (const e of nearby) {
+            if (e.health <= 0) continue;
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            const dx = sx - this.player.x, dy = sy - this.player.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > slashRange + e.radius) continue;
+            const angleToEnemy = Math.atan2(dy, dx);
+            let angleDiff = angleToEnemy - baseAngle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            if (Math.abs(angleDiff) > slashArc / 2) continue;
+
+            const dmg = this.applyArmorPen(baseDamage, e);
+            e.health -= dmg;
+            e.hitFlash = 1;
+            this.runDamageDealt = (this.runDamageDealt || 0) + dmg;
+            this.addDamageNumber(sx, sy - 14, dmg, '#fff2a8', { target: e, wx: e.wx, wy: e.wy });
+            this.applyRadiantMark(e, 1);
+            this.spawnParticles(sx, sy, '#f8e58c', 5);
+            this.spawnParticles(sx, sy, '#ffffff', 2);
+            this.updateStackingItems('damage', dmg);
+            totalHits++;
+        }
+
+        if (this.lightSlashWave && totalHits > 0) {
+            this.fireRadiantLance(baseAngle, 0.42, slashRange + 120, Math.floor(baseDamage * 0.55));
+        }
+        if (totalHits > 0) this.triggerScreenShake(2, 0.08);
+    }
+
+    applyRadiantMark(enemy, stacks = 1) {
+        if (!enemy) return;
+        const maxStacks = this.radiantMarkMaxStacks || 3;
+        const duration = (this.lightSlashMarkDuration || 5) + ((this.divineBulwarkShield || 0) > 0 ? 1.5 : 0);
+        if (!enemy.radiantMark) enemy.radiantMark = { stacks: 0, timer: 0 };
+        enemy.radiantMark.stacks = Math.min(maxStacks, (enemy.radiantMark.stacks || 0) + stacks);
+        enemy.radiantMark.timer = duration;
+        enemy.radiantFlash = 0.35;
+    }
+
+    detonateRadiantMark(enemy, sx, sy, sourceDamage = 0) {
+        if (!enemy?.radiantMark?.stacks) return 0;
+        const stacks = enemy.radiantMark.stacks;
+        const radius = this.radiantMarkExplosionRadius || 90;
+        const burst = Math.floor(((sourceDamage || this.weapons.bullet.damage) * (0.55 + stacks * 0.25)) * (this.radiantMarkExplosionMult || 1));
+        enemy.radiantMark.stacks = 0;
+        enemy.radiantMark.timer = 0;
+
+        const nearby = this.enemyGrid.getNearby(enemy.wx, enemy.wy, radius + 80);
+        let hit = 0;
+        for (const e of nearby) {
+            if (e.health <= 0) continue;
+            const dx = e.wx - enemy.wx, dy = e.wy - enemy.wy;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > radius + e.radius) continue;
+            const dmg = this.applyArmorPen(e === enemy ? burst : Math.floor(burst * 0.55), e);
+            e.health -= dmg;
+            e.hitFlash = 1;
+            this.runDamageDealt = (this.runDamageDealt || 0) + dmg;
+            const tx = this.player.x + (e.wx - this.worldX);
+            const ty = this.player.y + (e.wy - this.worldY);
+            this.addDamageNumber(tx, ty - 18, dmg, '#fff7c2', { target: e, wx: e.wx, wy: e.wy });
+            hit++;
+        }
+        this.spawnParticles(sx, sy, '#fff2a8', 18);
+        this.spawnParticles(sx, sy, '#7dd3fc', 8);
+        return hit;
+    }
+
+    fireRadiantLance(angle, widthMult = 1, rangeOverride = null, damageOverride = null) {
+        const range = rangeOverride || this.radiantLanceRange || 520;
+        const width = (this.radiantLanceWidth || 42) * widthMult;
+        const ndx = Math.cos(angle), ndy = Math.sin(angle);
+        const baseDmg = damageOverride ?? Math.floor(this.weapons.bullet.damage * 3.2 * (this.damageMultiplier || 1) * (this.radiantLanceDmgMult || 1));
+        const nearby = this.enemyGrid.getNearby(this.worldX + ndx * range * 0.5, this.worldY + ndy * range * 0.5, range * 0.65 + width);
+        let hits = 0;
+        for (const e of nearby) {
+            if (e.health <= 0) continue;
+            const ex = e.wx - this.worldX;
+            const ey = e.wy - this.worldY;
+            const proj = ex * ndx + ey * ndy;
+            if (proj < -20 || proj > range) continue;
+            const perp = Math.abs(ex * (-ndy) + ey * ndx);
+            if (perp > width + e.radius) continue;
+            const dmg = this.applyArmorPen(baseDmg, e);
+            e.health -= dmg;
+            e.hitFlash = 1;
+            this.runDamageDealt = (this.runDamageDealt || 0) + dmg;
+            const sx = this.player.x + (e.wx - this.worldX);
+            const sy = this.player.y + (e.wy - this.worldY);
+            this.addDamageNumber(sx, sy - 20, dmg, '#fff7c2', { target: e, wx: e.wx, wy: e.wy });
+            this.detonateRadiantMark(e, sx, sy, dmg);
+            hits++;
+        }
+        if (!this.radiantLances) this.radiantLances = [];
+        this.radiantLances.push({
+            x: this.player.x,
+            y: this.player.y,
+            angle,
+            range,
+            width,
+            timer: 0.22,
+            maxTimer: 0.22
+        });
+        return hits;
     }
 
     updateProjectiles(dt) {
@@ -20496,6 +20922,94 @@ class DotsSurvivor {
             this.activeWhip.timer -= 0.016;
         }
 
+        // Light Slash Visual (Angelic Knight auto-attack)
+        if (this.activeLightSlashes && this.activeLightSlashes.length > 0) {
+            for (let i = this.activeLightSlashes.length - 1; i >= 0; i--) {
+                const s = this.activeLightSlashes[i];
+                const t = Math.max(0, s.timer / s.maxTimer);
+                const fade = t;
+                const sweep = 1 - t;
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.rotate(s.angle);
+                const r1 = s.range * (0.76 + sweep * 0.20);
+                const innerArc = s.arc * (0.50 + sweep * 0.28);
+                const grad = ctx.createRadialGradient(0, 0, r1 * 0.25, 0, 0, r1);
+                grad.addColorStop(0, `rgba(255, 255, 255, ${0.10 * fade})`);
+                grad.addColorStop(0.36, `rgba(255, 242, 168, ${0.36 * fade})`);
+                grad.addColorStop(0.72, `rgba(125, 211, 252, ${0.42 * fade})`);
+                grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = '#fff2a8';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, r1 * 0.9, -innerArc / 2, innerArc / 2);
+                ctx.strokeStyle = `rgba(255, 247, 194, ${0.75 * fade})`;
+                ctx.lineWidth = 16;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 22;
+                ctx.shadowColor = '#f8e58c';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, r1, -s.arc / 2, s.arc / 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${fade})`;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                for (const spark of (s.sparks || [])) {
+                    const a = (-s.arc / 2) + (s.arc * spark.angleT) + sweep * 0.16;
+                    const r = r1 * spark.radiusT;
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(a) * r, Math.sin(a) * r + spark.drift * sweep, spark.size, 0, Math.PI * 2);
+                    ctx.fillStyle = spark.angleT > 0.5 ? `rgba(125, 211, 252, ${fade * 0.8})` : `rgba(255, 255, 255, ${fade})`;
+                    ctx.fill();
+                }
+                ctx.restore();
+                s.timer -= 0.016;
+                if (s.timer <= 0) this.activeLightSlashes.splice(i, 1);
+            }
+        }
+
+        // Radiant Lance Visual (Angelic Knight Q and upgraded Light Slash)
+        if (this.radiantLances && this.radiantLances.length > 0) {
+            for (const beam of this.radiantLances) {
+                const fade = Math.max(0, beam.timer / beam.maxTimer);
+                ctx.save();
+                ctx.translate(beam.x, beam.y);
+                ctx.rotate(beam.angle);
+                const grad = ctx.createLinearGradient(0, 0, beam.range, 0);
+                grad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * fade})`);
+                grad.addColorStop(0.45, `rgba(255, 242, 168, ${0.72 * fade})`);
+                grad.addColorStop(1, `rgba(125, 211, 252, ${0.05 * fade})`);
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = beam.width;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 32;
+                ctx.shadowColor = '#fff2a8';
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(beam.range, 0);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = `rgba(255, 255, 255, ${fade})`;
+                ctx.lineWidth = Math.max(3, beam.width * 0.22);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(beam.range, 0);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
         // Fire Slash Visual (Fire Sovereign auto-attack)
         if (this.activeFireSlashes && this.activeFireSlashes.length > 0) {
             for (let i = this.activeFireSlashes.length - 1; i >= 0; i--) {
@@ -20628,6 +21142,38 @@ class DotsSurvivor {
             ctx.shadowBlur = 12; ctx.shadowColor = '#00ff66';
             ctx.stroke();
             ctx.shadowBlur = 0;
+        }
+
+        if (this.selectedClass?.id === 'angelic_knight') {
+            const shield = this.divineBulwarkShield || 0;
+            const maxShield = this.divineBulwarkMaxShield || 1;
+            const pulse = Math.sin(this.gameTime * 5) * 0.12 + 0.88;
+            if (shield > 0) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.player.x, this.player.y, this.player.radius + 19, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, shield / maxShield));
+                ctx.strokeStyle = `rgba(255, 242, 168, ${0.65 * pulse})`;
+                ctx.lineWidth = 4;
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = '#fff2a8';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            }
+            if (this.seraphicAegisVisual) {
+                const v = this.seraphicAegisVisual;
+                const t = Math.max(0, v.timer / v.maxTimer);
+                const r = v.maxRadius * (1 - t);
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(v.x, v.y, r, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 247, 194, ${t})`;
+                ctx.lineWidth = 5;
+                ctx.shadowBlur = 24;
+                ctx.shadowColor = '#fff2a8';
+                ctx.stroke();
+                ctx.restore();
+            }
         }
 
         // Particles
@@ -21840,6 +22386,12 @@ class DotsSurvivor {
             else if (level >= 11) levelSpriteKey = 'vb_level11';
             else if (level >= 6) levelSpriteKey = 'vb_level6';
             else levelSpriteKey = 'vb_level1';
+        } else if (this.selectedClass?.id === 'angelic_knight') {
+            if (level >= 21) levelSpriteKey = 'ak_level21';
+            else if (level >= 16) levelSpriteKey = 'ak_level16';
+            else if (level >= 11) levelSpriteKey = 'ak_level11';
+            else if (level >= 6) levelSpriteKey = 'ak_level6';
+            else levelSpriteKey = 'ak_level1';
         } else {
             // Fire Sovereign sprite progression
             if (level >= 21) levelSpriteKey = 'player_level21';
