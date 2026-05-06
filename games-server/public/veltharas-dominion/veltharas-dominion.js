@@ -4067,6 +4067,7 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
         } else {
             types.push('splitter');
         }
+        if (wave >= 6) types.push('poison', 'poison'); // Evil flowers join early enough to be seen
     }
 
     // Waves 7-9: Add Sticky (low weight), Tank and Splitter both available, Bomber LOCKED
@@ -4076,7 +4077,7 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
         types.push('sticky'); // Low weight
         types.push('goblin'); // Goblin available
         types.push('necromancer'); // Necromancer available
-        types.push('poison'); // Poison available
+        types.push('poison', 'poison', 'poison'); // Evil flowers should be a visible part of the pool
         if (wave >= 8) types.push('ice'); // Ice at wave 8+
         // Note: Bomber is LOCKED until wave 10
     }
@@ -4088,7 +4089,7 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
         types.push('sticky', 'sticky');
         types.push('goblin');
         types.push('necromancer');
-        types.push('poison', 'poison');
+        types.push('poison', 'poison', 'poison');
         types.push('ice', 'swarm');
         types.push('miniconsumer');
 
