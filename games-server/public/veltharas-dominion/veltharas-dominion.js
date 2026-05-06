@@ -5301,6 +5301,22 @@ class DotsSurvivor {
         return saved;
     }
 
+    getTouchControlLayout() {
+        const compact = this.canvas.width < 768;
+        const safeBottom = compact ? Math.max(84, Math.floor(this.canvas.height * 0.12)) : 15;
+        const margin = compact ? 14 : 15;
+        const padding = compact ? 10 : 12;
+        const charSize = compact ? 56 : 50;
+        const itemSize = compact ? 58 : 55;
+        const charY = this.canvas.height - safeBottom - charSize;
+        const itemY = this.canvas.height - safeBottom - itemSize;
+        const qX = margin;
+        const eX = qX + charSize + padding;
+        const nuclearX = this.canvas.width - margin - itemSize;
+        const dashX = nuclearX - padding - itemSize;
+        return { compact, safeBottom, margin, padding, charSize, itemSize, charY, itemY, qX, eX, nuclearX, dashX };
+    }
+
     setupTouch() {
         this.joystick.touchId = null;
 
@@ -5314,55 +5330,41 @@ class DotsSurvivor {
             const touchX = t.clientX - rect.left;
             const touchY = t.clientY - rect.top;
 
-            // Check if tap is on character abilities (bottom left)
-            // Use larger hit areas on mobile for easier tapping
-            const compact = this.canvas.width < 768;
-            const abilitySize = compact ? 48 : 50;
-            const hitPad = compact ? 8 : 4; // Extra hit area padding
-            const padding = compact ? 6 : 10;
-            const margin = 15;
-            const charAbilityY = this.canvas.height - margin - abilitySize;
+            // Check if tap is on ability clusters. This mirrors the canvas draw layout.
+            const layout = this.getTouchControlLayout();
+            const hitPad = layout.compact ? 14 : 6;
 
             // Q ability area (first slot, bottom left)
-            const qX = margin;
-            if (touchX >= qX - hitPad && touchX <= qX + abilitySize + hitPad &&
-                touchY >= charAbilityY - hitPad && touchY <= charAbilityY + abilitySize + hitPad) {
+            if (touchX >= layout.qX - hitPad && touchX <= layout.qX + layout.charSize + hitPad &&
+                touchY >= layout.charY - hitPad && touchY <= layout.charY + layout.charSize + hitPad) {
                 this.activateCharacterAbility('q');
                 return;
             }
 
             // E ability area (second slot)
-            const eX = margin + abilitySize + padding;
-            if (touchX >= eX - hitPad && touchX <= eX + abilitySize + hitPad &&
-                touchY >= charAbilityY - hitPad && touchY <= charAbilityY + abilitySize + hitPad) {
+            if (touchX >= layout.eX - hitPad && touchX <= layout.eX + layout.charSize + hitPad &&
+                touchY >= layout.charY - hitPad && touchY <= layout.charY + layout.charSize + hitPad) {
                 this.activateCharacterAbility('e');
                 return;
             }
 
             // Check if tap is on item abilities (bottom right)
-            const itemAbilitySize = compact ? 48 : 55;
-            const itemPadding = compact ? 8 : 12;
-            const itemMargin = compact ? 10 : 15;
-            const itemAbilityY = this.canvas.height - itemMargin - itemAbilitySize;
-
             // Nuclear Blast (rightmost)
-            const nuclearX = this.canvas.width - itemMargin - itemAbilitySize;
-            if (touchX >= nuclearX - hitPad && touchX <= nuclearX + itemAbilitySize + hitPad &&
-                touchY >= itemAbilityY - hitPad && touchY <= itemAbilityY + itemAbilitySize + hitPad) {
+            if (touchX >= layout.nuclearX - hitPad && touchX <= layout.nuclearX + layout.itemSize + hitPad &&
+                touchY >= layout.itemY - hitPad && touchY <= layout.itemY + layout.itemSize + hitPad) {
                 this.activateAbility('nuclearBlast');
                 return;
             }
 
             // Dash (second from right)
-            const dashX = nuclearX - itemPadding - itemAbilitySize;
-            if (touchX >= dashX - hitPad && touchX <= dashX + itemAbilitySize + hitPad &&
-                touchY >= itemAbilityY - hitPad && touchY <= itemAbilityY + itemAbilitySize + hitPad) {
+            if (touchX >= layout.dashX - hitPad && touchX <= layout.dashX + layout.itemSize + hitPad &&
+                touchY >= layout.itemY - hitPad && touchY <= layout.itemY + layout.itemSize + hitPad) {
                 this.activateAbility('dash');
                 return;
             }
 
             // Otherwise, start joystick if in bottom half and no joystick active
-            if (t.clientY > window.innerHeight / 2 && !this.joystick.active) {
+            if (t.clientY > window.innerHeight * 0.42 && !this.joystick.active) {
                 this.joystick.active = true;
                 this.joystick.touchId = t.identifier;
                 this.joystick.startX = t.clientX;
@@ -5381,9 +5383,10 @@ class DotsSurvivor {
                     const dy = t.clientY - this.joystick.startY;
                     const d = Math.sqrt(dx * dx + dy * dy);
                     if (d > 0) {
-                        const c = Math.min(d, 60);
-                        this.joystick.dx = (dx / d) * (c / 60);
-                        this.joystick.dy = (dy / d) * (c / 60);
+                        const maxDistance = this.canvas.width < 768 ? 72 : 60;
+                        const c = Math.min(d, maxDistance);
+                        this.joystick.dx = (dx / d) * (c / maxDistance);
+                        this.joystick.dy = (dy / d) * (c / maxDistance);
                     }
                     break;
                 }
@@ -23324,13 +23327,14 @@ class DotsSurvivor {
 
         const ctx = this.ctx;
         const compact = this.canvas.width < 768;
-        const abilitySize = compact ? 45 : 55;
-        const padding = compact ? 8 : 12;
-        const margin = compact ? 10 : 15;
+        const layout = this.getTouchControlLayout();
+        const abilitySize = layout.itemSize;
+        const padding = layout.padding;
+        const margin = layout.margin;
 
         // Position in bottom right
-        let x = this.canvas.width - margin - abilitySize;
-        let y = this.canvas.height - margin - abilitySize;
+        let x = layout.nuclearX;
+        let y = layout.itemY;
 
         // Draw abilities from right to left (so newest is on right)
         const abilityKeys = ['nuclearBlast', 'dash'];
@@ -23430,13 +23434,13 @@ class DotsSurvivor {
 
         const ctx = this.ctx;
         const compact = this.canvas.width < 768;
-        const abilitySize = compact ? 40 : 50;
-        const padding = compact ? 6 : 10;
-        const margin = 15;
+        const layout = this.getTouchControlLayout();
+        const abilitySize = layout.charSize;
+        const padding = layout.padding;
 
         // Position bottom left (opposite of items)
-        let x = margin;
-        let y = this.canvas.height - margin - abilitySize;
+        let x = layout.qX;
+        let y = layout.charY;
 
         const classId = this.selectedClass.id;
         let qAbility, eAbility;
@@ -24099,12 +24103,25 @@ class DotsSurvivor {
 
     drawJoystick() {
         const ctx = this.ctx;
-        ctx.beginPath(); ctx.arc(this.joystick.startX, this.joystick.startY, 60, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(0,255,170,0.3)'; ctx.lineWidth = 3; ctx.stroke();
-        const tx = this.joystick.startX + this.joystick.dx * 50;
-        const ty = this.joystick.startY + this.joystick.dy * 50;
-        ctx.beginPath(); ctx.arc(tx, ty, 25, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,255,170,0.6)'; ctx.fill();
+        const baseRadius = this.canvas.width < 768 ? 72 : 60;
+        const knobRadius = this.canvas.width < 768 ? 30 : 25;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(this.joystick.startX, this.joystick.startY, baseRadius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(3, 8, 14, 0.42)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,255,170,0.34)'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.arc(this.joystick.startX, this.joystick.startY, baseRadius * 0.55, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.stroke();
+        const tx = this.joystick.startX + this.joystick.dx * (baseRadius - knobRadius * 0.45);
+        const ty = this.joystick.startY + this.joystick.dy * (baseRadius - knobRadius * 0.45);
+        ctx.beginPath(); ctx.arc(tx, ty, knobRadius, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(tx - 8, ty - 8, 4, tx, ty, knobRadius);
+        grad.addColorStop(0, 'rgba(255,255,255,0.72)');
+        grad.addColorStop(0.28, 'rgba(0,255,170,0.74)');
+        grad.addColorStop(1, 'rgba(0,110,100,0.66)');
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.26)'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.restore();
     }
 }
 
