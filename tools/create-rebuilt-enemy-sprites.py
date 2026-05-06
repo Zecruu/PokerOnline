@@ -55,6 +55,13 @@ FLOWER_CORE = (255, 221, 76, 255)
 FLOWER_TOOTH = (244, 242, 218, 255)
 FLOWER_VENOM = (77, 255, 108, 190)
 
+WYVERN_BODY = (178, 34, 22, 255)
+WYVERN_BELLY = (255, 133, 38, 255)
+WYVERN_WING = (95, 20, 21, 245)
+WYVERN_WING_EDGE = (245, 85, 24, 245)
+WYVERN_HORN = (255, 226, 128, 255)
+WYVERN_FLAME = (255, 232, 82, 220)
+
 
 def line(draw: ImageDraw.ImageDraw, points, fill, width=2):
     draw.line(points, fill=fill, width=width, joint="curve")
@@ -471,6 +478,70 @@ def draw_evil_flower(draw: ImageDraw.ImageDraw, frame: int, action: str):
             draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=FLOWER_VENOM)
 
 
+def draw_fire_wyvern(draw: ImageDraw.ImageDraw, frame: int, action: str):
+    phase = frame / FRAMES
+    wing = sin(phase * pi * 2)
+    flap = abs(wing)
+    bob = sin(phase * pi * 2) * 3
+    collapse = frame / (FRAMES - 1) if action == "death" else 0
+    lunge = sin(min(1, phase * 1.2) * pi) if action == "attack" else 0
+    cx = 31 + lunge * 3
+    cy = 31 + bob - lunge + collapse * 13
+
+    draw.ellipse((15, 50, 49, 57), fill=(0, 0, 0, 42))
+
+    if action == "death" and frame >= 4:
+        for i in range(10):
+            ang = i / 10 * pi * 2 + phase
+            x = 32 + cos(ang) * (7 + i % 3 * 3)
+            y = 43 + sin(ang) * (5 + i % 2 * 3)
+            fill = WYVERN_FLAME if i % 2 else WYVERN_WING_EDGE
+            draw.polygon([(x, y - 3), (x - 2, y + 2), (x + 2, y + 2)], fill=fill)
+        return
+
+    wing_top = cy - 15 - flap * 5 + collapse * 6
+    wing_low = cy + 6 + collapse * 8
+    left_wing = [(cx - 5, cy - 4), (cx - 24, wing_top), (cx - 20, wing_low), (cx - 10, cy + 8)]
+    right_wing = [(cx + 5, cy - 4), (cx + 24, wing_top), (cx + 20, wing_low), (cx + 10, cy + 8)]
+    draw.polygon(left_wing, fill=WYVERN_WING, outline=OUTLINE)
+    draw.polygon(right_wing, fill=WYVERN_WING, outline=OUTLINE)
+    line(draw, [(cx - 5, cy - 4), (cx - 20, wing_low)], WYVERN_WING_EDGE, 2)
+    line(draw, [(cx + 5, cy - 4), (cx + 20, wing_low)], WYVERN_WING_EDGE, 2)
+    line(draw, [(cx - 9, cy - 1), (cx - 24, wing_top)], WYVERN_WING_EDGE, 2)
+    line(draw, [(cx + 9, cy - 1), (cx + 24, wing_top)], WYVERN_WING_EDGE, 2)
+
+    tail = [(cx - 9, cy + 10), (cx - 19, cy + 16 + wing * 2), (cx - 25, cy + 12 - wing)]
+    line(draw, tail, OUTLINE, 6)
+    line(draw, tail, WYVERN_BODY, 3)
+    draw.polygon([(cx - 27, cy + 12 - wing), (cx - 22, cy + 7 - wing), (cx - 21, cy + 16 - wing)], fill=WYVERN_WING_EDGE, outline=OUTLINE)
+
+    ellipse(draw, cx, cy + 4, 12, 13, WYVERN_BODY, outline=OUTLINE, width=2)
+    draw.ellipse((cx - 5, cy - 3, cx + 5, cy + 13), fill=WYVERN_BELLY)
+    line(draw, [(cx - 3, cy), (cx + 3, cy + 10)], (255, 199, 83, 210), 1)
+
+    head_x = cx + 11 + lunge * 2
+    head_y = cy - 7 + collapse * 3
+    ellipse(draw, head_x, head_y, 9, 8, WYVERN_BODY, outline=OUTLINE, width=2)
+    draw.polygon([(head_x - 5, head_y - 7), (head_x - 7, head_y - 15), (head_x - 1, head_y - 9)], fill=WYVERN_HORN, outline=OUTLINE)
+    draw.polygon([(head_x + 3, head_y - 7), (head_x + 5, head_y - 15), (head_x + 8, head_y - 7)], fill=WYVERN_HORN, outline=OUTLINE)
+    draw.polygon([(head_x + 7, head_y - 1), (head_x + 15 + lunge * 2, head_y + 2), (head_x + 7, head_y + 5)], fill=WYVERN_BODY, outline=OUTLINE)
+    draw.rectangle((head_x + 2, head_y - 3, head_x + 5, head_y), fill=WYVERN_FLAME)
+    draw.rectangle((head_x + 3, head_y - 2, head_x + 5, head_y), fill=(55, 7, 8, 255))
+    draw.arc((head_x + 3, head_y + 1, head_x + 13, head_y + 9), 10, 170, fill=(35, 5, 7, 255), width=2)
+
+    for side in (-1, 1):
+        foot_x = cx + side * (6 + wing)
+        foot_y = cy + 16 - collapse * 2
+        line(draw, [(cx + side * 5, cy + 12), (foot_x, foot_y)], OUTLINE, 4)
+        line(draw, [(cx + side * 5, cy + 12), (foot_x, foot_y)], WYVERN_HORN, 2)
+        draw.polygon([(foot_x, foot_y), (foot_x + side * 4, foot_y + 2), (foot_x + side, foot_y - 2)], fill=WYVERN_HORN)
+
+    if action == "attack" and 2 <= frame <= 4:
+        flame_x = head_x + 17 + lunge * 2
+        draw.polygon([(head_x + 12, head_y + 2), (flame_x + 12, head_y - 5), (flame_x + 9, head_y + 3), (flame_x + 15, head_y + 9)], fill=(255, 86, 18, 160))
+        draw.polygon([(head_x + 13, head_y + 2), (flame_x + 8, head_y - 1), (flame_x + 5, head_y + 5)], fill=WYVERN_FLAME)
+
+
 def make_sheet(draw_fn, action: str) -> Image.Image:
     sheet = Image.new("RGBA", (FRAME * FRAMES, FRAME), (0, 0, 0, 0))
     for frame in range(FRAMES):
@@ -524,6 +595,7 @@ def main():
     save_set("ice-giant-ice", draw_ice_giant)
     save_set("fire-blob-cinder-wretch", draw_fire_blob)
     save_set("evil-flower-poison", draw_evil_flower)
+    save_set("fire-wyvern-heads", draw_fire_wyvern)
 
 
 if __name__ == "__main__":

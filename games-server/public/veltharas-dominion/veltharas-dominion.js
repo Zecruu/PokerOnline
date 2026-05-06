@@ -1585,6 +1585,11 @@ const ENEMY_ANIM_SHEETS = {
         walk: { key: 'enemy_poison_walk', path: 'enemies/evil-flower-poison-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
         attack: { key: 'enemy_poison_attack', path: 'enemies/evil-flower-poison-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
         death: { key: 'enemy_poison_death', path: 'enemies/evil-flower-poison-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    heads: {
+        walk: { key: 'enemy_heads_walk', path: 'enemies/fire-wyvern-heads-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
+        attack: { key: 'enemy_heads_attack', path: 'enemies/fire-wyvern-heads-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
+        death: { key: 'enemy_heads_death', path: 'enemies/fire-wyvern-heads-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     }
 };
 
