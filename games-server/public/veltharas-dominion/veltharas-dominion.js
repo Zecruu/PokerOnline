@@ -1551,7 +1551,8 @@ const ENEMY_SPRITES = {
     magma_crawler: null,
     leech: null,
     pusher: null,
-    heads: null,
+    heads: 'enemies/heads.png',
+    fire_wyvern: null,
     clowns: null
 };
 
@@ -1586,10 +1587,10 @@ const ENEMY_ANIM_SHEETS = {
         attack: { key: 'enemy_poison_attack', path: 'enemies/evil-flower-poison-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
         death: { key: 'enemy_poison_death', path: 'enemies/evil-flower-poison-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     },
-    heads: {
-        walk: { key: 'enemy_heads_walk', path: 'enemies/fire-wyvern-heads-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
-        attack: { key: 'enemy_heads_attack', path: 'enemies/fire-wyvern-heads-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
-        death: { key: 'enemy_heads_death', path: 'enemies/fire-wyvern-heads-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    fire_wyvern: {
+        walk: { key: 'enemy_fire_wyvern_walk', path: 'enemies/fire-wyvern-heads-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
+        attack: { key: 'enemy_fire_wyvern_attack', path: 'enemies/fire-wyvern-heads-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
+        death: { key: 'enemy_fire_wyvern_death', path: 'enemies/fire-wyvern-heads-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     }
 };
 
@@ -4083,6 +4084,7 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
         types.push('goblin'); // Goblin available
         types.push('necromancer'); // Necromancer available
         types.push('poison', 'poison', 'poison'); // Evil flowers should be a visible part of the pool
+        types.push('fire_wyvern', 'fire_wyvern'); // Fire wyverns spit lingering flame from wave 7+
         if (wave >= 8) types.push('ice'); // Ice at wave 8+
         // Note: Bomber is LOCKED until wave 10
     }
@@ -4095,6 +4097,7 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
         types.push('goblin');
         types.push('necromancer');
         types.push('poison', 'poison', 'poison');
+        types.push('fire_wyvern', 'fire_wyvern');
         types.push('ice', 'swarm');
         types.push('miniconsumer');
 
@@ -5960,6 +5963,7 @@ class DotsSurvivor {
 
         // Fire zones array for Cinder Wretch death effect
         this.fireZones = [];
+        this.enemyFireballs = [];
         this.playerInFireZone = false; // Track if player is currently in a fire zone (for non-stacking damage)
 
         // ── Player-anchored hazards (Ring of Poison, Cube of Entrapment) ──
@@ -11668,6 +11672,7 @@ class DotsSurvivor {
             leech:         { radius: 20, speed: 70,  health: 800,  damage: 15, xp: 20, color: '#44cc44', icon: '',    isLeech: true, armor: 5 },
             pusher:        { radius: 26, speed: 95,  health: 600,  damage: 30, xp: 15, color: '#ff9900', icon: '👊', isPusher: true, armor: 25 },
             heads:         { radius: 22, speed: 95,  health: 220,  damage: 28, xp: 7,  color: '#cc3322', icon: '',    floats: true, armor: 5 },
+            fire_wyvern:   { radius: 24, speed: 92,  health: 520,  damage: 32, xp: 12, color: '#ff5a1f', icon: '',    floats: true, isFireWyvern: true, armor: 8 },
             clowns:        { radius: 24, speed: 105, health: 320,  damage: 32, xp: 9,  color: '#7e2eaa', icon: '',    isClown: true, armor: 10 }
         }[type] || data.basic;
 
@@ -11723,6 +11728,9 @@ class DotsSurvivor {
         e.leechAttached = false; e.leechDrainTimer = 0;
         e.isPusher = data.isPusher || false;
         e.pusherGrabbing = false; e.pusherGrabTimer = 0;
+        e.isFireWyvern = data.isFireWyvern || false;
+        e.fireSpitCooldown = e.isFireWyvern ? (1 + Math.random() * 1.2) : 0;
+        e.fireSpitWindup = 0;
         // Reset dynamic properties from gameplay
         e.frozen = false; e.frozenTimer = 0;
         e.invulnerable = false;
@@ -11741,7 +11749,80 @@ class DotsSurvivor {
         return e;
     }
 
+    spawnEnemyFireZone(wx, wy, radius = 46, duration = 4, dps = 16) {
+        if (!this.fireZones) this.fireZones = [];
+        this.fireZones.push({
+            wx, wy,
+            radius,
+            duration,
+            timer: duration,
+            dps,
+            lastDamageTick: 0
+        });
+    }
+
+    spitFireWyvernProjectile(e, sx, sy) {
+        if (!this.enemyFireballs) this.enemyFireballs = [];
+        const dx = this.worldX - e.wx;
+        const dy = this.worldY - e.wy;
+        const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const speed = 280;
+        this.enemyFireballs.push({
+            wx: e.wx + (dx / d) * e.radius,
+            wy: e.wy + (dy / d) * e.radius,
+            vx: (dx / d) * speed,
+            vy: (dy / d) * speed,
+            radius: 9,
+            damage: Math.floor(e.damage * 0.75),
+            timer: 2.2,
+            zoneRadius: 46,
+            zoneDuration: 4,
+            zoneDps: 16
+        });
+        e.fireSpitWindup = 0.45;
+        this.spawnParticles(sx, sy, '#ff7a1a', 6);
+    }
+
+    updateEnemyFireballs(dt) {
+        if (!this.enemyFireballs?.length) return;
+        for (let i = this.enemyFireballs.length - 1; i >= 0; i--) {
+            const fireball = this.enemyFireballs[i];
+            fireball.timer -= dt;
+            fireball.wx += fireball.vx * dt;
+            fireball.wy += fireball.vy * dt;
+
+            const pd = Math.hypot(this.worldX - fireball.wx, this.worldY - fireball.wy);
+            if (pd <= this.player.radius + fireball.radius) {
+                const damage = this._applyPlayerDamage(fireball.damage);
+                this.player.health -= damage;
+                this.combatTimer = 0;
+                this.damageNumbers.push({
+                    x: this.player.x,
+                    y: this.player.y - 28,
+                    value: `-${damage} FIRE`,
+                    lifetime: 0.8,
+                    color: '#ff5a1f'
+                });
+                this.spawnEnemyFireZone(fireball.wx, fireball.wy, fireball.zoneRadius, fireball.zoneDuration, fireball.zoneDps);
+                this.spawnParticles(this.player.x, this.player.y, '#ff5a1f', 10);
+                this.enemyFireballs[i] = this.enemyFireballs[this.enemyFireballs.length - 1];
+                this.enemyFireballs.pop();
+                continue;
+            }
+
+            if (fireball.timer <= 0) {
+                this.spawnEnemyFireZone(fireball.wx, fireball.wy, fireball.zoneRadius, fireball.zoneDuration, fireball.zoneDps);
+                const sx = this.player.x + (fireball.wx - this.worldX);
+                const sy = this.player.y + (fireball.wy - this.worldY);
+                this.spawnParticles(sx, sy, '#ff7a1a', 8);
+                this.enemyFireballs[i] = this.enemyFireballs[this.enemyFireballs.length - 1];
+                this.enemyFireballs.pop();
+            }
+        }
+    }
+
     updateEnemies(dt) {
+        this.updateEnemyFireballs(dt);
         this._necroSpriteCount = 0;
         for (let i = 0; i < this.enemies.length; i++) {
             if (this.enemies[i].type === 'necro_sprite') this._necroSpriteCount++;
@@ -11809,6 +11890,7 @@ class DotsSurvivor {
                     }
                     if (e.hitFlash > 0) e.hitFlash -= dt * 5;
                     if (e.attackCooldown > 0) e.attackCooldown -= dt;
+                    if (e.fireSpitCooldown > 0) e.fireSpitCooldown -= dt;
                     continue;
                 }
             }
@@ -11830,7 +11912,27 @@ class DotsSurvivor {
                 speedMult *= this.corruptedEnemySpeedAura;
             }
 
-            if (e.passive) {
+            if (e.isFireWyvern) {
+                const spitRange = 430;
+                const preferredRange = 310;
+                e.fireSpitCooldown -= dt;
+                if (e.fireSpitWindup > 0) e.fireSpitWindup -= dt;
+                if (d > spitRange * 0.82 && d > 0) {
+                    e.wx += (dx / d) * e.speed * dt * speedMult;
+                    e.wy += (dy / d) * e.speed * dt * speedMult;
+                } else if (d < preferredRange * 0.62 && d > 0) {
+                    e.wx -= (dx / d) * e.speed * 0.65 * dt * speedMult;
+                    e.wy -= (dy / d) * e.speed * 0.65 * dt * speedMult;
+                } else if (d > 0) {
+                    const strafe = ((e.id % 2) ? 1 : -1) * e.speed * 0.35 * dt * speedMult;
+                    e.wx += (-dy / d) * strafe;
+                    e.wy += (dx / d) * strafe;
+                }
+                if (d <= spitRange && e.fireSpitCooldown <= 0 && e._lod === 0) {
+                    this.spitFireWyvernProjectile(e, sx, sy);
+                    e.fireSpitCooldown = 2.3 + Math.random() * 1.1;
+                }
+            } else if (e.passive) {
                 // Passive enemies wander randomly around, not towards player
                 if (!e.wanderAngle) e.wanderAngle = Math.random() * Math.PI * 2;
                 if (!e.wanderTimer) e.wanderTimer = 0;
@@ -12164,6 +12266,7 @@ class DotsSurvivor {
 
     getEnemyAnimState(e, sx, sy) {
         if (!ENEMY_ANIM_SHEETS[e.type]) return null;
+        if (e.isFireWyvern && e.fireSpitWindup > 0) return 'attack';
         const attackRange = e.radius + this.player.radius + 30;
         const distToPlayer = Math.hypot(sx - this.player.x, sy - this.player.y);
         return distToPlayer <= attackRange ? 'attack' : 'walk';
@@ -18597,6 +18700,38 @@ class DotsSurvivor {
                 ctx.fillStyle = `rgba(255, 255, 255, ${(0.8 + Math.sin(this.gameTime / 120) * 0.2) * fadeAlpha})`;
                 ctx.fillText('🔥', sx, sy);
 
+                ctx.restore();
+            });
+        }
+
+        if (this.enemyFireballs && this.enemyFireballs.length > 0) {
+            this.enemyFireballs.forEach(fireball => {
+                const sx = this.player.x + (fireball.wx - this.worldX);
+                const sy = this.player.y + (fireball.wy - this.worldY);
+                const angle = Math.atan2(fireball.vy, fireball.vx);
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(angle);
+                const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, fireball.radius * 2.6);
+                glow.addColorStop(0, 'rgba(255, 235, 92, 0.95)');
+                glow.addColorStop(0.35, 'rgba(255, 110, 20, 0.72)');
+                glow.addColorStop(1, 'rgba(255, 40, 0, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(0, 0, fireball.radius * 2.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffed66';
+                ctx.beginPath();
+                ctx.ellipse(3, 0, fireball.radius * 1.4, fireball.radius * 0.8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255, 70, 12, 0.88)';
+                ctx.beginPath();
+                ctx.moveTo(-fireball.radius * 1.8, 0);
+                ctx.lineTo(-fireball.radius * 4, -fireball.radius * 0.75);
+                ctx.lineTo(-fireball.radius * 3, 0);
+                ctx.lineTo(-fireball.radius * 4, fireball.radius * 0.75);
+                ctx.closePath();
+                ctx.fill();
                 ctx.restore();
             });
         }
