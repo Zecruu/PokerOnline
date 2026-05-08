@@ -32,3 +32,6 @@ desktop.ini
 # Logs
 logs/
 *.log
+
+# Godot local import/cache data
+**/.godot/

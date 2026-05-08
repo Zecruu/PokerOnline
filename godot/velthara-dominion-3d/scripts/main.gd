@@ -111,37 +111,24 @@ func _build_world() -> void:
 
 func _build_player() -> void:
 	player = Node3D.new()
-	player.name = "AngelicKnight"
+	player.name = "FireMage"
 	add_child(player)
 
-	var body := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.55
-	capsule.height = 1.8
-	body.mesh = capsule
-	body.position.y = 1.0
-	body.material_override = _mat("player_body", Color(0.88, 0.86, 0.75), Color(1.0, 0.82, 0.34), 0.45)
-	player.add_child(body)
-
-	var blade := MeshInstance3D.new()
-	var blade_mesh := BoxMesh.new()
-	blade_mesh.size = Vector3(0.14, 1.25, 0.2)
-	blade.mesh = blade_mesh
-	blade.position = Vector3(0.72, 1.0, -0.18)
-	blade.rotation_degrees.z = -18
-	blade.material_override = _mat("blade", Color(0.85, 0.95, 1.0), Color(0.7, 0.92, 1.0), 0.55)
-	player.add_child(blade)
-
-	var wing_mat := _mat("wing", Color(0.95, 0.9, 0.75, 0.78), Color(1.0, 0.84, 0.38), 0.2)
-	for side in [-1, 1]:
-		var wing := MeshInstance3D.new()
-		var wing_mesh := BoxMesh.new()
-		wing_mesh.size = Vector3(0.08, 1.25, 1.55)
-		wing.mesh = wing_mesh
-		wing.position = Vector3(float(side) * 0.62, 1.25, 0.42)
-		wing.rotation_degrees = Vector3(0, 0, float(side) * 26)
-		wing.material_override = wing_mat
-		player.add_child(wing)
+	var fire_mage_scene := load("res://scenes/characters/fire_mage.tscn") as PackedScene
+	if fire_mage_scene:
+		var model := fire_mage_scene.instantiate()
+		model.name = "FireMageModel"
+		model.position.y = 0.02
+		player.add_child(model)
+	else:
+		var body := MeshInstance3D.new()
+		var capsule := CapsuleMesh.new()
+		capsule.radius = 0.55
+		capsule.height = 1.8
+		body.mesh = capsule
+		body.position.y = 1.0
+		body.material_override = _mat("player_body", Color(0.88, 0.2, 0.08), Color(1.0, 0.35, 0.08), 0.7)
+		player.add_child(body)
 
 
 func _build_camera() -> void:

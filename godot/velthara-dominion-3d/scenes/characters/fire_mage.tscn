@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://firemagehero"]
+
+[ext_resource type="PackedScene" path="res://assets/meshy/fire_mage/raw/fire_mage_refined.glb" id="1_model"]
+
+[node name="FireMage" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+transform = Transform3D(0.72, 0, 0, 0, 0.72, 0, 0, 0, 0.72, 0, 0, 0)
