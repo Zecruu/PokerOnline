@@ -8,6 +8,8 @@ const FIREBALL_SPEED := 17.0
 const FIRE_ZONE_DURATION := 4.0
 
 var player: Node3D
+var camera_rig: Node3D
+var camera_arm: SpringArm3D
 var camera: Camera3D
 var hud: Label
 var pause_button: Button
@@ -31,7 +33,7 @@ var xp_orbs: Array[Dictionary] = []
 
 var mat_cache := {}
 var rng := RandomNumberGenerator.new()
-var camera_forward := Vector3(0, 0, -1)
+var camera_forward := Vector3(0, 0, 1)
 
 
 func _ready() -> void:
@@ -133,9 +135,24 @@ func _build_player() -> void:
 
 
 func _build_camera() -> void:
+	camera_rig = Node3D.new()
+	camera_rig.name = "CameraRig"
+	add_child(camera_rig)
+
+	camera_arm = SpringArm3D.new()
+	camera_arm.name = "CameraArm"
+	camera_arm.spring_length = 7.0
+	camera_arm.margin = 0.35
+	camera_arm.rotation_degrees.x = -18.0
+	camera_rig.add_child(camera_arm)
+
 	camera = Camera3D.new()
-	camera.fov = 54
-	add_child(camera)
+	camera.name = "FollowCamera"
+	camera.fov = 64
+	camera.near = 0.08
+	camera.far = 350.0
+	camera.current = true
+	camera_arm.add_child(camera)
 	_update_camera(1.0)
 
 
@@ -472,10 +489,10 @@ func _update_camera(delta: float) -> void:
 	desired_forward.y = 0
 	if desired_forward.length_squared() > 0.001:
 		camera_forward = camera_forward.slerp(desired_forward.normalized(), min(1.0, 5.0 * delta))
-	var camera_target := player.position + Vector3(0, 1.35, 0)
-	var target := player.position - camera_forward * 8.5 + Vector3(0, 4.2, 0)
-	camera.position = camera.position.lerp(target, min(1.0, 9.0 * delta))
-	camera.look_at(camera_target + camera_forward * 2.8, Vector3.UP)
+	var rig_target := player.position + Vector3(0, 1.45, 0)
+	camera_rig.position = camera_rig.position.lerp(rig_target, min(1.0, 12.0 * delta))
+	camera_rig.rotation.y = lerp_angle(camera_rig.rotation.y, atan2(camera_forward.x, camera_forward.z), min(1.0, 8.0 * delta))
+	camera.look_at(player.position + Vector3(0, 1.25, 0) + camera_forward * 3.8, Vector3.UP)
 
 
 func _update_hud() -> void:
