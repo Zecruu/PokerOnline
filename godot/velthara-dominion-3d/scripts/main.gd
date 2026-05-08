@@ -10,6 +10,9 @@ const FIRE_ZONE_DURATION := 4.0
 var player: Node3D
 var camera: Camera3D
 var hud: Label
+var pause_button: Button
+var pause_overlay: Label
+var paused := false
 var hp := 180.0
 var max_hp := 180.0
 var level := 1
@@ -39,6 +42,14 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if Input.is_key_pressed(KEY_ESCAPE) or Input.is_key_pressed(KEY_P):
+		_set_paused(not paused)
+		await get_tree().create_timer(0.18).timeout
+
+	if paused:
+		_update_hud()
+		return
+
 	wave_clock += delta
 	if wave_clock >= 20.0:
 		wave_clock = 0.0
@@ -143,11 +154,40 @@ func _build_camera() -> void:
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+
+	pause_button = Button.new()
+	pause_button.text = "Pause"
+	pause_button.position = Vector2(1160, 14)
+	pause_button.size = Vector2(92, 36)
+	pause_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	pause_button.pressed.connect(func(): _set_paused(not paused))
+	layer.add_child(pause_button)
+
+	pause_overlay = Label.new()
+	pause_overlay.text = "PAUSED"
+	pause_overlay.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pause_overlay.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pause_overlay.position = Vector2(0, 300)
+	pause_overlay.size = Vector2(1280, 80)
+	pause_overlay.visible = false
+	pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	pause_overlay.add_theme_font_size_override("font_size", 46)
+	pause_overlay.add_theme_color_override("font_color", Color(1.0, 0.86, 0.3))
+	layer.add_child(pause_overlay)
+
 	hud = Label.new()
 	hud.position = Vector2(18, 14)
 	hud.add_theme_font_size_override("font_size", 18)
 	hud.add_theme_color_override("font_color", Color(1.0, 0.92, 0.72))
 	layer.add_child(hud)
+
+
+func _set_paused(value: bool) -> void:
+	paused = value
+	if pause_button:
+		pause_button.text = "Resume" if paused else "Pause"
+	if pause_overlay:
+		pause_overlay.visible = paused
 
 
 func _update_player(delta: float) -> void:
