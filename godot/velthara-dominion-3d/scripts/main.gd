@@ -6,8 +6,12 @@ const PLAYER_RADIUS := 0.8
 const PROJECTILE_SPEED := 34.0
 const FIREBALL_SPEED := 17.0
 const FIRE_ZONE_DURATION := 4.0
+const CAMERA_DISTANCE := 9.5
+const CAMERA_PITCH_DEGREES := -24.0
+const CAMERA_TARGET_HEIGHT := 1.35
+const CAMERA_LOOK_AHEAD := 4.2
 
-var player: Node3D
+var player: CharacterBody3D
 var camera_rig: Node3D
 var camera_arm: SpringArm3D
 var camera: Camera3D
@@ -34,6 +38,8 @@ var xp_orbs: Array[Dictionary] = []
 var mat_cache := {}
 var rng := RandomNumberGenerator.new()
 var camera_forward := Vector3(0, 0, 1)
+var last_move_dir := Vector3(0, 0, 1)
+var camera_initialized := false
 
 
 func _ready() -> void:
@@ -45,10 +51,6 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if Input.is_key_pressed(KEY_ESCAPE) or Input.is_key_pressed(KEY_P):
-		_set_paused(not paused)
-		await get_tree().create_timer(0.18).timeout
-
 	if paused:
 		_update_hud()
 		return
@@ -73,6 +75,12 @@ func _physics_process(delta: float) -> void:
 	_update_hud()
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE or event.keycode == KEY_P:
+			_set_paused(not paused)
+
+
 func _build_world() -> void:
 	var world := WorldEnvironment.new()
 	var env := Environment.new()
@@ -90,32 +98,38 @@ func _build_world() -> void:
 	add_child(sun)
 
 	var floor := MeshInstance3D.new()
-	var floor_mesh := CylinderMesh.new()
-	floor_mesh.top_radius = ARENA_RADIUS
-	floor_mesh.bottom_radius = ARENA_RADIUS
-	floor_mesh.height = 0.12
-	floor_mesh.radial_segments = 96
+	var floor_mesh := BoxMesh.new()
+	floor_mesh.size = Vector3(ARENA_RADIUS * 2.0, 0.08, ARENA_RADIUS * 2.0)
 	floor.mesh = floor_mesh
-	floor.position.y = -0.08
-	floor.material_override = _mat("arena", Color(0.09, 0.065, 0.14), Color(0.5, 0.18, 0.9), 0.0)
+	floor.position.y = -0.05
+	floor.material_override = _mat("arena", Color(0.075, 0.065, 0.105), Color(0.18, 0.08, 0.28), 0.0)
 	add_child(floor)
 
-	for i in range(24):
-		var angle := TAU * float(i) / 24.0
-		var obelisk := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = Vector3(0.4, 2.4 + float(i % 3) * 0.35, 0.4)
-		obelisk.mesh = box
-		obelisk.position = Vector3(cos(angle) * (ARENA_RADIUS + 1.4), box.size.y * 0.5, sin(angle) * (ARENA_RADIUS + 1.4))
-		obelisk.rotation.y = -angle
-		obelisk.material_override = _mat("obelisk", Color(0.19, 0.11, 0.28), Color(1.0, 0.22, 0.08), 0.25)
-		add_child(obelisk)
+	var line_mat := _mat("arena_grid", Color(0.14, 0.115, 0.19), Color(0.35, 0.18, 0.62), 0.08)
+	for offset in range(-36, 37, 6):
+		_add_floor_strip(Vector3(float(offset), 0.015, 0), Vector3(0.045, 0.025, ARENA_RADIUS * 2.0), line_mat)
+		_add_floor_strip(Vector3(0, 0.016, float(offset)), Vector3(ARENA_RADIUS * 2.0, 0.025, 0.045), line_mat)
+
+	var wall_mat := _mat("arena_wall", Color(0.16, 0.105, 0.22), Color(0.85, 0.18, 0.55), 0.2)
+	_add_floor_strip(Vector3(0, 0.35, -ARENA_RADIUS), Vector3(ARENA_RADIUS * 2.0, 0.7, 0.35), wall_mat)
+	_add_floor_strip(Vector3(0, 0.35, ARENA_RADIUS), Vector3(ARENA_RADIUS * 2.0, 0.7, 0.35), wall_mat)
+	_add_floor_strip(Vector3(-ARENA_RADIUS, 0.35, 0), Vector3(0.35, 0.7, ARENA_RADIUS * 2.0), wall_mat)
+	_add_floor_strip(Vector3(ARENA_RADIUS, 0.35, 0), Vector3(0.35, 0.7, ARENA_RADIUS * 2.0), wall_mat)
 
 
 func _build_player() -> void:
-	player = Node3D.new()
+	player = CharacterBody3D.new()
 	player.name = "FireMage"
+	player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	add_child(player)
+
+	var collision := CollisionShape3D.new()
+	var capsule_shape := CapsuleShape3D.new()
+	capsule_shape.radius = 0.48
+	capsule_shape.height = 1.75
+	collision.shape = capsule_shape
+	collision.position.y = 0.9
+	player.add_child(collision)
 
 	var fire_mage_scene := load("res://scenes/characters/fire_mage.tscn") as PackedScene
 	if fire_mage_scene:
@@ -141,17 +155,19 @@ func _build_camera() -> void:
 
 	camera_arm = SpringArm3D.new()
 	camera_arm.name = "CameraArm"
-	camera_arm.spring_length = 7.0
+	camera_arm.spring_length = CAMERA_DISTANCE
 	camera_arm.margin = 0.35
-	camera_arm.rotation_degrees.x = -18.0
+	camera_arm.rotation_degrees.x = CAMERA_PITCH_DEGREES
+	camera_arm.add_excluded_object(player.get_rid())
 	camera_rig.add_child(camera_arm)
 
 	camera = Camera3D.new()
 	camera.name = "FollowCamera"
-	camera.fov = 64
+	camera.fov = 58
 	camera.near = 0.08
 	camera.far = 350.0
 	camera.current = true
+	camera.position = Vector3.ZERO
 	camera_arm.add_child(camera)
 	_update_camera(1.0)
 
@@ -207,13 +223,16 @@ func _update_player(delta: float) -> void:
 		move.x += 1.0
 	if move.length_squared() > 0.0:
 		move = move.normalized()
-		player.position += move * PLAYER_SPEED * delta
+		last_move_dir = move
 		player.rotation.y = lerp_angle(player.rotation.y, atan2(move.x, move.z), 12.0 * delta)
+		player.velocity = move * PLAYER_SPEED
+	else:
+		player.velocity = Vector3.ZERO
 
-	if Vector2(player.position.x, player.position.z).length() > ARENA_RADIUS - 1.0:
-		var clamped := Vector2(player.position.x, player.position.z).normalized() * (ARENA_RADIUS - 1.0)
-		player.position.x = clamped.x
-		player.position.z = clamped.y
+	player.move_and_slide()
+	player.position.y = 0.0
+	player.position.x = clamp(player.position.x, -ARENA_RADIUS + 1.0, ARENA_RADIUS - 1.0)
+	player.position.z = clamp(player.position.z, -ARENA_RADIUS + 1.0, ARENA_RADIUS - 1.0)
 
 
 func _update_spawning(delta: float) -> void:
@@ -237,8 +256,17 @@ func _pick_enemy_type() -> String:
 
 
 func _spawn_enemy(type: String) -> void:
-	var angle := rng.randf_range(0.0, TAU)
-	var pos := Vector3(cos(angle) * ARENA_RADIUS * 0.92, 0.0, sin(angle) * ARENA_RADIUS * 0.92)
+	var edge := ARENA_RADIUS - 2.0
+	var side := rng.randi_range(0, 3)
+	var pos := Vector3.ZERO
+	if side == 0:
+		pos = Vector3(rng.randf_range(-edge, edge), 0.0, -edge)
+	elif side == 1:
+		pos = Vector3(edge, 0.0, rng.randf_range(-edge, edge))
+	elif side == 2:
+		pos = Vector3(rng.randf_range(-edge, edge), 0.0, edge)
+	else:
+		pos = Vector3(-edge, 0.0, rng.randf_range(-edge, edge))
 	var node := Node3D.new()
 	add_child(node)
 	node.position = pos
@@ -485,14 +513,26 @@ func _update_xp_orbs(delta: float) -> void:
 
 
 func _update_camera(delta: float) -> void:
-	var desired_forward := -player.global_transform.basis.z
+	var desired_forward := last_move_dir
 	desired_forward.y = 0
 	if desired_forward.length_squared() > 0.001:
-		camera_forward = camera_forward.slerp(desired_forward.normalized(), min(1.0, 5.0 * delta))
-	var rig_target := player.position + Vector3(0, 1.45, 0)
-	camera_rig.position = camera_rig.position.lerp(rig_target, min(1.0, 12.0 * delta))
-	camera_rig.rotation.y = lerp_angle(camera_rig.rotation.y, atan2(camera_forward.x, camera_forward.z), min(1.0, 8.0 * delta))
-	camera.look_at(player.position + Vector3(0, 1.25, 0) + camera_forward * 3.8, Vector3.UP)
+		var normalized_forward := desired_forward.normalized()
+		if camera_initialized:
+			camera_forward = camera_forward.slerp(normalized_forward, min(1.0, 4.5 * delta))
+		else:
+			camera_forward = normalized_forward
+
+	var rig_target := player.global_position + Vector3(0, CAMERA_TARGET_HEIGHT, 0)
+	if camera_initialized:
+		camera_rig.global_position = camera_rig.global_position.lerp(rig_target, min(1.0, 10.0 * delta))
+	else:
+		camera_rig.global_position = rig_target
+		camera_initialized = true
+
+	camera_arm.rotation_degrees.x = CAMERA_PITCH_DEGREES
+	camera_arm.spring_length = CAMERA_DISTANCE
+	camera_rig.rotation.y = lerp_angle(camera_rig.rotation.y, atan2(camera_forward.x, camera_forward.z), min(1.0, 7.0 * delta))
+	camera.look_at(player.global_position + Vector3(0, CAMERA_TARGET_HEIGHT, 0) + camera_forward * CAMERA_LOOK_AHEAD, Vector3.UP)
 
 
 func _update_hud() -> void:
@@ -517,6 +557,16 @@ func _sphere(radius: float, mat: Material) -> MeshInstance3D:
 	node.mesh = mesh
 	node.material_override = mat
 	return node
+
+
+func _add_floor_strip(pos: Vector3, size: Vector3, mat: Material) -> void:
+	var strip := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	strip.mesh = mesh
+	strip.position = pos
+	strip.material_override = mat
+	add_child(strip)
 
 
 func _mat(key: String, color: Color, emission: Color = Color.BLACK, emission_energy: float = 0.0) -> StandardMaterial3D:
