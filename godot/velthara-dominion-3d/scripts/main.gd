@@ -31,6 +31,7 @@ var xp_orbs: Array[Dictionary] = []
 
 var mat_cache := {}
 var rng := RandomNumberGenerator.new()
+var camera_forward := Vector3(0, 0, -1)
 
 
 func _ready() -> void:
@@ -154,7 +155,7 @@ func _build_hud() -> void:
 	pause_overlay.text = "PAUSED"
 	pause_overlay.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_overlay.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pause_overlay.position = Vector2(0, 300)
+	pause_overlay.position = Vector2(0, 82)
 	pause_overlay.size = Vector2(1280, 80)
 	pause_overlay.visible = false
 	pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -467,9 +468,14 @@ func _update_xp_orbs(delta: float) -> void:
 
 
 func _update_camera(delta: float) -> void:
-	var target := player.position + Vector3(0, 18, 18)
-	camera.position = camera.position.lerp(target, min(1.0, 8.0 * delta))
-	camera.look_at(player.position + Vector3(0, 0.8, 0), Vector3.UP)
+	var desired_forward := -player.global_transform.basis.z
+	desired_forward.y = 0
+	if desired_forward.length_squared() > 0.001:
+		camera_forward = camera_forward.slerp(desired_forward.normalized(), min(1.0, 5.0 * delta))
+	var camera_target := player.position + Vector3(0, 1.35, 0)
+	var target := player.position - camera_forward * 8.5 + Vector3(0, 4.2, 0)
+	camera.position = camera.position.lerp(target, min(1.0, 9.0 * delta))
+	camera.look_at(camera_target + camera_forward * 2.8, Vector3.UP)
 
 
 func _update_hud() -> void:
