@@ -324,6 +324,8 @@ func _update_projectiles(delta: float) -> void:
 
 func _update_enemies(delta: float) -> void:
 	for i in range(enemies.size() - 1, -1, -1):
+		if i >= enemies.size():
+			continue
 		var e := enemies[i]
 		var node: Node3D = e["node"]
 		var to_player: Vector3 = player.position - node.position
@@ -353,6 +355,7 @@ func _update_enemies(delta: float) -> void:
 				xp = 0
 				wave = 1
 				_clear_enemies()
+				return
 
 
 func _spawn_enemy_fireball(origin: Vector3, dir: Vector3, damage: float) -> void:
