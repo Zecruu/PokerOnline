@@ -7,6 +7,11 @@ const PLAYER_SPEED = 8;
 const PROJECTILE_SPEED = 25;
 const ENEMY_SPEED_BASE = 3;
 const SHOOT_COOLDOWN = 0.15;
+const CAMERA_DISTANCE = 10.5;
+const CAMERA_HEIGHT = 5.2;
+const CAMERA_LOOK_HEIGHT = 1.45;
+const CAMERA_LOOK_AHEAD = 4.2;
+const CAMERA_SHOULDER = 1.15;
 
 // ─── THREE.JS SETUP ────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -27,8 +32,8 @@ scene.background = bgTexture;
 
 scene.fog = new THREE.FogExp2(0x0a0a14, 0.015);
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 6, 8);
+const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, CAMERA_HEIGHT, CAMERA_DISTANCE);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -316,10 +321,10 @@ gltfLoader.load('/models/skeleton.glb', (gltf) => {
 });
 
 // ─── CAMERA STATE ───────────────────────────────────────────
-const cameraOffset = new THREE.Vector3(2, 4, 6); // right shoulder, closer, lower
+const WORLD_UP = new THREE.Vector3(0, 1, 0);
+const cameraOffset = new THREE.Vector3(CAMERA_SHOULDER, CAMERA_HEIGHT, CAMERA_DISTANCE);
+const smoothedCameraLook = new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, -CAMERA_LOOK_AHEAD);
 let cameraAngle = 0;
-let mouseMovementX = 0;
-let pointerLocked = false;
 
 // ─── GAME STATE ─────────────────────────────────────────────
 const state = {
@@ -346,21 +351,13 @@ window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 window.addEventListener('mousemove', e => {
     state.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
     state.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-    // Camera orbit from mouse movement
-    mouseMovementX = e.movementX || 0;
 });
 
 window.addEventListener('mousedown', (e) => {
-    state.mouseDown = true;
-    // Request pointer lock on right-click for camera control
-    if (e.button === 2) {
-        renderer.domElement.requestPointerLock();
-    }
+    if (e.button === 0) state.mouseDown = true;
 });
-window.addEventListener('mouseup', () => state.mouseDown = false);
-
-document.addEventListener('pointerlockchange', () => {
-    pointerLocked = document.pointerLockElement === renderer.domElement;
+window.addEventListener('mouseup', (e) => {
+    if (e.button === 0) state.mouseDown = false;
 });
 
 // Prevent context menu on right-click
@@ -379,8 +376,7 @@ const mouseWorldPos = new THREE.Vector3();
 
 function getMouseWorldPos() {
     raycaster.setFromCamera(new THREE.Vector2(state.mouseX, state.mouseY), camera);
-    raycaster.ray.intersectPlane(groundPlane, mouseWorldPos);
-    return mouseWorldPos;
+    return raycaster.ray.intersectPlane(groundPlane, mouseWorldPos);
 }
 
 // ─── ENEMY TYPES & CREATION ─────────────────────────────────
@@ -580,8 +576,6 @@ function update() {
 
     // ── Camera orbit from mouse movement
     // Always rotate camera orbit when pointer is locked, or use raw movementX
-    cameraAngle -= mouseMovementX * 0.003;
-    mouseMovementX = 0; // consume
 
     // ── Camera-relative directions
     const forward = new THREE.Vector3(-Math.sin(cameraAngle), 0, -Math.cos(cameraAngle));
@@ -615,10 +609,13 @@ function update() {
     }
 
     // ── Camera follow (over-the-shoulder, orbiting around player)
-    const rotatedOffset = cameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngle);
+    const rotatedOffset = cameraOffset.clone().applyAxisAngle(WORLD_UP, cameraAngle);
     const desiredCamPos = playerGroup.position.clone().add(rotatedOffset);
-    camera.position.lerp(desiredCamPos, 0.1);
-    camera.lookAt(playerGroup.position.x - 0.5, 1.8, playerGroup.position.z - 1);
+    const desiredLookAt = playerGroup.position.clone().add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, -CAMERA_LOOK_AHEAD));
+    const cameraAlpha = 1 - Math.exp(-dt * 8);
+    camera.position.lerp(desiredCamPos, cameraAlpha);
+    smoothedCameraLook.lerp(desiredLookAt, cameraAlpha);
+    camera.lookAt(smoothedCameraLook);
 
     // Player light follow
     playerLight.position.set(playerGroup.position.x, 2, playerGroup.position.z);
