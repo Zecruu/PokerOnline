@@ -8,10 +8,10 @@ const PROJECTILE_SPEED = 25;
 const ENEMY_SPEED_BASE = 1;
 const SHOOT_COOLDOWN = 0.6;
 const CAMERA_DISTANCE = 8.5;
-const CAMERA_HEIGHT = 3.2;
+const CAMERA_HEIGHT = 2.65;
 const CAMERA_LOOK_HEIGHT = 1.45;
 const CAMERA_LOOK_AHEAD = 5.0;
-const CAMERA_SHOULDER = 0.7;
+const CAMERA_SHOULDER = 1.55;
 const CAMERA_MIN_PITCH = -0.55;
 const CAMERA_MAX_PITCH = -0.04;
 const CAMERA_MOUSE_SENSITIVITY = 0.0022;
@@ -345,6 +345,7 @@ const state = {
     shootCooldown: 0,
     mouseX: 0, mouseY: 0,
     mouseDown: false,
+    gameOver: false,
 };
 
 const keys = {};
@@ -357,7 +358,7 @@ const xpOrbs = [];
 window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
     keys[key] = true;
-    if ((key === 'p' || key === 'escape') && document.getElementById('levelUpOverlay').classList.contains('hidden')) {
+    if ((key === 'p' || key === 'escape') && !state.gameOver && document.getElementById('levelUpOverlay').classList.contains('hidden')) {
         e.preventDefault();
         window.togglePause?.();
     }
@@ -452,6 +453,35 @@ function tintModel(model, color) {
     });
 }
 
+function createEnemyProxy(color, size) {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.25,
+        roughness: 0.72,
+        metalness: 0.05,
+    });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(size * 0.32, size * 0.42, size * 1.35, 8), mat);
+    body.position.y = size * 0.75;
+    body.castShadow = true;
+    group.add(body);
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(size * 0.62, size * 0.48, size * 0.5), mat);
+    head.position.y = size * 1.58;
+    head.castShadow = true;
+    group.add(head);
+
+    for (const side of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(size * 0.16, size * 0.82, size * 0.16), mat);
+        arm.position.set(side * size * 0.5, size * 0.95, 0);
+        arm.rotation.z = side * 0.25;
+        arm.castShadow = true;
+        group.add(arm);
+    }
+    return group;
+}
+
 function spawnEnemy(type) {
     const t = ENEMY_TYPES[type % ENEMY_TYPES.length];
     const angle = Math.random() * Math.PI * 2;
@@ -475,17 +505,8 @@ function spawnEnemy(type) {
         tintModel(mesh, t.color);
         isModel = true;
     } else {
-        // Fallback sphere
-        const geo = new THREE.SphereGeometry(t.size, 8, 8);
-        const mat = new THREE.MeshStandardMaterial({
-            color: t.color,
-            emissive: t.color,
-            emissiveIntensity: 0.3,
-            roughness: 0.6,
-        });
-        mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(spawnX, t.size + 0.1, spawnZ);
-        mesh.castShadow = true;
+        mesh = createEnemyProxy(t.color, t.size);
+        mesh.position.set(spawnX, 0, spawnZ);
     }
 
     scene.add(mesh);
@@ -593,6 +614,17 @@ function spawnXpOrb(pos, amount) {
 
 function playerXpForLevel(level) {
     return Math.floor(50 * Math.pow(level, 1.5));
+}
+
+function showGameOver() {
+    state.gameOver = true;
+    paused = true;
+    state.mouseDown = false;
+    if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    document.getElementById('gameOverKills').textContent = `${state.kills}`;
+    document.getElementById('gameOverWave').textContent = `${state.wave}`;
+    document.getElementById('gameOverOverlay').classList.remove('hidden');
 }
 
 // ─── WAVE SYSTEM ────────────────────────────────────────────
@@ -879,8 +911,8 @@ function update() {
 
     // ── Respawn
     if (state.hp <= 0) {
-        state.hp = state.maxHp;
-        playerGroup.position.set(0, 0, 0);
+        state.hp = 0;
+        showGameOver();
     }
 
     // ── HUD
@@ -898,6 +930,7 @@ function animate() {
 // ─── PAUSE SYSTEM ───────────────────────────────────────────
 let paused = false;
 window.togglePause = function() {
+    if (state.gameOver) return;
     paused = !paused;
     state.mouseDown = false;
     if (paused && document.pointerLockElement === renderer.domElement) document.exitPointerLock();

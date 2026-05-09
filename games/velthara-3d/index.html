@@ -35,9 +35,13 @@
     #pauseBtn:hover { background: rgba(255,255,255,0.1); }
     #pauseOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 50; display: flex; justify-content: center; align-items: center; }
     #pauseOverlay.hidden { display: none; }
+    #gameOverOverlay { position: fixed; inset: 0; background: rgba(8,0,16,0.84); backdrop-filter: blur(8px); z-index: 55; display: flex; justify-content: center; align-items: center; }
+    #gameOverOverlay.hidden { display: none; }
     .pause-box { text-align: center; }
     .pause-box h2 { font-size: 3rem; font-weight: 900; color: #fff; letter-spacing: 4px; margin-bottom: 12px; }
+    .pause-box.game-over h2 { color: #f87171; text-shadow: 0 0 26px rgba(248,113,113,0.42); }
     .pause-box p { color: #888; margin-bottom: 20px; }
+    .run-stats { display: flex; gap: 18px; justify-content: center; margin: 0 0 22px; color: #ddd; font-size: 0.9rem; font-weight: 700; }
     .pause-resume { padding: 14px 48px; border-radius: 12px; border: none; background: linear-gradient(135deg, #9966ff, #7744cc); color: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
     .pause-resume:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(153,102,255,0.3); }
 
@@ -77,8 +81,20 @@
   <div id="pauseOverlay" class="hidden">
     <div class="pause-box">
       <h2>PAUSED</h2>
-      <p>Press ESC to resume</p>
+      <p>Press P or ESC to resume</p>
       <button class="pause-resume" onclick="window.togglePause()">Resume</button>
+    </div>
+  </div>
+
+  <div id="gameOverOverlay" class="hidden">
+    <div class="pause-box game-over">
+      <h2>GAME OVER</h2>
+      <p>Your dominion has fallen.</p>
+      <div class="run-stats">
+        <span>Kills: <b id="gameOverKills">0</b></span>
+        <span>Wave: <b id="gameOverWave">1</b></span>
+      </div>
+      <button class="pause-resume" onclick="location.reload()">Restart</button>
     </div>
   </div>
 
