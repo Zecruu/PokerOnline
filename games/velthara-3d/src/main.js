@@ -353,17 +353,25 @@ const enemies = [];
 const projectiles = [];
 const particles = [];
 const xpOrbs = [];
+renderer.domElement.tabIndex = 0;
 
 // ─── INPUT ──────────────────────────────────────────────────
-window.addEventListener('keydown', e => {
+document.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
+    const code = e.code;
     keys[key] = true;
-    if ((key === 'p' || key === 'escape') && !state.gameOver && document.getElementById('levelUpOverlay').classList.contains('hidden')) {
+    keys[code] = true;
+    if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'p', 'escape'].includes(key)) {
         e.preventDefault();
+    }
+    if ((key === 'p' || key === 'escape') && !state.gameOver && document.getElementById('levelUpOverlay').classList.contains('hidden')) {
         window.togglePause?.();
     }
 });
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+document.addEventListener('keyup', e => {
+    keys[e.key.toLowerCase()] = false;
+    keys[e.code] = false;
+});
 
 window.addEventListener('mousemove', e => {
     state.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -374,13 +382,15 @@ window.addEventListener('mousemove', e => {
     }
 });
 
-window.addEventListener('mousedown', (e) => {
+renderer.domElement.addEventListener('mousedown', (e) => {
     if (e.button === 0) {
+        if (state.gameOver || paused) return;
+        renderer.domElement.focus();
         state.mouseDown = true;
         if (!pointerLocked) renderer.domElement.requestPointerLock();
     }
 });
-window.addEventListener('mouseup', (e) => {
+document.addEventListener('mouseup', (e) => {
     if (e.button === 0) state.mouseDown = false;
 });
 
@@ -656,10 +666,10 @@ function update() {
 
     // ── Player movement (WASD relative to camera)
     let moveDir = new THREE.Vector3(0, 0, 0);
-    if (keys['w'] || keys['arrowup'])    moveDir.add(forward);
-    if (keys['s'] || keys['arrowdown'])  moveDir.sub(forward);
-    if (keys['d'] || keys['arrowright']) moveDir.add(right);
-    if (keys['a'] || keys['arrowleft']) moveDir.sub(right);
+    if (keys['w'] || keys['KeyW'] || keys['arrowup'] || keys['ArrowUp']) moveDir.add(forward);
+    if (keys['s'] || keys['KeyS'] || keys['arrowdown'] || keys['ArrowDown']) moveDir.sub(forward);
+    if (keys['d'] || keys['KeyD'] || keys['arrowright'] || keys['ArrowRight']) moveDir.add(right);
+    if (keys['a'] || keys['KeyA'] || keys['arrowleft'] || keys['ArrowLeft']) moveDir.sub(right);
 
     if (moveDir.lengthSq() > 0) {
         moveDir.normalize();
