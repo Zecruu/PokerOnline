@@ -5,13 +5,16 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const ARENA_SIZE = 40;
 const PLAYER_SPEED = 8;
 const PROJECTILE_SPEED = 25;
-const ENEMY_SPEED_BASE = 3;
-const SHOOT_COOLDOWN = 0.15;
-const CAMERA_DISTANCE = 10.5;
-const CAMERA_HEIGHT = 5.2;
+const ENEMY_SPEED_BASE = 1;
+const SHOOT_COOLDOWN = 0.6;
+const CAMERA_DISTANCE = 8.5;
+const CAMERA_HEIGHT = 3.2;
 const CAMERA_LOOK_HEIGHT = 1.45;
-const CAMERA_LOOK_AHEAD = 4.2;
-const CAMERA_SHOULDER = 1.15;
+const CAMERA_LOOK_AHEAD = 5.0;
+const CAMERA_SHOULDER = 0.7;
+const CAMERA_MIN_PITCH = -0.55;
+const CAMERA_MAX_PITCH = -0.04;
+const CAMERA_MOUSE_SENSITIVITY = 0.0022;
 
 // ─── THREE.JS SETUP ────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -322,14 +325,20 @@ gltfLoader.load('/models/skeleton.glb', (gltf) => {
 
 // ─── CAMERA STATE ───────────────────────────────────────────
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
-const cameraOffset = new THREE.Vector3(CAMERA_SHOULDER, CAMERA_HEIGHT, CAMERA_DISTANCE);
+const cameraOffset = new THREE.Vector3();
 const smoothedCameraLook = new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, -CAMERA_LOOK_AHEAD);
-let cameraAngle = 0;
+const cameraAim = new THREE.Vector3();
+const cameraFlatForward = new THREE.Vector3(0, 0, -1);
+const cameraRight = new THREE.Vector3(1, 0, 0);
+let cameraYaw = 0;
+let cameraPitch = -0.24;
+let pointerLocked = false;
 
 // ─── GAME STATE ─────────────────────────────────────────────
 const state = {
     hp: 100, maxHp: 100,
     xp: 0, xpToLevel: 50, level: 1,
+    baseDamage: 10,
     kills: 0,
     wave: 1, waveTimer: 5, waveCooldown: false,
     enemiesAlive: 0, enemiesToSpawn: 0,
@@ -351,13 +360,24 @@ window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 window.addEventListener('mousemove', e => {
     state.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
     state.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+    if (pointerLocked) {
+        cameraYaw -= e.movementX * CAMERA_MOUSE_SENSITIVITY;
+        cameraPitch = Math.max(CAMERA_MIN_PITCH, Math.min(CAMERA_MAX_PITCH, cameraPitch - e.movementY * CAMERA_MOUSE_SENSITIVITY));
+    }
 });
 
 window.addEventListener('mousedown', (e) => {
-    if (e.button === 0) state.mouseDown = true;
+    if (e.button === 0) {
+        state.mouseDown = true;
+        if (!pointerLocked) renderer.domElement.requestPointerLock();
+    }
 });
 window.addEventListener('mouseup', (e) => {
     if (e.button === 0) state.mouseDown = false;
+});
+
+document.addEventListener('pointerlockchange', () => {
+    pointerLocked = document.pointerLockElement === renderer.domElement;
 });
 
 // Prevent context menu on right-click
@@ -375,17 +395,21 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const mouseWorldPos = new THREE.Vector3();
 
 function getMouseWorldPos() {
-    raycaster.setFromCamera(new THREE.Vector2(state.mouseX, state.mouseY), camera);
+    const aimPoint = pointerLocked ? new THREE.Vector2(0, 0) : new THREE.Vector2(state.mouseX, state.mouseY);
+    raycaster.setFromCamera(aimPoint, camera);
     return raycaster.ray.intersectPlane(groundPlane, mouseWorldPos);
 }
 
 // ─── ENEMY TYPES & CREATION ─────────────────────────────────
 const ENEMY_TYPES = [
-    { name: 'Swarm',  color: 0x66bb6a, size: 0.8,  hp: 15, dmg: 5,  speed: 1.0, xp: 5,  modelKey: 'zombie',   modelScale: 1.5 },
-    { name: 'Runner', color: 0xffd54f, size: 0.7,  hp: 10, dmg: 3,  speed: 1.8, xp: 8,  modelKey: 'zombie',   modelScale: 1.2 },
-    { name: 'Tank',   color: 0x90a4ae, size: 1.2,  hp: 50, dmg: 10, speed: 0.6, xp: 15, modelKey: 'skeleton', modelScale: 2.5 },
-    { name: 'Bomber', color: 0xff7043, size: 1.0,  hp: 20, dmg: 15, speed: 0.9, xp: 12, modelKey: 'skeleton', modelScale: 2.0 },
-    { name: 'Shadow', color: 0x7e57c2, size: 0.9,  hp: 25, dmg: 8,  speed: 1.3, xp: 10, modelKey: 'zombie',   modelScale: 1.8 },
+    { name: 'Poacher',          color: 0x8b4513, size: 1.2, hp: 60,  dmg: 8,  speed: 90 / 32,  xp: 9,  attackCooldown: 1.5, modelKey: 'zombie',   modelScale: 1.6 },
+    { name: 'Shadow Stalker',   color: 0x462070, size: 1.1, hp: 40,  dmg: 14, speed: 180 / 32, xp: 11, attackCooldown: 0.8, modelKey: 'zombie',   modelScale: 1.45 },
+    { name: 'Bone Crawler',     color: 0xd4c5a9, size: 0.9, hp: 50,  dmg: 6,  speed: 110 / 32, xp: 8,  attackCooldown: 1.2, modelKey: 'skeleton', modelScale: 1.7 },
+    { name: 'Frost Wraith',     color: 0xa0d2db, size: 1.3, hp: 35,  dmg: 10, speed: 70 / 32,  xp: 10, attackCooldown: 2.0, modelKey: 'zombie',   modelScale: 1.8 },
+    { name: 'Magma Golem',      color: 0xd84315, size: 1.8, hp: 200, dmg: 20, speed: 40 / 32,  xp: 22, attackCooldown: 2.5, modelKey: 'skeleton', modelScale: 3.0 },
+    { name: 'Crystal Sentinel', color: 0x9c27b0, size: 1.4, hp: 80,  dmg: 12, speed: 60 / 32,  xp: 14, attackCooldown: 1.8, modelKey: 'skeleton', modelScale: 2.2 },
+    { name: 'Swamp Lurker',     color: 0x2e4a1e, size: 1.5, hp: 70,  dmg: 15, speed: 50 / 32,  xp: 13, attackCooldown: 2.0, modelKey: 'zombie',   modelScale: 2.0 },
+    { name: 'Sand Burrower',    color: 0xc2a84d, size: 1.2, hp: 55,  dmg: 18, speed: 130 / 32, xp: 12, attackCooldown: 3.0, modelKey: 'skeleton', modelScale: 1.9 },
 ];
 
 function cloneModel(source) {
@@ -406,10 +430,27 @@ function tintModel(model, color) {
     const c = new THREE.Color(color);
     model.traverse(child => {
         if (child.isMesh && child.material) {
-            child.material.emissive = c;
-            child.material.emissiveIntensity = 0.35;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of mats) {
+                if (mat.color) mat.color.lerp(c, 0.72);
+                if (mat.emissive) {
+                    mat.emissive.copy(c);
+                    mat.emissiveIntensity = 0.55;
+                }
+                mat.needsUpdate = true;
+            }
         }
     });
+}
+
+function addEnemyColorMarker(mesh, color, size) {
+    const marker = new THREE.Mesh(
+        new THREE.TorusGeometry(size * 0.72, 0.04, 6, 28),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+    );
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.y = 0.06;
+    mesh.add(marker);
 }
 
 function spawnEnemy(type) {
@@ -433,10 +474,7 @@ function spawnEnemy(type) {
         mesh.position.set(spawnX, -box.min.y * t.modelScale, spawnZ);
         // Tint by enemy type color
         tintModel(mesh, t.color);
-        // Shadow enemies get extra purple tint
-        if (t.name === 'Shadow') {
-            tintModel(mesh, 0x9933ff);
-        }
+        addEnemyColorMarker(mesh, t.color, t.size);
         isModel = true;
     } else {
         // Fallback sphere
@@ -466,6 +504,7 @@ function spawnEnemy(type) {
         speed: t.speed * ENEMY_SPEED_BASE,
         xp: t.xp,
         attackCooldown: 0,
+        attackRate: t.attackCooldown,
         hitFlash: 0,
     });
     state.enemiesAlive++;
@@ -508,7 +547,7 @@ function shoot() {
     p.dir = dir;
     p.speed = PROJECTILE_SPEED;
     p.lifetime = 2;
-    p.damage = Math.floor((15 + state.level * 2) * (1 + (state.dmgBonus || 0)));
+    p.damage = Math.floor(state.baseDamage * (1 + (state.dmgBonus || 0)));
     projectiles.push(p);
 }
 
@@ -554,6 +593,10 @@ function spawnXpOrb(pos, amount) {
     xpOrbs.push({ mesh, amount, life: 10 });
 }
 
+function playerXpForLevel(level) {
+    return Math.floor(50 * Math.pow(level, 1.5));
+}
+
 // ─── WAVE SYSTEM ────────────────────────────────────────────
 function startWave() {
     state.waveCooldown = false;
@@ -578,8 +621,8 @@ function update() {
     // Always rotate camera orbit when pointer is locked, or use raw movementX
 
     // ── Camera-relative directions
-    const forward = new THREE.Vector3(-Math.sin(cameraAngle), 0, -Math.cos(cameraAngle));
-    const right = new THREE.Vector3(Math.cos(cameraAngle), 0, -Math.sin(cameraAngle));
+    const forward = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
+    const right = new THREE.Vector3(Math.cos(cameraYaw), 0, -Math.sin(cameraYaw));
 
     // ── Player movement (WASD relative to camera)
     let moveDir = new THREE.Vector3(0, 0, 0);
@@ -609,9 +652,22 @@ function update() {
     }
 
     // ── Camera follow (over-the-shoulder, orbiting around player)
-    const rotatedOffset = cameraOffset.clone().applyAxisAngle(WORLD_UP, cameraAngle);
-    const desiredCamPos = playerGroup.position.clone().add(rotatedOffset);
-    const desiredLookAt = playerGroup.position.clone().add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, -CAMERA_LOOK_AHEAD));
+    cameraAim.set(
+        -Math.sin(cameraYaw) * Math.cos(cameraPitch),
+        Math.sin(cameraPitch),
+        -Math.cos(cameraYaw) * Math.cos(cameraPitch)
+    ).normalize();
+    cameraFlatForward.set(cameraAim.x, 0, cameraAim.z).normalize();
+    cameraRight.crossVectors(cameraFlatForward, WORLD_UP).normalize();
+    cameraOffset.copy(cameraAim).multiplyScalar(-CAMERA_DISTANCE)
+        .addScaledVector(WORLD_UP, CAMERA_HEIGHT)
+        .addScaledVector(cameraRight, CAMERA_SHOULDER);
+    const desiredCamPos = playerGroup.position.clone()
+        .add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, 0))
+        .add(cameraOffset);
+    const desiredLookAt = playerGroup.position.clone()
+        .add(new THREE.Vector3(0, CAMERA_LOOK_HEIGHT, 0))
+        .addScaledVector(cameraAim, CAMERA_LOOK_AHEAD);
     const cameraAlpha = 1 - Math.exp(-dt * 8);
     camera.position.lerp(desiredCamPos, cameraAlpha);
     smoothedCameraLook.lerp(desiredLookAt, cameraAlpha);
@@ -651,7 +707,7 @@ function update() {
 
                 if (e.hp <= 0) {
                     spawnParticles(e.mesh.position, e.type.color, 8);
-                    spawnXpOrb(e.mesh.position, e.xp);
+                    spawnXpOrb(e.mesh.position, Math.floor(e.xp * (state.xpMult || 1)));
                     scene.remove(e.mesh);
                     enemies.splice(j, 1);
                     state.enemiesAlive--;
@@ -705,7 +761,7 @@ function update() {
         ).length();
         if (distToPlayer < e.type.size + 1.2 && e.attackCooldown <= 0) {
             state.hp -= e.dmg;
-            e.attackCooldown = 1.0;
+            e.attackCooldown = e.attackRate || 1.5;
             spawnParticles(playerGroup.position, 0xf87171, 3);
             if (state.hp <= 0) state.hp = 0;
             // Lunge animation — tilt forward on attack
@@ -776,12 +832,13 @@ function update() {
         if (orbDist < 0.8 || o.life <= 0) {
             if (orbDist < 0.8) {
                 state.xp += o.amount;
-                if (state.xp >= state.xpToLevel) {
+                while (state.xp >= state.xpToLevel) {
                     state.xp -= state.xpToLevel;
                     state.level++;
-                    state.xpToLevel = Math.floor(state.xpToLevel * 1.3);
-                    state.maxHp += 10;
+                    state.maxHp += 5;
+                    state.baseDamage += 1;
                     state.hp = state.maxHp;
+                    state.xpToLevel = playerXpForLevel(state.level);
                     document.getElementById('levelLabel').textContent = `Lv.${state.level}`;
                     showLevelUp();
                 }
@@ -797,18 +854,16 @@ function update() {
     if (!state._spawnTimer) state._spawnTimer = 0;
     state._spawnTimer -= dt;
 
-    // Max alive enemies scales with wave (prevents lag from too many)
-    const maxAlive = 15 + state.wave * 3;
+    // 2D Velthara hostile cap: keep pressure readable instead of flooding.
+    const maxAlive = 15;
 
     if (state._spawnTimer <= 0 && state.enemiesAlive < maxAlive) {
-        // Burst spawn: 1-3 enemies at once
-        const burst = 1 + Math.floor(Math.random() * Math.min(3, 1 + Math.floor(state.wave / 5)));
+        const burst = Math.min(3, maxAlive - state.enemiesAlive);
         for (let b = 0; b < burst && state.enemiesAlive < maxAlive; b++) {
-            const type = Math.floor(Math.random() * Math.min(ENEMY_TYPES.length, 1 + Math.floor(state.wave / 3)));
+            const type = Math.floor(Math.random() * Math.min(ENEMY_TYPES.length, 2 + Math.floor(state.wave / 2)));
             spawnEnemy(type);
         }
-        // Spawn interval gets shorter as waves progress (more pressure)
-        const baseInterval = Math.max(0.3, 1.5 - state.wave * 0.08);
+        const baseInterval = Math.max(4.0, 8.0 - state.wave * 0.35);
         state._spawnTimer = baseInterval + Math.random() * 0.5;
     }
 
