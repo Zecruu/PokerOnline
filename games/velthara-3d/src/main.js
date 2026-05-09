@@ -354,7 +354,14 @@ const particles = [];
 const xpOrbs = [];
 
 // ─── INPUT ──────────────────────────────────────────────────
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keydown', e => {
+    const key = e.key.toLowerCase();
+    keys[key] = true;
+    if ((key === 'p' || key === 'escape') && document.getElementById('levelUpOverlay').classList.contains('hidden')) {
+        e.preventDefault();
+        window.togglePause?.();
+    }
+});
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 window.addEventListener('mousemove', e => {
@@ -432,25 +439,17 @@ function tintModel(model, color) {
         if (child.isMesh && child.material) {
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             for (const mat of mats) {
-                if (mat.color) mat.color.lerp(c, 0.72);
+                if (mat.color) mat.color.copy(c);
                 if (mat.emissive) {
                     mat.emissive.copy(c);
-                    mat.emissiveIntensity = 0.55;
+                    mat.emissiveIntensity = 0.35;
                 }
+                if ('roughness' in mat) mat.roughness = 0.72;
+                if ('metalness' in mat) mat.metalness = 0.05;
                 mat.needsUpdate = true;
             }
         }
     });
-}
-
-function addEnemyColorMarker(mesh, color, size) {
-    const marker = new THREE.Mesh(
-        new THREE.TorusGeometry(size * 0.72, 0.04, 6, 28),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
-    );
-    marker.rotation.x = -Math.PI / 2;
-    marker.position.y = 0.06;
-    mesh.add(marker);
 }
 
 function spawnEnemy(type) {
@@ -474,7 +473,6 @@ function spawnEnemy(type) {
         mesh.position.set(spawnX, -box.min.y * t.modelScale, spawnZ);
         // Tint by enemy type color
         tintModel(mesh, t.color);
-        addEnemyColorMarker(mesh, t.color, t.size);
         isModel = true;
     } else {
         // Fallback sphere
@@ -901,14 +899,10 @@ function animate() {
 let paused = false;
 window.togglePause = function() {
     paused = !paused;
+    state.mouseDown = false;
+    if (paused && document.pointerLockElement === renderer.domElement) document.exitPointerLock();
     document.getElementById('pauseOverlay').classList.toggle('hidden', !paused);
 };
-window.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        if (!document.getElementById('levelUpOverlay').classList.contains('hidden')) return;
-        window.togglePause();
-    }
-});
 
 // ─── SIGIL SYSTEM ───────────────────────────────────────────
 const SIGILS = [
