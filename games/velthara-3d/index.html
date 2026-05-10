@@ -18,17 +18,23 @@
     .hud-label { color: #fff; font-size: 0.75rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
     .hud-wave { color: #ce93d8; font-size: 0.9rem; font-weight: 800; margin-left: auto; }
 
-    /* Crosshair */
-    #crosshair { position: fixed; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); pointer-events: none; z-index: 5; }
-    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.5); }
-    #crosshair::before { width: 2px; height: 20px; left: 9px; top: 0; }
-    #crosshair::after { width: 20px; height: 2px; top: 9px; left: 0; }
-
     /* Wave notification */
     #waveNotify { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; font-weight: 900; color: #fff; text-shadow: 0 0 40px rgba(206,147,216,0.6); z-index: 20; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
     #waveNotify.show { opacity: 1; }
 
     #killCount { position: fixed; bottom: 16px; right: 20px; color: #888; font-size: 0.8rem; font-weight: 600; z-index: 10; }
+    #soulsHud { position: fixed; top: 44px; left: 20px; color: #ffd36a; font-size: 0.8rem; font-weight: 900; z-index: 10; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    #interactPrompt { position: fixed; left: 50%; bottom: 116px; transform: translateX(-50%); padding: 7px 12px; border: 1px solid rgba(255,211,106,0.45); border-radius: 6px; color: #fff1d6; background: rgba(20,10,4,0.78); font-size: 0.78rem; font-weight: 800; z-index: 12; }
+    #interactPrompt.hidden { display: none; }
+    #classKit { position: fixed; left: 16px; bottom: 16px; display: flex; align-items: flex-end; gap: 10px; z-index: 10; pointer-events: none; }
+    .ability-slot { width: 76px; min-height: 74px; padding: 8px 7px; border-radius: 8px; border: 1px solid rgba(255,122,24,0.45); background: rgba(28,12,6,0.72); box-shadow: 0 0 18px rgba(255,78,0,0.14); color: #fff1d6; text-align: center; position: relative; overflow: hidden; }
+    .ability-slot.passive { width: 138px; text-align: left; border-color: rgba(255,190,92,0.34); }
+    .ability-key { font-size: 0.68rem; font-weight: 900; color: #ffcf70; line-height: 1; }
+    .ability-icon { font-size: 1.35rem; line-height: 1.2; margin: 3px 0 2px; }
+    .ability-name { font-size: 0.66rem; font-weight: 800; line-height: 1.1; }
+    .ability-meta { margin-top: 4px; color: #ffb45b; font-size: 0.6rem; font-weight: 700; line-height: 1.15; }
+    .ability-cooldown { position: absolute; inset: auto 0 0; height: 0%; background: rgba(0,0,0,0.58); transition: height 0.1s linear; }
+    .ability-slot.ready { border-color: #ffdd70; box-shadow: 0 0 22px rgba(255,138,24,0.32); }
 
     /* Pause */
     #pauseBtn { position: fixed; top: 12px; right: 20px; padding: 6px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.5); color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; z-index: 15; }
@@ -48,6 +54,17 @@
     /* Level Up Sigil Selection */
     #levelUpOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 40; display: flex; justify-content: center; align-items: center; flex-direction: column; }
     #levelUpOverlay.hidden { display: none; }
+    #soulShopOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.78); backdrop-filter: blur(7px); z-index: 45; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+    #soulShopOverlay.hidden { display: none; }
+    .shop-grid { display: flex; gap: 14px; }
+    .shop-card { width: 174px; min-height: 145px; padding: 16px 14px; border-radius: 8px; border: 1px solid rgba(255,211,106,0.35); background: rgba(28,14,8,0.94); color: #fff1d6; cursor: pointer; text-align: center; }
+    .shop-card:hover { border-color: #ffd36a; transform: translateY(-2px); }
+    .shop-card.disabled { opacity: 0.45; cursor: default; transform: none; }
+    .shop-title { font-size: 2rem; font-weight: 900; color: #ffd36a; margin-bottom: 8px; }
+    .shop-sub { color: #c9a86a; font-size: 0.85rem; margin-bottom: 18px; }
+    .shop-name { font-size: 1rem; font-weight: 900; margin-bottom: 8px; }
+    .shop-desc { font-size: 0.74rem; color: #d8c8a8; line-height: 1.35; min-height: 40px; }
+    .shop-cost { margin-top: 12px; font-size: 0.78rem; color: #ffd36a; font-weight: 900; }
     .lu-title { font-size: 2rem; font-weight: 900; color: #fbbf24; margin-bottom: 8px; text-shadow: 0 0 20px rgba(251,191,36,0.4); }
     .lu-sub { color: #888; margin-bottom: 24px; font-size: 0.9rem; }
     .lu-cards { display: flex; gap: 16px; }
@@ -61,9 +78,122 @@
     .lu-card.rare { border-color: rgba(255,193,7,0.3); }
     .lu-card.epic { border-color: rgba(156,39,176,0.3); }
     .lu-card.legendary { border-color: rgba(255,152,0,0.4); background: rgba(40,20,10,0.95); }
+    .front-overlay { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 30%, rgba(78,32,20,0.96), rgba(5,3,10,0.98)); color: #fff1d6; }
+    .front-overlay.hidden { display: none; }
+    .front-title { font-size: 3rem; font-weight: 950; color: #ffcf70; margin-bottom: 10px; text-align: center; }
+    .front-sub { color: #d8b77a; margin-bottom: 24px; font-size: 0.95rem; }
+    .front-btn { padding: 13px 34px; border: 1px solid rgba(255,207,112,0.65); border-radius: 8px; background: rgba(255,100,18,0.22); color: #fff1d6; font-weight: 900; cursor: pointer; }
+    .front-btn:hover { background: rgba(255,120,28,0.36); }
+    .select-grid { display: flex; gap: 18px; max-width: 900px; }
+    .select-card, .rune-card { width: 250px; min-height: 270px; padding: 18px 16px; border-radius: 8px; border: 2px solid rgba(255,100,18,0.48); background: rgba(16,10,20,0.9); cursor: pointer; text-align: center; }
+    .select-card:hover, .select-card.selected, .rune-card:hover, .rune-card.selected { border-color: #ffcf70; box-shadow: 0 0 26px rgba(255,112,24,0.24); transform: translateY(-2px); }
+    .select-icon { font-size: 3rem; margin-bottom: 10px; }
+    .select-name, .rune-name { color: #ff6418; font-size: 1.15rem; font-weight: 950; margin-bottom: 8px; }
+    .select-desc, .rune-desc { color: #c7b4a4; font-size: 0.82rem; line-height: 1.35; margin-bottom: 14px; }
+    .select-kit { text-align: left; color: #e8d6bd; font-size: 0.76rem; line-height: 1.45; }
+    #statsHud { position: fixed; top: 68px; right: 20px; color: #d8c8a8; font-size: 0.72rem; font-weight: 800; z-index: 10; line-height: 1.4; text-shadow: 0 1px 3px rgba(0,0,0,0.8); pointer-events: none; min-width: 230px; padding: 8px 10px; background: rgba(20,8,4,0.55); border: 1px solid rgba(255,100,28,0.18); border-radius: 6px; backdrop-filter: blur(2px); }
+    #statsHud .stat-row { display: flex; justify-content: space-between; gap: 14px; }
+    #statsHud .stat-row span:first-child { color: #c9a86a; font-weight: 700; }
+    #statsHud .stat-row span:last-child { color: #fff1d6; font-weight: 900; }
+    #statsHud .stat-section { color: #ff7a18; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1px; margin: 4px 0 2px; border-bottom: 1px solid rgba(255,122,24,0.22); padding-bottom: 2px; }
+    /* Inventory column (left edge, vertical) */
+    #invBar { position: fixed; left: 8px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 4px; z-index: 10; pointer-events: none; }
+    .inv-slot { width: 50px; height: 50px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: rgba(15,8,4,0.55); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+    .inv-slot.filled { border-color: rgba(255,160,32,0.55); background: rgba(40,18,8,0.7); }
+    .inv-slot .inv-icon { font-size: 1.2rem; line-height: 1; }
+    .inv-slot .inv-level { position: absolute; bottom: 2px; right: 4px; font-size: 0.55rem; font-weight: 900; color: #ffd36a; text-shadow: 0 1px 2px #000; }
+    /* Active power-up banner (bottom center) */
+    #powerUpBanner { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 11; pointer-events: none; }
+    .pu-chip { padding: 6px 10px; border-radius: 16px; background: rgba(40,18,8,0.85); border: 1px solid rgba(255,150,32,0.55); color: #fff1d6; font-size: 0.74rem; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+    .pu-chip .pu-time { color: #ffd36a; font-size: 0.66rem; }
+    /* Gamba chest reveal */
+    #gambaOverlay { position: fixed; inset: 0; background: rgba(8,2,0,0.86); backdrop-filter: blur(8px); z-index: 48; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #gambaOverlay.hidden { display: none; }
+    .gamba-title { font-size: 1.6rem; font-weight: 900; color: #ffd36a; letter-spacing: 4px; margin-bottom: 18px; }
+    .gamba-card { width: 320px; padding: 28px 22px; border-radius: 12px; border: 3px solid rgba(255,160,32,0.6); background: rgba(40,18,8,0.94); text-align: center; box-shadow: 0 0 60px rgba(255,120,32,0.4); animation: gambaReveal 0.55s ease-out; }
+    @keyframes gambaReveal { from { transform: scale(0.4) rotate(-6deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+    .gamba-card .gc-rarity { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    .gamba-card .gc-icon { font-size: 3.2rem; margin: 6px 0 12px; }
+    .gamba-card .gc-name { font-size: 1.1rem; font-weight: 900; color: #fff1d6; margin-bottom: 10px; }
+    .gamba-card .gc-desc { font-size: 0.78rem; color: #d8c8a8; line-height: 1.4; min-height: 40px; }
+    .gamba-card.common    { border-color: #aaa; box-shadow: 0 0 30px rgba(170,170,170,0.4); }
+    .gamba-card.rare      { border-color: #ffc107; box-shadow: 0 0 50px rgba(255,193,7,0.5); }
+    .gamba-card.epic      { border-color: #9c27b0; box-shadow: 0 0 60px rgba(156,39,176,0.5); }
+    .gamba-card.legendary { border-color: #ff9800; box-shadow: 0 0 80px rgba(255,152,0,0.6); }
+    .gamba-claim { margin-top: 22px; padding: 12px 38px; border: none; border-radius: 8px; background: linear-gradient(135deg, #ff7728, #aa3a08); color: #fff1d6; font-weight: 900; cursor: pointer; }
+    /* Settings modal */
+    #settingsOverlay { position: fixed; inset: 0; background: rgba(8,2,0,0.78); backdrop-filter: blur(7px); z-index: 80; display: flex; align-items: center; justify-content: center; }
+    #settingsOverlay.hidden { display: none; }
+    .settings-panel { width: 380px; padding: 26px 30px; border-radius: 12px; border: 1px solid rgba(255,160,32,0.55); background: rgba(28,12,6,0.94); color: #fff1d6; }
+    .settings-title { font-size: 1.6rem; font-weight: 900; color: #ffd36a; letter-spacing: 3px; margin-bottom: 18px; text-align: center; }
+    .settings-row { margin-bottom: 16px; }
+    .settings-row label { display: block; font-size: 0.78rem; font-weight: 800; color: #c9a86a; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+    .settings-row input[type="range"] { width: 100%; }
+    .settings-row .value-tag { font-size: 0.76rem; color: #ffd36a; font-weight: 900; float: right; }
+    .settings-row .toggle-btn { padding: 6px 14px; border: 1px solid rgba(255,160,32,0.55); border-radius: 6px; background: rgba(40,18,8,0.7); color: #fff1d6; font-weight: 800; cursor: pointer; }
+    .settings-row .toggle-btn.on { background: linear-gradient(135deg, #ff7728, #aa3a08); }
+    .settings-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+    .settings-actions button { padding: 9px 18px; border: 1px solid rgba(255,160,32,0.55); border-radius: 6px; background: rgba(40,18,8,0.7); color: #fff1d6; font-weight: 800; cursor: pointer; }
   </style>
 </head>
 <body>
+  <div id="mainMenu" class="front-overlay">
+    <div class="front-title">VELTHARA DOMINION</div>
+    <div class="front-sub">A Fire Sovereign survives the ash</div>
+    <div id="bestRunPanel" style="margin-bottom: 22px; padding: 14px 22px; border: 1px solid rgba(255,160,32,0.35); border-radius: 8px; background: rgba(20,8,4,0.55); color: #fff1d6; min-width: 320px; text-align: center;">
+      <div style="color:#ffcf70; font-size:0.7rem; font-weight:900; letter-spacing:2px;">BEST RUN</div>
+      <div id="bestRunStats" style="margin-top: 6px; font-size: 0.92rem; font-weight: 800;">No runs yet — fight first.</div>
+    </div>
+    <div style="display:flex; gap: 14px;">
+      <button class="front-btn" id="mainStartBtn">Start</button>
+      <button class="front-btn" id="settingsBtn" style="background: rgba(40,18,8,0.6);">⚙ Settings</button>
+      <button class="front-btn" id="muteBtn" style="background: rgba(40,18,8,0.6);">🔊 Sound</button>
+    </div>
+  </div>
+  <div id="characterSelectOverlay" class="front-overlay hidden">
+    <div class="front-title">CHARACTER SELECT</div>
+    <div class="front-sub">Choose your sovereign</div>
+    <div class="select-grid">
+      <div class="select-card selected" id="fireSovereignCard">
+        <div class="select-icon">🔥</div>
+        <div class="select-name">Fire Sovereign</div>
+        <div class="select-desc">Master of homing flames. Burns enemies with stacking fire that ramps into cataclysmic destruction.</div>
+        <div class="select-kit"><b>Core Kit</b><br>• Fire Slash auto attack<br>• Inferno Volley<br>• Solar Cataclysm<br>• Sovereign Flame passive</div>
+      </div>
+    </div>
+    <button class="front-btn" id="characterContinueBtn" style="margin-top:22px;">Continue</button>
+  </div>
+  <div id="runeSelectOverlay" class="front-overlay hidden">
+    <div class="front-title">RUNE SELECT</div>
+    <div class="front-sub">Pick your tree — keystone + 2 minor runes</div>
+    <div class="select-grid">
+      <div class="rune-card selected" data-rune="pyreTree">
+        <div class="rune-name">🔥 Pyre Tree</div>
+        <div class="rune-desc">Permanent burn-stacking scaling.</div>
+        <div class="select-kit">
+          <b>Keystone — Pyre Fuel</b><br>
+          Each kill grants a Fuel stack. +0.5% damage per stack. <b>Infinite scaling.</b><br><br>
+          <b>Burning Fervor</b><br>
+          Dealing damage grants +30% move speed for 1.5s.<br><br>
+          <b>Eternal Embers</b><br>
+          Burn duration +50% (4s → 6s).
+        </div>
+      </div>
+      <div class="rune-card" data-rune="stardustTree">
+        <div class="rune-name">✦ Stardust Tree</div>
+        <div class="rune-desc">Permanent mage-power scaling.</div>
+        <div class="select-kit">
+          <b>Keystone — Cosmic Stardust</b><br>
+          Skill casts and every 200 damage grant a Stardust. +0.3% mage power per stack. <b>Infinite scaling.</b><br><br>
+          <b>Astral Drift</b><br>
+          Skill casts grant +40% move speed for 2s.<br><br>
+          <b>Voidsight</b><br>
+          +10% crit chance permanently.
+        </div>
+      </div>
+    </div>
+    <button class="front-btn" id="runeStartBtn" style="margin-top:22px;">Begin Run</button>
+  </div>
   <div id="hud">
     <span class="hud-label">HP</span>
     <div class="hud-bar"><div class="hud-fill hp-fill" id="hpBar" style="width:100%"></div></div>
@@ -72,9 +202,67 @@
     <span class="hud-label" id="levelLabel">Lv.1</span>
     <span class="hud-wave" id="waveLabel">Wave 1</span>
   </div>
-  <div id="crosshair"></div>
   <div id="waveNotify"></div>
   <div id="killCount">Kills: 0</div>
+  <div id="soulsHud">Souls: <span id="soulCount">0</span> · B Shop</div>
+  <div id="statsHud"></div>
+  <div id="invBar"></div>
+  <div id="powerUpBanner"></div>
+  <div id="interactPrompt" class="hidden">Press F to open Soul Chest</div>
+  <div id="settingsOverlay" class="hidden">
+    <div class="settings-panel">
+      <div class="settings-title">SETTINGS</div>
+      <div class="settings-row">
+        <label>Mouse Sensitivity <span class="value-tag" id="sensValue">100%</span></label>
+        <input id="sensSlider" type="range" min="20" max="300" step="5" value="100" />
+      </div>
+      <div class="settings-row">
+        <label>Music Volume <span class="value-tag" id="musicValue">18%</span></label>
+        <input id="musicSlider" type="range" min="0" max="100" step="2" value="18" />
+      </div>
+      <div class="settings-row">
+        <label>Sound Effects</label>
+        <button class="toggle-btn on" id="settingsSfxBtn">ENABLED</button>
+      </div>
+      <div class="settings-actions">
+        <button id="settingsCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="gambaOverlay" class="hidden">
+    <div class="gamba-title">⚀ CHEST OF THE DAMNED ⚀</div>
+    <div id="gambaCard" class="gamba-card common">
+      <div class="gc-rarity"></div>
+      <div class="gc-icon"></div>
+      <div class="gc-name"></div>
+      <div class="gc-desc"></div>
+    </div>
+    <button class="gamba-claim" id="gambaClaimBtn">CLAIM</button>
+  </div>
+  <div id="classKit">
+    <div class="ability-slot passive">
+      <div class="ability-key">PASSIVE</div>
+      <div class="ability-name">Sovereign Flame</div>
+      <div class="ability-meta" id="passiveMeta">Burn + Pyre 0%</div>
+    </div>
+    <div class="ability-slot ready" id="autoSlot">
+      <div class="ability-key">AUTO</div>
+      <div class="ability-icon">🔥</div>
+      <div class="ability-name">Fire Slash</div>
+    </div>
+    <div class="ability-slot ready" id="qSlot">
+      <div class="ability-cooldown" id="qCooldown"></div>
+      <div class="ability-key">Q</div>
+      <div class="ability-icon">💥</div>
+      <div class="ability-name">Inferno Volley</div>
+    </div>
+    <div class="ability-slot ready" id="eSlot">
+      <div class="ability-cooldown" id="eCooldown"></div>
+      <div class="ability-key">E</div>
+      <div class="ability-icon">☀️</div>
+      <div class="ability-name">Solar Cataclysm</div>
+    </div>
+  </div>
   <button id="pauseBtn" onclick="window.togglePause()">⏸ Pause</button>
 
   <!-- Pause Overlay -->
@@ -82,7 +270,11 @@
     <div class="pause-box">
       <h2>PAUSED</h2>
       <p>Press P or ESC to resume</p>
-      <button class="pause-resume" onclick="window.togglePause()">Resume</button>
+      <div style="display:flex; gap: 12px; justify-content: center; margin-top: 12px; flex-wrap: wrap;">
+        <button class="pause-resume" onclick="window.togglePause()">Resume</button>
+        <button class="pause-resume" id="pauseSettingsBtn" style="background: rgba(80,30,8,0.85);">Settings</button>
+        <button class="pause-resume" id="pauseToMenuBtn" style="background: linear-gradient(135deg, #aa3a08, #6a1c04);">Return to Menu</button>
+      </div>
     </div>
   </div>
 
@@ -93,8 +285,13 @@
       <div class="run-stats">
         <span>Kills: <b id="gameOverKills">0</b></span>
         <span>Wave: <b id="gameOverWave">1</b></span>
+        <span>Lv: <b id="gameOverLevel">1</b></span>
       </div>
-      <button class="pause-resume" onclick="location.reload()">Restart</button>
+      <div id="gameOverBest" style="margin: 12px 0 18px; color: #ffcf70; font-weight: 800; font-size: 0.85rem;"></div>
+      <div style="display:flex; gap: 12px; justify-content: center;">
+        <button class="pause-resume" onclick="location.reload()">Restart</button>
+        <button class="pause-resume" id="gameOverToMenuBtn" style="background: linear-gradient(135deg, #aa3a08, #6a1c04);">Main Menu</button>
+      </div>
     </div>
   </div>
 
@@ -103,6 +300,11 @@
     <div class="lu-title">LEVEL UP!</div>
     <div class="lu-sub">Choose a sigil upgrade</div>
     <div class="lu-cards" id="sigilCards"></div>
+  </div>
+  <div id="soulShopOverlay" class="hidden">
+    <div class="shop-title">SOUL SHOP</div>
+    <div class="shop-sub">Spend souls from chests. Press B to close.</div>
+    <div class="shop-grid" id="soulShopCards"></div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

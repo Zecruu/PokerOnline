@@ -2204,7 +2204,10 @@ const ANGELIC_KNIGHT_CLASS = {
 };
 
 // All playable classes for character select
-const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, DEMONIC_MONARCH_CLASS, ANGELIC_KNIGHT_CLASS, SHADOW_MASTER_CLASS, NECROMANCER_CLASS, SHADOW_MONARCH_CLASS, VOID_BLADE_CLASS];
+// Roster trimmed: only Fire Sovereign, Demonic Monarch, and Angelic Knight are
+// selectable. The other class objects stay defined (their sigils may still be
+// referenced elsewhere as cross-class loot pool entries).
+const PLAYABLE_CLASSES = [FIRE_SOVEREIGN_CLASS, DEMONIC_MONARCH_CLASS, ANGELIC_KNIGHT_CLASS];
 
 // Combined sigil pool — curated safe sigils from all classes for the single combined character
 const ALL_CLASS_SIGILS = [
