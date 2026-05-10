@@ -4117,6 +4117,13 @@ function getEnemyTypesForWave(wave, tankOrSplitterChoice) {
     if (wave >= 10) types.push('leech');
     if (wave >= 14) types.push('leech', 'leech'); // More leeches later
 
+    // ============ NEW ENEMY SET: pressure enemies with unique movement and attack tells ============
+    if (wave >= 6) types.push('bone_wheel');             // Fast rolling melee lane pressure
+    if (wave >= 9) types.push('bone_wheel');             // More common once players have mobility
+    if (wave >= 11) types.push('banshee');               // Ranged scream windup, punishes standing still
+    if (wave >= 15) types.push('void_lantern');          // Floating ranged pull/pulse caster
+    if (wave >= 18) types.push('grave_bell');            // Support enemy that heals nearby mobs
+
     // ============ PUSHER MOB: Grabs and pushes player toward enemies ============
     if (wave >= 8) types.push('pusher');                    // Introduced earlier so the new sprite is encountered
     if (wave >= 14) types.push('pusher');                   // More common in mid-game
@@ -4325,6 +4332,18 @@ function runSpawnSystemTests() {
     // So Normal+ should have 2x the count of Easy at wave 10+
     assert(wave10CinderCount >= 2, `Normal difficulty Wave 10 should have 2+ Cinder Wretches, got ${wave10CinderCount}`);
     // Note: Can't directly test Easy without game instance, but logic is verified by code inspection
+
+    // Test 17: New enemy rollout stays wave-gated
+    const wave6NewTypes = getEnemyTypesForWave(6, 'tank');
+    const wave10NewTypes = getEnemyTypesForWave(10, 'tank');
+    const wave11NewTypes = getEnemyTypesForWave(11, 'tank');
+    const wave15NewTypes = getEnemyTypesForWave(15, 'tank');
+    const wave18NewTypes = getEnemyTypesForWave(18, 'tank');
+    assert(wave6NewTypes.includes('bone_wheel'), 'Wave 6 should introduce Bone Wheel');
+    assert(!wave10NewTypes.includes('banshee'), 'Wave 10 should NOT have Banshee yet');
+    assert(wave11NewTypes.includes('banshee'), 'Wave 11 should introduce Banshee');
+    assert(wave15NewTypes.includes('void_lantern'), 'Wave 15 should introduce Void Lantern');
+    assert(wave18NewTypes.includes('grave_bell'), 'Wave 18 should introduce Grave Bell');
 
     // Print results
     // Test results logged internally
@@ -11673,7 +11692,11 @@ class DotsSurvivor {
             pusher:        { radius: 26, speed: 95,  health: 600,  damage: 30, xp: 15, color: '#ff9900', icon: '👊', isPusher: true, armor: 25 },
             heads:         { radius: 22, speed: 95,  health: 220,  damage: 28, xp: 7,  color: '#cc3322', icon: '',    floats: true, armor: 5 },
             fire_wyvern:   { radius: 24, speed: 92,  health: 520,  damage: 32, xp: 12, color: '#ff5a1f', icon: '',    floats: true, isFireWyvern: true, armor: 8 },
-            clowns:        { radius: 24, speed: 105, health: 320,  damage: 32, xp: 9,  color: '#7e2eaa', icon: '',    isClown: true, armor: 10 }
+            clowns:        { radius: 24, speed: 105, health: 320,  damage: 32, xp: 9,  color: '#7e2eaa', icon: '',    isClown: true, armor: 10 },
+            bone_wheel:    { radius: 18, speed: 165, health: 260,  damage: 34, xp: 8,  color: '#d8c7a3', icon: '',    isBoneWheel: true, armor: 8 },
+            banshee:       { radius: 23, speed: 82,  health: 620,  damage: 38, xp: 16, color: '#b985ff', icon: '',    isBanshee: true, floats: true, armor: 5 },
+            void_lantern:  { radius: 24, speed: 62,  health: 900,  damage: 45, xp: 22, color: '#45d7ff', icon: '',    isVoidLantern: true, floats: true, armor: 15 },
+            grave_bell:    { radius: 27, speed: 52,  health: 1300, damage: 30, xp: 28, color: '#d8b56a', icon: '',    isGraveBell: true, passive: true, armor: 30 }
         }[type] || data.basic;
 
         const sizeMult = isSplit ? 0.6 : 1;
@@ -11731,6 +11754,18 @@ class DotsSurvivor {
         e.isFireWyvern = data.isFireWyvern || false;
         e.fireSpitCooldown = e.isFireWyvern ? (1 + Math.random() * 1.2) : 0;
         e.fireSpitWindup = 0;
+        e.isBoneWheel = data.isBoneWheel || false;
+        e.wheelSpin = 0;
+        e.wheelStrafeDir = Math.random() < 0.5 ? -1 : 1;
+        e.isBanshee = data.isBanshee || false;
+        e.bansheeScreamCooldown = e.isBanshee ? (1.4 + Math.random() * 1.4) : 0;
+        e.bansheeScreamWindup = 0;
+        e.isVoidLantern = data.isVoidLantern || false;
+        e.voidPulseCooldown = e.isVoidLantern ? (2.0 + Math.random() * 1.5) : 0;
+        e.voidPulseWindup = 0;
+        e.isGraveBell = data.isGraveBell || false;
+        e.bellPulseTimer = 0;
+        e.bellHealCooldown = e.isGraveBell ? (2.0 + Math.random()) : 0;
         // Reset dynamic properties from gameplay
         e.frozen = false; e.frozenTimer = 0;
         e.invulnerable = false;
@@ -11912,7 +11947,79 @@ class DotsSurvivor {
                 speedMult *= this.corruptedEnemySpeedAura;
             }
 
-            if (e.isFireWyvern) {
+            if (e.isBoneWheel) {
+                e.wheelSpin = (e.wheelSpin || 0) + dt * 12;
+                if (d > 0) {
+                    const laneWobble = Math.sin((this.gameTime || 0) * 0.006 + e.id) * e.wheelStrafeDir;
+                    e.wx += ((dx / d) * e.speed + (-dy / d) * laneWobble * 42) * dt * speedMult;
+                    e.wy += ((dy / d) * e.speed + (dx / d) * laneWobble * 42) * dt * speedMult;
+                }
+                if (Math.random() < 0.08 && e._lod === 0) this.spawnParticles(sx, sy, '#d8c7a3', 1);
+            } else if (e.isBanshee) {
+                const screamRange = 320;
+                const preferredRange = 230;
+                e.bansheeScreamCooldown -= dt;
+                if (e.bansheeScreamWindup > 0) {
+                    e.bansheeScreamWindup -= dt;
+                    if (e.bansheeScreamWindup <= 0 && d <= screamRange) {
+                        const screamDmg = Math.floor(e.damage * 1.35);
+                        this.player.health -= this._applyPlayerDamage(screamDmg);
+                        this.combatTimer = 0;
+                        this.stickyTimer = Math.max(this.stickyTimer || 0, 0.45 * (1 - (this.ccReduction || 0)));
+                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 42, value: `SCREAM -${screamDmg}`, lifetime: 1, color: '#d9b3ff', scale: 1.05, isText: true });
+                        this.spawnParticles(this.player.x, this.player.y, '#b985ff', 12);
+                        this.triggerScreenShake(5, 0.18);
+                    }
+                }
+                if (d < preferredRange && d > 0) {
+                    e.wx -= (dx / d) * e.speed * 0.75 * dt * speedMult;
+                    e.wy -= (dy / d) * e.speed * 0.75 * dt * speedMult;
+                } else if (d > screamRange * 0.9 && d > 0) {
+                    e.wx += (dx / d) * e.speed * dt * speedMult;
+                    e.wy += (dy / d) * e.speed * dt * speedMult;
+                } else if (d > 0) {
+                    const drift = Math.sin((this.gameTime || 0) * 0.003 + e.id) * e.speed * 0.45 * dt * speedMult;
+                    e.wx += (-dy / d) * drift;
+                    e.wy += (dx / d) * drift;
+                }
+                if (d <= screamRange && e.bansheeScreamCooldown <= 0 && e.bansheeScreamWindup <= 0 && e._lod === 0) {
+                    e.bansheeScreamWindup = 0.72;
+                    e.bansheeScreamCooldown = 3.2 + Math.random() * 1.2;
+                }
+            } else if (e.isVoidLantern) {
+                const pulseRange = 380;
+                const preferredRange = 285;
+                e.voidPulseCooldown -= dt;
+                if (e.voidPulseWindup > 0) {
+                    e.voidPulseWindup -= dt;
+                    if (e.voidPulseWindup <= 0 && d <= pulseRange) {
+                        const pulseDmg = Math.floor(e.damage * 1.15);
+                        this.player.health -= this._applyPlayerDamage(pulseDmg);
+                        this.combatTimer = 0;
+                        if (d > 1) {
+                            this.worldX += (e.wx - this.worldX) / d * 70;
+                            this.worldY += (e.wy - this.worldY) / d * 70;
+                        }
+                        this.damageNumbers.push({ x: this.player.x, y: this.player.y - 48, value: `VOID PULL -${pulseDmg}`, lifetime: 1, color: '#45d7ff', scale: 1.05, isText: true });
+                        this.spawnParticles(this.player.x, this.player.y, '#45d7ff', 14);
+                    }
+                }
+                if (d < preferredRange && d > 0) {
+                    e.wx -= (dx / d) * e.speed * 0.7 * dt * speedMult;
+                    e.wy -= (dy / d) * e.speed * 0.7 * dt * speedMult;
+                } else if (d > pulseRange * 0.85 && d > 0) {
+                    e.wx += (dx / d) * e.speed * dt * speedMult;
+                    e.wy += (dy / d) * e.speed * dt * speedMult;
+                } else if (d > 0) {
+                    const orbit = ((e.id % 2) ? 1 : -1) * e.speed * 0.38 * dt * speedMult;
+                    e.wx += (-dy / d) * orbit;
+                    e.wy += (dx / d) * orbit;
+                }
+                if (d <= pulseRange && e.voidPulseCooldown <= 0 && e.voidPulseWindup <= 0 && e._lod === 0) {
+                    e.voidPulseWindup = 0.85;
+                    e.voidPulseCooldown = 4.2 + Math.random() * 1.5;
+                }
+            } else if (e.isFireWyvern) {
                 const spitRange = 430;
                 const preferredRange = 310;
                 e.fireSpitCooldown -= dt;
@@ -11943,6 +12050,31 @@ class DotsSurvivor {
                 }
                 e.wx += Math.cos(e.wanderAngle) * e.speed * dt * 0.5 * speedMult;
                 e.wy += Math.sin(e.wanderAngle) * e.speed * dt * 0.5 * speedMult;
+                if (e.isGraveBell && e._lod === 0) {
+                    e.bellHealCooldown -= dt;
+                    e.bellPulseTimer = Math.max(0, (e.bellPulseTimer || 0) - dt);
+                    if (e.bellHealCooldown <= 0) {
+                        e.bellHealCooldown = 3.0;
+                        e.bellPulseTimer = 0.7;
+                        let healed = 0;
+                        for (const ally of this.enemies) {
+                            if (ally === e || ally.isBoss || ally.health <= 0) continue;
+                            const adx = ally.wx - e.wx;
+                            const ady = ally.wy - e.wy;
+                            if (adx * adx + ady * ady <= 420 * 420) {
+                                const heal = Math.floor(Math.min(ally.maxHealth - ally.health, Math.max(10, ally.maxHealth * 0.06)));
+                                if (heal > 0) {
+                                    ally.health += heal;
+                                    healed++;
+                                }
+                            }
+                        }
+                        if (healed > 0) {
+                            this.damageNumbers.push({ x: sx, y: sy - 28, value: `BELL +${healed}`, lifetime: 1, color: '#ffd37a', scale: 0.9, isText: true });
+                            this.spawnParticles(sx, sy, '#d8b56a', 10);
+                        }
+                    }
+                }
             } else if (e.tauntTarget && e.tauntTimer > 0) {
                 // Taunted - move towards taunt target (Shadow Monarch thrall)
                 const tdx = e.tauntTarget.x - e.wx;
@@ -12264,6 +12396,121 @@ class DotsSurvivor {
         }
     }
 
+    isProceduralEnemyType(type) {
+        return type === 'bone_wheel' || type === 'banshee' || type === 'void_lantern' || type === 'grave_bell';
+    }
+
+    drawProceduralEnemy(ctx, e, sx, sy, alpha = 1) {
+        if (!this.isProceduralEnemyType(e.type)) return false;
+        const t = (this.gameTime || 0) * 0.001;
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        ctx.translate(sx, sy);
+
+        if (e.type === 'bone_wheel') {
+            const spin = e.wheelSpin || t * 12;
+            ctx.rotate(spin);
+            ctx.strokeStyle = e.hitFlash > 0 ? '#fff' : '#d8c7a3';
+            ctx.lineWidth = 5;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#d8c7a3';
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius * 0.95, 0, Math.PI * 2);
+            ctx.stroke();
+            for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(a) * e.radius * 0.25, Math.sin(a) * e.radius * 0.25);
+                ctx.lineTo(Math.cos(a) * e.radius * 1.15, Math.sin(a) * e.radius * 1.15);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#291d17';
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius * 0.32, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (e.type === 'banshee') {
+            const windup = Math.max(0, e.bansheeScreamWindup || 0);
+            const floatY = Math.sin(t * 5 + e.id) * 4;
+            if (windup > 0) {
+                const r = e.radius * (3.2 - windup * 1.4);
+                ctx.strokeStyle = `rgba(217,179,255,${0.25 + windup * 0.45})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, floatY, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            const body = ctx.createRadialGradient(-e.radius * 0.2, floatY - e.radius * 0.3, 0, 0, floatY, e.radius * 1.35);
+            body.addColorStop(0, e.hitFlash > 0 ? '#fff' : '#efdfff');
+            body.addColorStop(0.45, '#8e58d8');
+            body.addColorStop(1, 'rgba(40,18,70,0.1)');
+            ctx.fillStyle = body;
+            ctx.beginPath();
+            ctx.moveTo(0, floatY - e.radius * 1.2);
+            ctx.quadraticCurveTo(-e.radius * 0.95, floatY - e.radius * 0.25, -e.radius * 0.35, floatY + e.radius * 1.2);
+            ctx.quadraticCurveTo(0, floatY + e.radius * 0.78, e.radius * 0.35, floatY + e.radius * 1.2);
+            ctx.quadraticCurveTo(e.radius * 0.95, floatY - e.radius * 0.25, 0, floatY - e.radius * 1.2);
+            ctx.fill();
+            ctx.fillStyle = '#08000f';
+            ctx.beginPath();
+            ctx.arc(-e.radius * 0.28, floatY - e.radius * 0.2, 3, 0, Math.PI * 2);
+            ctx.arc(e.radius * 0.28, floatY - e.radius * 0.2, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#08000f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, floatY + e.radius * 0.08, e.radius * (windup > 0 ? 0.28 : 0.16), 0, Math.PI);
+            ctx.stroke();
+        } else if (e.type === 'void_lantern') {
+            const windup = Math.max(0, e.voidPulseWindup || 0);
+            const bob = Math.sin(t * 4 + e.id) * 5;
+            for (let i = 0; i < 3; i++) {
+                ctx.rotate((Math.PI * 2) / 3);
+                ctx.strokeStyle = `rgba(69,215,255,${0.2 + windup * 0.25})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(0, bob, e.radius * (1.15 + i * 0.18), e.radius * 0.45, t * 2 + i, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            const glow = ctx.createRadialGradient(0, bob, 0, 0, bob, e.radius * 1.5);
+            glow.addColorStop(0, e.hitFlash > 0 ? '#fff' : '#dfffff');
+            glow.addColorStop(0.42, '#45d7ff');
+            glow.addColorStop(1, 'rgba(20,25,80,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(0, bob, e.radius * (0.78 + windup * 0.18), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#061421';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-e.radius * 0.48, bob - e.radius * 0.85, e.radius * 0.96, e.radius * 1.7);
+        } else if (e.type === 'grave_bell') {
+            const pulse = Math.max(0, e.bellPulseTimer || 0);
+            if (pulse > 0) {
+                ctx.strokeStyle = `rgba(255,211,122,${pulse})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius * (2.2 - pulse), 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.fillStyle = e.hitFlash > 0 ? '#fff' : '#2a2118';
+            ctx.beginPath();
+            ctx.moveTo(-e.radius * 0.8, e.radius * 0.8);
+            ctx.quadraticCurveTo(-e.radius * 0.9, -e.radius * 0.55, 0, -e.radius * 1.05);
+            ctx.quadraticCurveTo(e.radius * 0.9, -e.radius * 0.55, e.radius * 0.8, e.radius * 0.8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#d8b56a';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillStyle = '#d8b56a';
+            ctx.beginPath();
+            ctx.arc(0, e.radius * 0.72 + Math.sin(t * 8) * 3, e.radius * 0.18, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+        return true;
+    }
+
     getEnemyAnimState(e, sx, sy) {
         if (!ENEMY_ANIM_SHEETS[e.type]) return null;
         if (e.isFireWyvern && e.fireSpitWindup > 0) return 'attack';
@@ -12299,7 +12546,9 @@ class DotsSurvivor {
     }
 
     spawnEnemyDeathAnim(e) {
-        if (!ENEMY_ANIM_SHEETS[e.type]?.death) return;
+        const hasSheet = !!ENEMY_ANIM_SHEETS[e.type]?.death;
+        const procedural = this.isProceduralEnemyType(e.type);
+        if (!hasSheet && !procedural) return;
         if (!this.enemyDeathAnims) this.enemyDeathAnims = [];
         this.enemyDeathAnims.push({
             type: e.type,
@@ -12307,7 +12556,9 @@ class DotsSurvivor {
             wy: e.wy,
             radius: e.radius,
             startedAt: this.gameTime || 0,
-            durationMs: 520
+            durationMs: procedural ? 420 : 520,
+            color: e.color,
+            procedural
         });
     }
 
@@ -12318,12 +12569,33 @@ class DotsSurvivor {
             const d = this.enemyDeathAnims[i];
             const def = ENEMY_ANIM_SHEETS[d.type]?.death;
             const sheet = def ? SPRITE_CACHE[def.key] : null;
-            if (!def || !sheet) {
+            const elapsed = now - d.startedAt;
+            if (elapsed > d.durationMs) {
                 this.enemyDeathAnims.splice(i, 1);
                 continue;
             }
-            const elapsed = now - d.startedAt;
-            if (elapsed > d.durationMs) {
+            if (d.procedural) {
+                const sx = this.player.x + (d.wx - this.worldX);
+                const sy = this.player.y + (d.wy - this.worldY);
+                const p = elapsed / d.durationMs;
+                ctx.save();
+                ctx.globalAlpha = 1 - p;
+                ctx.strokeStyle = d.color || '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(sx, sy, d.radius * (1 + p * 2.6), 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = d.color || '#ffffff';
+                for (let s = 0; s < 6; s++) {
+                    const a = (s / 6) * Math.PI * 2 + p * 2;
+                    ctx.beginPath();
+                    ctx.arc(sx + Math.cos(a) * d.radius * p * 2.3, sy + Math.sin(a) * d.radius * p * 2.3, Math.max(2, d.radius * 0.13), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+                continue;
+            }
+            if (!def || !sheet) {
                 this.enemyDeathAnims.splice(i, 1);
                 continue;
             }
@@ -19122,8 +19394,9 @@ class DotsSurvivor {
                 const animState = this.getEnemyAnimState(e, sx, sy);
                 const drewAnim = animState && this.drawEnemyAnimSprite(ctx, e, sx, sy, animState);
                 if (drewAnim && e.hitFlash > 0) this.drawEnemyAnimSprite(ctx, e, sx, sy, animState, true);
+                const drewProcedural = !drewAnim && this.drawProceduralEnemy(ctx, e, sx, sy, alpha);
                 const sprite = SPRITE_CACHE[e.type];
-                if (!drewAnim && sprite) {
+                if (!drewAnim && !drewProcedural && sprite) {
                     // Render sprite at ~3.0x radius — bigger than the original
                     // 2.6× so the demonic art reads, but not so large that the
                     // ~30 simultaneous drawImages spike the GPU compositor.
@@ -19136,7 +19409,7 @@ class DotsSurvivor {
                         ctx.globalCompositeOperation = 'source-over';
                         ctx.globalAlpha = alpha;
                     }
-                } else if (!drewAnim) {
+                } else if (!drewAnim && !drewProcedural) {
                     // Fallback: colored circle while sprite still loads (or if none exists)
                     ctx.beginPath();
                     ctx.arc(sx, sy, e.radius, 0, Math.PI * 2);
