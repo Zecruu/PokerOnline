@@ -438,6 +438,33 @@ const ANGELIC_KNIGHT_WALK_SPRITE = {
     fps: 11,
 };
 
+// Fire Sovereign — single badass design, animated. Replaces the old
+// fire-mage-lv1..21 progression sprites entirely.
+const FIRE_SOVEREIGN_IDLE_SPRITE = {
+    path: 'characters/fire-sovereign-idle-s.png',
+    frameWidth: 256,
+    frameHeight: 256,
+    frameCount: 6,
+    columns: 3,
+    fps: 7,
+};
+const FIRE_SOVEREIGN_WALK_SPRITE = {
+    path: 'characters/fire-sovereign-walk-s.png',
+    frameWidth: 256,
+    frameHeight: 256,
+    frameCount: 6,
+    columns: 3,
+    fps: 10,
+};
+const FIRE_SOVEREIGN_CAST_SPRITE = {
+    path: 'characters/fire-sovereign-cast-s.png',
+    frameWidth: 256,
+    frameHeight: 256,
+    frameCount: 6,
+    columns: 3,
+    fps: 12,
+};
+
 const AUTO_ATTACK_DEFS = {
     projectile: {
         id: 'projectile',
@@ -1591,6 +1618,67 @@ const ENEMY_ANIM_SHEETS = {
         walk: { key: 'enemy_fire_wyvern_walk', path: 'enemies/fire-wyvern-heads-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
         attack: { key: 'enemy_fire_wyvern_attack', path: 'enemies/fire-wyvern-heads-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
         death: { key: 'enemy_fire_wyvern_death', path: 'enemies/fire-wyvern-heads-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    // ── 12 new enemies generated via gpt-image-2 (May 2026) ──
+    tank: {
+        walk: { key: 'enemy_tank_walk', path: 'enemies/plate-corpse-tank-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 6 },
+        attack: { key: 'enemy_tank_attack', path: 'enemies/plate-corpse-tank-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
+        death: { key: 'enemy_tank_death', path: 'enemies/plate-corpse-tank-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 }
+    },
+    splitter: {
+        walk: { key: 'enemy_splitter_walk', path: 'enemies/larva-bloated-splitter-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
+        attack: { key: 'enemy_splitter_attack', path: 'enemies/larva-bloated-splitter-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        death: { key: 'enemy_splitter_death', path: 'enemies/larva-bloated-splitter-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    bomber: {
+        walk: { key: 'enemy_bomber_walk', path: 'enemies/chained-husk-bomber-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        attack: { key: 'enemy_bomber_attack', path: 'enemies/chained-husk-bomber-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 13 },
+        death: { key: 'enemy_bomber_death', path: 'enemies/chained-husk-bomber-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 14 }
+    },
+    mini: {
+        walk: { key: 'enemy_mini_walk', path: 'enemies/severed-head-mini-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
+        attack: { key: 'enemy_mini_attack', path: 'enemies/severed-head-mini-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 13 },
+        death: { key: 'enemy_mini_death', path: 'enemies/severed-head-mini-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    sticky: {
+        walk: { key: 'enemy_sticky_walk', path: 'enemies/gore-blob-sticky-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 7 },
+        attack: { key: 'enemy_sticky_attack', path: 'enemies/gore-blob-sticky-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
+        death: { key: 'enemy_sticky_death', path: 'enemies/gore-blob-sticky-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 }
+    },
+    goblin: {
+        walk: { key: 'enemy_goblin_walk', path: 'enemies/imp-scavenger-goblin-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        attack: { key: 'enemy_goblin_attack', path: 'enemies/imp-scavenger-goblin-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 },
+        death: { key: 'enemy_goblin_death', path: 'enemies/imp-scavenger-goblin-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    necromancer: {
+        walk: { key: 'enemy_necromancer_walk', path: 'enemies/cultist-hollow-necromancer-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 8 },
+        attack: { key: 'enemy_necromancer_attack', path: 'enemies/cultist-hollow-necromancer-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        death: { key: 'enemy_necromancer_death', path: 'enemies/cultist-hollow-necromancer-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    magma_crawler: {
+        walk: { key: 'enemy_magma_crawler_walk', path: 'enemies/magma-arachnid-crawler-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        attack: { key: 'enemy_magma_crawler_attack', path: 'enemies/magma-arachnid-crawler-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 },
+        death: { key: 'enemy_magma_crawler_death', path: 'enemies/magma-arachnid-crawler-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    leech: {
+        walk: { key: 'enemy_leech_walk', path: 'enemies/bile-worm-leech-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
+        attack: { key: 'enemy_leech_attack', path: 'enemies/bile-worm-leech-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 13 },
+        death: { key: 'enemy_leech_death', path: 'enemies/bile-worm-leech-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    pusher: {
+        walk: { key: 'enemy_pusher_walk', path: 'enemies/bone-titan-pusher-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 7 },
+        attack: { key: 'enemy_pusher_attack', path: 'enemies/bone-titan-pusher-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        death: { key: 'enemy_pusher_death', path: 'enemies/bone-titan-pusher-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 }
+    },
+    clowns: {
+        walk: { key: 'enemy_clowns_walk', path: 'enemies/mask-jester-clowns-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 10 },
+        attack: { key: 'enemy_clowns_attack', path: 'enemies/mask-jester-clowns-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 13 },
+        death: { key: 'enemy_clowns_death', path: 'enemies/mask-jester-clowns-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
+    },
+    wraith: {
+        walk: { key: 'enemy_wraith_walk', path: 'enemies/shadow-specter-wraith-walk.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 9 },
+        attack: { key: 'enemy_wraith_attack', path: 'enemies/shadow-specter-wraith-attack.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 11 },
+        death: { key: 'enemy_wraith_death', path: 'enemies/shadow-specter-wraith-death.png', frameWidth: 64, frameHeight: 64, frames: 6, fps: 12 }
     }
 };
 
@@ -1795,6 +1883,9 @@ function initSprites() {
     }
     loadSprite('ak_idle_s', getAssetUrl(ANGELIC_KNIGHT_IDLE_SPRITE.path) + '?v=2', true);
     loadSprite('ak_walk_s', getAssetUrl(ANGELIC_KNIGHT_WALK_SPRITE.path) + '?v=1', true);
+    loadSprite('fs_idle_s', getAssetUrl(FIRE_SOVEREIGN_IDLE_SPRITE.path) + '?v=1', true);
+    loadSprite('fs_walk_s', getAssetUrl(FIRE_SOVEREIGN_WALK_SPRITE.path) + '?v=1', true);
+    loadSprite('fs_cast_s', getAssetUrl(FIRE_SOVEREIGN_CAST_SPRITE.path) + '?v=1', true);
     // Void Blade (Azura) sprites
     for (const [level, path] of Object.entries(VOID_BLADE_SPRITES)) {
         loadSprite('vb_' + level, getAssetUrl(path) + '?v=2', true);
@@ -18422,10 +18513,9 @@ class DotsSurvivor {
         if (statSlashes) {
             statSlashes.textContent = String(1 + (this._itemSlashMultiplier || 0));
         }
-        // Passive stack display — rebuilt whenever the passive changes so a
-        // fresh run with a different passive doesn't show the previous one's
-        // name/icon. Uses the passive sprite (passives/<id>.png) instead of
-        // emoji, falling back to the emoji if the sprite hasn't loaded.
+        // Passive stack display — rebuilt structurally on class change, then
+        // a `#stat-passive-stacks` span is updated each frame with the live
+        // stack count (Pyre Fuel kills, Cosmic Stardust accumulators, etc.).
         const passive = this.selectedClass?.passive;
         if (passive) {
             let row = document.getElementById('stat-passive-row');
@@ -18441,7 +18531,12 @@ class DotsSurvivor {
                     <span style="color:${this.selectedClass.color};display:inline-flex;align-items:center;gap:4px;">
                         ${passive.icon || this.selectedClass.icon}
                         ${passive.name.toUpperCase()}
+                        <span id="stat-passive-stacks" style="margin-left:6px;color:#fbbf24;font-weight:900;">x0</span>
                     </span>`;
+            }
+            const stackEl = document.getElementById('stat-passive-stacks');
+            if (stackEl) {
+                stackEl.textContent = `x${Math.floor(this.passiveStacks || 0)}`;
             }
         }
 
@@ -18528,6 +18623,19 @@ class DotsSurvivor {
     async gameOver() {
         this.gameRunning = false;
 
+        // Submit run to leaderboard (no-op if the client script isn't loaded
+        // or no player name is set — fully fire-and-forget).
+        if (typeof window.submitVeltharaRun === "function") {
+            try {
+                window.submitVeltharaRun({
+                    character: this.selectedClass?.id || "fire_sovereign",
+                    wave: this.wave || 0,
+                    kills: this.player?.kills || 0,
+                    level: this.player?.level || 0,
+                });
+            } catch (_) {}
+        }
+
         // Stop all game sounds
         this.stopGameMusic();
         this.stopBossMusic();
@@ -18542,10 +18650,8 @@ class DotsSurvivor {
         // Hide HUD
         document.getElementById('game-hud').classList.add('hidden');
 
-        // Show death video first
-        await this.playDeathVideo();
-
-        // Play menu music after video
+        // Death video removed — go straight to the gameover menu so the
+        // run-end loop is snappier (no 5-10s video gating the restart).
         this.playMenuMusic();
 
         const m = Math.floor(this.gameTime / 60000), s = Math.floor((this.gameTime % 60000) / 1000);
@@ -23255,17 +23361,51 @@ class DotsSurvivor {
             ctx.save();
             ctx.translate(p.x, p.y);
             const size = p.radius * 4; // Mage sprite display size
-            if (this.selectedClass?.id === 'angelic_knight') {
+            // Common movement detection used by all animated character classes.
+            const isMovingCommon = !!(
+                this.keys?.w || this.keys?.arrowup ||
+                this.keys?.s || this.keys?.arrowdown ||
+                this.keys?.a || this.keys?.arrowleft ||
+                this.keys?.d || this.keys?.arrowright
+            );
+            if (this.selectedClass?.id === 'fire_sovereign') {
+                const idleSheet = SPRITE_CACHE.fs_idle_s;
+                const walkSheet = SPRITE_CACHE.fs_walk_s;
+                const castSheet = SPRITE_CACHE.fs_cast_s;
+                const idle = FIRE_SOVEREIGN_IDLE_SPRITE;
+                const walk = FIRE_SOVEREIGN_WALK_SPRITE;
+                const cast = FIRE_SOVEREIGN_CAST_SPRITE;
+                // Cast animation triggers briefly after each fire-slash / fireball.
+                const lastShot = this.weapons?.bullet?.lastFired || 0;
+                const sinceShot = (this.gameTime || 0) - lastShot;
+                const isCasting = !!(
+                    (lastShot > 0 && sinceShot < 320) ||
+                    this.solarCataclysmActive ||
+                    (this.activeFireSlashes && this.activeFireSlashes.length)
+                );
+                let sheetDef = null;
+                let sheet = null;
+                if (isCasting && castSheet) { sheetDef = cast; sheet = castSheet; }
+                else if (isMovingCommon && walkSheet) { sheetDef = walk; sheet = walkSheet; }
+                else if (idleSheet) { sheetDef = idle; sheet = idleSheet; }
+                if (sheet && sheetDef) {
+                    const frame = Math.floor((this.gameTime || 0) / (1000 / sheetDef.fps)) % sheetDef.frameCount;
+                    const sx = (frame % sheetDef.columns) * sheetDef.frameWidth;
+                    const sy = Math.floor(frame / sheetDef.columns) * sheetDef.frameHeight;
+                    ctx.drawImage(
+                        sheet, sx, sy, sheetDef.frameWidth, sheetDef.frameHeight,
+                        -size / 2, -size / 2, size, size,
+                    );
+                } else {
+                    // Sheets still loading — fall back to the legacy single sprite.
+                    ctx.drawImage(playerSprite, -size / 2, -size / 2, size, size);
+                }
+            } else if (this.selectedClass?.id === 'angelic_knight') {
                 const idleSheet = SPRITE_CACHE.ak_idle_s;
                 const walkSheet = SPRITE_CACHE.ak_walk_s;
                 const idle = ANGELIC_KNIGHT_IDLE_SPRITE;
                 const walk = ANGELIC_KNIGHT_WALK_SPRITE;
-                const isMoving = !!(
-                    this.keys?.w || this.keys?.arrowup ||
-                    this.keys?.s || this.keys?.arrowdown ||
-                    this.keys?.a || this.keys?.arrowleft ||
-                    this.keys?.d || this.keys?.arrowright
-                );
+                const isMoving = isMovingCommon;
                 const isActing = !!(
                     this.activeLightSlashes?.length ||
                     this.radiantLances?.length ||

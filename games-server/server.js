@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { Server: SocketServer } = require('socket.io');
+const leaderboard = require('./leaderboard');
 
 // ============================================
 // STRIPE CONFIGURATION (Add API keys when ready)
@@ -73,6 +74,14 @@ const cacheOptions = {
         }
     }
 };
+
+// JSON body parser scoped to leaderboard endpoints (other routes manage their
+// own parsers — Stripe webhook needs raw body, etc.).
+app.use('/api/leaderboard', express.json({ limit: '4kb' }));
+leaderboard.mountRoutes(app);
+// Mongo connect is non-blocking; if it fails the leaderboard routes return 503
+// instead of crashing the server.
+leaderboard.connect(process.env.MONGODB_URI?.trim());
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public'), cacheOptions));
