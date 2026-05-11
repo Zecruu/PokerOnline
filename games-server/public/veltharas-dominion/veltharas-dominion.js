@@ -440,16 +440,17 @@ const ANGELIC_KNIGHT_WALK_SPRITE = {
 
 // Fire Sovereign — single badass design, animated. Replaces the old
 // fire-mage-lv1..21 progression sprites entirely.
-// FPS lowered so the subtle frame-to-frame variation (gpt-image-2 produced
-// near-identical poses across cells) reads as "alive" rather than "twitching".
-// Each frame holds ~200-330ms instead of ~80-140ms.
+// Critter-Colony approach: idle is a single static frame (no animation), so
+// the player character isn't twitching when standing still. Walk + cast keep
+// some animation but at conservative FPS so the eye doesn't catch the
+// frame-to-frame jitter from gpt-image-2's loose pose consistency.
 const FIRE_SOVEREIGN_IDLE_SPRITE = {
     path: 'characters/fire-sovereign-idle-s.png',
     frameWidth: 256,
     frameHeight: 256,
-    frameCount: 6,
+    frameCount: 1, // single static pose
     columns: 3,
-    fps: 3,
+    fps: 1,
 };
 const FIRE_SOVEREIGN_WALK_SPRITE = {
     path: 'characters/fire-sovereign-walk-s.png',
