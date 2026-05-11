@@ -440,13 +440,16 @@ const ANGELIC_KNIGHT_WALK_SPRITE = {
 
 // Fire Sovereign — single badass design, animated. Replaces the old
 // fire-mage-lv1..21 progression sprites entirely.
+// FPS lowered so the subtle frame-to-frame variation (gpt-image-2 produced
+// near-identical poses across cells) reads as "alive" rather than "twitching".
+// Each frame holds ~200-330ms instead of ~80-140ms.
 const FIRE_SOVEREIGN_IDLE_SPRITE = {
     path: 'characters/fire-sovereign-idle-s.png',
     frameWidth: 256,
     frameHeight: 256,
     frameCount: 6,
     columns: 3,
-    fps: 7,
+    fps: 3,
 };
 const FIRE_SOVEREIGN_WALK_SPRITE = {
     path: 'characters/fire-sovereign-walk-s.png',
@@ -454,7 +457,7 @@ const FIRE_SOVEREIGN_WALK_SPRITE = {
     frameHeight: 256,
     frameCount: 6,
     columns: 3,
-    fps: 10,
+    fps: 5,
 };
 const FIRE_SOVEREIGN_CAST_SPRITE = {
     path: 'characters/fire-sovereign-cast-s.png',
@@ -462,7 +465,7 @@ const FIRE_SOVEREIGN_CAST_SPRITE = {
     frameHeight: 256,
     frameCount: 6,
     columns: 3,
-    fps: 12,
+    fps: 7,
 };
 
 const AUTO_ATTACK_DEFS = {
