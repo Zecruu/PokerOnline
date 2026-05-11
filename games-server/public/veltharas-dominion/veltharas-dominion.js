@@ -12762,6 +12762,13 @@ class DotsSurvivor {
         this.player.kills++;
         this.playSound('kill');
 
+        // Fire passive onKill hook (Pyre Fuel +1 stack, etc.). The PASSIVE_DEFS
+        // declared this hook but nothing was calling it.
+        try {
+            const passive = this.selectedClass?.passive;
+            if (passive?.onKill) passive.onKill(this);
+        } catch (_) {}
+
         if (this.selectedClass?.id === 'angelic_knight' && e.radiantMark?.stacks > 0) {
             if (this.radiantMarkKillHeal) {
                 const heal = Math.floor(this.player.maxHealth * this.radiantMarkKillHeal);
@@ -23376,8 +23383,11 @@ class DotsSurvivor {
                 const walk = FIRE_SOVEREIGN_WALK_SPRITE;
                 const cast = FIRE_SOVEREIGN_CAST_SPRITE;
                 // Cast animation triggers briefly after each fire-slash / fireball.
+                // Use performance.now() to match lastFired's timescale; gameTime
+                // is elapsed-game-ms (starts at 0) and lastFired is browser uptime,
+                // so subtracting them gave a huge negative → isCasting was always true.
                 const lastShot = this.weapons?.bullet?.lastFired || 0;
-                const sinceShot = (this.gameTime || 0) - lastShot;
+                const sinceShot = performance.now() - lastShot;
                 const isCasting = !!(
                     (lastShot > 0 && sinceShot < 320) ||
                     this.solarCataclysmActive ||
