@@ -1,0 +1,40 @@
+[gd_scene format=3 uid="uid://65v8v54g45q1"]
+
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="1_pause"]
+
+[node name="PauseMenu" type="CanvasLayer"]
+layer = 25
+script = ExtResource("1_pause")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.65)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Box" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(380, 280)
+
+[node name="Inner" type="VBoxContainer" parent="Center/Box"]
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Center/Box/Inner"]
+text = "PAUSED"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.83, 0.27, 1)
+theme_override_font_sizes/font_size = 28
+
+[node name="ResumeBtn" type="Button" parent="Center/Box/Inner"]
+text = "Resume"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="SettingsBtn" type="Button" parent="Center/Box/Inner"]
+text = "Settings"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="QuitBtn" type="Button" parent="Center/Box/Inner"]
+text = "Quit to Menu"
+custom_minimum_size = Vector2(0, 44)

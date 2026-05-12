@@ -1,0 +1,308 @@
+[gd_scene load_steps=8 format=3 uid="uid://b7v3hud2k1m1"]
+
+[ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
+
+[sub_resource type="StyleBoxFlat" id="hp_bg"]
+bg_color = Color(0.10, 0.05, 0.05, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.35, 0.15, 0.15, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="hp_fill"]
+bg_color = Color(0.88, 0.22, 0.22, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="xp_bg"]
+bg_color = Color(0.06, 0.06, 0.12, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.2, 0.4, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="xp_fill"]
+bg_color = Color(1.0, 0.83, 0.27, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="slot_bg"]
+bg_color = Color(0.06, 0.04, 0.04, 0.7)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.35, 0.25, 0.15, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="Hud" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_hud")
+
+[node name="TopBar" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 8.0
+offset_bottom = 40.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="WaveLabel" type="Label" parent="TopBar"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 4.0
+offset_right = 200.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(0.85, 0.55, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Wave 1"
+
+[node name="KillsLabel" type="Label" parent="TopBar"]
+layout_mode = 0
+offset_left = 220.0
+offset_top = 4.0
+offset_right = 400.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 20
+text = "Kills: 0"
+
+[node name="AliveLabel" type="Label" parent="TopBar"]
+layout_mode = 0
+offset_left = 420.0
+offset_top = 4.0
+offset_right = 600.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(1, 0.45, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+text = "Enemies: 0"
+
+[node name="SoulsLabel" type="Label" parent="TopBar"]
+layout_mode = 0
+offset_left = 620.0
+offset_top = 4.0
+offset_right = 820.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "Souls: 0"
+
+[node name="BestLabel" type="Label" parent="TopBar"]
+layout_mode = 0
+offset_left = 840.0
+offset_top = 4.0
+offset_right = 1200.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(0.85, 0.7, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Best: W0 K0 L0"
+
+[node name="ChallengesBox" type="VBoxContainer" parent="."]
+offset_left = 20.0
+offset_top = 90.0
+offset_right = 360.0
+offset_bottom = 240.0
+theme_override_constants/separation = 2
+
+[node name="SettingsBtn" type="Button" parent="."]
+anchor_right = 1.0
+offset_left = -110.0
+offset_top = 8.0
+offset_right = -10.0
+offset_bottom = 36.0
+text = "Settings"
+
+[node name="Stats" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -110.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="HpBar" type="ProgressBar" parent="Stats"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 10.0
+offset_right = 340.0
+offset_bottom = 38.0
+max_value = 100.0
+value = 100.0
+show_percentage = false
+theme_override_styles/background = SubResource("hp_bg")
+theme_override_styles/fill = SubResource("hp_fill")
+
+[node name="HpLabel" type="Label" parent="Stats"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 12.0
+offset_right = 340.0
+offset_bottom = 38.0
+theme_override_colors/font_color = Color(1, 0.95, 0.92, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 16
+text = "100 / 100"
+
+[node name="XpBar" type="ProgressBar" parent="Stats"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 46.0
+offset_right = 340.0
+offset_bottom = 72.0
+max_value = 50.0
+value = 0.0
+show_percentage = false
+theme_override_styles/background = SubResource("xp_bg")
+theme_override_styles/fill = SubResource("xp_fill")
+
+[node name="LevelLabel" type="Label" parent="Stats"]
+layout_mode = 0
+offset_left = 350.0
+offset_top = 46.0
+offset_right = 500.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(1, 0.83, 0.27, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 20
+text = "Lv.1"
+
+[node name="PyreFuelLabel" type="Label" parent="Stats"]
+layout_mode = 0
+offset_left = 350.0
+offset_top = 12.0
+offset_right = 600.0
+offset_bottom = 38.0
+theme_override_colors/font_color = Color(1, 0.45, 0.18, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 16
+text = "Pyre Fuel x0"
+
+[node name="AbilityBar" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 13
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -86.0
+offset_right = -10.0
+offset_bottom = -10.0
+mouse_filter = 2
+
+[node name="QSlot" type="Panel" parent="AbilityBar"]
+offset_right = 72.0
+offset_bottom = 72.0
+theme_override_styles/panel = SubResource("slot_bg")
+
+[node name="QLabel" type="Label" parent="AbilityBar/QSlot"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
+theme_override_font_sizes/font_size = 30
+text = "Q"
+
+[node name="QCdLabel" type="Label" parent="AbilityBar/QSlot"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 20
+text = ""
+
+[node name="ESlot" type="Panel" parent="AbilityBar"]
+offset_left = 84.0
+offset_right = 156.0
+offset_bottom = 72.0
+theme_override_styles/panel = SubResource("slot_bg")
+
+[node name="ELabel" type="Label" parent="AbilityBar/ESlot"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.55, 0.3, 1)
+theme_override_font_sizes/font_size = 30
+text = "E"
+
+[node name="ECdLabel" type="Label" parent="AbilityBar/ESlot"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 20
+text = ""
+
+[node name="PowerupBar" type="HBoxContainer" parent="."]
+anchor_top = 0.0
+offset_left = 20.0
+offset_top = 44.0
+offset_right = 700.0
+offset_bottom = 80.0
+theme_override_constants/separation = 12
+
+[node name="FlashLabel" type="Label" parent="."]
+anchor_left = 0.5
+anchor_top = 0.35
+anchor_right = 0.5
+anchor_bottom = 0.35
+offset_left = -200.0
+offset_top = -40.0
+offset_right = 200.0
+offset_bottom = 40.0
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.85, 0.27, 1)
+theme_override_font_sizes/font_size = 48
+text = ""
+
+[node name="GameOverPanel" type="Panel" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -120.0
+offset_right = 280.0
+offset_bottom = 120.0
+
+[node name="Label" type="Label" parent="GameOverPanel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.45, 0.45, 1)
+theme_override_font_sizes/font_size = 22
+text = "YOUR DOMINION HAS FALLEN"

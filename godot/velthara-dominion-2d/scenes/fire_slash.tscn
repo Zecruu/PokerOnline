@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://b7v3slash2k1m1"]
+
+[ext_resource type="Script" path="res://scripts/fire_slash.gd" id="1_slash"]
+
+[node name="FireSlash" type="Node2D"]
+z_index = 5
+script = ExtResource("1_slash")

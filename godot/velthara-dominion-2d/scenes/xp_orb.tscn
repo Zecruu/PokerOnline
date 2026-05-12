@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://b7v3xp2k1m1"]
+
+[ext_resource type="Script" path="res://scripts/xp_orb.gd" id="1_xp"]
+
+[sub_resource type="CircleShape2D" id="cs_xp"]
+radius = 8.0
+
+[node name="XpOrb" type="Area2D"]
+collision_layer = 16
+collision_mask = 1
+script = ExtResource("1_xp")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("cs_xp")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(1, 0.85, 0.2, 1)
+polygon = PackedVector2Array(-6, 0, 0, -8, 6, 0, 0, 8)

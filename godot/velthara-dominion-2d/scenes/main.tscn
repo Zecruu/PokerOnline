@@ -1,0 +1,43 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://ui/hud.tscn" id="3_hud"]
+[ext_resource type="Script" path="res://scripts/wave_manager.gd" id="4_waves"]
+[ext_resource type="PackedScene" path="res://ui/sigil_offer_panel.tscn" id="5_offer"]
+[ext_resource type="PackedScene" path="res://ui/soul_shop_panel.tscn" id="6_shop"]
+[ext_resource type="PackedScene" path="res://ui/inventory_panel.tscn" id="7_inv"]
+[ext_resource type="Script" path="res://scripts/event_manager.gd" id="8_events"]
+[ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="9_pause"]
+[ext_resource type="PackedScene" path="res://ui/run_summary.tscn" id="10_runsum"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Background" type="TextureRect" parent="."]
+offset_left = -2000.0
+offset_top = -2000.0
+offset_right = 2000.0
+offset_bottom = 2000.0
+mouse_filter = 2
+z_index = -10
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+
+[node name="WaveManager" type="Node" parent="."]
+script = ExtResource("4_waves")
+
+[node name="EventManager" type="Node" parent="."]
+script = ExtResource("8_events")
+
+[node name="Hud" parent="." instance=ExtResource("3_hud")]
+
+[node name="SigilOfferPanel" parent="." instance=ExtResource("5_offer")]
+
+[node name="SoulShopPanel" parent="." instance=ExtResource("6_shop")]
+
+[node name="InventoryPanel" parent="." instance=ExtResource("7_inv")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("9_pause")]
+
+[node name="RunSummary" parent="." instance=ExtResource("10_runsum")]

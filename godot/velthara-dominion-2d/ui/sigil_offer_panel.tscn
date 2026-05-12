@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://ckvc4tqv8h7co"]
+
+[ext_resource type="Script" path="res://scripts/sigil_offer_panel.gd" id="1_offer"]
+
+[node name="SigilOfferPanel" type="CanvasLayer"]
+layer = 20
+script = ExtResource("1_offer")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+mouse_filter = 1
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Title" type="Label" parent="Center"]
+text = ""
+
+[node name="Cards" type="HBoxContainer" parent="Center"]
+theme_override_constants/separation = 24
+
+[node name="CardA" type="Button" parent="Center/Cards"]
+custom_minimum_size = Vector2(220, 200)
+text = "—"
+
+[node name="CardB" type="Button" parent="Center/Cards"]
+custom_minimum_size = Vector2(220, 200)
+text = "—"
+
+[node name="CardC" type="Button" parent="Center/Cards"]
+custom_minimum_size = Vector2(220, 200)
+text = "—"
+

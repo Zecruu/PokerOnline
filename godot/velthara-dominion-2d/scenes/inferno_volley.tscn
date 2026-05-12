@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cjerloop12ygw"]
+
+[ext_resource type="Script" path="res://scripts/inferno_volley.gd" id="1_volley"]
+
+[node name="InfernoVolley" type="Node2D"]
+script = ExtResource("1_volley")

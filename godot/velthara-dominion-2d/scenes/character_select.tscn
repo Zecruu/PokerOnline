@@ -1,0 +1,55 @@
+[gd_scene format=3 uid="uid://cc7mypfm12ygw"]
+
+[ext_resource type="Script" path="res://scripts/character_select.gd" id="1_select"]
+
+[node name="CharacterSelect" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_select")
+
+[node name="BG" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.05, 0.02, 0.02, 1)
+
+[node name="Layout" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 40.0
+offset_top = 30.0
+offset_right = -40.0
+offset_bottom = -30.0
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="Layout"]
+text = "VELTHARA DOMINION"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.55, 0.2, 1)
+theme_override_font_sizes/font_size = 44
+
+[node name="Subtitle" type="Label" parent="Layout"]
+text = "Choose your Sovereign"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.85, 0.8, 0.85, 1)
+theme_override_font_sizes/font_size = 18
+
+[node name="Cards" type="HBoxContainer" parent="Layout"]
+alignment = 1
+theme_override_constants/separation = 24
+size_flags_vertical = 3
+
+[node name="Footer" type="HBoxContainer" parent="Layout"]
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="ShopBtn" type="Button" parent="Layout/Footer"]
+text = "Soul Shop"
+custom_minimum_size = Vector2(160, 50)
+
+[node name="PlayBtn" type="Button" parent="Layout/Footer"]
+text = "ENTER THE DOMINION"
+custom_minimum_size = Vector2(280, 50)
+
+[node name="SettingsBtn" type="Button" parent="Layout/Footer"]
+text = "Settings"
+custom_minimum_size = Vector2(160, 50)

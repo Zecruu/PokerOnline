@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://b37vgf8842lt7"]
+
+[ext_resource type="Script" path="res://scripts/settings_panel.gd" id="1_settings"]
+
+[node name="SettingsPanel" type="CanvasLayer"]
+layer = 30
+script = ExtResource("1_settings")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.6)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Box" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(420, 320)
+
+[node name="Inner" type="VBoxContainer" parent="Center/Box"]
+
+[node name="Title" type="Label" parent="Center/Box/Inner"]
+text = "SETTINGS"
+theme_override_colors/font_color = Color(1, 0.83, 0.27, 1)
+theme_override_font_sizes/font_size = 22
+
+[node name="MusicCheck" type="CheckBox" parent="Center/Box/Inner"]
+text = "Music"
+button_pressed = true
+
+[node name="SfxCheck" type="CheckBox" parent="Center/Box/Inner"]
+text = "SFX"
+button_pressed = true
+
+[node name="BestLabel" type="Label" parent="Center/Box/Inner"]
+text = "Best Run"
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="CloseBtn" type="Button" parent="Center/Box/Inner"]
+text = "Close"
