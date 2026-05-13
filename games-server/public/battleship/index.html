@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tactical Waters — Battleship Reimagined</title>
+    <link rel="stylesheet" href="battleship.css">
+</head>
+<body>
+    <!-- ============================================ -->
+    <!-- LOBBY SCREEN -->
+    <!-- ============================================ -->
+    <div id="screen-lobby" class="screen active">
+        <div class="lobby-card">
+            <h1 class="title">TACTICAL WATERS</h1>
+            <p class="subtitle">Hot/cold radar · Moving fleets · 5 attack types</p>
+
+            <label class="input-label">Your Name</label>
+            <input id="player-name" type="text" maxlength="20" placeholder="Captain..." />
+
+            <div class="lobby-actions">
+                <button id="btn-create" class="btn primary">Create Room</button>
+                <div class="join-row">
+                    <input id="join-code" type="text" maxlength="5" placeholder="ROOM CODE" />
+                    <button id="btn-join" class="btn">Join</button>
+                </div>
+            </div>
+
+            <div id="lobby-error" class="error-msg hidden"></div>
+
+            <details class="how-to-play">
+                <summary>How to play</summary>
+                <ul>
+                    <li><b>Each turn:</b> attack once, then optionally move one ship by 1 cell.</li>
+                    <li><b>Hot/Cold:</b> bombs that miss reveal proximity — Burning / Warm / Cold / Freezing.</li>
+                    <li><b>Sonar Ping:</b> no damage, returns distance tier + compass direction to nearest ship.</li>
+                    <li><b>Torpedo:</b> fires across a row or column, hits the first ship in its path.</li>
+                    <li><b>Recon Plane:</b> reveals a 3×3 grid as occupied/empty (no damage).</li>
+                    <li><b>Missile Barrage:</b> 3-cell line damage, no info.</li>
+                    <li><b>Bombed zones:</b> any cell that was bombed can't have a ship moved into it for <b>4 of your turns</b>.</li>
+                    <li><b>Cooldowns:</b> Sonar every 2 own turns, Torpedo every 3, Recon every 4, Barrage every 5.</li>
+                </ul>
+            </details>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- WAITING ROOM -->
+    <!-- ============================================ -->
+    <div id="screen-waiting" class="screen">
+        <div class="lobby-card">
+            <h2>Waiting for opponent…</h2>
+            <p>Share this code:</p>
+            <div class="room-code-display" id="room-code-display">-----</div>
+            <button id="btn-copy-link" class="btn">Copy invite link</button>
+            <button id="btn-leave-waiting" class="btn ghost">Cancel</button>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PLACEMENT SCREEN -->
+    <!-- ============================================ -->
+    <div id="screen-placement" class="screen">
+        <div class="placement-layout">
+            <div class="panel">
+                <h2>Place Your Fleet</h2>
+                <p class="hint">Click a ship, click a cell to place it. Right-click or press R to rotate. Drag placed ships to reposition.</p>
+
+                <div id="fleet-list" class="fleet-list"></div>
+
+                <div class="placement-buttons">
+                    <button id="btn-randomize" class="btn">Randomize</button>
+                    <button id="btn-reset-placement" class="btn ghost">Reset</button>
+                    <button id="btn-ready" class="btn primary" disabled>Ready</button>
+                </div>
+
+                <div id="placement-status" class="status-line">Place all 5 ships to ready up.</div>
+            </div>
+            <div class="panel grid-panel">
+                <div class="grid-wrap">
+                    <div id="placement-grid" class="grid placement-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- BATTLE SCREEN -->
+    <!-- ============================================ -->
+    <div id="screen-battle" class="screen">
+        <div class="battle-layout">
+            <div class="battle-header">
+                <div class="turn-indicator" id="turn-indicator">— turn —</div>
+                <div class="player-tags">
+                    <span class="tag" id="tag-me">You</span>
+                    <span class="vs">vs</span>
+                    <span class="tag" id="tag-them">Opponent</span>
+                </div>
+            </div>
+
+            <div class="boards">
+                <!-- Enemy waters (clickable, fog of war) -->
+                <div class="board-section">
+                    <h3>Enemy Waters</h3>
+                    <div class="grid-wrap">
+                        <div id="enemy-grid" class="grid enemy-grid"></div>
+                    </div>
+                    <div class="ship-counter">Ships remaining: <span id="enemy-ships-remaining">5</span> / <span id="enemy-ships-total">5</span></div>
+                </div>
+
+                <!-- Your waters (your ships visible, opponent's pings/hits shown) -->
+                <div class="board-section">
+                    <h3>Your Fleet</h3>
+                    <div class="grid-wrap">
+                        <div id="my-grid" class="grid my-grid"></div>
+                    </div>
+                    <div class="ship-counter">Ships afloat: <span id="my-ships-remaining">5</span> / 5</div>
+                </div>
+            </div>
+
+            <div class="attack-bar">
+                <button class="attack-btn" data-attack="bomb">
+                    <span class="atk-name">Bomb</span>
+                    <span class="atk-desc">1 cell · hot/cold</span>
+                    <span class="atk-cd"></span>
+                </button>
+                <button class="attack-btn" data-attack="sonar">
+                    <span class="atk-name">Sonar Ping</span>
+                    <span class="atk-desc">No damage · direction</span>
+                    <span class="atk-cd"></span>
+                </button>
+                <button class="attack-btn" data-attack="torpedo">
+                    <span class="atk-name">Torpedo</span>
+                    <span class="atk-desc">Row/Col · first hit</span>
+                    <span class="atk-cd"></span>
+                </button>
+                <button class="attack-btn" data-attack="recon">
+                    <span class="atk-name">Recon Plane</span>
+                    <span class="atk-desc">3×3 reveal</span>
+                    <span class="atk-cd"></span>
+                </button>
+                <button class="attack-btn" data-attack="barrage">
+                    <span class="atk-name">Barrage</span>
+                    <span class="atk-desc">3-cell line</span>
+                    <span class="atk-cd"></span>
+                </button>
+                <button id="btn-move" class="action-btn" disabled>Move Ship</button>
+                <button id="btn-end-turn" class="action-btn primary" disabled>End Turn</button>
+            </div>
+
+            <div class="info-row">
+                <div class="hint-box" id="hint-box">Waiting for game to start…</div>
+                <div class="log-box" id="log-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- GAME OVER MODAL -->
+    <!-- ============================================ -->
+    <div id="screen-end" class="screen">
+        <div class="lobby-card">
+            <h2 id="end-title">Game Over</h2>
+            <p id="end-message">—</p>
+            <button id="btn-play-again" class="btn primary">Back to Lobby</button>
+        </div>
+    </div>
+
+    <!-- Torpedo / Barrage direction picker overlay -->
+    <div id="picker-overlay" class="picker-overlay hidden">
+        <div class="picker-card">
+            <h3 id="picker-title">Pick direction</h3>
+            <div id="picker-options"></div>
+            <button id="picker-cancel" class="btn ghost">Cancel</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="battleship.js"></script>
+</body>
+</html>

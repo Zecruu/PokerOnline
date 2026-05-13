@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#050a18"/>
+      <stop offset="100%" stop-color="#0a1428"/>
+    </linearGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#133252"/>
+      <stop offset="100%" stop-color="#1c4a78"/>
+    </linearGradient>
+    <radialGradient id="glowAccent" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowGold" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffcc44" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ffcc44" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <circle cx="180" cy="220" r="160" fill="url(#glowAccent)"/>
+  <circle cx="460" cy="160" r="120" fill="url(#glowGold)"/>
+
+  <!-- Grid (left half) - 8x8 mini grid -->
+  <g transform="translate(40,80)">
+    <rect width="200" height="200" fill="#0d1a2d" stroke="#1e3358" stroke-width="2" rx="4"/>
+    <g stroke="#1e3358" stroke-width="1">
+      <line x1="25" y1="0" x2="25" y2="200"/>
+      <line x1="50" y1="0" x2="50" y2="200"/>
+      <line x1="75" y1="0" x2="75" y2="200"/>
+      <line x1="100" y1="0" x2="100" y2="200"/>
+      <line x1="125" y1="0" x2="125" y2="200"/>
+      <line x1="150" y1="0" x2="150" y2="200"/>
+      <line x1="175" y1="0" x2="175" y2="200"/>
+      <line x1="0" y1="25" x2="200" y2="25"/>
+      <line x1="0" y1="50" x2="200" y2="50"/>
+      <line x1="0" y1="75" x2="200" y2="75"/>
+      <line x1="0" y1="100" x2="200" y2="100"/>
+      <line x1="0" y1="125" x2="200" y2="125"/>
+      <line x1="0" y1="150" x2="200" y2="150"/>
+      <line x1="0" y1="175" x2="200" y2="175"/>
+    </g>
+    <!-- Misses (hot/cold) -->
+    <rect x="51" y="51" width="23" height="23" fill="#66ccff" opacity="0.7"/>
+    <text x="62.5" y="68" text-anchor="middle" fill="#134" font-family="sans-serif" font-weight="bold" font-size="11">•</text>
+    <rect x="76" y="51" width="23" height="23" fill="#ff9933" opacity="0.7"/>
+    <text x="87.5" y="68" text-anchor="middle" fill="#fff" font-family="sans-serif" font-weight="bold" font-size="11">•</text>
+    <rect x="101" y="51" width="23" height="23" fill="#ff5733" opacity="0.85"/>
+    <text x="112.5" y="68" text-anchor="middle" fill="#fff" font-family="sans-serif" font-weight="bold" font-size="11">•</text>
+    <!-- HIT! -->
+    <rect x="126" y="51" width="23" height="23" fill="#d83333"/>
+    <text x="137.5" y="69" text-anchor="middle" fill="#fff" font-family="sans-serif" font-weight="900" font-size="18">✕</text>
+    <!-- Sonar pings -->
+    <rect x="26" y="126" width="23" height="23" fill="rgba(102,204,255,0.3)" stroke="#66ccff" stroke-dasharray="2,2"/>
+    <text x="37.5" y="143" text-anchor="middle" fill="#66ccff" font-family="sans-serif" font-weight="bold" font-size="13">→</text>
+    <!-- Bombed zone -->
+    <rect x="76" y="126" width="23" height="23" fill="#4a1a1a"/>
+    <text x="92" y="132" fill="#ff8866" font-family="sans-serif" font-weight="bold" font-size="7">3</text>
+  </g>
+
+  <!-- Title -->
+  <g transform="translate(280,90)">
+    <text x="0" y="0" fill="#00d4ff" font-family="'Segoe UI', sans-serif" font-weight="900" font-size="38" letter-spacing="3">
+      TACTICAL
+    </text>
+    <text x="0" y="44" fill="#ffcc44" font-family="'Segoe UI', sans-serif" font-weight="900" font-size="38" letter-spacing="3">
+      WATERS
+    </text>
+    <text x="0" y="78" fill="#8aa3c7" font-family="'Segoe UI', sans-serif" font-size="13" letter-spacing="1.5">
+      BATTLESHIP · REIMAGINED
+    </text>
+    <text x="0" y="120" fill="#e6efff" font-family="'Segoe UI', sans-serif" font-size="12">
+      Hot/Cold Radar · Moving Fleets
+    </text>
+    <text x="0" y="138" fill="#e6efff" font-family="'Segoe UI', sans-serif" font-size="12">
+      5 Attack Types · Real-time Multiplayer
+    </text>
+  </g>
+
+  <!-- Ship silhouettes bottom -->
+  <g transform="translate(280,250)" fill="#6b7d8c">
+    <rect x="0" y="0" width="48" height="14" rx="2"/>
+    <rect x="56" y="0" width="36" height="14" rx="2"/>
+    <rect x="100" y="0" width="60" height="14" rx="2"/>
+    <rect x="168" y="0" width="24" height="14" rx="2"/>
+    <text x="200" y="11" fill="#8aa3c7" font-family="'Segoe UI', sans-serif" font-size="10">FLEET OF 5</text>
+  </g>
+</svg>

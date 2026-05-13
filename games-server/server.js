@@ -6,6 +6,7 @@ const fs = require('fs');
 const http = require('http');
 const { Server: SocketServer } = require('socket.io');
 const leaderboard = require('./leaderboard');
+const battleship = require('./battleship');
 
 // ============================================
 // STRIPE CONFIGURATION (Add API keys when ready)
@@ -1065,6 +1066,9 @@ setInterval(() => {
 
 // Bind to 0.0.0.0 explicitly for Railway
 const HOST = '0.0.0.0';
+
+// Mount Battleship multiplayer on the same HTTP server
+battleship.mount(server);
 
 server.listen(PORT, HOST, () => {
     console.log(`🎮 Games server running on http://${HOST}:${PORT}`);

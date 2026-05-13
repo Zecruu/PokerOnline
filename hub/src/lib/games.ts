@@ -117,6 +117,17 @@ export const GAMES: Game[] = [
     badgeColor: "gold",
     isFree: true,
   },
+  {
+    id: "battleship",
+    title: "Tactical Waters",
+    description:
+      "Battleship reimagined. Hot/cold radar, moving fleets, sonar pings, torpedoes, and recon planes. Share a room code and outmaneuver your rival.",
+    thumbnail: "https://games.zecrugames.com/battleship/thumbnail.svg",
+    href: "https://games.zecrugames.com/battleship/",
+    badge: "NEW",
+    badgeColor: "gold",
+    isFree: true,
+  },
 ];
 
 // Returns the games a user can actually play right now: free games +
