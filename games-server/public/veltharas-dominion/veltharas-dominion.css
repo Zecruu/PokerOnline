@@ -2755,13 +2755,12 @@ body {
     gap: 0.7rem;
     width: 100%;
     max-width: 590px;
-    padding: 1rem;
-    border-radius: 16px;
-    background: linear-gradient(180deg, rgba(22, 8, 6, 0.5), rgba(7, 3, 4, 0.42));
-    border: 1px solid rgba(255, 139, 64, 0.18);
-    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255,255,255,0.07);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .menu-btn-hero {
@@ -2878,8 +2877,10 @@ body {
 
 /* Saved-game notice gets a hellish tint to match the new palette */
 .start-menu-overlay .saved-notice {
-    background: rgba(255, 80, 0, 0.08);
-    border: 1px solid rgba(255, 120, 50, 0.35);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0 0 0.65rem;
     color: #ffd4a8;
 }
 
@@ -2892,8 +2893,8 @@ body {
         padding: 40vh 0.75rem 4rem;
     }
     .sm-actions {
-        padding: 0.8rem;
-        border-radius: 13px;
+        padding: 0;
+        border-radius: 0;
     }
     .sm-layout.wide-panel {
         padding: 1rem 0.85rem 1.15rem;
