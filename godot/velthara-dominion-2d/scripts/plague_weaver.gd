@@ -29,6 +29,9 @@ func _ready() -> void:
     sprite.sprite_frames = _build_sprite_frames()
     sprite.animation = "walk"
     sprite.play()
+    var mat := ShaderMaterial.new()
+    mat.shader = load("res://assets/shaders/strip_cream_bg.gdshader")
+    sprite.material = mat
     hp_bar.max_value = max_hp
     hp_bar.value = max_hp
     var players := get_tree().get_nodes_in_group("player")
@@ -65,7 +68,7 @@ func _physics_process(dt: float) -> void:
         if atk_timer <= 0.0:
             atk_timer = attack_cooldown
             if player.has_method("take_damage"):
-                player.take_damage(damage)
+                player.take_damage(damage, self)
     move_and_slide()
 
     if hit_flash > 0.0:

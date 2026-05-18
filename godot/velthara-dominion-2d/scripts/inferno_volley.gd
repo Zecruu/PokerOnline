@@ -13,6 +13,8 @@ var velocity_vec: Vector2 = Vector2.ZERO
 var direction_angle: float = 0.0
 var damage: float = 60.0
 var burn_dps: float = 18.0
+var crit_chance: float = 0.12   # set at spawn by player (honors Jeweled Gauntlet)
+var crit_mult: float = 2.0      # set at spawn (honors Heavy Hitter)
 var source: Node = null
 var life_left: float = LIFE
 var target: Node2D = null
@@ -67,8 +69,8 @@ func _explode() -> void:
     for e in get_tree().get_nodes_in_group("enemies"):
         if e == null or not (e is Node2D): continue
         if (e.global_position - global_position).length() > EXPLOSION_RADIUS: continue
-        var is_crit: bool = randf() < 0.12
-        var dmg: float = damage * (2.0 if is_crit else 1.0)
+        var is_crit: bool = randf() < crit_chance
+        var dmg: float = damage * (crit_mult if is_crit else 1.0)
         if e.has_method("take_damage"):
             e.take_damage(dmg, source, true, is_crit)
         if e.has_method("apply_burn"):

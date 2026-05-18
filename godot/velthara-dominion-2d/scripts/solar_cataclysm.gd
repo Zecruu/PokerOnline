@@ -7,6 +7,8 @@ const MAX_RADIUS: float = 260.0
 
 var damage: float = 220.0
 var burn_dps: float = 30.0
+var crit_chance: float = 0.0   # only crits with Jeweled Gauntlet
+var crit_mult: float = 2.0
 var source: Node = null
 var elapsed: float = 0.0
 var hit_set: Dictionary = {}
@@ -27,8 +29,10 @@ func _process(dt: float) -> void:
         if hit_set.has(id): continue
         if (e.global_position - global_position).length() <= radius:
             hit_set[id] = true
+            var is_crit: bool = crit_chance > 0.0 and randf() < crit_chance
+            var dmg: float = damage * (crit_mult if is_crit else 1.0)
             if e.has_method("take_damage"):
-                e.take_damage(damage, source)
+                e.take_damage(dmg, source, true, is_crit)
             if e.has_method("apply_burn"):
                 e.apply_burn(burn_dps, 3.0)
 

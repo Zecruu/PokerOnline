@@ -20,6 +20,11 @@ extends CanvasLayer
 @onready var best_label: Label = $TopBar/BestLabel
 @onready var challenges_box: VBoxContainer = $ChallengesBox
 @onready var settings_btn: Button = $SettingsBtn
+@onready var ad_label: Label = $Stats/AdLabel
+@onready var ap_label: Label = $Stats/ApLabel
+@onready var anomaly_banner: PanelContainer = $AnomalyBanner
+@onready var anomaly_name_lbl: Label = $AnomalyBanner/AnomalyBox/AnomalyName
+@onready var anomaly_desc_lbl: Label = $AnomalyBanner/AnomalyBox/AnomalyDesc
 
 var settings_panel: CanvasLayer = null
 
@@ -89,6 +94,23 @@ func set_kills(kills: int) -> void:
 
 func set_pyre_fuel(stacks: int) -> void:
     pyre_fuel_label.text = "Pyre Fuel x%d" % stacks
+
+func set_scaling(ad: float, ap_mult: float) -> void:
+    ad_label.text = "AD %d" % int(round(ad))
+    ap_label.text = "AP x%.2f" % ap_mult
+
+func show_anomaly(anomaly: Resource) -> void:
+    if anomaly == null:
+        anomaly_banner.visible = false
+        return
+    anomaly_name_lbl.text = "ANOMALY: %s" % String(anomaly.display_name)
+    anomaly_name_lbl.add_theme_color_override("font_color", anomaly.color)
+    anomaly_desc_lbl.text = String(anomaly.description)
+    anomaly_banner.visible = true
+    # Pulse so the player notices the round just rotated.
+    anomaly_banner.modulate = Color(1.5, 1.5, 1.5, 1.0)
+    var tw := anomaly_banner.create_tween()
+    tw.tween_property(anomaly_banner, "modulate", Color(1, 1, 1, 1), 0.6)
 
 func set_alive(count: int) -> void:
     alive_label.text = "Enemies: %d" % count

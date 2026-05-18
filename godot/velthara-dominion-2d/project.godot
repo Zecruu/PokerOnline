@@ -31,6 +31,11 @@ Inventory="*res://scripts/inventory.gd"
 ChallengeTracker="*res://scripts/challenge_tracker.gd"
 Leaderboard="*res://scripts/leaderboard.gd"
 CharacterData="*res://scripts/character_data.gd"
+SpriteFrameCache="*res://scripts/sprite_frame_cache.gd"
+EnemyRegistry="*res://scripts/enemy_registry.gd"
+DamageNumberPool="*res://scripts/damage_number_pool.gd"
+AnomalyManager="*res://scripts/anomaly_manager.gd"
+EvolutionRegistry="*res://scripts/evolution_registry.gd"
 
 [input]
 

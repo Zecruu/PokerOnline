@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/event_manager.gd" id="8_events"]
 [ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="9_pause"]
 [ext_resource type="PackedScene" path="res://ui/run_summary.tscn" id="10_runsum"]
+[ext_resource type="PackedScene" path="res://ui/forge_panel.tscn" id="11_forge"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -41,3 +42,5 @@ script = ExtResource("8_events")
 [node name="PauseMenu" parent="." instance=ExtResource("9_pause")]
 
 [node name="RunSummary" parent="." instance=ExtResource("10_runsum")]
+
+[node name="ForgePanel" parent="." instance=ExtResource("11_forge")]

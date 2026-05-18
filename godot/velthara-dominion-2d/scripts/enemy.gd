@@ -14,7 +14,14 @@ extends CharacterBody2D
 @export var ranged_range: float = 0.0
 @export var projectile_color: Color = Color(0.7, 0.4, 1.0)
 
-# Sprite-sheet config — 6 frames in a horizontal 384×64 strip, 64×64 per frame.
+# Sprite-sheet config. Set `sprite_prefix` (e.g. "skeleton-swarm") and the
+# enemy looks up its SpriteFrames from the SpriteFrameCache autoload — every
+# enemy of the same prefix shares the same SpriteFrames pointer so Godot's
+# 2D batcher can merge draw calls and we don't rebuild AtlasTextures.
+#
+# Legacy walk/attack/death_sheet exports stay for callers that prefer to
+# inject textures directly; if any are set, _ready uses them instead.
+@export var sprite_prefix: String = ""
 @export var walk_sheet: Texture2D
 @export var attack_sheet: Texture2D
 @export var death_sheet: Texture2D
@@ -41,13 +48,18 @@ func _ready() -> void:
     sprite.sprite_frames = _build_sprite_frames()
     sprite.animation = "walk"
     sprite.play()
+    sprite.material = _make_cream_strip_material()
     hp_bar.max_value = max_hp
     hp_bar.value = max_hp
     hp_bar.visible = false  # only show once damaged
-    # Cache the player reference once per spawn.
     var players := get_tree().get_nodes_in_group("player")
     if players.size() > 0:
         player = players[0]
+
+func _make_cream_strip_material() -> ShaderMaterial:
+    var mat := ShaderMaterial.new()
+    mat.shader = load("res://assets/shaders/strip_cream_bg.gdshader")
+    return mat
 
 func _physics_process(dt: float) -> void:
     if dying:
@@ -89,22 +101,32 @@ func _physics_process(dt: float) -> void:
         if atk_timer <= 0.0:
             atk_timer = attack_cooldown
             if player.has_method("take_damage"):
-                player.take_damage(damage)
+                player.take_damage(damage, self)
             if sprite.animation != &"attack":
                 sprite.play(&"attack")
     move_and_slide()
+    # Frostbite expiry: restore move_speed when the slow window has passed.
+    if has_meta("_frostbite_until") and Time.get_ticks_msec() >= int(get_meta("_frostbite_until")):
+        if has_meta("_orig_move_speed"):
+            move_speed = float(get_meta("_orig_move_speed"))
+            remove_meta("_orig_move_speed")
+        remove_meta("_frostbite_until")
 
-    # Hit-flash modulate decays over ~0.14s. Burning enemies tinted orange.
-    if hit_flash > 0.0:
-        sprite.modulate = Color(2.0, 2.0, 2.0)
-    elif burn_remaining > 0.0:
-        sprite.modulate = Color(1.4, 0.85, 0.55)
-    else:
-        sprite.modulate = Color(1.0, 1.0, 1.0)
-
-    # Keep HP bar horizontal even though enemy sprite may flip.
-    hp_bar.rotation = 0.0
-    queue_redraw()
+    # Visual bookkeeping — skip entirely when far off-screen so we don't pay
+    # for modulate writes, hp_bar updates, and burn-icon redraws on enemies
+    # the player can't see.
+    var visible_dist: bool = (dist < 900.0)
+    if visible_dist:
+        if hit_flash > 0.0:
+            sprite.modulate = Color(2.0, 2.0, 2.0)
+        elif burn_remaining > 0.0:
+            sprite.modulate = Color(1.4, 0.85, 0.55)
+        else:
+            sprite.modulate = Color(1.0, 1.0, 1.0)
+        hp_bar.rotation = 0.0
+        queue_redraw()
+    elif hp_bar.visible:
+        hp_bar.visible = false  # hide while off-screen, will re-show on next hit
 
 func take_damage(amount: float, source: Node = null, show_number: bool = true, is_crit: bool = false) -> void:
     if dying:
@@ -148,8 +170,13 @@ func _tick_burn(dt: float) -> void:
 func _spawn_damage_number(amount: int, color: Color, is_crit: bool = false) -> void:
     if amount <= 0:
         return
+    var text: String = ("%d!" % amount) if is_crit else str(amount)
+    var pool: Node = get_tree().root.get_node_or_null("DamageNumberPool")
+    if pool != null and pool.spawn(self, text, color, is_crit):
+        return
+    # Fallback: per-spawn Label (used when the pool is saturated).
     var lbl := Label.new()
-    lbl.text = ("%d!" % amount) if is_crit else str(amount)
+    lbl.text = text
     lbl.add_theme_font_size_override("font_size", 20 if is_crit else 14)
     lbl.add_theme_color_override("font_color", color)
     lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
@@ -185,7 +212,7 @@ func _die(source: Node) -> void:
     # Play death anim then queue_free. The timer runs even while the tree
     # is paused (second arg = process_always), so dying enemies disappear
     # cleanly during the level-up sigil-offer pause.
-    if death_sheet != null:
+    if sprite.sprite_frames != null and sprite.sprite_frames.has_animation("death"):
         sprite.play(&"death")
     await get_tree().create_timer(0.55, true).timeout
     queue_free()
@@ -224,6 +251,13 @@ func _drop_power_up() -> void:
     get_parent().add_child(pu)
 
 func _build_sprite_frames() -> SpriteFrames:
+    # Prefer the shared cache when we have a prefix — collapses 18 AtlasTexture
+    # allocations per spawn down to a single dictionary lookup.
+    if sprite_prefix != "":
+        var cache: Node = get_tree().root.get_node_or_null("SpriteFrameCache")
+        if cache != null:
+            return cache.for_prefix(sprite_prefix)
+    # Fallback: per-enemy frames built from injected textures.
     var frames := SpriteFrames.new()
     if walk_sheet != null:
         _add_strip(frames, "walk", walk_sheet, walk_fps, true)

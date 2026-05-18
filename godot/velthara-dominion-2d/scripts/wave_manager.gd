@@ -88,9 +88,7 @@ func _spawn_one() -> void:
     enemy.damage = dmg
     enemy.move_speed = speed
     enemy.xp_drop = xp
-    enemy.walk_sheet = load("res://assets/enemies/%s-walk.png" % prefix)
-    enemy.attack_sheet = load("res://assets/enemies/%s-attack.png" % prefix)
-    enemy.death_sheet = load("res://assets/enemies/%s-death.png" % prefix)
+    enemy.sprite_prefix = prefix  # SpriteFrameCache loads + shares
     # Ranged casters: stop and fire bolts at the player.
     match key:
         "necromancer":

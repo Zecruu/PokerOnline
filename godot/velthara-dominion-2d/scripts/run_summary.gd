@@ -20,7 +20,7 @@ func show_summary(kills: int, wave: int, level: int, souls_gained: int) -> void:
     for c in sigils_box.get_children():
         c.queue_free()
     var title := Label.new()
-    title.text = "Sigils acquired"
+    title.text = "Augments acquired"
     title.add_theme_color_override("font_color", Color(0.95, 0.75, 1, 1))
     title.add_theme_font_size_override("font_size", 16)
     sigils_box.add_child(title)
