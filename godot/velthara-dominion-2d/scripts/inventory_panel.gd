@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## Inventory — I to toggle. 8 slots, click to upgrade (consumes 25 souls per
-## level), right-click handled as another button to drop.
+## level). Each slot displays the item's identity (AD/AP/HP/etc.) and, for
+## stacking items, the current stack count derived from player.kills.
 
 @onready var grid: GridContainer = $Center/Box/Inner/Grid
 @onready var close_btn: Button = $Center/Box/Inner/Header/CloseBtn
@@ -9,11 +10,20 @@ extends CanvasLayer
 var player: Node = null
 var slot_buttons: Array[Button] = []
 
+const RARITY_COLORS: Array[Color] = [
+    Color(0.85, 0.85, 0.85),
+    Color(0.45, 0.7, 1.0),
+    Color(0.78, 0.42, 1.0),
+    Color(1.0, 0.55, 0.18),
+]
+
 func _ready() -> void:
     visible = false
     process_mode = Node.PROCESS_MODE_ALWAYS
     close_btn.pressed.connect(_close)
-    Inventory.inventory_changed.connect(_on_inventory_changed)
+    var inv: Node = get_tree().root.get_node_or_null("Inventory")
+    if inv != null:
+        inv.inventory_changed.connect(_on_inventory_changed)
     _build_grid()
 
 func toggle_for(p: Node) -> void:
@@ -31,52 +41,72 @@ func _open() -> void:
 func _close() -> void:
     visible = false
     get_tree().paused = false
-    _apply_to_player()
 
 func _build_grid() -> void:
     for c in grid.get_children():
         c.queue_free()
     slot_buttons.clear()
-    for i in range(Inventory.SLOT_COUNT):
+    var inv: Node = get_tree().root.get_node_or_null("Inventory")
+    var count: int = inv.SLOT_COUNT if inv != null else 8
+    for i in range(count):
         var b := Button.new()
-        b.custom_minimum_size = Vector2(110, 80)
+        b.custom_minimum_size = Vector2(140, 110)
         b.pressed.connect(_on_slot_pressed.bind(i))
+        b.add_theme_font_size_override("font_size", 12)
         grid.add_child(b)
         slot_buttons.append(b)
 
 func _on_inventory_changed(_slots: Array) -> void:
     if visible: _refresh()
 
+func _identity_for(it: Dictionary, kills: int) -> String:
+    var lvl: int = int(it.get("level", 1))
+    var bits: Array = []
+    var ad: float = float(it.get("attack_damage", 0.0)) * lvl
+    var ap: float = float(it.get("ability_power", 0.0)) * lvl
+    var hp: float = float(it.get("max_hp", 0.0)) * lvl
+    if String(it.get("stack_metric", "")) == "kills":
+        ad += float(it.get("stack_value_ad", 0.0)) * kills
+        ap += float(it.get("stack_value_ap", 0.0)) * kills
+        hp += float(it.get("stack_value_hp", 0.0)) * kills
+    if ad >= 0.5: bits.append("+%d AD" % int(round(ad)))
+    if ap >= 0.005: bits.append("+%d%% AP" % int(round(ap * 100.0)))
+    if hp >= 0.5: bits.append("+%d HP" % int(round(hp)))
+    return " ".join(bits)
+
 func _refresh() -> void:
-    for i in range(Inventory.SLOT_COUNT):
+    var inv: Node = get_tree().root.get_node_or_null("Inventory")
+    if inv == null: return
+    var kills: int = int(player.kills) if (player != null and "kills" in player) else 0
+    for i in range(inv.SLOT_COUNT):
         var b: Button = slot_buttons[i]
-        var item = Inventory.slots[i]
+        var item = inv.slots[i]
         if item == null:
             b.text = "—"
             b.disabled = true
+            b.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
         else:
-            b.text = "%s\nLv.%d\n+%ddmg +%dhp" % [
-                item.get("name", "?"), int(item.get("level", 1)),
-                int(item.get("damage", 0)) * int(item.get("level", 1)),
-                int(item.get("max_hp", 0)) * int(item.get("level", 1)),
+            var rarity: int = int(item.get("rarity", 0))
+            var stack_suffix: String = ""
+            if String(item.get("stack_metric", "")) == "kills":
+                stack_suffix = "\nstacks: %d" % kills
+            b.text = "%s\nLv.%d\n%s%s" % [
+                String(item.get("name", "?")), int(item.get("level", 1)),
+                _identity_for(item, kills), stack_suffix,
             ]
+            b.add_theme_color_override("font_color", RARITY_COLORS[clamp(rarity, 0, 3)])
             b.disabled = false
-    summary.text = "Total bonuses from inventory: +%d dmg, +%d hp\nClick a slot to upgrade (25 souls)" % [
-        int(Inventory.total_damage_bonus()), int(Inventory.total_hp_bonus())
+    summary.text = "Inventory totals: +%d AD · +%d%% AP · +%d HP · +%d%% Crit\nClick a slot to upgrade" % [
+        int(round(inv.total_ad_bonus())),
+        int(round(inv.total_ap_bonus() * 100.0)),
+        int(round(inv.total_hp_bonus())),
+        int(round(inv.total_crit_chance() * 100.0)),
     ]
 
 func _on_slot_pressed(idx: int) -> void:
-    if Inventory.slots[idx] == null: return
-    if SaveSystem.spend_souls(25):
-        Inventory.upgrade_at(idx)
-
-func _apply_to_player() -> void:
-    if player == null: return
-    var dmg_bonus: float = Inventory.total_damage_bonus()
-    var hp_bonus: float = Inventory.total_hp_bonus()
-    if "inventory_damage_bonus" in player:
-        player.inventory_damage_bonus = dmg_bonus
-    if "inventory_hp_bonus" in player:
-        player.inventory_hp_bonus = hp_bonus
-        if player.has_signal("hp_changed"):
-            player.hp_changed.emit(player.hp, player.MAX_HP + player.max_hp_bonus_from_sigils + hp_bonus)
+    # Upgrades are now free — selection-driven economy like Arena augments.
+    # Players still upgrade by clicking; the cost gate is gone.
+    var inv: Node = get_tree().root.get_node_or_null("Inventory")
+    if inv == null: return
+    if inv.slots[idx] == null: return
+    inv.upgrade_at(idx)

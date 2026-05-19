@@ -23,6 +23,9 @@ const SIGIL_POOL: Array[Dictionary] = [
     {"id":"cdcoil",  "name":"Cooldown Coil", "desc":"-8% ability cooldowns","rarity":0, "cdr_add":0.08},
     {"id":"warvow",  "name":"Warrior's Vow", "desc":"+15 Attack Damage (autos)", "rarity":0, "attack_power_add":15.0},
     {"id":"acovow",  "name":"Acolyte's Vow", "desc":"+10% Ability Power (Q/E)",  "rarity":0, "spell_power_add":0.10},
+    # ARAM-style Silvers
+    {"id":"quickdrw","name":"Quickdraw",     "desc":"Attacks after a 1.5s pause crit guaranteed", "rarity":0, "tags":["quickdraw"]},
+    {"id":"earthwke","name":"Earthwake",     "desc":"Your auto-attacks shake the ground in a 90px aura", "rarity":0, "tags":["earthwake"]},
 
     # ── GOLD (28% weight) — stats + hooks ──
     {"id":"hex",     "name":"Hex Sigil",     "desc":"+7% fire rate",      "rarity":1, "fire_rate_mult_add":0.07},
@@ -34,6 +37,10 @@ const SIGIL_POOL: Array[Dictionary] = [
     {"id":"frostbit","name":"Frostbite Glyph","desc":"Your hits slow enemies 30% for 1s",   "rarity":1, "tags":["frostbite"]},
     {"id":"magnumop","name":"Magnum Opus",   "desc":"+30 Attack Damage (autos)","rarity":1, "attack_power_add":30.0},
     {"id":"cosmiscr","name":"Cosmic Scroll", "desc":"+25% Ability Power (Q/E)","rarity":1, "spell_power_add":0.25},
+    # ARAM-style Golds
+    {"id":"hellbore","name":"Hellbore",      "desc":"Every 10 auto-attacks heal 5% max HP", "rarity":1, "tags":["hellbore"]},
+    {"id":"lightns", "name":"Lightning Strikes","desc":"Every 5th attack chains to 2 nearby enemies", "rarity":1, "tags":["lightning_strikes"]},
+    {"id":"twinmand","name":"Twin Mandibles","desc":"Auto-attacks slow enemies 50% for 0.8s", "rarity":1, "tags":["twin_mandibles"]},
 
     # ── PRISMATIC (10% weight) — build-changing ──
     {"id":"phoenix", "name":"Phoenix Pact",  "desc":"+25 max HP, heal to full", "rarity":2, "max_hp_bonus":25.0, "heal_on_pickup":9999.0},
@@ -46,6 +53,9 @@ const SIGIL_POOL: Array[Dictionary] = [
     {"id":"heavyht", "name":"Heavy Hitter",  "desc":"Crits do 3× instead of 2×","rarity":2, "tags":["heavy_hitter"]},
     {"id":"stackrex","name":"Stackasaurus Rex","desc":"Pyre Fuel gains 2 stacks per kill", "rarity":2, "tags":["stackasaurus"]},
     {"id":"jewelgnt","name":"Jeweled Gauntlet","desc":"Your abilities can critically strike",            "rarity":2, "tags":["jeweled_gauntlet"]},
+    # ARAM-style Prismatics
+    {"id":"blacksm", "name":"Blacksmith",    "desc":"All inventory item bonuses are doubled",          "rarity":2, "tags":["blacksmith"]},
+    {"id":"triptonic","name":"Triple Tonic", "desc":"Grants 3 random power-ups instantly on acquire",  "rarity":2, "tags":["triple_tonic"]},
 
     # ── HEX (2% weight) — legendary game-changers ──
     {"id":"sovereign","name":"Sovereign Sigil","desc":"+30% damage, +15% fire rate","rarity":3, "damage_mult_add":0.30, "fire_rate_mult_add":0.15},
@@ -54,6 +64,33 @@ const SIGIL_POOL: Array[Dictionary] = [
     {"id":"glasscan","name":"Glass Cannon",  "desc":"-50% max HP, +100% damage","rarity":3, "max_hp_bonus":-50.0, "damage_mult_add":1.00, "tags":["glass_cannon"]},
     {"id":"stardust","name":"Stardust Surge","desc":"Every 5 levels, auto-cast a free Inferno Volley", "rarity":3, "tags":["stardust_surge"]},
     {"id":"phenmevl","name":"Phenomenal Evil","desc":"Each kill grants +0.5% Ability Power (no cap)",   "rarity":3, "tags":["phenomenal_evil"]},
+    # ARAM-style Hex
+    {"id":"wraithw", "name":"Wraith Walk",   "desc":"Each kill grants 0.4s of dodging all hits",      "rarity":3, "tags":["wraith_walk"]},
+    {"id":"symphony","name":"Symphony of War","desc":"+3% damage per owned augment",                  "rarity":3, "tags":["symphony"]},
+
+    # ── CORRUPTED (1.2% weight) — extreme power, explicit downside ──
+    {"id":"cullmeek","name":"Cull of the Meek",
+     "desc":"+200% damage, but you have -50% max HP",
+     "rarity":4, "damage_mult_add":2.0, "max_hp_bonus":-50.0},
+    {"id":"cursedst","name":"Cursed Strength",
+     "desc":"+100 Attack Damage, but you take 25% more damage",
+     "rarity":4, "attack_power_add":100.0, "tags":["cursed_strength"]},
+    {"id":"pactpain","name":"Pact of Pain",
+     "desc":"+150 max HP, but each kill costs 4 HP",
+     "rarity":4, "max_hp_bonus":150.0, "tags":["pact_of_pain"]},
+    {"id":"darkpact","name":"Dark Pact",
+     "desc":"+80% Ability Power, but abilities cost 8% max HP to cast",
+     "rarity":4, "spell_power_add":0.80, "tags":["dark_pact"]},
+    {"id":"abyssalw","name":"Abyssal Wager",
+     "desc":"+30% crit chance and +75% damage, but no lifesteal or healing",
+     "rarity":4, "crit_chance_add":0.30, "damage_mult_add":0.75, "tags":["no_healing"]},
+    # ARAM-style Corrupted
+    {"id":"apothes", "name":"Apotheosis",
+     "desc":"+200% Ability Power, but you take 50% more damage from all sources",
+     "rarity":4, "spell_power_add":2.0, "tags":["fragile_god"]},
+    {"id":"eternalfm","name":"Eternal Flame",
+     "desc":"Your burns never expire on enemies, but you lose 1 HP per second",
+     "rarity":4, "tags":["eternal_flame"]},
 ]
 
 var owned: Array = []         # this-run augments (Sigil resources)
@@ -129,6 +166,12 @@ func acquire(s: Resource, player: Node) -> void:
         player.hp = min(player.current_max_hp(), player.hp + s.heal_on_pickup)
         if player.has_signal("hp_changed"):
             player.hp_changed.emit(player.hp, player.current_max_hp())
+    # Triple Tonic — instantly grants 3 random power-ups on acquire.
+    if player != null and "triple_tonic" in s.tags:
+        var kinds := ["frenzy", "inferno", "wraith", "magnet", "heal", "soul"]
+        for _i in range(3):
+            if player.has_method("apply_powerup"):
+                player.apply_powerup(kinds[randi() % kinds.size()])
 
 func _reapply_to_player(player: Node) -> void:
     if player == null: return

@@ -58,8 +58,8 @@ var fire_rate_mult: float = 1.0
 var pickup_radius_mult: float = 1.0
 var move_speed_mult: float = 1.0
 var max_hp_bonus_from_sigils: float = 0.0
-var inventory_damage_bonus: float = 0.0
-var inventory_hp_bonus: float = 0.0
+var inventory_damage_bonus: float = 0.0   # legacy — kept for backward compat
+var inventory_hp_bonus: float = 0.0       # legacy
 # Augment-driven stats (populated by SigilManager._reapply_to_player).
 var crit_chance_bonus: float = 0.0
 var lifesteal: float = 0.0
@@ -68,10 +68,12 @@ var attack_power_bonus: float = 0.0   # flat AD added (Warrior's Vow, Magnum Opu
 var spell_power_mult: float = 1.0     # multiplier on ability damage (Acolyte's, Cosmic Scroll)
 var augment_tags: Dictionary = {}     # tag string → count
 # Augment-state counters.
-var attack_counter: int = 0           # for Combo Killer
+var attack_counter: int = 0           # for Combo Killer + Hellbore + Lightning Strikes
 var phoenix_used: bool = false        # for Phoenix Heart
 var last_stardust_level: int = 1      # for Stardust Surge
 var phenomenal_evil_stacks: int = 0   # for Phenomenal Evil — +0.5% AP per kill
+var time_since_attack: float = 999.0  # for Quickdraw (post-pause guaranteed crit)
+var eternal_flame_tick: float = 0.0   # 1 HP/sec drain accumulator
 
 # ── Anomaly-driven fields. Set by AnomalyManager.activate(); reset to
 #    defaults by AnomalyManager.deactivate(). Fold into the existing
@@ -112,32 +114,74 @@ signal died()
 ##   - Ability Power scales abilities (Q / E casts, Inferno Volley, …)
 ## The HUD surfaces both numbers so augment choices have a clear identity.
 
+# Inventory accessor — totals are computed live so Mejai's-style stacking
+# items reflect the current kill count without per-frame caching.
+func _inv() -> Node:
+    return get_tree().root.get_node_or_null("Inventory")
+
+# Blacksmith doubles every inventory contribution.
+func _inv_mult() -> float:
+    return 2.0 if has_tag("blacksmith") else 1.0
+
+func _inv_ad() -> float:
+    var inv: Node = _inv()
+    return inventory_damage_bonus + (inv.total_ad_bonus() * _inv_mult() if inv != null else 0.0)
+
+func _inv_ap() -> float:
+    # Additive +% AP (0.25 = +25%) summed across all inventory items + their
+    # kill-stacks. Multiplied into ability damage in current_ability_power.
+    var inv: Node = _inv()
+    return inv.total_ap_bonus() * _inv_mult() if inv != null else 0.0
+
+func _inv_hp() -> float:
+    var inv: Node = _inv()
+    return inventory_hp_bonus + (inv.total_hp_bonus() * _inv_mult() if inv != null else 0.0)
+
+func _inv_crit() -> float:
+    var inv: Node = _inv()
+    return inv.total_crit_chance() if inv != null else 0.0
+
+func _inv_lifesteal() -> float:
+    var inv: Node = _inv()
+    return inv.total_lifesteal() if inv != null else 0.0
+
+func _inv_cdr() -> float:
+    var inv: Node = _inv()
+    return inv.total_cdr() if inv != null else 0.0
+
 func _base_damage_shared() -> float:
     # Shared multipliers that affect both AD and AP. Includes universal
     # damage_mult, Pyre Fuel stacks, Inferno power-up, Stardust per-level,
-    # and the active Anomaly's damage factor.
+    # the active Anomaly's damage factor, and Symphony of War scaling.
     var inferno_bonus: float = 1.5 if inferno_timer > 0.0 else 1.0
     var stardust_bonus: float = 1.0 + (level - 1) * STARDUST_DAMAGE_PER_LEVEL
     var pyre_bonus: float = 1.0 + pyre_fuel_stacks * PYRE_FUEL_DAMAGE_PER_STACK
-    return damage_mult * anomaly_damage_mult * inferno_bonus * stardust_bonus * pyre_bonus
+    var symphony_bonus: float = 1.0
+    if has_tag("symphony"):
+        var sm: Node = get_tree().root.get_node_or_null("SigilManager")
+        if sm != null:
+            symphony_bonus = 1.0 + 0.03 * float(sm.owned.size())
+    return damage_mult * anomaly_damage_mult * inferno_bonus * stardust_bonus * pyre_bonus * symphony_bonus
 
 func current_attack_damage() -> float:
-    # Auto-attacks scale with AD = base + inventory + attack_power flat bonus,
-    # then through the shared mults and the Anomaly's AD factor.
-    return (BASE_DAMAGE + inventory_damage_bonus + attack_power_bonus) * _base_damage_shared() * anomaly_attack_damage
+    # Auto-attacks: BASE + flat AD from inventory + Warrior's-Vow flat bonus,
+    # then shared mults and the Anomaly's AD factor.
+    return (BASE_DAMAGE + _inv_ad() + attack_power_bonus) * _base_damage_shared() * anomaly_attack_damage
 
 func current_ability_power() -> float:
-    # Ability damage = same shared mults × spell_power × Phenomenal Evil
-    # scaling × the Anomaly's AP factor.
+    # Abilities: shared mults × spell_power × inventory AP × Phenomenal Evil
+    # × the Anomaly's AP factor. Inventory's AP is additive on top of spell
+    # power (0.10 AP from items = +10% spell damage).
     var phenomenal_bonus: float = 1.0 + phenomenal_evil_stacks * 0.005
-    return (BASE_DAMAGE + inventory_damage_bonus) * _base_damage_shared() * spell_power_mult * phenomenal_bonus * anomaly_ability_power
+    var inv_ap_factor: float = 1.0 + _inv_ap()
+    return (BASE_DAMAGE + _inv_ad()) * _base_damage_shared() * spell_power_mult * inv_ap_factor * phenomenal_bonus * anomaly_ability_power
 
 # Back-compat alias used by older callsites — defaults to auto-attack damage.
 func current_damage() -> float:
     return current_attack_damage()
 
 func current_max_hp() -> float:
-    return (MAX_HP + max_hp_bonus_from_sigils + inventory_hp_bonus) * anomaly_max_hp_factor
+    return (MAX_HP + max_hp_bonus_from_sigils + _inv_hp()) * anomaly_max_hp_factor
 
 func current_fire_rate() -> float:
     var frenzy_bonus: float = 1.75 if frenzy_timer > 0.0 else 1.0
@@ -154,13 +198,13 @@ func tag_count(t: String) -> int:
     return int(augment_tags.get(t, 0)) + int(anomaly_tags.get(t, 0))
 
 func current_crit_chance() -> float:
-    return CRIT_CHANCE + crit_chance_bonus + anomaly_crit_chance
+    return CRIT_CHANCE + crit_chance_bonus + _inv_crit() + anomaly_crit_chance
 
 func current_crit_mult() -> float:
     return 3.0 if has_tag("heavy_hitter") else CRIT_MULT
 
 func cd_scaled(base: float) -> float:
-    return base * max(0.2, 1.0 - cdr_bonus)
+    return base * max(0.2, 1.0 - cdr_bonus - _inv_cdr())
 
 # Ability crit chance — without Jeweled Gauntlet, each ability uses its own
 # baked-in chance. With the augment, abilities can crit at the player's full
@@ -215,7 +259,15 @@ func _physics_process(dt: float) -> void:
     _cast_anim_remaining = max(0.0, _cast_anim_remaining - dt)
     volley_cd = max(0.0, volley_cd - dt)
     cataclysm_cd = max(0.0, cataclysm_cd - dt)
+    time_since_attack += dt
     _tick_powerups(dt)
+    # Eternal Flame drains 1 HP per second as the price of perma-burns.
+    if has_tag("eternal_flame"):
+        eternal_flame_tick += dt
+        if eternal_flame_tick >= 1.0:
+            eternal_flame_tick -= 1.0
+            hp = max(1.0, hp - 1.0)
+            hp_changed.emit(hp, current_max_hp())
 
     # ── Auto-attack ──
     if shoot_cooldown <= 0.0:
@@ -224,14 +276,30 @@ func _physics_process(dt: float) -> void:
     # ── Ability input ── (Berserker's Course anomaly locks both)
     if not has_tag("no_abilities"):
         if Input.is_action_just_pressed("ability_q") and volley_cd <= 0.0:
-            _cast_q_ability()
+            if _pay_ability_blood_cost():
+                _cast_q_ability()
         if Input.is_action_just_pressed("ability_e") and cataclysm_cd <= 0.0:
-            _cast_e_ability()
+            if _pay_ability_blood_cost():
+                _cast_e_ability()
 
     ability_cd_changed.emit(volley_cd, VOLLEY_CD, cataclysm_cd, CATACLYSM_CD)
 
     # ── Animation state ──
     _update_animation(input_dir.length_squared() > 0.0)
+
+# Dark Pact / Hex Mirror — drain HP on ability cast. Returns false if the
+# player can't afford the toll (we still let the cast through but trim HP
+# to 1, never killing you with your own ability).
+func _pay_ability_blood_cost() -> bool:
+    var pct: float = 0.0
+    if has_tag("dark_pact"): pct += 0.08
+    if has_tag("hex_mirror"): pct += 0.04
+    if pct <= 0.0:
+        return true
+    var cost: float = current_max_hp() * pct
+    hp = max(1.0, hp - cost)
+    hp_changed.emit(hp, current_max_hp())
+    return true
 
 func _tick_powerups(dt: float) -> void:
     var changed: bool = false
@@ -256,7 +324,10 @@ func apply_powerup(kind: String) -> void:
         "inferno": inferno_timer = 8.0
         "wraith": wraith_timer = 6.0
         "magnet": magnet_timer = 10.0
-        "heal": hp = min(MAX_HP, hp + 35.0); hp_changed.emit(hp, MAX_HP)
+        "heal":
+            if not has_tag("no_healing"):
+                hp = min(current_max_hp(), hp + 35.0)
+                hp_changed.emit(hp, current_max_hp())
     powerup_changed.emit({
         "frenzy": frenzy_timer, "inferno": inferno_timer,
         "wraith": wraith_timer, "magnet": magnet_timer,
@@ -494,6 +565,10 @@ func _try_auto_attack() -> void:
     var angle: float = atan2(dir.y, dir.x)
     _spawn_fire_slash(angle)
     _do_slash_damage(angle)
+    # Cursed Blade: every swing drains 2 HP (the item gives +25 AD).
+    if has_tag("cursed_drain"):
+        hp = max(1.0, hp - 2.0)
+        hp_changed.emit(hp, current_max_hp())
     shoot_cooldown = current_fire_rate()
     _cast_anim_remaining = FIRE_SLASH_VISUAL_TIME
 
@@ -538,6 +613,8 @@ func _do_slash_damage(angle: float) -> void:
     attack_counter += 1
     # Combo Killer: every 3rd auto-attack swings for triple damage.
     var combo_bonus: float = 3.0 if (has_tag("combo_killer") and attack_counter % 3 == 0) else 1.0
+    # Quickdraw: first swing after a 1.5s pause is a guaranteed crit.
+    var quickdraw_active: bool = has_tag("quickdraw") and time_since_attack >= 1.5
     var base_dmg: float = current_damage() * combo_bonus
     var any_hit: bool = false
     for e in _enemies():
@@ -552,16 +629,50 @@ func _do_slash_damage(angle: float) -> void:
         var to_enemy_norm: Vector2 = to_enemy / dist
         if forward.dot(to_enemy_norm) < cos_half:
             continue
-        _deal_damage(e, base_dmg, true)
+        _deal_damage(e, base_dmg, true, quickdraw_active)
         if e.has_method("apply_burn"):
-            e.apply_burn(base_dmg * BURN_DPS_RATIO * anomaly_burn_mult, BURN_DURATION)
+            var burn_dur: float = BURN_DURATION
+            if has_tag("eternal_flame"):
+                burn_dur = 9999.0  # Eternal Flame — perma-burn
+            e.apply_burn(base_dmg * BURN_DPS_RATIO * anomaly_burn_mult, burn_dur)
         any_hit = true
+    # Earthwake: every swing also damages enemies in a 90px aura at the player.
+    if has_tag("earthwake"):
+        var aoe_dmg: float = base_dmg * 0.35
+        for e2 in _enemies():
+            if e2 == null or not (e2 is Node2D): continue
+            if (e2.global_position - global_position).length() <= 90.0:
+                _deal_damage(e2, aoe_dmg, false, false)
+    # Lightning Strikes: every 5th attack chains lightning to up to 2 nearby enemies.
+    if has_tag("lightning_strikes") and attack_counter % 5 == 0:
+        _do_lightning_chain(base_dmg)
+    # Hellbore: every 10 attacks, heal 5% max HP (Abyssal Wager blocks).
+    if has_tag("hellbore") and attack_counter % 10 == 0 and not has_tag("no_healing"):
+        var heal: float = current_max_hp() * 0.05
+        hp = min(current_max_hp(), hp + heal)
+        hp_changed.emit(hp, current_max_hp())
+    # Reset the post-pause counter — we just attacked.
+    time_since_attack = 0.0
+
+# Lightning Strikes — pick up to 2 nearest enemies and zap them for AoE damage.
+func _do_lightning_chain(base_dmg: float) -> void:
+    var pool: Array = _enemies().duplicate()
+    pool.sort_custom(func(a, b):
+        return (a.global_position - global_position).length_squared() < \
+               (b.global_position - global_position).length_squared())
+    var hit: int = 0
+    for e in pool:
+        if hit >= 2: break
+        if e == null or not (e is Node2D): continue
+        if (e.global_position - global_position).length() > 280.0: continue
+        _deal_damage(e, base_dmg * 0.8, true, false)
+        hit += 1
 
 # Unified damage-dealing path so abilities + auto-attack share crit, lifesteal,
 # death-mark, frostbite, and crit-cascade behavior.
-func _deal_damage(target: Node2D, raw_amount: float, can_crit: bool) -> void:
+func _deal_damage(target: Node2D, raw_amount: float, can_crit: bool, force_crit: bool = false) -> void:
     if target == null or not is_instance_valid(target): return
-    var is_crit: bool = can_crit and (randf() < current_crit_chance())
+    var is_crit: bool = force_crit or (can_crit and (randf() < current_crit_chance()))
     # Death Mark: enemies already marked take +25% damage.
     var mark_mult: float = 1.0
     if has_tag("death_mark") and target.has_meta("_death_marked_until"):
@@ -573,18 +684,23 @@ func _deal_damage(target: Node2D, raw_amount: float, can_crit: bool) -> void:
     # Re-apply Death Mark for the next 4s on every hit.
     if has_tag("death_mark"):
         target.set_meta("_death_marked_until", Time.get_ticks_msec() + 4000)
-    # Frostbite: slow target by 30% for 1s.
-    if has_tag("frostbite") and "move_speed" in target:
+    # Frostbite: 30% slow for 1s. Twin Mandibles upgrades to 50% for 0.8s.
+    var has_slow: bool = has_tag("frostbite") or has_tag("twin_mandibles")
+    if has_slow and "move_speed" in target:
+        var slow_factor: float = 0.5 if has_tag("twin_mandibles") else 0.7
+        var slow_ms: int = 800 if has_tag("twin_mandibles") else 1000
         if not target.has_meta("_orig_move_speed"):
             target.set_meta("_orig_move_speed", target.move_speed)
-        target.set_meta("_frostbite_until", Time.get_ticks_msec() + 1000)
-        target.move_speed = float(target.get_meta("_orig_move_speed")) * 0.7
-    # Lifesteal heal-on-hit (augments + anomaly stack additively).
-    var total_lifesteal: float = lifesteal + anomaly_lifesteal
-    if total_lifesteal > 0.0:
-        var heal: float = dmg * total_lifesteal
-        hp = min(current_max_hp(), hp + heal)
-        hp_changed.emit(hp, current_max_hp())
+        target.set_meta("_frostbite_until", Time.get_ticks_msec() + slow_ms)
+        target.move_speed = float(target.get_meta("_orig_move_speed")) * slow_factor
+    # Lifesteal heal-on-hit (augments + inventory + anomaly stack additively).
+    # Abyssal Wager (Corrupted): no_healing tag locks out all heals.
+    if not has_tag("no_healing"):
+        var total_lifesteal: float = lifesteal + _inv_lifesteal() + anomaly_lifesteal
+        if total_lifesteal > 0.0:
+            var heal: float = dmg * total_lifesteal
+            hp = min(current_max_hp(), hp + heal)
+            hp_changed.emit(hp, current_max_hp())
     # Crit Cascade: shave CDs on crit.
     if is_crit and has_tag("crit_cascade"):
         volley_cd = max(0.0, volley_cd - 0.5)
@@ -604,6 +720,11 @@ func take_damage(amount: float, attacker: Node = null) -> void:
     # Glass Cannon anomaly: any hit drops you to 0 instantly.
     if has_tag("one_shot"):
         amount = max(amount, hp)
+    # Cursed Strength / Apotheosis: take more damage as the tradeoff cost.
+    if has_tag("cursed_strength"):
+        amount *= 1.25
+    if has_tag("fragile_god"):
+        amount *= 1.5
     hp = max(0.0, hp - amount)
     iframes = IFRAME_DURATION
     hp_changed.emit(hp, current_max_hp())
@@ -650,13 +771,20 @@ func register_kill() -> void:
     var per_kill: int = (2 if has_tag("stackasaurus") else 1) + anomaly_pyre_per_kill
     pyre_fuel_stacks += per_kill
     pyre_fuel_changed.emit(pyre_fuel_stacks)
-    # Bloodbond: small heal per kill.
-    if has_tag("bloodbond"):
+    # Bloodbond: small heal per kill. Disabled under Abyssal Wager.
+    if has_tag("bloodbond") and not has_tag("no_healing"):
         hp = min(current_max_hp(), hp + 4.0)
         hp_changed.emit(hp, current_max_hp())
     # Phenomenal Evil: each kill grants permanent +0.5% Ability Power.
     if has_tag("phenomenal_evil"):
         phenomenal_evil_stacks += 1
+    # Pact of Pain: each kill burns 4 HP (the augment grants +150 max HP).
+    if has_tag("pact_of_pain"):
+        hp = max(1.0, hp - 4.0)
+        hp_changed.emit(hp, current_max_hp())
+    # Wraith Walk: each kill grants 0.4s wraith (dodge all hits).
+    if has_tag("wraith_walk"):
+        wraith_timer = max(wraith_timer, 0.4)
 
 # ────────────────────────────────────────────────────────────
 # Animation state machine

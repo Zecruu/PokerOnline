@@ -9,46 +9,78 @@ extends Node
 ##   evolved: Dictionary — the new item template (slotted in place)
 
 const RECIPES: Array[Dictionary] = [
+    # Inferno Mark (AP augment) + Emberwand (AD item) → AD+AP hybrid.
     {
         "augment_id": "inferno", "item_id": "emberwand",
         "evolved": {
             "id": "infernocrown", "name": "Inferno Crown",
-            "damage": 26.0, "max_hp": 0.0, "rarity": 3, "level": 1,
+            "attack_damage": 22.0, "ability_power": 0.12,
+            "rarity": 3, "level": 1,
         },
     },
+    # Phoenix Pact (HP/revive augment) + Phoenix Crest (hybrid) → big sustain.
     {
         "augment_id": "phoenix", "item_id": "phoenixcrest",
         "evolved": {
             "id": "eternalphoenix", "name": "Eternal Phoenix",
-            "damage": 18.0, "max_hp": 60.0, "rarity": 3, "level": 1,
+            "attack_damage": 18.0, "max_hp": 60.0, "lifesteal": 0.05,
+            "rarity": 3, "level": 1,
         },
     },
+    # Stardust Surge (AP scaling) + Sunheart (hybrid) → AP-scaling core.
     {
         "augment_id": "stardust", "item_id": "sunheart",
         "evolved": {
             "id": "solarcore", "name": "Solar Core",
-            "damage": 22.0, "max_hp": 40.0, "rarity": 3, "level": 1,
+            "attack_damage": 14.0, "max_hp": 40.0, "ability_power": 0.20,
+            "rarity": 3, "level": 1,
         },
     },
+    # Burning Aegis (defensive aura) + Fireward Plate (HP) → defender.
     {
         "augment_id": "burnaeg", "item_id": "firewardplate",
         "evolved": {
             "id": "pyreshroud", "name": "Pyre Shroud",
-            "damage": 8.0, "max_hp": 55.0, "rarity": 3, "level": 1,
+            "attack_damage": 8.0, "max_hp": 70.0,
+            "rarity": 3, "level": 1,
         },
     },
+    # Sovereign Sigil (universal damage) + Flameblade (AD) → pure AD greatsword.
     {
         "augment_id": "sovereign", "item_id": "flameblade",
         "evolved": {
             "id": "sovereignblade", "name": "Sovereign Blade",
-            "damage": 32.0, "max_hp": 0.0, "rarity": 3, "level": 1,
+            "attack_damage": 32.0, "crit_chance": 0.08,
+            "rarity": 3, "level": 1,
         },
     },
+    # Voidheart (max HP + pickup) + Infernal Core (AD) → AD/HP carry.
     {
         "augment_id": "voidheart", "item_id": "infernalcore",
         "evolved": {
             "id": "voidcore", "name": "Voidcore",
-            "damage": 28.0, "max_hp": 35.0, "rarity": 3, "level": 1,
+            "attack_damage": 28.0, "max_hp": 35.0, "lifesteal": 0.08,
+            "rarity": 3, "level": 1,
+        },
+    },
+    # Phenomenal Evil + Soulstealer's Pendant → MEGA-STACK AP item.
+    # 0.006% per kill — AP is a multiplier so this still compounds heavily
+    # past 1000 kills without instantly snowballing the game.
+    {
+        "augment_id": "phenmevl", "item_id": "mejais",
+        "evolved": {
+            "id": "phenomenalstacker", "name": "Phenomenal Tyrant",
+            "ability_power": 0.10, "stack_metric": "kills", "stack_value_ap": 0.00006,
+            "rarity": 3, "level": 1,
+        },
+    },
+    # Stackasaurus Rex + Pyre Tally → MEGA-STACK AD item.
+    {
+        "augment_id": "stackrex", "item_id": "pyretally",
+        "evolved": {
+            "id": "stackasaurusprime", "name": "Stackasaurus Prime",
+            "attack_damage": 8.0, "stack_metric": "kills", "stack_value_ad": 0.6,
+            "rarity": 3, "level": 1,
         },
     },
 ]

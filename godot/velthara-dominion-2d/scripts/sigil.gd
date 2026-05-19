@@ -11,7 +11,7 @@ extends Resource
 ## No class_name so the autoload registry doesn't need a pre-warmed class
 ## cache for headless tooling. Other scripts treat us as a Resource.
 
-enum Rarity { COMMON, RARE, EPIC, LEGENDARY }
+enum Rarity { COMMON, RARE, EPIC, LEGENDARY, CORRUPTED }
 
 @export var id: String = ""
 @export var display_name: String = ""
@@ -40,6 +40,7 @@ func rarity_color() -> Color:
         Rarity.RARE: return Color(0.45, 0.7, 1.0)          # Gold-ish blue
         Rarity.EPIC: return Color(0.78, 0.42, 1.0)         # Prismatic purple
         Rarity.LEGENDARY: return Color(1.0, 0.55, 0.18)    # Hex-orange fire
+        Rarity.CORRUPTED: return Color(0.85, 0.18, 0.22)   # Corrupted blood-red
     return Color.WHITE
 
 func rarity_weight() -> float:
@@ -48,6 +49,7 @@ func rarity_weight() -> float:
         Rarity.RARE: return 28.0
         Rarity.EPIC: return 10.0
         Rarity.LEGENDARY: return 2.0
+        Rarity.CORRUPTED: return 1.2
     return 1.0
 
 func rarity_name() -> String:
@@ -56,4 +58,5 @@ func rarity_name() -> String:
         Rarity.RARE: return "Gold"
         Rarity.EPIC: return "Prismatic"
         Rarity.LEGENDARY: return "Hex"
+        Rarity.CORRUPTED: return "Corrupted"
     return ""

@@ -9,45 +9,60 @@ script = ExtResource("1_forge")
 [node name="Dim" type="ColorRect" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.7)
+color = Color(0, 0, 0, 0.78)
 
 [node name="Center" type="CenterContainer" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="Box" type="PanelContainer" parent="Center"]
-custom_minimum_size = Vector2(520, 520)
+custom_minimum_size = Vector2(900, 720)
 
 [node name="Inner" type="VBoxContainer" parent="Center/Box"]
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 
 [node name="TitleLbl" type="Label" parent="Center/Box/Inner"]
 text = "FORGE"
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(1, 0.83, 0.27, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 3
-theme_override_font_sizes/font_size = 24
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 32
 
 [node name="AnomalyLbl" type="Label" parent="Center/Box/Inner"]
-text = "—"
+text = ""
 horizontal_alignment = 1
 autowrap_mode = 3
 theme_override_colors/font_color = Color(1, 0.55, 0.18, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 3
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 16
 
-[node name="ActionsBox" type="VBoxContainer" parent="Center/Box/Inner"]
-theme_override_constants/separation = 8
+[node name="AugmentHeader" type="Label" parent="Center/Box/Inner"]
+text = "CHOOSE AN AUGMENT"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.95, 0.92, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 22
 
-[node name="AugmentBtn" type="Button" parent="Center/Box/Inner/ActionsBox"]
-text = "Pick an Augment"
-custom_minimum_size = Vector2(0, 44)
+[node name="AugmentRow" type="HBoxContainer" parent="Center/Box/Inner"]
+alignment = 1
+theme_override_constants/separation = 16
 
-[node name="ContinueBtn" type="Button" parent="Center/Box/Inner/ActionsBox"]
-text = "Enter the Crucible"
-custom_minimum_size = Vector2(0, 44)
+[node name="ItemHeader" type="Label" parent="Center/Box/Inner"]
+text = "CHOOSE AN ITEM"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.95, 0.92, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 22
 
-[node name="EvolutionsBox" type="VBoxContainer" parent="Center/Box/Inner"]
-theme_override_constants/separation = 4
+[node name="ItemRow" type="HBoxContainer" parent="Center/Box/Inner"]
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="ContinueBtn" type="Button" parent="Center/Box/Inner"]
+text = "ENTER THE CRUCIBLE"
+custom_minimum_size = Vector2(280, 50)
+size_flags_horizontal = 4
