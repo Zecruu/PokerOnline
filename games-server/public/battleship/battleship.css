@@ -188,7 +188,9 @@ input[type="text"]:focus {
 .ship-info small { color: var(--text-dim); }
 
 .placement-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-.placement-buttons .btn { flex: 1; padding: 10px; }
+.placement-buttons .btn { flex: 1; padding: 10px; min-height: 44px; }
+.rotate-btn { background: var(--panel-light); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.rotate-btn:hover:not(:disabled) { background: var(--water); box-shadow: 0 0 12px rgba(0,212,255,0.25); }
 
 .status-line {
     margin-top: 16px;
@@ -221,7 +223,46 @@ input[type="text"]:focus {
     max-width: 480px;
     width: 100%;
     user-select: none;
+    position: relative; /* anchor for .ship-overlay */
 }
+
+/* ============================================ SHIP SPRITE OVERLAY ============================================ */
+.ship-overlay {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    pointer-events: none;
+    z-index: 5;
+}
+.ship-img {
+    position: absolute;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+    will-change: transform;
+}
+.ship-img.sunk {
+    filter: grayscale(1) brightness(0.42) drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    opacity: 0.92;
+}
+
+/* Cells where a sprite paints the ship: drop the gray placeholder so the sprite is visible. */
+.placement-grid .cell.ship,
+.my-grid .cell.ship { background: var(--water); }
+
+/* Damage / reveal markers must paint ABOVE the sprite layer (z-index 5). */
+.my-grid .cell.ship.hit-part { background: rgba(216, 51, 51, 0.62); z-index: 10; }
+.my-grid .cell.ship.sunk     { background: rgba(0, 0, 0, 0.30); z-index: 10; }
+.my-grid .cell.opp-ping      { z-index: 10; }
+.enemy-grid .cell.hit,
+.enemy-grid .cell.miss,
+.enemy-grid .cell.recon-empty,
+.enemy-grid .cell.recon-occ,
+.enemy-grid .cell.sonar      { z-index: 10; }
+/* Sunk enemy ship cells: drop the gray fill so the sunk-sprite shows through; X mark still renders on top. */
+.enemy-grid .cell.hit.ship.sunk { background: transparent; }
 .cell {
     background: var(--water);
     cursor: pointer;
@@ -473,10 +514,30 @@ input[type="text"]:focus {
 
 /* ============================================ MOBILE ============================================ */
 @media (max-width: 900px) {
-    .placement-layout { grid-template-columns: 1fr; }
+    .placement-layout { grid-template-columns: 1fr; gap: 12px; }
     .boards { grid-template-columns: 1fr; }
     .info-row { grid-template-columns: 1fr; }
     .attack-bar { grid-template-columns: repeat(3, 1fr); }
     .attack-bar .action-btn { grid-column: span 1; }
     .title { font-size: 1.8em; }
+    .rotate-btn { flex-basis: 100%; order: -1; min-height: 52px; font-size: 1.05em; }
+}
+@media (max-width: 600px) {
+    .screen { padding: 10px; }
+    .panel { padding: 12px; }
+    .grid-wrap { padding: 6px; }
+    .grid { max-width: 100%; }
+    .cell { font-size: 0.6em; }
+    .battle-header { flex-direction: column; gap: 8px; padding: 10px; }
+    .turn-indicator { font-size: 1em; }
+    .ship-card { padding: 8px 10px; }
+    .ship-preview .ship-cell { width: 12px; height: 12px; }
+    .attack-bar { grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; }
+    .attack-btn { padding: 8px 4px; min-height: 56px; }
+    .atk-name { font-size: 0.85em; }
+    .atk-desc { font-size: 0.65em; }
+    .action-btn { min-height: 48px; padding: 10px 14px; }
+    #btn-end-turn, #btn-move { grid-column: span 2; }
+    .picker-card { min-width: 0; width: calc(100% - 32px); max-width: 360px; }
+    .picker-opt { min-height: 48px; }
 }

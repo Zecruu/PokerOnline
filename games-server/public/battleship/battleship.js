@@ -54,6 +54,83 @@ function shipCells(x, y, orient, size) {
 
 function inBounds(x, y) { return x >= 0 && x < GRID && y >= 0 && y < GRID; }
 
+// =========== SHIP SPRITE OVERLAY ============
+// Natural aspect ratio (w/h) of each alpha-trimmed ship sprite.
+// If tools/downscale-ships.js is rerun and the sprites change shape, update these.
+const SHIP_ASPECTS = {
+    carrier:    492 / 187,
+    battleship: 508 / 94,
+    cruiser:    490 / 101,
+    submarine:  512 / 124,
+    destroyer:  500 / 106,
+};
+const _shipObserved = new WeakSet();
+
+function renderShipOverlay(grid, ships) {
+    let overlay = grid.querySelector('.ship-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'ship-overlay';
+        grid.appendChild(overlay);
+    }
+    overlay._ships = ships;
+    if (!_shipObserved.has(grid) && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => positionShipImages(grid));
+        ro.observe(grid);
+        _shipObserved.add(grid);
+    }
+    positionShipImages(grid);
+}
+
+function positionShipImages(grid) {
+    const overlay = grid.querySelector('.ship-overlay');
+    if (!overlay) return;
+    const ships = overlay._ships || [];
+    overlay.innerHTML = '';
+
+    // 2px border on each side of .grid is excluded from .ship-overlay sizing,
+    // so the overlay's clientWidth IS the inner content area.
+    const innerW = overlay.clientWidth;
+    const cell = innerW / GRID;
+    if (cell <= 0) return;
+
+    for (const ship of ships) {
+        if (!ship.cells || ship.cells.length === 0) continue;
+        const horiz = ship.orient === 'h';
+        const len = ship.cells.length;
+        const aspect = SHIP_ASPECTS[ship.id] || len;
+        const longPx = len * cell;
+        const shortPx = longPx / aspect;
+        const head = ship.cells[0];
+
+        const img = document.createElement('img');
+        img.src = `ships/${ship.id}.png`;
+        img.draggable = false;
+        img.className = 'ship-img' + (ship.sunk ? ' sunk' : '');
+        img.alt = '';
+
+        if (horiz) {
+            img.style.width = `${longPx}px`;
+            img.style.height = `${shortPx}px`;
+            img.style.left = `${head.x * cell}px`;
+            img.style.top = `${head.y * cell + (cell - shortPx) / 2}px`;
+        } else {
+            // Pre-rotation: image is longPx wide, shortPx tall (its natural orientation).
+            // After rotate(90deg) around center: visual width = shortPx, visual height = longPx.
+            // Center the rotated visual on the ship's column (1 cell wide) and span its N rows.
+            const cx = (head.x + 0.5) * cell;
+            const cy = (head.y + len / 2) * cell;
+            img.style.width = `${longPx}px`;
+            img.style.height = `${shortPx}px`;
+            img.style.left = `${cx - longPx / 2}px`;
+            img.style.top = `${cy - shortPx / 2}px`;
+            img.style.transform = 'rotate(90deg)';
+            img.style.transformOrigin = 'center center';
+        }
+        overlay.appendChild(img);
+    }
+}
+
 function showError(msg) {
     const el = $('lobby-error');
     el.textContent = msg;
@@ -129,13 +206,37 @@ window.addEventListener('load', () => {
 });
 
 // =========== PLACEMENT ============
+let _placementGridBuilt = false;
+
+function flipOrientation(hover) {
+    state.placement.selectedOrient = state.placement.selectedOrient === 'h' ? 'v' : 'h';
+    updateRotateLabel();
+    renderPlacementGrid(hover);
+}
+
+function updateRotateLabel() {
+    const btn = $('btn-rotate');
+    if (btn) btn.textContent = state.placement.selectedOrient === 'h' ? '↻ Rotate (H)' : '↻ Rotate (V)';
+}
+
 function initPlacementScreen() {
+    _placementGridBuilt = false;
     state.placement.ships.clear();
     state.placement.selectedShipId = FLEET[0].id;
     state.placement.selectedOrient = 'h';
+    updateRotateLabel();
     renderFleetList();
     renderPlacementGrid();
+    updatePlacementOverlay();
     updatePlacementStatus();
+}
+
+function updatePlacementOverlay() {
+    const ships = [];
+    for (const [id, info] of state.placement.ships) {
+        ships.push({ id, orient: info.orient, cells: info.cells });
+    }
+    renderShipOverlay($('placement-grid'), ships);
 }
 
 function renderFleetList() {
@@ -169,7 +270,48 @@ function renderFleetList() {
 
 function renderPlacementGrid(hover) {
     const grid = $('placement-grid');
-    grid.innerHTML = '';
+    // Build cells ONCE. Re-rendering on hover destroys the cell mid-tap on mobile,
+    // which kills the click handler — that's why tap-to-place was broken on touch devices.
+    if (!_placementGridBuilt) {
+        grid.innerHTML = '';
+        for (let y = 0; y < GRID; y++) {
+            for (let x = 0; x < GRID; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.x = x;
+                cell.dataset.y = y;
+                cell.addEventListener('mouseenter', () => renderPlacementGrid({ x: +cell.dataset.x, y: +cell.dataset.y }));
+                cell.addEventListener('mouseleave', () => renderPlacementGrid(null));
+                cell.addEventListener('click', (e) => {
+                    if (cell._suppressClick) { cell._suppressClick = false; return; }
+                    onPlacementClick(+cell.dataset.x, +cell.dataset.y);
+                });
+                cell.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    flipOrientation({ x: +cell.dataset.x, y: +cell.dataset.y });
+                });
+                // Long-press to rotate (touch-friendly equivalent of right-click)
+                let pressTimer = null;
+                cell.addEventListener('touchstart', () => {
+                    pressTimer = setTimeout(() => {
+                        flipOrientation();
+                        if (navigator.vibrate) navigator.vibrate(30);
+                        pressTimer = null;
+                        // Suppress the synthetic click that follows touchend so we don't
+                        // also place a ship on the long-press cell.
+                        cell._suppressClick = true;
+                    }, 450);
+                }, { passive: true });
+                const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+                cell.addEventListener('touchend', cancelPress);
+                cell.addEventListener('touchmove', cancelPress);
+                cell.addEventListener('touchcancel', cancelPress);
+                grid.appendChild(cell);
+            }
+        }
+        _placementGridBuilt = true;
+    }
+
     // Compute occupied set
     const occupied = new Map(); // key -> shipId
     for (const [shipId, info] of state.placement.ships) {
@@ -183,25 +325,16 @@ function renderPlacementGrid(hover) {
         previewCells = shipCells(hover.x, hover.y, state.placement.selectedOrient, selShip.size);
         previewOk = previewCells.every(c => inBounds(c.x, c.y) && !occupied.has(key(c.x, c.y)));
     }
-    for (let y = 0; y < GRID; y++) {
-        for (let x = 0; x < GRID; x++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.dataset.x = x;
-            cell.dataset.y = y;
-            if (occupied.has(key(x, y))) cell.classList.add('ship');
-            if (previewCells?.some(c => c.x === x && c.y === y)) {
-                cell.classList.add(previewOk ? 'preview-ok' : 'preview-bad');
-            }
-            cell.addEventListener('mouseenter', () => renderPlacementGrid({ x, y }));
-            cell.addEventListener('click', () => onPlacementClick(x, y));
-            cell.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                state.placement.selectedOrient = state.placement.selectedOrient === 'h' ? 'v' : 'h';
-                renderPlacementGrid({ x, y });
-            });
-            grid.appendChild(cell);
-        }
+    const previewSet = new Set();
+    if (previewCells) previewCells.forEach(c => previewSet.add(key(c.x, c.y)));
+
+    // Update existing cells in-place — no DOM destruction, click handlers persist.
+    for (const cell of grid.children) {
+        const x = +cell.dataset.x;
+        const y = +cell.dataset.y;
+        cell.className = 'cell';
+        if (occupied.has(key(x, y))) cell.classList.add('ship');
+        if (previewSet.has(key(x, y))) cell.classList.add(previewOk ? 'preview-ok' : 'preview-bad');
     }
 }
 
@@ -216,6 +349,7 @@ function onPlacementClick(x, y) {
         state.placement.ships.delete(selId);
         renderFleetList();
         renderPlacementGrid();
+        updatePlacementOverlay();
         updatePlacementStatus();
         return;
     }
@@ -235,6 +369,7 @@ function onPlacementClick(x, y) {
     if (nextUnplaced) state.placement.selectedShipId = nextUnplaced.id;
     renderFleetList();
     renderPlacementGrid();
+    updatePlacementOverlay();
     updatePlacementStatus();
 }
 
@@ -252,6 +387,8 @@ function updatePlacementStatus() {
         readyBtn.disabled = false;
     }
 }
+
+$('btn-rotate').addEventListener('click', () => flipOrientation());
 
 $('btn-randomize').addEventListener('click', () => {
     state.placement.ships.clear();
@@ -273,6 +410,7 @@ $('btn-randomize').addEventListener('click', () => {
     }
     renderFleetList();
     renderPlacementGrid();
+    updatePlacementOverlay();
     updatePlacementStatus();
 });
 
@@ -281,6 +419,7 @@ $('btn-reset-placement').addEventListener('click', () => {
     state.placement.selectedShipId = FLEET[0].id;
     renderFleetList();
     renderPlacementGrid();
+    updatePlacementOverlay();
     updatePlacementStatus();
 });
 
@@ -298,8 +437,7 @@ $('btn-ready').addEventListener('click', () => {
 
 window.addEventListener('keydown', e => {
     if (state.screen === 'placement' && (e.key === 'r' || e.key === 'R')) {
-        state.placement.selectedOrient = state.placement.selectedOrient === 'h' ? 'v' : 'h';
-        renderPlacementGrid();
+        flipOrientation();
     }
 });
 
@@ -419,6 +557,11 @@ function renderEnemyGrid(server) {
             grid.appendChild(cell);
         }
     }
+    // Reveal sunk-enemy ships as desaturated silhouettes.
+    const sunk = (server.enemyBoard.sunkShips || []).map(s => ({
+        id: s.id, orient: s.orient, cells: s.cells, sunk: true,
+    }));
+    renderShipOverlay(grid, sunk);
 }
 
 function directionArrow(dir) {
@@ -486,6 +629,11 @@ function renderMyGrid(server) {
             grid.appendChild(cell);
         }
     }
+    // Paint own ships as sprites (sunk ones get the desaturated treatment).
+    const myShips = server.myBoard.ships.map(s => ({
+        id: s.id, orient: s.orient, cells: s.cells, sunk: !!s.sunk,
+    }));
+    renderShipOverlay(grid, myShips);
 }
 
 function computeMoveTargets(ship, server) {
