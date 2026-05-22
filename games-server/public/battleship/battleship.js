@@ -104,7 +104,18 @@ function positionShipImages(grid) {
         const head = ship.cells[0];
 
         const img = document.createElement('img');
-        img.src = `ships/${ship.id}.png`;
+        // CDN-first with local fallback so CloudFront takes the egress hit, not Railway.
+        // If cdn-assets.js failed to load or CDN is disabled, this falls back to local.
+        const cdnUrl = (typeof window.bsAssetUrl === 'function')
+            ? window.bsAssetUrl(`ships/${ship.id}.png`)
+            : `ships/${ship.id}.png`;
+        img.src = cdnUrl;
+        img.onerror = () => {
+            if (img.src !== `ships/${ship.id}.png` && !img.dataset.fallback) {
+                img.dataset.fallback = '1';
+                img.src = `ships/${ship.id}.png`;
+            }
+        };
         img.draggable = false;
         img.className = 'ship-img' + (ship.sunk ? ' sunk' : '');
         img.alt = '';
