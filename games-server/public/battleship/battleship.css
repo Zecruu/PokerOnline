@@ -228,10 +228,10 @@ input[type="text"]:focus {
 
 /* ============================================ SHIP SPRITE OVERLAY ============================================ */
 .ship-overlay {
+    /* Fills the grid's padding-box (which is already inside the 2px border with box-sizing:border-box).
+       Cells share this exact coordinate space — DO NOT inset further. */
     position: absolute;
-    top: 2px; left: 2px;
-    width: calc(100% - 4px);
-    height: calc(100% - 4px);
+    inset: 0;
     pointer-events: none;
     z-index: 5;
 }
@@ -304,10 +304,55 @@ input[type="text"]:focus {
     background: var(--ship-hit);
 }
 .cell.hit::after {
-    content: '✕';
-    color: white;
-    font-size: 1.4em;
-    font-weight: bold;
+    content: '🔥';
+    font-size: 1.05em;
+    line-height: 1;
+    /* The emoji is rendered by the system; color/font-weight don't apply. */
+    animation: bs-fire-flicker 0.45s ease-in-out infinite;
+    filter: drop-shadow(0 0 5px rgba(255,120,0,0.75));
+    z-index: 12;
+    position: relative;
+}
+/* Damaged-but-not-sunk own ship cells get the same flickering fire. */
+.cell.hit-part::after {
+    content: '🔥';
+    font-size: 1.05em;
+    line-height: 1;
+    animation: bs-fire-flicker 0.45s ease-in-out infinite;
+    filter: drop-shadow(0 0 5px rgba(255,120,0,0.75));
+    z-index: 12;
+    position: relative;
+}
+
+/* One-shot expanding fireball when a cell is freshly hit. Added via JS as `.hit-burst`,
+   removed after the animation completes so it doesn't replay on later renders. */
+.cell.hit-burst::before {
+    content: '';
+    position: absolute;
+    inset: -50%;
+    background: radial-gradient(circle,
+        rgba(255,245,180,1)  0%,
+        rgba(255,190,60,0.95) 18%,
+        rgba(255,100,20,0.85) 42%,
+        rgba(180,30,0,0.5)    68%,
+        transparent           88%);
+    pointer-events: none;
+    z-index: 15;
+    animation: bs-fire-burst 0.7s ease-out forwards;
+    mix-blend-mode: screen;
+    border-radius: 50%;
+}
+
+@keyframes bs-fire-burst {
+    0%   { transform: scale(0.3); opacity: 1; }
+    35%  { transform: scale(1.4); opacity: 1; }
+    100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes bs-fire-flicker {
+    0%, 100% { transform: scale(1)    translateY(0);     filter: brightness(1.00) drop-shadow(0 0 4px rgba(255,100,0,0.7)); }
+    25%      { transform: scale(1.10) translateY(-0.5px);filter: brightness(1.15) drop-shadow(0 0 7px rgba(255,160,0,0.95)); }
+    50%      { transform: scale(0.94) translateY(0.5px); filter: brightness(0.90) drop-shadow(0 0 3px rgba(255,80,0,0.6)); }
+    75%      { transform: scale(1.06) translateY(-0.5px);filter: brightness(1.08) drop-shadow(0 0 5px rgba(255,130,0,0.85)); }
 }
 .cell.miss { background: var(--miss); }
 .cell.miss::after {

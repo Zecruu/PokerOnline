@@ -82,30 +82,52 @@ function renderShipOverlay(grid, ships) {
     positionShipImages(grid);
 }
 
+// CSS grid gap between cells. Must match .grid { gap: 1px } in battleship.css.
+const GRID_GAP_PX = 1;
+
+// Per-grid memory of which cells we've already shown the fire burst for.
+// Without this, the burst would replay every server-state render (cells rebuild on each render).
+const _knownHits = new Map(); // gridDomId -> Set<"x,y">
+
+function maybeBurst(gridDomId, cell, x, y) {
+    let known = _knownHits.get(gridDomId);
+    if (!known) { known = new Set(); _knownHits.set(gridDomId, known); }
+    const k = key(x, y);
+    if (known.has(k)) return;
+    known.add(k);
+    cell.classList.add('hit-burst');
+    setTimeout(() => cell.classList.remove('hit-burst'), 750);
+}
+
+function resetKnownHits() {
+    _knownHits.clear();
+}
+
 function positionShipImages(grid) {
     const overlay = grid.querySelector('.ship-overlay');
     if (!overlay) return;
     const ships = overlay._ships || [];
     overlay.innerHTML = '';
 
-    // 2px border on each side of .grid is excluded from .ship-overlay sizing,
-    // so the overlay's clientWidth IS the inner content area.
+    // Overlay fills the grid's padding-box exactly, same coordinate system as the cells.
+    // Total inner width = 12 cells + 11 gaps, so cell size and stride must compensate.
     const innerW = overlay.clientWidth;
-    const cell = innerW / GRID;
-    if (cell <= 0) return;
+    if (innerW <= 0) return;
+    const cellSize = (innerW - (GRID - 1) * GRID_GAP_PX) / GRID;
+    const stride = cellSize + GRID_GAP_PX;
+    if (cellSize <= 0) return;
 
     for (const ship of ships) {
         if (!ship.cells || ship.cells.length === 0) continue;
         const horiz = ship.orient === 'h';
         const len = ship.cells.length;
         const aspect = SHIP_ASPECTS[ship.id] || len;
-        const longPx = len * cell;
+        // Long axis spans N cells PLUS the (N-1) gap pixels between them.
+        const longPx = len * cellSize + (len - 1) * GRID_GAP_PX;
         const shortPx = longPx / aspect;
         const head = ship.cells[0];
 
         const img = document.createElement('img');
-        // CDN-first with local fallback so CloudFront takes the egress hit, not Railway.
-        // If cdn-assets.js failed to load or CDN is disabled, this falls back to local.
         const cdnUrl = (typeof window.bsAssetUrl === 'function')
             ? window.bsAssetUrl(`ships/${ship.id}.png`)
             : `ships/${ship.id}.png`;
@@ -123,14 +145,13 @@ function positionShipImages(grid) {
         if (horiz) {
             img.style.width = `${longPx}px`;
             img.style.height = `${shortPx}px`;
-            img.style.left = `${head.x * cell}px`;
-            img.style.top = `${head.y * cell + (cell - shortPx) / 2}px`;
+            img.style.left = `${head.x * stride}px`;
+            img.style.top = `${head.y * stride + (cellSize - shortPx) / 2}px`;
         } else {
-            // Pre-rotation: image is longPx wide, shortPx tall (its natural orientation).
-            // After rotate(90deg) around center: visual width = shortPx, visual height = longPx.
-            // Center the rotated visual on the ship's column (1 cell wide) and span its N rows.
-            const cx = (head.x + 0.5) * cell;
-            const cy = (head.y + len / 2) * cell;
+            // Rotated container is 1 cell wide × N cells tall (+ gaps).
+            // Pre-rotation: image is longPx wide × shortPx tall, rotated 90° around its center.
+            const cx = head.x * stride + cellSize / 2;
+            const cy = head.y * stride + longPx / 2;
             img.style.width = `${longPx}px`;
             img.style.height = `${shortPx}px`;
             img.style.left = `${cx - longPx / 2}px`;
@@ -232,6 +253,7 @@ function updateRotateLabel() {
 
 function initPlacementScreen() {
     _placementGridBuilt = false;
+    resetKnownHits();
     state.placement.ships.clear();
     state.placement.selectedShipId = FLEET[0].id;
     state.placement.selectedOrient = 'h';
@@ -546,6 +568,7 @@ function renderEnemyGrid(server) {
                 if (r.type === 'hit') {
                     cell.classList.add('hit');
                     if (sunkCells.has(key(x, y))) cell.classList.add('ship', 'sunk');
+                    maybeBurst('enemy-grid', cell, x, y);
                 } else if (r.type === 'miss') {
                     cell.classList.add('miss');
                     if (r.tier) cell.classList.add(r.tier.toLowerCase());
@@ -614,7 +637,10 @@ function renderMyGrid(server) {
             if (ship) {
                 cell.classList.add('ship');
                 if (sunkShipIds.has(ship.id)) cell.classList.add('sunk');
-                if (hitMap.has(key(x, y))) cell.classList.add('hit-part');
+                if (hitMap.has(key(x, y))) {
+                    cell.classList.add('hit-part');
+                    maybeBurst('my-grid', cell, x, y);
+                }
             }
             if (bombMap.has(key(x, y)) && !ship) {
                 cell.classList.add('bombed-zone');
