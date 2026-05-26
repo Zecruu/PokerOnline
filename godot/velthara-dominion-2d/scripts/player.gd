@@ -97,6 +97,18 @@ var stat_pick_phenomenal_per_kill: int = 0
 # time so 1.0s of freeze means a 1-second window with no input response.
 var frozen_timer: float = 0.0
 
+# Phase 4 character-driven tags + per-character passives. char_tags is
+# populated by _apply_character_stats from CharacterData.selected().tags;
+# has_tag() checks it alongside augment_tags / anomaly_tags / inventory tags.
+var char_tags: Dictionary = {}
+# Soul Harvest (Necromancer passive) — every kill grants 1 soul stack (cap 100).
+# Decays 1 stack every 5s of no kill. Each stack adds +1.5% to current_ability_power.
+var soul_harvest_stacks: int = 0
+var soul_harvest_decay_acc: float = 0.0
+const SOUL_HARVEST_CAP: int = 100
+const SOUL_HARVEST_DECAY_INTERVAL: float = 5.0
+const SOUL_HARVEST_AP_PER_STACK: float = 0.015
+
 # ── Anomaly-driven fields. Set by AnomalyManager.activate(); reset to
 #    defaults by AnomalyManager.deactivate(). Fold into the existing
 #    formulas so anomalies stack with permanent augment buffs. ──
@@ -196,7 +208,8 @@ func current_ability_power() -> float:
     # power (0.10 AP from items = +10% spell damage).
     var phenomenal_bonus: float = 1.0 + phenomenal_evil_stacks * 0.005
     var inv_ap_factor: float = 1.0 + _inv_ap()
-    return (BASE_DAMAGE + _inv_ad() + stat_pick_attack_power_bonus) * _base_damage_shared() * spell_power_mult * stat_pick_spell_power_mult * inv_ap_factor * phenomenal_bonus * anomaly_ability_power
+    var soul_harvest_bonus: float = 1.0 + float(soul_harvest_stacks) * SOUL_HARVEST_AP_PER_STACK
+    return (BASE_DAMAGE + _inv_ad() + stat_pick_attack_power_bonus) * _base_damage_shared() * spell_power_mult * stat_pick_spell_power_mult * inv_ap_factor * phenomenal_bonus * soul_harvest_bonus * anomaly_ability_power
 
 # Back-compat alias used by older callsites — defaults to auto-attack damage.
 func current_damage() -> float:
@@ -214,7 +227,7 @@ func current_fire_rate() -> float:
 #    so a Corrupted item (Cursed Blade, Hex Mirror) lights up the same
 #    hooks as the corresponding augment would. ──
 func has_tag(t: String) -> bool:
-    if augment_tags.has(t) or anomaly_tags.has(t):
+    if augment_tags.has(t) or anomaly_tags.has(t) or char_tags.has(t):
         return true
     var inv: Node = _inv()
     if inv != null and inv.has_item_tag(t):
@@ -267,6 +280,15 @@ func _apply_character_stats() -> void:
     fire_rate_mult *= float(c.get("fire_rate_mult", 1.0))
     move_speed_mult *= float(c.get("move_speed_mult", 1.0))
     max_hp_bonus_from_sigils += float(c.get("max_hp_bonus", 0.0))
+    # Phase 4: innate spell-power bump (Void Empress carries +0.20).
+    spell_power_mult *= (1.0 + float(c.get("spell_power_mult_init", 0.0)))
+    # Phase 4: per-character tags (soul_harvest, void_mark, …) populate
+    # char_tags which has_tag() consults alongside augment_tags. Survives
+    # augment acquires because SigilManager._reapply_to_player only touches
+    # augment_tags, not char_tags.
+    char_tags.clear()
+    for t in c.get("tags", []):
+        char_tags[String(t)] = 1
     hp = current_max_hp()
 
 func _physics_process(dt: float) -> void:
@@ -285,6 +307,12 @@ func _physics_process(dt: float) -> void:
     # ── Timers ──
     shoot_cooldown = max(0.0, shoot_cooldown - dt)
     frozen_timer = max(0.0, frozen_timer - dt)
+    # Soul Harvest decay — every 5s without a kill, lose 1 stack.
+    if has_tag("soul_harvest") and soul_harvest_stacks > 0:
+        soul_harvest_decay_acc += dt
+        if soul_harvest_decay_acc >= SOUL_HARVEST_DECAY_INTERVAL:
+            soul_harvest_decay_acc -= SOUL_HARVEST_DECAY_INTERVAL
+            soul_harvest_stacks = max(0, soul_harvest_stacks - 1)
     iframes = max(0.0, iframes - dt)
     _cast_anim_remaining = max(0.0, _cast_anim_remaining - dt)
     volley_cd = max(0.0, volley_cd - dt)
@@ -372,6 +400,8 @@ func _cast_q_ability() -> void:
         "inferno_volley": _cast_inferno_volley()
         "holy_hammer": _cast_holy_hammer()
         "shadow_dash": _cast_shadow_dash()
+        "raise_skeleton": _cast_raise_skeleton()
+        "singularity": _cast_singularity()
         _: _cast_inferno_volley()
 
 func _cast_e_ability() -> void:
@@ -383,6 +413,8 @@ func _cast_e_ability() -> void:
         "solar_cataclysm": _cast_solar_cataclysm()
         "divine_shield": _cast_divine_shield()
         "soul_drain": _cast_soul_drain()
+        "soul_reap": _cast_soul_reap()
+        "hex_curse": _cast_hex_curse()
         _: _cast_solar_cataclysm()
 
 func _cast_holy_hammer() -> void:
@@ -540,6 +572,283 @@ func _draw():
 """
     gd.reload()
     fx.set_script(gd)
+
+# ── Phase 4 abilities — Necromancer (raise_skeleton, soul_reap) and
+#    Void Empress (singularity, hex_curse). Each registers cooldown via
+#    cd_scaled() so CDR augments + stat-pick CDR continue to apply.
+
+const RAISE_SKELETON_CD: float = 8.0
+const RAISE_SKELETON_LIFE: float = 12.0
+const RAISE_SKELETON_MAX: int = 3
+const RAISE_SKELETON_DMG_RATIO: float = 0.4  # of current_ability_power per minion hit
+
+func _cast_raise_skeleton() -> void:
+    # Cap concurrent minions by counting the group. Each minion adds itself
+    # to "necromancer_minions" in its _ready and removes via queue_free.
+    var existing: Array = get_tree().get_nodes_in_group("necromancer_minions")
+    var slot: int = max(0, RAISE_SKELETON_MAX - existing.size())
+    if slot <= 0:
+        volley_cd = cd_scaled(RAISE_SKELETON_CD)
+        return
+    var nearest := _find_nearest_enemy()
+    var minion_script: GDScript = load("res://scripts/skeleton_minion.gd")
+    var minion_dmg: float = current_ability_power() * RAISE_SKELETON_DMG_RATIO
+    for i in range(slot):
+        if i >= 1 and nearest == null: break  # don't summon more than 1 if no targets
+        var m: CharacterBody2D = CharacterBody2D.new()
+        m.set_script(minion_script)
+        m.set("max_hp", 200.0)
+        m.set("damage", minion_dmg)
+        m.set("lifetime", RAISE_SKELETON_LIFE)
+        m.set("owner_player", self)
+        var angle: float = randf() * TAU
+        m.global_position = global_position + Vector2(cos(angle), sin(angle)) * 32.0
+        get_parent().add_child(m)
+    volley_cd = cd_scaled(RAISE_SKELETON_CD)
+    _cast_anim_remaining = FIRE_SLASH_VISUAL_TIME
+
+const SOUL_REAP_RADIUS: float = 220.0
+const SOUL_REAP_DAMAGE_MULT: float = 1.8
+const SOUL_REAP_HEAL_PER_HIT: float = 5.0
+const SOUL_REAP_CD: float = 14.0
+
+func _cast_soul_reap() -> void:
+    var hits: int = 0
+    var dmg: float = current_ability_power() * SOUL_REAP_DAMAGE_MULT
+    for e in _enemies():
+        if e == null or not (e is Node2D): continue
+        if (e.global_position - global_position).length() > SOUL_REAP_RADIUS: continue
+        var is_crit: bool = randf() < ability_crit_chance(0.05)
+        var raw: float = dmg * (current_crit_mult() if is_crit else 1.0)
+        var final_dmg: float = _void_mark_ability_hit(e, raw)
+        if e.has_method("take_damage"):
+            e.take_damage(final_dmg, self, true, is_crit)
+        hits += 1
+    if not has_tag("no_healing") and hits > 0:
+        hp = min(current_max_hp(), hp + SOUL_REAP_HEAL_PER_HIT * float(hits))
+        hp_changed.emit(hp, current_max_hp())
+    _spawn_soul_reap_vfx(SOUL_REAP_RADIUS)
+    cataclysm_cd = cd_scaled(SOUL_REAP_CD)
+    _cast_anim_remaining = FIRE_SLASH_VISUAL_TIME
+
+func _spawn_soul_reap_vfx(radius: float) -> void:
+    var fx := Node2D.new()
+    fx.global_position = global_position
+    fx.set_meta("r", radius)
+    get_parent().add_child(fx)
+    var gd := GDScript.new()
+    gd.source_code = """
+extends Node2D
+var t: float = 0.0
+func _ready(): set_process(true)
+func _process(dt):
+    t += dt
+    if t > 0.55: queue_free(); return
+    queue_redraw()
+func _draw():
+    var r = float(get_meta(\"r\")); var a = 1.0 - t / 0.55
+    draw_arc(Vector2.ZERO, r * (0.5 + t * 1.2), 0, TAU, 48, Color(0.55, 0.95, 0.55, a), 5.0)
+    draw_circle(Vector2.ZERO, r * 0.25, Color(0.55, 0.95, 0.55, a * 0.30))
+"""
+    gd.reload()
+    fx.set_script(gd)
+
+const SINGULARITY_LIFE: float = 4.0
+const SINGULARITY_RADIUS: float = 200.0
+const SINGULARITY_PULL_SPEED: float = 80.0
+const SINGULARITY_TICK_INTERVAL: float = 0.25
+const SINGULARITY_DMG_MULT: float = 0.3
+const SINGULARITY_CD: float = 11.0
+
+func _cast_singularity() -> void:
+    var target := _find_nearest_enemy()
+    var center: Vector2 = target.global_position if target != null else global_position
+    var node := Node2D.new()
+    node.global_position = center
+    node.set_meta("life", SINGULARITY_LIFE)
+    node.set_meta("radius", SINGULARITY_RADIUS)
+    node.set_meta("pull_speed", SINGULARITY_PULL_SPEED)
+    node.set_meta("tick", SINGULARITY_TICK_INTERVAL)
+    node.set_meta("dmg", current_ability_power() * SINGULARITY_DMG_MULT)
+    node.set_meta("crit_chance", ability_crit_chance(0.05))
+    node.set_meta("crit_mult", current_crit_mult())
+    node.set_meta("source", self)
+    node.set_meta("apply_void_mark", char_tags.has("void_mark"))
+    get_parent().add_child(node)
+    var gd := GDScript.new()
+    gd.source_code = """
+extends Node2D
+var t: float = 0.0
+var tick_acc: float = 0.0
+func _ready(): set_process(true)
+func _process(dt):
+    t += dt
+    if t > float(get_meta(\"life\")): queue_free(); return
+    queue_redraw()
+    var radius = float(get_meta(\"radius\"))
+    var pull = float(get_meta(\"pull_speed\")) * dt
+    for e in get_tree().get_nodes_in_group(\"enemies\"):
+        if e == null or not (e is Node2D): continue
+        var to_c = global_position - e.global_position
+        var d = to_c.length()
+        if d > radius or d < 1.0: continue
+        e.global_position += (to_c / d) * pull
+    tick_acc += dt
+    if tick_acc >= float(get_meta(\"tick\")):
+        tick_acc -= float(get_meta(\"tick\"))
+        var dmg = float(get_meta(\"dmg\"))
+        var crit_chance = float(get_meta(\"crit_chance\"))
+        var crit_mult = float(get_meta(\"crit_mult\"))
+        var src = get_meta(\"source\")
+        var apply_mark = bool(get_meta(\"apply_void_mark\"))
+        for e2 in get_tree().get_nodes_in_group(\"enemies\"):
+            if e2 == null or not (e2 is Node2D): continue
+            if (e2.global_position - global_position).length() > radius: continue
+            var is_crit = randf() < crit_chance
+            var raw = dmg * (crit_mult if is_crit else 1.0)
+            if e2.has_meta(\"_void_marked_until\") and Time.get_ticks_msec() < int(e2.get_meta(\"_void_marked_until\")):
+                raw *= 1.3
+                e2.remove_meta(\"_void_marked_until\")
+            if e2.has_method(\"take_damage\"):
+                e2.take_damage(raw, src, true, is_crit)
+            if apply_mark:
+                e2.set_meta(\"_void_marked_until\", Time.get_ticks_msec() + 4000)
+func _draw():
+    var r = float(get_meta(\"radius\"))
+    var life = float(get_meta(\"life\"))
+    var pulse = 0.7 + 0.3 * sin(t * 8.0)
+    var alpha_outer = (1.0 - t / life) * 0.55
+    draw_arc(Vector2.ZERO, r, 0, TAU, 64, Color(0.5, 0.2, 1.0, alpha_outer), 3.0)
+    draw_circle(Vector2.ZERO, r * 0.10 * pulse, Color(0.65, 0.30, 1.0, 0.95))
+    draw_circle(Vector2.ZERO, r * 0.20 * pulse, Color(0.50, 0.20, 1.0, 0.45))
+    draw_circle(Vector2.ZERO, r * 0.35, Color(0.40, 0.15, 0.85, 0.18))
+"""
+    gd.reload()
+    node.set_script(gd)
+    volley_cd = cd_scaled(SINGULARITY_CD)
+    _cast_anim_remaining = FIRE_SLASH_VISUAL_TIME
+
+const HEX_CURSE_FUSE: float = 3.0
+const HEX_CURSE_RADIUS: float = 120.0
+const HEX_CURSE_DMG_MULT: float = 4.0
+const HEX_CURSE_CD: float = 16.0
+
+func _cast_hex_curse() -> void:
+    var target := _find_nearest_enemy()
+    if target == null:
+        cataclysm_cd = cd_scaled(HEX_CURSE_CD)
+        return
+    var dmg: float = current_ability_power() * HEX_CURSE_DMG_MULT
+    if char_tags.has("void_mark"):
+        target.set_meta("_void_marked_until", Time.get_ticks_msec() + 4000)
+    # Spawn a watcher node that holds a soft reference to the target. After
+    # HEX_CURSE_FUSE seconds it explodes at the target's current position
+    # (or last-seen if dead). If target dies before the fuse, the watcher
+    # detects via is_instance_valid and explodes immediately at last position.
+    var watcher := Node2D.new()
+    watcher.global_position = target.global_position
+    watcher.set_meta("target", target)
+    watcher.set_meta("fuse", HEX_CURSE_FUSE)
+    watcher.set_meta("radius", HEX_CURSE_RADIUS)
+    watcher.set_meta("dmg", dmg)
+    watcher.set_meta("crit_chance", ability_crit_chance(0.05))
+    watcher.set_meta("crit_mult", current_crit_mult())
+    watcher.set_meta("source", self)
+    watcher.set_meta("apply_void_mark", char_tags.has("void_mark"))
+    get_parent().add_child(watcher)
+    var gd := GDScript.new()
+    gd.source_code = """
+extends Node2D
+var t: float = 0.0
+var last_target_pos: Vector2 = Vector2.ZERO
+var triggered: bool = false
+func _ready():
+    set_process(true)
+    var tgt = get_meta(\"target\")
+    if tgt != null and is_instance_valid(tgt):
+        last_target_pos = tgt.global_position
+func _process(dt):
+    if triggered: return
+    t += dt
+    var tgt = get_meta(\"target\")
+    var alive = tgt != null and is_instance_valid(tgt)
+    if alive:
+        last_target_pos = tgt.global_position
+        global_position = last_target_pos
+    queue_redraw()
+    if t >= float(get_meta(\"fuse\")):
+        _detonate()
+    elif not alive:
+        _detonate()
+func _detonate():
+    triggered = true
+    var radius = float(get_meta(\"radius\"))
+    var dmg = float(get_meta(\"dmg\"))
+    var crit_chance = float(get_meta(\"crit_chance\"))
+    var crit_mult = float(get_meta(\"crit_mult\"))
+    var src = get_meta(\"source\")
+    var apply_mark = bool(get_meta(\"apply_void_mark\"))
+    var center = last_target_pos
+    for e2 in get_tree().get_nodes_in_group(\"enemies\"):
+        if e2 == null or not (e2 is Node2D): continue
+        if (e2.global_position - center).length() > radius: continue
+        var is_crit = randf() < crit_chance
+        var raw = dmg * (crit_mult if is_crit else 1.0)
+        if e2.has_meta(\"_void_marked_until\") and Time.get_ticks_msec() < int(e2.get_meta(\"_void_marked_until\")):
+            raw *= 1.3
+            e2.remove_meta(\"_void_marked_until\")
+        if e2.has_method(\"take_damage\"):
+            e2.take_damage(raw, src, true, is_crit)
+        if apply_mark:
+            e2.set_meta(\"_void_marked_until\", Time.get_ticks_msec() + 4000)
+    _spawn_burst(center, radius)
+    queue_free()
+func _spawn_burst(center, radius):
+    var fx = Node2D.new()
+    fx.global_position = center
+    fx.set_meta(\"r\", radius)
+    get_parent().add_child(fx)
+    var burst_gd = GDScript.new()
+    burst_gd.source_code = \"\"\"
+extends Node2D
+var t: float = 0.0
+func _ready(): set_process(true)
+func _process(dt):
+    t += dt
+    if t > 0.45: queue_free(); return
+    queue_redraw()
+func _draw():
+    var r = float(get_meta(\\\"r\\\")); var a = 1.0 - t / 0.45
+    draw_circle(Vector2.ZERO, r * (0.4 + t * 1.4), Color(0.85, 0.35, 1.0, 0.40 * a))
+    draw_arc(Vector2.ZERO, r * (0.4 + t * 1.4), 0, TAU, 48, Color(1.0, 0.6, 1.0, a), 4.0)
+\"\"\"
+    burst_gd.reload()
+    fx.set_script(burst_gd)
+func _draw():
+    var fuse = float(get_meta(\"fuse\"))
+    var radius = float(get_meta(\"radius\"))
+    var p = clamp(t / fuse, 0.0, 1.0)
+    var pulse = 0.5 + 0.5 * sin(t * 12.0)
+    draw_arc(Vector2.ZERO, 18.0 + p * 12.0, 0, TAU * p, 32, Color(0.85, 0.35, 1.0, 0.85), 3.0)
+    draw_circle(Vector2.ZERO, 7.0 + 3.0 * pulse, Color(0.85, 0.35, 1.0, 0.7))
+"""
+    gd.reload()
+    watcher.set_script(gd)
+    cataclysm_cd = cd_scaled(HEX_CURSE_CD)
+    _cast_anim_remaining = FIRE_SLASH_VISUAL_TIME
+
+# Void Mark helper — Empress's passive. If the target carries an unexpired
+# `_void_marked_until` meta, the next ability hit costs them +30% damage and
+# consumes the mark. Then, if our char_tags includes void_mark, re-mark the
+# target for 4 more seconds. Returns the post-mark adjusted damage.
+func _void_mark_ability_hit(target: Node, raw_damage: float) -> float:
+    var dmg: float = raw_damage
+    if target.has_meta("_void_marked_until") and Time.get_ticks_msec() < int(target.get_meta("_void_marked_until")):
+        dmg *= 1.3
+        target.remove_meta("_void_marked_until")
+    if char_tags.has("void_mark"):
+        target.set_meta("_void_marked_until", Time.get_ticks_msec() + 4000)
+    return dmg
 
 func _cast_inferno_volley() -> void:
     var volleys: int = 2 if has_tag("q_echo") else 1
@@ -811,6 +1120,11 @@ func register_kill() -> void:
     var phenom_inc: int = (1 if has_tag("phenomenal_evil") else 0) + stat_pick_phenomenal_per_kill
     if phenom_inc > 0:
         phenomenal_evil_stacks += phenom_inc
+    # Soul Harvest (Necromancer): each kill grants +1 stack up to cap.
+    # Reset decay accumulator so the timer starts fresh from the latest kill.
+    if has_tag("soul_harvest"):
+        soul_harvest_stacks = min(SOUL_HARVEST_CAP, soul_harvest_stacks + 1)
+        soul_harvest_decay_acc = 0.0
     # Pact of Pain: each kill burns 4 HP (the augment grants +150 max HP).
     if has_tag("pact_of_pain"):
         hp = max(1.0, hp - 4.0)

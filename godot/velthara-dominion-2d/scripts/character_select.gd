@@ -33,21 +33,46 @@ func _build_cards() -> void:
         child.queue_free()
     for i in range(CharacterData.CHARS.size()):
         var c: Dictionary = CharacterData.CHARS[i]
+        var locked: bool = _is_locked(c)
         var btn := Button.new()
         btn.custom_minimum_size = Vector2(260, 360)
-        btn.text = "%s\n\n%s\n\nDmg ×%.2f\nFire ×%.2f\nMove ×%.2f\nHP %+d" % [
-            c["name"], c["desc"],
-            float(c.get("damage_mult", 1.0)), float(c.get("fire_rate_mult", 1.0)),
-            float(c.get("move_speed_mult", 1.0)), int(c.get("max_hp_bonus", 0.0)),
-        ]
-        btn.add_theme_color_override("font_color", c["color"])
+        if locked:
+            var hint: String = String(c.get("unlock_hint", "Locked"))
+            btn.text = "%s\n\n  L O C K E D  \n\n%s\n\nDmg ×%.2f\nFire ×%.2f\nMove ×%.2f\nHP %+d" % [
+                c["name"], hint,
+                float(c.get("damage_mult", 1.0)), float(c.get("fire_rate_mult", 1.0)),
+                float(c.get("move_speed_mult", 1.0)), int(c.get("max_hp_bonus", 0.0)),
+            ]
+            btn.add_theme_color_override("font_color", Color(0.45, 0.45, 0.5))
+            btn.disabled = true
+        else:
+            btn.text = "%s\n\n%s\n\nDmg ×%.2f\nFire ×%.2f\nMove ×%.2f\nHP %+d" % [
+                c["name"], c["desc"],
+                float(c.get("damage_mult", 1.0)), float(c.get("fire_rate_mult", 1.0)),
+                float(c.get("move_speed_mult", 1.0)), int(c.get("max_hp_bonus", 0.0)),
+            ]
+            btn.add_theme_color_override("font_color", c["color"])
         btn.add_theme_font_size_override("font_size", 15)
         btn.toggle_mode = true
-        btn.button_pressed = (i == CharacterData.selected_index)
-        btn.pressed.connect(_pick.bind(i))
+        btn.button_pressed = (i == CharacterData.selected_index and not locked)
+        if not locked:
+            btn.pressed.connect(_pick.bind(i))
         cards_box.add_child(btn)
 
+func _is_locked(c: Dictionary) -> bool:
+    var key: String = String(c.get("unlock_key", ""))
+    if key == "": return false  # no unlock key = always available
+    var save: Node = get_tree().root.get_node_or_null("SaveSystem")
+    if save == null: return false
+    match key:
+        "necromancer": return not bool(save.unlocked_necromancer)
+        "void_empress": return not bool(save.unlocked_void_empress)
+    return false
+
 func _pick(idx: int) -> void:
+    # Defensive: refuse to pick a locked character even if reached somehow.
+    if idx < 0 or idx >= CharacterData.CHARS.size(): return
+    if _is_locked(CharacterData.CHARS[idx]): return
     CharacterData.select(idx)
     _build_cards()
 

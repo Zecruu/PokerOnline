@@ -42,6 +42,42 @@ const CHARS: Array[Dictionary] = [
         "q_ability": "shadow_dash", "q_name": "Shadow Dash",
         "e_ability": "soul_drain", "e_name": "Soul Drain",
     },
+    # ── Phase 4: unlockable characters. Phase 4 Pass A ships them with the
+    # Fire Sovereign sprite sheets as placeholders; Pass B will swap to
+    # proper Necromancer / Void Empress art once Replicate credit is back.
+    {
+        "id": "necromancer", "name": "Necromancer",
+        "desc": "Skeleton-summoner. Soul Harvest stacks per kill.",
+        "color": Color(0.55, 0.95, 0.55),
+        "idle_tex": "res://assets/characters/fire-sovereign-idle-s.png",
+        "walk_tex": "res://assets/characters/fire-sovereign-walk-s.png",
+        "cast_tex": "res://assets/characters/fire-sovereign-cast-s.png",
+        "grid_cols": 3, "grid_rows": 2,
+        "move_speed_mult": 1.0, "damage_mult": 1.0, "fire_rate_mult": 0.95,
+        "max_hp_bonus": 10.0,
+        "q_ability": "raise_skeleton", "q_name": "Raise Skeleton",
+        "e_ability": "soul_reap", "e_name": "Soul Reap",
+        "tags": ["soul_harvest"],
+        "unlock_key": "necromancer",
+        "unlock_hint": "Reach Wave 30 with any character",
+    },
+    {
+        "id": "void_empress", "name": "Void Empress",
+        "desc": "Glass AP caster. Singularity + Hex Curse, +20% innate AP.",
+        "color": Color(0.75, 0.35, 1.0),
+        "idle_tex": "res://assets/characters/fire-sovereign-idle-s.png",
+        "walk_tex": "res://assets/characters/fire-sovereign-walk-s.png",
+        "cast_tex": "res://assets/characters/fire-sovereign-cast-s.png",
+        "grid_cols": 3, "grid_rows": 2,
+        "move_speed_mult": 1.0, "damage_mult": 0.9, "fire_rate_mult": 0.85,
+        "max_hp_bonus": -15.0,
+        "spell_power_mult_init": 0.20,  # innate +20% AP, folded into player.spell_power_mult on _apply
+        "q_ability": "singularity", "q_name": "Singularity",
+        "e_ability": "hex_curse", "e_name": "Hex Curse",
+        "tags": ["void_mark"],
+        "unlock_key": "void_empress",
+        "unlock_hint": "Defeat the Void Consumer at Wave 50",
+    },
 ]
 
 var selected_index: int = 0
