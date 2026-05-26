@@ -42,7 +42,8 @@ func _process(dt: float) -> void:
         var de: float = (e.global_position - global_position).length()
         if de > inner_radius and de < outer_radius:
             if e.has_method("take_damage"):
-                e.take_damage(tick * 0.8, null, false)
+                # Credit the player so the kill still increments Pyre Fuel etc.
+                e.take_damage(tick * 0.8, player, false)
 
 func _draw() -> void:
     var alpha: float = 0.32 + 0.10 * sin(pulse * 4.0)

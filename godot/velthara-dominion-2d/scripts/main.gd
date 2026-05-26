@@ -13,6 +13,7 @@ extends Node2D
 @onready var pause_menu: CanvasLayer = $PauseMenu
 @onready var run_summary: CanvasLayer = $RunSummary
 @onready var forge_panel: CanvasLayer = $ForgePanel
+@onready var stat_pick_panel: CanvasLayer = $StatPickPanel
 @onready var event_manager: Node = $WaveManager
 
 var game_over: bool = false
@@ -22,6 +23,11 @@ func _ready() -> void:
     SigilManager.reset_run()
     ChallengeTracker.reset_run()
     Inventory.clear()
+    var spm: Node = get_tree().root.get_node_or_null("StatPickManager")
+    if spm != null:
+        spm.reset_run()
+        spm.picks_changed.connect(hud.set_stat_picks)
+        hud.set_stat_picks(0)
 
     # Wire signals → HUD updates.
     player.hp_changed.connect(_on_hp_changed)
@@ -122,7 +128,13 @@ func _on_alive_changed(count: int) -> void:
 
 func _on_leveled_up(new_level: int) -> void:
     AudioBus.play_levelup()
-    sigil_offer.show_for(player)
+    # Megabonk-style stat-pick fires first on every level-up; once a stat is
+    # chosen the panel chains into the existing augment offer so the player
+    # still gets their per-level augment pick.
+    if stat_pick_panel != null and stat_pick_panel.has_method("show_for"):
+        stat_pick_panel.show_for(player, sigil_offer)
+    else:
+        sigil_offer.show_for(player)
 
 func _on_challenge_completed(name: String, reward: int) -> void:
     hud.flash_text("Challenge! +%d souls\n%s" % [reward, name])

@@ -87,7 +87,7 @@ func take_damage(amount: float, source: Node = null, _show: bool = true, _is_cri
     if hp <= 0.0:
         _die(source)
 
-func apply_burn(dps: float, duration: float) -> void:
+func apply_burn(dps: float, duration: float, _source: Node = null) -> void:
     if dps > burn_dps: burn_dps = dps
     if duration > burn_remaining: burn_remaining = duration
 

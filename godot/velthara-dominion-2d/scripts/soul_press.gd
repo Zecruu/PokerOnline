@@ -26,12 +26,14 @@ func _process(dt: float) -> void:
     var tick: float = damage_per_sec * dmg_tick_acc
     dmg_tick_acc = 0.0
     var r: float = current_radius()
+    var players := get_tree().get_nodes_in_group("player")
+    var killer: Node = players[0] if players.size() > 0 else null
     for e in get_tree().get_nodes_in_group("enemies"):
         if e == null or not (e is Node2D):
             continue
         if (e.global_position - global_position).length() < r:
             if e.has_method("take_damage"):
-                e.take_damage(tick, null, false)
+                e.take_damage(tick, killer, false)
 
 func current_radius() -> float:
     var t: float = clamp(elapsed / duration, 0.0, 1.0)

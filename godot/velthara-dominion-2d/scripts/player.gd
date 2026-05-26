@@ -75,6 +75,24 @@ var phenomenal_evil_stacks: int = 0   # for Phenomenal Evil — +0.5% AP per kil
 var time_since_attack: float = 999.0  # for Quickdraw (post-pause guaranteed crit)
 var eternal_flame_tick: float = 0.0   # 1 HP/sec drain accumulator
 
+# ── Megabonk-style stat picks (StatPickManager). Each pick adds to one of
+#    these accumulators; folded into the current_* formulas alongside
+#    augment + anomaly contributions. Kept on dedicated fields so the
+#    augment manager's _reapply_to_player (which overwrites damage_mult
+#    etc.) does NOT clobber stat-pick totals on every new augment.
+var stat_pick_damage_mult: float = 1.0
+var stat_pick_fire_rate_mult: float = 1.0
+var stat_pick_max_hp_bonus: float = 0.0
+var stat_pick_crit_chance: float = 0.0
+var stat_pick_lifesteal: float = 0.0
+var stat_pick_move_speed_mult: float = 1.0
+var stat_pick_cdr: float = 0.0
+var stat_pick_spell_power_mult: float = 1.0
+var stat_pick_attack_power_bonus: float = 0.0
+var stat_pick_pickup_radius_mult: float = 1.0
+var stat_pick_pyre_per_kill: int = 0
+var stat_pick_phenomenal_per_kill: int = 0
+
 # ── Anomaly-driven fields. Set by AnomalyManager.activate(); reset to
 #    defaults by AnomalyManager.deactivate(). Fold into the existing
 #    formulas so anomalies stack with permanent augment buffs. ──
@@ -161,12 +179,12 @@ func _base_damage_shared() -> float:
         var sm: Node = get_tree().root.get_node_or_null("SigilManager")
         if sm != null:
             symphony_bonus = 1.0 + 0.03 * float(sm.owned.size())
-    return damage_mult * anomaly_damage_mult * inferno_bonus * stardust_bonus * pyre_bonus * symphony_bonus
+    return damage_mult * anomaly_damage_mult * inferno_bonus * stardust_bonus * pyre_bonus * symphony_bonus * stat_pick_damage_mult
 
 func current_attack_damage() -> float:
     # Auto-attacks: BASE + flat AD from inventory + Warrior's-Vow flat bonus,
     # then shared mults and the Anomaly's AD factor.
-    return (BASE_DAMAGE + _inv_ad() + attack_power_bonus) * _base_damage_shared() * anomaly_attack_damage
+    return (BASE_DAMAGE + _inv_ad() + attack_power_bonus + stat_pick_attack_power_bonus) * _base_damage_shared() * anomaly_attack_damage
 
 func current_ability_power() -> float:
     # Abilities: shared mults × spell_power × inventory AP × Phenomenal Evil
@@ -174,37 +192,42 @@ func current_ability_power() -> float:
     # power (0.10 AP from items = +10% spell damage).
     var phenomenal_bonus: float = 1.0 + phenomenal_evil_stacks * 0.005
     var inv_ap_factor: float = 1.0 + _inv_ap()
-    return (BASE_DAMAGE + _inv_ad()) * _base_damage_shared() * spell_power_mult * inv_ap_factor * phenomenal_bonus * anomaly_ability_power
+    return (BASE_DAMAGE + _inv_ad() + stat_pick_attack_power_bonus) * _base_damage_shared() * spell_power_mult * stat_pick_spell_power_mult * inv_ap_factor * phenomenal_bonus * anomaly_ability_power
 
 # Back-compat alias used by older callsites — defaults to auto-attack damage.
 func current_damage() -> float:
     return current_attack_damage()
 
 func current_max_hp() -> float:
-    return (MAX_HP + max_hp_bonus_from_sigils + _inv_hp()) * anomaly_max_hp_factor
+    return (MAX_HP + max_hp_bonus_from_sigils + _inv_hp() + stat_pick_max_hp_bonus) * anomaly_max_hp_factor
 
 func current_fire_rate() -> float:
     var frenzy_bonus: float = 1.75 if frenzy_timer > 0.0 else 1.0
     var stardust_bonus: float = 1.0 + (level - 1) * STARDUST_FIRE_RATE_PER_LEVEL
-    return FIRE_RATE / (fire_rate_mult * anomaly_fire_rate_mult * frenzy_bonus * stardust_bonus)
+    return FIRE_RATE / (fire_rate_mult * stat_pick_fire_rate_mult * anomaly_fire_rate_mult * frenzy_bonus * stardust_bonus)
 
-# ── Augment helpers — also surface active anomaly tags so existing code
-#    (combo_killer, jeweled_gauntlet, etc.) lights up under matching
-#    anomalies (e.g. Spell Crit Rave injects jeweled_gauntlet). ──
+# ── Augment helpers — surface augment, anomaly, AND inventory-item tags
+#    so a Corrupted item (Cursed Blade, Hex Mirror) lights up the same
+#    hooks as the corresponding augment would. ──
 func has_tag(t: String) -> bool:
-    return augment_tags.has(t) or anomaly_tags.has(t)
+    if augment_tags.has(t) or anomaly_tags.has(t):
+        return true
+    var inv: Node = _inv()
+    if inv != null and inv.has_item_tag(t):
+        return true
+    return false
 
 func tag_count(t: String) -> int:
     return int(augment_tags.get(t, 0)) + int(anomaly_tags.get(t, 0))
 
 func current_crit_chance() -> float:
-    return CRIT_CHANCE + crit_chance_bonus + _inv_crit() + anomaly_crit_chance
+    return CRIT_CHANCE + crit_chance_bonus + _inv_crit() + anomaly_crit_chance + stat_pick_crit_chance
 
 func current_crit_mult() -> float:
     return 3.0 if has_tag("heavy_hitter") else CRIT_MULT
 
 func cd_scaled(base: float) -> float:
-    return base * max(0.2, 1.0 - cdr_bonus - _inv_cdr())
+    return base * max(0.2, 1.0 - cdr_bonus - _inv_cdr() - stat_pick_cdr)
 
 # Ability crit chance — without Jeweled Gauntlet, each ability uses its own
 # baked-in chance. With the augment, abilities can crit at the player's full
@@ -215,7 +238,7 @@ func ability_crit_chance(builtin: float) -> float:
     return builtin
 
 func current_pickup_radius_mult() -> float:
-    return pickup_radius_mult * (4.0 if magnet_timer > 0.0 else 1.0)
+    return pickup_radius_mult * stat_pick_pickup_radius_mult * (4.0 if magnet_timer > 0.0 else 1.0)
 
 func _ready() -> void:
     add_to_group("player")
@@ -250,7 +273,7 @@ func _physics_process(dt: float) -> void:
     )
     if input_dir.length_squared() > 0.0:
         input_dir = input_dir.normalized()
-    velocity = input_dir * MOVE_SPEED * move_speed_mult * anomaly_move_speed_mult
+    velocity = input_dir * MOVE_SPEED * move_speed_mult * stat_pick_move_speed_mult * anomaly_move_speed_mult
     move_and_slide()
 
     # ── Timers ──
@@ -634,7 +657,7 @@ func _do_slash_damage(angle: float) -> void:
             var burn_dur: float = BURN_DURATION
             if has_tag("eternal_flame"):
                 burn_dur = 9999.0  # Eternal Flame — perma-burn
-            e.apply_burn(base_dmg * BURN_DPS_RATIO * anomaly_burn_mult, burn_dur)
+            e.apply_burn(base_dmg * BURN_DPS_RATIO * anomaly_burn_mult, burn_dur, self)
         any_hit = true
     # Earthwake: every swing also damages enemies in a 90px aura at the player.
     if has_tag("earthwake"):
@@ -696,7 +719,7 @@ func _deal_damage(target: Node2D, raw_amount: float, can_crit: bool, force_crit:
     # Lifesteal heal-on-hit (augments + inventory + anomaly stack additively).
     # Abyssal Wager (Corrupted): no_healing tag locks out all heals.
     if not has_tag("no_healing"):
-        var total_lifesteal: float = lifesteal + _inv_lifesteal() + anomaly_lifesteal
+        var total_lifesteal: float = lifesteal + _inv_lifesteal() + anomaly_lifesteal + stat_pick_lifesteal
         if total_lifesteal > 0.0:
             var heal: float = dmg * total_lifesteal
             hp = min(current_max_hp(), hp + heal)
@@ -731,7 +754,7 @@ func take_damage(amount: float, attacker: Node = null) -> void:
     # Burning Aegis: torch the attacker right back.
     if attacker != null and is_instance_valid(attacker) and has_tag("burning_aegis"):
         if attacker.has_method("apply_burn"):
-            attacker.apply_burn(current_damage() * 0.4, 5.0)
+            attacker.apply_burn(current_damage() * 0.4, 5.0, self)
     if hp <= 0.0:
         # Phoenix Heart: revive once per run at 50% HP.
         if has_tag("phoenix_heart") and not phoenix_used:
@@ -768,16 +791,19 @@ func register_kill() -> void:
     kills += 1
     kill_count_changed.emit(kills)
     # Stackasaurus Rex doubles base gain; Doomstacks anomaly adds 4 more.
-    var per_kill: int = (2 if has_tag("stackasaurus") else 1) + anomaly_pyre_per_kill
+    # Pyre Ferment stat-pick adds +1 per stack taken on top.
+    var per_kill: int = (2 if has_tag("stackasaurus") else 1) + anomaly_pyre_per_kill + stat_pick_pyre_per_kill
     pyre_fuel_stacks += per_kill
     pyre_fuel_changed.emit(pyre_fuel_stacks)
     # Bloodbond: small heal per kill. Disabled under Abyssal Wager.
     if has_tag("bloodbond") and not has_tag("no_healing"):
         hp = min(current_max_hp(), hp + 4.0)
         hp_changed.emit(hp, current_max_hp())
-    # Phenomenal Evil: each kill grants permanent +0.5% Ability Power.
-    if has_tag("phenomenal_evil"):
-        phenomenal_evil_stacks += 1
+    # Phenomenal Evil augment + Phenom Distillate stat-pick: each kill grants
+    # +0.5% Ability Power per qualifying source.
+    var phenom_inc: int = (1 if has_tag("phenomenal_evil") else 0) + stat_pick_phenomenal_per_kill
+    if phenom_inc > 0:
+        phenomenal_evil_stacks += phenom_inc
     # Pact of Pain: each kill burns 4 HP (the augment grants +150 max HP).
     if has_tag("pact_of_pain"):
         hp = max(1.0, hp - 4.0)

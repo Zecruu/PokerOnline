@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="9_pause"]
 [ext_resource type="PackedScene" path="res://ui/run_summary.tscn" id="10_runsum"]
 [ext_resource type="PackedScene" path="res://ui/forge_panel.tscn" id="11_forge"]
+[ext_resource type="PackedScene" path="res://ui/stat_pick_panel.tscn" id="12_statpick"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -34,6 +35,8 @@ script = ExtResource("8_events")
 [node name="Hud" parent="." instance=ExtResource("3_hud")]
 
 [node name="SigilOfferPanel" parent="." instance=ExtResource("5_offer")]
+
+[node name="StatPickPanel" parent="." instance=ExtResource("12_statpick")]
 
 [node name="SoulShopPanel" parent="." instance=ExtResource("6_shop")]
 

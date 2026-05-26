@@ -36,6 +36,7 @@ var dying: bool = false
 var burn_remaining: float = 0.0   # seconds of burn DoT remaining
 var burn_dps: float = 0.0         # burn damage per second
 var burn_tick_acc: float = 0.0    # accumulator so burn ticks at ~5 Hz
+var burn_source: Node = null      # who applied the burn — credits the kill
 
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var hp_bar: ProgressBar = $HpBar
@@ -141,12 +142,16 @@ func take_damage(amount: float, source: Node = null, show_number: bool = true, i
     if hp <= 0.0:
         _die(source)
 
-func apply_burn(dps: float, duration: float) -> void:
+func apply_burn(dps: float, duration: float, source: Node = null) -> void:
     # Refresh: take the longer of the two durations and the stronger dps.
     if dps > burn_dps:
         burn_dps = dps
     if duration > burn_remaining:
         burn_remaining = duration
+    # Track the last damager so DoT-tick deaths still credit them (kills,
+    # Pyre Fuel, Bloodbond, etc. depend on register_kill firing on source).
+    if source != null:
+        burn_source = source
 
 func _tick_burn(dt: float) -> void:
     if burn_remaining <= 0.0:
@@ -163,7 +168,7 @@ func _tick_burn(dt: float) -> void:
         hp_bar.visible = hp < max_hp and hp > 0.0
         _spawn_damage_number(int(round(tick)), Color(1.0, 0.55, 0.2))
         if hp <= 0.0:
-            _die(null)
+            _die(burn_source)
     if burn_remaining <= 0.0:
         burn_dps = 0.0
 

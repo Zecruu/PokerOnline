@@ -1,0 +1,50 @@
+[gd_scene format=3 uid="uid://dl4xqv3sp1pk0"]
+
+[ext_resource type="Script" path="res://scripts/stat_pick_panel.gd" id="1_statpick"]
+
+[node name="StatPickPanel" type="CanvasLayer"]
+layer = 21
+script = ExtResource("1_statpick")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+mouse_filter = 1
+
+[node name="Center" type="VBoxContainer" parent="."]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+alignment = 1
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="Center"]
+text = "CHOOSE A STAT"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.55, 0.95, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 32
+
+[node name="Subtitle" type="Label" parent="Center"]
+text = "Picks taken this run: 0"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.8, 0.85, 0.95, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 16
+
+[node name="Cards" type="HBoxContainer" parent="Center"]
+alignment = 1
+theme_override_constants/separation = 18
+
+[node name="CardA" type="Button" parent="Center/Cards"]
+custom_minimum_size = Vector2(180, 160)
+
+[node name="CardB" type="Button" parent="Center/Cards"]
+custom_minimum_size = Vector2(180, 160)
+
+[node name="CardC" type="Button" parent="Center/Cards"]
+custom_minimum_size = Vector2(180, 160)

@@ -68,6 +68,8 @@ func _player_kills() -> int:
     return 0
 
 func total_ad_bonus() -> float:
+    # Base AD scales with item level. Stack rate ALSO scales with level —
+    # upgrading a stacking item meaningfully accelerates its per-kill gain.
     var kills: int = _player_kills()
     var total: float = 0.0
     for it in slots:
@@ -75,7 +77,7 @@ func total_ad_bonus() -> float:
         var lvl: int = int(it.get("level", 1))
         total += float(it.get("attack_damage", 0.0)) * float(lvl)
         if String(it.get("stack_metric", "")) == "kills":
-            total += float(it.get("stack_value_ad", 0.0)) * float(kills)
+            total += float(it.get("stack_value_ad", 0.0)) * float(kills) * float(lvl)
     return total
 
 func total_ap_bonus() -> float:
@@ -87,7 +89,7 @@ func total_ap_bonus() -> float:
         var lvl: int = int(it.get("level", 1))
         total += float(it.get("ability_power", 0.0)) * float(lvl)
         if String(it.get("stack_metric", "")) == "kills":
-            total += float(it.get("stack_value_ap", 0.0)) * float(kills)
+            total += float(it.get("stack_value_ap", 0.0)) * float(kills) * float(lvl)
     return total
 
 func total_hp_bonus() -> float:
@@ -98,7 +100,7 @@ func total_hp_bonus() -> float:
         var lvl: int = int(it.get("level", 1))
         total += float(it.get("max_hp", 0.0)) * float(lvl)
         if String(it.get("stack_metric", "")) == "kills":
-            total += float(it.get("stack_value_hp", 0.0)) * float(kills)
+            total += float(it.get("stack_value_hp", 0.0)) * float(kills) * float(lvl)
     return total
 
 func total_crit_chance() -> float:
@@ -124,6 +126,16 @@ func total_cdr() -> float:
         var lvl: int = int(it.get("level", 1))
         total += float(it.get("cdr", 0.0)) * float(lvl)
     return total
+
+# Is any inventory item carrying this tag? Used by player.has_tag() so
+# Corrupted items (Cursed Blade, Hex Mirror) trigger their HP-drain hooks.
+func has_item_tag(t: String) -> bool:
+    for it in slots:
+        if it == null: continue
+        for tag in it.get("tags", []):
+            if String(tag) == t:
+                return true
+    return false
 
 # Legacy alias kept so older callers (inventory_panel) keep working.
 func total_damage_bonus() -> float:

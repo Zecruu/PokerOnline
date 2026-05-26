@@ -226,6 +226,18 @@ theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 16
 text = "AP x1.00"
 
+[node name="StatPicksLabel" type="Label" parent="Stats"]
+layout_mode = 0
+offset_left = 730.0
+offset_top = 46.0
+offset_right = 940.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(0.7, 0.85, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 16
+text = "Stat picks: 0"
+
 [node name="AbilityBar" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 13

@@ -34,7 +34,7 @@ func _process(dt: float) -> void:
             if e.has_method("take_damage"):
                 e.take_damage(dmg, source, true, is_crit)
             if e.has_method("apply_burn"):
-                e.apply_burn(burn_dps, 3.0)
+                e.apply_burn(burn_dps, 3.0, source)
 
     queue_redraw()
     if t >= 1.25:  # linger ~0.14s after full expansion for the visual fade

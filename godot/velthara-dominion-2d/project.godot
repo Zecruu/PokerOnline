@@ -36,6 +36,7 @@ EnemyRegistry="*res://scripts/enemy_registry.gd"
 DamageNumberPool="*res://scripts/damage_number_pool.gd"
 AnomalyManager="*res://scripts/anomaly_manager.gd"
 EvolutionRegistry="*res://scripts/evolution_registry.gd"
+StatPickManager="*res://scripts/stat_pick_manager.gd"
 
 [input]
 

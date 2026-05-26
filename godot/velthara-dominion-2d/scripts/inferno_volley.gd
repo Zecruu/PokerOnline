@@ -74,7 +74,7 @@ func _explode() -> void:
         if e.has_method("take_damage"):
             e.take_damage(dmg, source, true, is_crit)
         if e.has_method("apply_burn"):
-            e.apply_burn(burn_dps, 2.0)
+            e.apply_burn(burn_dps, 2.0, source)
     _spawn_blast_vfx()
     queue_free()
 

@@ -22,6 +22,7 @@ extends CanvasLayer
 @onready var settings_btn: Button = $SettingsBtn
 @onready var ad_label: Label = $Stats/AdLabel
 @onready var ap_label: Label = $Stats/ApLabel
+@onready var stat_picks_label: Label = $Stats/StatPicksLabel
 @onready var anomaly_banner: PanelContainer = $AnomalyBanner
 @onready var anomaly_name_lbl: Label = $AnomalyBanner/AnomalyBox/AnomalyName
 @onready var anomaly_desc_lbl: Label = $AnomalyBanner/AnomalyBox/AnomalyDesc
@@ -98,6 +99,11 @@ func set_pyre_fuel(stacks: int) -> void:
 func set_scaling(ad: float, ap_mult: float) -> void:
     ad_label.text = "AD %d" % int(round(ad))
     ap_label.text = "AP x%.2f" % ap_mult
+
+func set_stat_picks(count: int) -> void:
+    if stat_picks_label == null:
+        return
+    stat_picks_label.text = "Stat picks: %d" % count
 
 func show_anomaly(anomaly: Resource) -> void:
     if anomaly == null:

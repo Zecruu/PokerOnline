@@ -66,9 +66,9 @@ func _identity_for(it: Dictionary, kills: int) -> String:
     var ap: float = float(it.get("ability_power", 0.0)) * lvl
     var hp: float = float(it.get("max_hp", 0.0)) * lvl
     if String(it.get("stack_metric", "")) == "kills":
-        ad += float(it.get("stack_value_ad", 0.0)) * kills
-        ap += float(it.get("stack_value_ap", 0.0)) * kills
-        hp += float(it.get("stack_value_hp", 0.0)) * kills
+        ad += float(it.get("stack_value_ad", 0.0)) * kills * lvl
+        ap += float(it.get("stack_value_ap", 0.0)) * kills * lvl
+        hp += float(it.get("stack_value_hp", 0.0)) * kills * lvl
     if ad >= 0.5: bits.append("+%d AD" % int(round(ad)))
     if ap >= 0.005: bits.append("+%d%% AP" % int(round(ap * 100.0)))
     if hp >= 0.5: bits.append("+%d HP" % int(round(hp)))
