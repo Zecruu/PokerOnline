@@ -224,6 +224,7 @@ input[type="text"]:focus {
     width: 100%;
     user-select: none;
     position: relative; /* anchor for .ship-overlay */
+    container-type: inline-size; /* lets cell pseudo-elements use cqi sized to the grid */
 }
 
 /* ============================================ SHIP SPRITE OVERLAY ============================================ */
@@ -303,25 +304,19 @@ input[type="text"]:focus {
 .cell.hit {
     background: var(--ship-hit);
 }
-.cell.hit::after {
-    content: '🔥';
-    font-size: 1.05em;
-    line-height: 1;
-    /* The emoji is rendered by the system; color/font-weight don't apply. */
-    animation: bs-fire-flicker 0.45s ease-in-out infinite;
-    filter: drop-shadow(0 0 5px rgba(255,120,0,0.75));
-    z-index: 12;
-    position: relative;
-}
-/* Damaged-but-not-sunk own ship cells get the same flickering fire. */
+/* Flickering 🔥 sits on every hit cell (enemy.hit and my-fleet.hit-part both).
+   font-size in cqi scales the emoji to the actual grid width, so it stays
+   readable on phones where cells are ~28px and unreadable in em units. */
+.cell.hit::after,
 .cell.hit-part::after {
     content: '🔥';
-    font-size: 1.05em;
+    font-size: 6.2cqi;
     line-height: 1;
     animation: bs-fire-flicker 0.45s ease-in-out infinite;
     filter: drop-shadow(0 0 5px rgba(255,120,0,0.75));
     z-index: 12;
     position: relative;
+    will-change: transform;
 }
 
 /* One-shot expanding fireball when a cell is freshly hit. Added via JS as `.hit-burst`,
@@ -585,4 +580,36 @@ input[type="text"]:focus {
     #btn-end-turn, #btn-move { grid-column: span 2; }
     .picker-card { min-width: 0; width: calc(100% - 32px); max-width: 360px; }
     .picker-opt { min-height: 48px; }
+
+    /* Mobile fire tuning:
+       - Slightly bigger emoji so it's still visible at ~28px cells.
+       - Skip the GPU-heavy drop-shadow filter (per-cell composite layer).
+       - Cheaper flicker with no filter transitions. */
+    .cell.hit::after,
+    .cell.hit-part::after {
+        font-size: 7.2cqi;
+        filter: none;
+        animation: bs-fire-flicker-light 0.5s ease-in-out infinite;
+    }
+    .cell.hit-burst::before {
+        inset: -30%;
+        animation-duration: 0.55s;
+    }
+}
+
+/* Cheap flicker for mobile: transform only, no filter recalc. */
+@keyframes bs-fire-flicker-light {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.10); }
+}
+
+/* Accessibility: users who prefer reduced motion get a static, glowing 🔥 with
+   no burst and no flicker. The cell still reads as "on fire" but stops moving. */
+@media (prefers-reduced-motion: reduce) {
+    .cell.hit::after,
+    .cell.hit-part::after {
+        animation: none;
+        filter: drop-shadow(0 0 3px rgba(255,120,0,0.55));
+    }
+    .cell.hit-burst::before { animation: none; opacity: 0; }
 }
