@@ -84,6 +84,12 @@ func _on_wave_advanced(wave: int) -> void:
     hud.set_wave(wave)
     hud.flash_text("Wave %d" % wave)
     ChallengeTracker.report("wave", wave)
+    # Phase 4 unlock — reaching wave 30 with any character unlocks the
+    # Necromancer in character select. One-shot persistent flag on SaveSystem.
+    if wave >= 30 and not SaveSystem.unlocked_necromancer:
+        SaveSystem.unlocked_necromancer = true
+        SaveSystem.save_now()
+        hud.flash_text("NECROMANCER UNLOCKED")
     # Crucible substitute: every 5 waves, a new Anomaly rolls. Once the
     # full Crucible state machine lands this moves into CrucibleManager.
     var am: Node = get_tree().root.get_node_or_null("AnomalyManager")

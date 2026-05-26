@@ -92,6 +92,10 @@ var stat_pick_attack_power_bonus: float = 0.0
 var stat_pick_pickup_radius_mult: float = 1.0
 var stat_pick_pyre_per_kill: int = 0
 var stat_pick_phenomenal_per_kill: int = 0
+# Frozen — set by boss abilities (Frostbinder). While > 0, the player can't
+# move; velocity is clamped to 0 in _physics_process. Counts down in real
+# time so 1.0s of freeze means a 1-second window with no input response.
+var frozen_timer: float = 0.0
 
 # ── Anomaly-driven fields. Set by AnomalyManager.activate(); reset to
 #    defaults by AnomalyManager.deactivate(). Fold into the existing
@@ -274,10 +278,13 @@ func _physics_process(dt: float) -> void:
     if input_dir.length_squared() > 0.0:
         input_dir = input_dir.normalized()
     velocity = input_dir * MOVE_SPEED * move_speed_mult * stat_pick_move_speed_mult * anomaly_move_speed_mult
+    if frozen_timer > 0.0:
+        velocity = Vector2.ZERO
     move_and_slide()
 
     # ── Timers ──
     shoot_cooldown = max(0.0, shoot_cooldown - dt)
+    frozen_timer = max(0.0, frozen_timer - dt)
     iframes = max(0.0, iframes - dt)
     _cast_anim_remaining = max(0.0, _cast_anim_remaining - dt)
     volley_cd = max(0.0, volley_cd - dt)

@@ -12,6 +12,10 @@ var music_enabled: bool = true
 var sfx_enabled: bool = true
 var daily_seed: int = 0
 var daily_progress: Dictionary = {}
+# Phase 3/4 unlocks — persistent across runs. Necromancer opens up at wave 30
+# with any character; Void Empress opens up on the first Void Consumer kill.
+var unlocked_necromancer: bool = false
+var unlocked_void_empress: bool = false
 
 signal souls_changed(amount: int)
 
@@ -53,6 +57,8 @@ func save_now() -> void:
     cfg.set_value("settings", "sfx", sfx_enabled)
     cfg.set_value("daily", "seed", daily_seed)
     cfg.set_value("daily", "progress", daily_progress)
+    cfg.set_value("unlocks", "necromancer", unlocked_necromancer)
+    cfg.set_value("unlocks", "void_empress", unlocked_void_empress)
     cfg.save(SAVE_PATH)
 
 func load_now() -> void:
@@ -67,3 +73,5 @@ func load_now() -> void:
     sfx_enabled = bool(cfg.get_value("settings", "sfx", true))
     daily_seed = int(cfg.get_value("daily", "seed", 0))
     daily_progress = cfg.get_value("daily", "progress", {})
+    unlocked_necromancer = bool(cfg.get_value("unlocks", "necromancer", false))
+    unlocked_void_empress = bool(cfg.get_value("unlocks", "void_empress", false))

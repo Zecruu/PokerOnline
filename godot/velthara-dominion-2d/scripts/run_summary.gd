@@ -15,7 +15,21 @@ func _ready() -> void:
     menu_btn.pressed.connect(_to_menu)
 
 func show_summary(kills: int, wave: int, level: int, souls_gained: int) -> void:
-    stats_label.text = "YOUR DOMINION HAS FALLEN\n\nWave %d   ·   Kills %d   ·   Level %d" % [wave, kills, level]
+    _populate(kills, wave, level, souls_gained, false)
+
+func show_victory(kills: int, wave: int, level: int) -> void:
+    # Triggered by the Void Consumer kill at wave 50. SaveSystem.add_souls
+    # was already called by the boss death hook (500 souls), so souls_gained
+    # is read from the current SaveSystem state, not re-added.
+    _populate(kills, wave, level, 500, true)
+
+func _populate(kills: int, wave: int, level: int, souls_gained: int, victory: bool) -> void:
+    if victory:
+        stats_label.text = "VICTORY — THE VOID FALLS\n\nWave %d   ·   Kills %d   ·   Level %d\n\nVoid Empress unlocked." % [wave, kills, level]
+        stats_label.add_theme_color_override("font_color", Color(0.85, 0.55, 1.0, 1))
+    else:
+        stats_label.text = "YOUR DOMINION HAS FALLEN\n\nWave %d   ·   Kills %d   ·   Level %d" % [wave, kills, level]
+        stats_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.45, 1))
     souls_label.text = "Souls earned: +%d   (total %d)" % [souls_gained, SaveSystem.souls]
     for c in sigils_box.get_children():
         c.queue_free()

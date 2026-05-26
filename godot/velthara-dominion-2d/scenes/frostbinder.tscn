@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://b8frostbnd1zk2"]
+
+[ext_resource type="Script" path="res://scripts/frostbinder.gd" id="1_frost"]
+
+[sub_resource type="CircleShape2D" id="cs_frost"]
+radius = 32.0
+
+[sub_resource type="StyleBoxFlat" id="hp_bg_frost"]
+bg_color = Color(0.05, 0.07, 0.12, 0.85)
+
+[sub_resource type="StyleBoxFlat" id="hp_fill_frost"]
+bg_color = Color(0.55, 0.85, 1.0, 1)
+
+[node name="Frostbinder" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 0
+script = ExtResource("1_frost")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("cs_frost")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+
+[node name="HpBar" type="ProgressBar" parent="."]
+offset_left = -40.0
+offset_top = -52.0
+offset_right = 40.0
+offset_bottom = -44.0
+max_value = 7500.0
+value = 7500.0
+show_percentage = false
+theme_override_styles/background = SubResource("hp_bg_frost")
+theme_override_styles/fill = SubResource("hp_fill_frost")

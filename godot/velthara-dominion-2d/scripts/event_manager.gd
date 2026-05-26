@@ -9,9 +9,21 @@ const EVENT_INTERVAL_MAX: float = 32.0
 var event_timer: float = EVENT_INTERVAL_MIN
 var horde_timer: float = 60.0
 var spawned_boss_wave: int = -1
-var spawned_plague_wave: int = -1
+var spawned_named_boss_wave: int = -1
 var wave_manager: Node = null
 var player: Node2D = null
+
+# Phase 3 boss schedule. Replaces the old wave%10 plague-weaver-only spawn.
+# Each entry pins a named boss to a specific wave, with the flash banner text
+# the HUD shows when the wave rolls over. Wave 30 still points at the
+# existing plague_weaver scene so we don't break that boss.
+const BOSS_SCHEDULE: Array[Dictionary] = [
+    {"wave": 10, "scene": "res://scenes/pyre_knight.tscn",   "flash": "PYRE KNIGHT CHARGES"},
+    {"wave": 20, "scene": "res://scenes/frostbinder.tscn",   "flash": "FROSTBINDER AWAKENS"},
+    {"wave": 30, "scene": "res://scenes/plague_weaver.tscn", "flash": "PLAGUE WEAVER STIRS"},
+    {"wave": 40, "scene": "res://scenes/bone_tyrant.tscn",   "flash": "BONE TYRANT RISES"},
+    {"wave": 50, "scene": "res://scenes/void_consumer.tscn", "flash": "THE VOID CONSUMER"},
+]
 
 func _ready() -> void:
     set_process(true)
@@ -40,10 +52,14 @@ func _process(dt: float) -> void:
         spawned_boss_wave = wave_manager.wave
         _spawn_mini_boss()
 
-    # Plague Weaver: a named boss every 10th wave (10, 20, 30, …).
-    if wave_manager.wave % 10 == 0 and wave_manager.wave != spawned_plague_wave:
-        spawned_plague_wave = wave_manager.wave
-        _spawn_plague_weaver()
+    # Named bosses on a fixed schedule (waves 10/20/30/40/50). Only one boss
+    # entry can match per wave (BOSS_SCHEDULE waves are unique by design).
+    if wave_manager.wave != spawned_named_boss_wave:
+        for entry in BOSS_SCHEDULE:
+            if int(entry["wave"]) == wave_manager.wave:
+                spawned_named_boss_wave = wave_manager.wave
+                _spawn_named_boss(entry)
+                break
 
     # Horde event: every ~60s after wave 4 — flood 30 imps.
     horde_timer -= dt
@@ -86,14 +102,25 @@ func _spawn_mini_boss() -> void:
     var hud := _find_hud()
     if hud != null: hud.flash_text("MINI-BOSS APPROACHES")
 
-func _spawn_plague_weaver() -> void:
-    var scene: PackedScene = preload("res://scenes/plague_weaver.tscn")
-    var boss: Node2D = scene.instantiate()
+func _spawn_named_boss(entry: Dictionary) -> void:
+    var scene_path: String = String(entry["scene"])
+    var packed: PackedScene = load(scene_path) as PackedScene
+    if packed == null:
+        push_warning("BOSS_SCHEDULE missing scene: %s" % scene_path)
+        return
+    var boss: Node2D = packed.instantiate()
+    # HP scales with current wave per the Phase 3 brief — base_hp * (1 + (wave-1) * 0.10).
+    # Bosses each export a `max_hp`; we apply the scalar here so the schedule
+    # logic stays one place. Each boss script reads `max_hp` in _ready() to
+    # initialize `hp` and the hp_bar, so we set BOTH before parenting.
+    if "max_hp" in boss:
+        var wave_scalar: float = 1.0 + (float(wave_manager.wave) - 1.0) * 0.10
+        boss.max_hp = float(boss.max_hp) * wave_scalar
     var angle: float = randf() * TAU
     boss.global_position = player.global_position + Vector2(cos(angle), sin(angle)) * 540.0
     get_parent().add_child(boss)
     var hud := _find_hud()
-    if hud != null: hud.flash_text("PLAGUE WEAVER STIRS")
+    if hud != null: hud.flash_text(String(entry["flash"]))
 
 func _trigger_horde() -> void:
     var enemy_scene: PackedScene = preload("res://scenes/enemy.tscn")
