@@ -14,6 +14,27 @@ extends CharacterBody2D
 @export var ranged_range: float = 0.0
 @export var projectile_color: Color = Color(0.7, 0.4, 1.0)
 
+# Splitter behavior — on death, spawn N child enemies with the named sprite
+# prefix at this position. `hp_factor` scales the child's max_hp / damage
+# / xp_drop down so a chain of splits doesn't snowball. Leave the prefix
+# empty (default) to skip splitting.
+@export var splitter_child_prefix: String = ""
+@export var splitter_child_count: int = 2
+@export var splitter_child_hp_factor: float = 0.5
+
+# Bomber behavior — when the enemy reaches contact_range, it detonates in
+# `explode_radius`, dealing `damage * explode_damage_mult` to the player
+# (and half that to nearby enemies as friendly fire) and dies immediately.
+# Bypasses the normal attack_cooldown gate.
+@export var explode_on_contact: bool = false
+@export var explode_radius: float = 90.0
+@export var explode_damage_mult: float = 1.8
+
+# Flying — purely a cosmetic hint right now (the chase logic doesn't know
+# about terrain). Setting this enables a faint vertical bob during the
+# walk animation so flyers feel airborne instead of grounded.
+@export var flying: bool = false
+
 # Sprite-sheet config. Set `sprite_prefix` (e.g. "skeleton-swarm") and the
 # enemy looks up its SpriteFrames from the SpriteFrameCache autoload — every
 # enemy of the same prefix shares the same SpriteFrames pointer so Godot's
@@ -98,7 +119,13 @@ func _physics_process(dt: float) -> void:
             sprite.play(&"walk")
     else:
         velocity = Vector2.ZERO
-        # Attack with cooldown
+        # Bombers detonate the moment they touch contact range — bypasses
+        # the usual attack_cooldown gate, hits everything in explode_radius,
+        # then dies. One-shot.
+        if explode_on_contact:
+            _detonate()
+            return
+        # Standard melee with cooldown.
         if atk_timer <= 0.0:
             atk_timer = attack_cooldown
             if player.has_method("take_damage"):
@@ -214,6 +241,11 @@ func _die(source: Node) -> void:
     # Tell source it scored a kill.
     if source != null and source.has_method("register_kill"):
         source.register_kill()
+    # Splitter — spawn N children with the configured prefix and scaled stats.
+    # Children inherit the enemy.tscn scene but with a smaller HP / damage /
+    # xp footprint so a death-cascade stays manageable.
+    if splitter_child_prefix != "" and splitter_child_count > 0:
+        _spawn_splitter_children()
     # Play death anim then queue_free. The timer runs even while the tree
     # is paused (second arg = process_always), so dying enemies disappear
     # cleanly during the level-up sigil-offer pause.
@@ -237,6 +269,75 @@ func _draw() -> void:
     ])
     draw_colored_polygon(pts, Color(1.0, 0.5, 0.15, 0.95))
     draw_circle(offset + Vector2(0, 0), 2.5, Color(1.0, 0.95, 0.6))
+
+func _spawn_splitter_children() -> void:
+    # Spawn `splitter_child_count` children in a small ring around the death
+    # point. The wave_manager's enemy scene is reused so children behave like
+    # any other enemy from there on (chase + melee). Stats are scaled by
+    # splitter_child_hp_factor so the split doesn't make the wave brutal.
+    var enemy_scene: PackedScene = preload("res://scenes/enemy.tscn")
+    if enemy_scene == null:
+        return
+    var parent: Node = get_parent()
+    if parent == null:
+        return
+    for i in range(splitter_child_count):
+        var child: Node2D = enemy_scene.instantiate()
+        child.enemy_type = "splitter_child"
+        child.max_hp = max_hp * splitter_child_hp_factor
+        child.damage = damage * splitter_child_hp_factor
+        child.move_speed = move_speed * 1.1  # slightly faster than the parent
+        child.xp_drop = max(1, int(xp_drop * 0.25))
+        child.sprite_prefix = splitter_child_prefix
+        var angle: float = float(i) / float(max(1, splitter_child_count)) * TAU + randf() * 0.4
+        child.global_position = global_position + Vector2(cos(angle), sin(angle)) * 24.0
+        parent.add_child(child)
+
+func _detonate() -> void:
+    # AoE on contact: hit the player for damage * explode_damage_mult, hit
+    # nearby enemies for half that (bombers are unstable, friendly fire
+    # makes them feel different from melee). Then die immediately, crediting
+    # the player so the kill counts toward Pyre Fuel / Bloodbond / etc.
+    dying = true
+    velocity = Vector2.ZERO
+    var dmg: float = damage * explode_damage_mult
+    if player != null and is_instance_valid(player):
+        if (player.global_position - global_position).length() <= explode_radius:
+            if player.has_method("take_damage"):
+                player.take_damage(dmg, self)
+    # Friendly fire to nearby enemies — credit the player so chained kills
+    # still feed their progression systems.
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if e == self or e == null or not is_instance_valid(e):
+            continue
+        if (e.global_position - global_position).length() <= explode_radius:
+            if e.has_method("take_damage"):
+                e.take_damage(dmg * 0.5, player)
+    _spawn_explosion_vfx()
+    _die(player)
+
+func _spawn_explosion_vfx() -> void:
+    var fx := Node2D.new()
+    fx.global_position = global_position
+    fx.set_meta("r", explode_radius)
+    get_parent().add_child(fx)
+    var gd := GDScript.new()
+    gd.source_code = """
+extends Node2D
+var t: float = 0.0
+func _ready(): set_process(true)
+func _process(dt):
+    t += dt
+    if t > 0.45: queue_free(); return
+    queue_redraw()
+func _draw():
+    var r = get_meta(\"r\")
+    var a = 1.0 - t / 0.45
+    draw_circle(Vector2.ZERO, r * (0.3 + t * 1.8), Color(1.0, 0.55, 0.25, 0.35 * a))
+    draw_arc(Vector2.ZERO, r * (0.3 + t * 1.8), 0, TAU, 48, Color(1.0, 0.85, 0.45, a), 4.0)
+"""
+    gd.reload()
+    fx.set_script(gd)
 
 func _fire_projectile(to_player: Vector2) -> void:
     var proj_scene: PackedScene = preload("res://scenes/enemy_projectile.tscn")

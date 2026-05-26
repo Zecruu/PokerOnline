@@ -1,0 +1,12 @@
+{
+  "name": "velthara-enemy-gen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Replicate gpt-image-2 enemy sprite generator for Velthara Dominion 2D",
+  "main": "gen-enemies.js",
+  "dependencies": {
+    "replicate": "^1.0.1",
+    "sharp": "^0.33.5"
+  }
+}

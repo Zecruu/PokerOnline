@@ -1,0 +1,273 @@
+[
+  {
+    "id": "ember-rat-scurry",
+    "subject": "small skittering rat creature made of charred fur and glowing embers, beady red eyes, twitchy whiskers, tiny clawed feet",
+    "flavor": "scampers through the volcanic underworld, fast and fragile",
+    "palette": "charred black fur with bright orange ember cracks, red eyes",
+    "bucket": "swarm", "min_wave": 1, "hp": 70.0, "dmg": 14.0, "speed": 175.0, "xp": 4
+  },
+  {
+    "id": "soul-wisp-flicker",
+    "subject": "small floating wisp of ghostly pale-blue flame with translucent tendrils trailing behind it, faint skull-like face inside",
+    "flavor": "drifts through the air with weightless menace",
+    "palette": "pale ghostly blue, faint white highlights, translucent edges",
+    "bucket": "swarm", "min_wave": 2, "hp": 60.0, "dmg": 18.0, "speed": 155.0, "xp": 5
+  },
+  {
+    "id": "plague-maggot-grub",
+    "subject": "sickly green segmented grub maggot dripping putrid slime, no legs, undulates forward with a small toothy mouth",
+    "flavor": "born of rotting flesh, oozes pestilent slime",
+    "palette": "sickly yellow-green, brown rot patches, drips of putrid yellow ichor",
+    "bucket": "swarm", "min_wave": 3, "hp": 90.0, "dmg": 16.0, "speed": 105.0, "xp": 5
+  },
+  {
+    "id": "cinder-imp-runt",
+    "subject": "tiny scampering demon imp with curved flaming horns and a forked tail, pointy ears, oversized clawed hands",
+    "flavor": "lesser demon, mischievous and quick",
+    "palette": "dark crimson skin with bright orange flame motes, yellow horns",
+    "bucket": "swarm", "min_wave": 4, "hp": 95.0, "dmg": 20.0, "speed": 170.0, "xp": 7
+  },
+  {
+    "id": "brimstone-hound-feral",
+    "subject": "lean four-legged hellhound with charred black fur and glowing brimstone cracks across its body, smoke wisping from its jaws",
+    "flavor": "snarling hellhound, lopes forward to bite",
+    "palette": "burnt black fur with searing orange cracks, smoldering eyes",
+    "bucket": "melee", "min_wave": 6, "hp": 180.0, "dmg": 32.0, "speed": 135.0, "xp": 10
+  },
+  {
+    "id": "gravesoaked-husk-wretch",
+    "subject": "shambling humanoid undead wrapped in mud-soaked grave bandages, hollow eye sockets, reaching out with rotted skeletal claws",
+    "flavor": "freshly clawed from the grave",
+    "palette": "muddy brown-grey bandages, dark rotted flesh, faint green undeath glow",
+    "bucket": "melee", "min_wave": 8, "hp": 230.0, "dmg": 28.0, "speed": 95.0, "xp": 11
+  },
+  {
+    "id": "basalt-warden-juggernaut",
+    "subject": "massive lumbering obsidian-rock golem humanoid with cracked basalt plates, glowing molten cracks across torso, oversized fists",
+    "flavor": "slow but devastating, each step shakes the ground",
+    "palette": "matte black basalt with bright orange molten cracks, dim grey accents",
+    "bucket": "tank", "min_wave": 11, "hp": 900.0, "dmg": 65.0, "speed": 50.0, "xp": 30
+  },
+  {
+    "id": "hex-witch-thornveil",
+    "subject": "gaunt hooded witch in tattered black robes with a thorny veil over her face, raised bony hand crackling with purple hex energy",
+    "flavor": "stops at range to hurl purple hex bolts",
+    "palette": "deep black robes, sickly purple energy, ash-grey skin",
+    "bucket": "ranged", "min_wave": 12, "hp": 260.0, "dmg": 38.0, "speed": 70.0, "xp": 16,
+    "ranged_range": 300.0, "attack_cooldown": 2.1, "projectile_color": [0.7, 0.3, 1.0]
+  },
+  {
+    "id": "plague-bat-roost",
+    "subject": "diseased flying bat with leathery green-veined wings, exposed ribs, fanged snout, dripping pestilent saliva",
+    "flavor": "swoops in fast, ignores terrain",
+    "palette": "sickly green leathery wings, yellow eyes, mottled brown body",
+    "bucket": "flying", "min_wave": 13, "hp": 140.0, "dmg": 26.0, "speed": 145.0, "xp": 11,
+    "flying": true
+  },
+  {
+    "id": "bone-archer-skirmisher",
+    "subject": "skeleton archer in tattered grey cape drawing back a bone bow, empty eye sockets glowing faint blue, quiver of bone arrows on back",
+    "flavor": "ranged skeleton skirmisher, fires bone-tipped arrows",
+    "palette": "bone white, faded grey cape, blue eye glow",
+    "bucket": "ranged", "min_wave": 14, "hp": 220.0, "dmg": 34.0, "speed": 85.0, "xp": 14,
+    "ranged_range": 320.0, "attack_cooldown": 1.6, "projectile_color": [0.95, 0.95, 0.85]
+  },
+  {
+    "id": "ash-bloom-splitter",
+    "subject": "bulbous orange ash-flower pod with cracked seed-shell exterior, glowing molten core visible through cracks, small stem and leaves",
+    "flavor": "bloated ash-bloom, splits into seedlings on death",
+    "palette": "burnt orange shell, glowing yellow-red core, dark grey stem",
+    "bucket": "splitter", "min_wave": 15, "hp": 280.0, "dmg": 30.0, "speed": 85.0, "xp": 18,
+    "splitter_child_prefix": "cinder-seedling-spawn", "splitter_child_count": 2, "splitter_child_hp_factor": 0.4
+  },
+  {
+    "id": "cinder-seedling-spawn",
+    "subject": "tiny rolling ember orb with two glowing yellow eyes and stubby little flame tendrils, looks like a fiery seed",
+    "flavor": "a tiny ember seedling spawned from a burst ash-bloom",
+    "palette": "bright orange-red core, yellow eyes, dark soot rim",
+    "bucket": "swarm", "min_wave": 15, "hp": 50.0, "dmg": 14.0, "speed": 165.0, "xp": 3,
+    "splitter_child_only": true
+  },
+  {
+    "id": "pyre-seraph-fallen",
+    "subject": "fallen angelic figure with charred feathered wings, broken halo of dim ember light, robes burned to tatters, hovering off the ground",
+    "flavor": "fallen seraph that hurls cinder lances",
+    "palette": "burnt grey feathers, dim orange halo, ash-pale skin",
+    "bucket": "flying-ranged", "min_wave": 16, "hp": 280.0, "dmg": 40.0, "speed": 95.0, "xp": 18,
+    "flying": true, "ranged_range": 290.0, "attack_cooldown": 2.0, "projectile_color": [1.0, 0.6, 0.25]
+  },
+  {
+    "id": "void-diviner-cloaked",
+    "subject": "tall robed figure in deep-violet cloak with hood pulled low, glowing void-purple eye sockets visible inside, holding a curled bone staff",
+    "flavor": "void-touched diviner, throws crackling purple orbs",
+    "palette": "deep void purple cloak, glowing magenta eyes, bone-pale staff",
+    "bucket": "ranged", "min_wave": 17, "hp": 310.0, "dmg": 42.0, "speed": 78.0, "xp": 18,
+    "ranged_range": 320.0, "attack_cooldown": 2.3, "projectile_color": [0.55, 0.25, 1.0]
+  },
+  {
+    "id": "molten-eel-flicker",
+    "subject": "undulating airborne lava-eel with bright molten body and trailing smoke, fanged mouth, no limbs, snakes through the air",
+    "flavor": "flying lava eel, fast and erratic",
+    "palette": "blinding molten orange-yellow body, dark soot edges, smoke trail",
+    "bucket": "flying-swarm", "min_wave": 18, "hp": 120.0, "dmg": 30.0, "speed": 170.0, "xp": 9,
+    "flying": true
+  },
+  {
+    "id": "carrion-crow-flock",
+    "subject": "diseased oversized crow with mangy black feathers, exposed bone beak, glowing yellow eyes, spread wings showing torn membranes",
+    "flavor": "diseased flying carrion bird, swoops in to peck",
+    "palette": "matte black feathers, bone-white beak, sickly yellow eyes",
+    "bucket": "flying", "min_wave": 19, "hp": 150.0, "dmg": 28.0, "speed": 140.0, "xp": 11,
+    "flying": true
+  },
+  {
+    "id": "chitin-arachnid-prowler",
+    "subject": "huge eight-legged black-chitin spider with bright red leg joints, multiple glowing red eyes, dripping fanged mandibles",
+    "flavor": "giant prowling chitin spider, fast melee",
+    "palette": "matte black carapace, bright red joint accents, scarlet eye cluster",
+    "bucket": "melee", "min_wave": 20, "hp": 290.0, "dmg": 36.0, "speed": 130.0, "xp": 16
+  },
+  {
+    "id": "plague-spawn-bubbler",
+    "subject": "bloated diseased boil-creature, a near-spherical sack of pestilent green flesh with one cyclopean yellow eye and stumpy legs",
+    "flavor": "bloated plague sack, bursts into maggots on death",
+    "palette": "sickly green flesh, yellow eye, brown rot patches",
+    "bucket": "splitter", "min_wave": 21, "hp": 320.0, "dmg": 32.0, "speed": 75.0, "xp": 16,
+    "splitter_child_prefix": "plague-maggot-grub", "splitter_child_count": 2, "splitter_child_hp_factor": 0.5
+  },
+  {
+    "id": "drowned-revenant-knight",
+    "subject": "armored undead knight in rusted heavy plate, helmet visor empty, dripping black sludge from joints, holding a chipped longsword",
+    "flavor": "rusted revenant in heavy plate, slow but punishing",
+    "palette": "rusted red-brown armor, black sludge, dim eye-slit glow",
+    "bucket": "tank", "min_wave": 22, "hp": 780.0, "dmg": 70.0, "speed": 55.0, "xp": 28
+  },
+  {
+    "id": "shrieker-banshee-veiled",
+    "subject": "wailing female ghost in flowing translucent white veils, hollow black mouth open in a scream, no legs, trails wispy mist",
+    "flavor": "wailing banshee, hurls shrieking sound projectiles",
+    "palette": "translucent ghostly white-blue, black void mouth, faint silver highlights",
+    "bucket": "flying-ranged", "min_wave": 23, "hp": 250.0, "dmg": 38.0, "speed": 100.0, "xp": 17,
+    "flying": true, "ranged_range": 310.0, "attack_cooldown": 1.9, "projectile_color": [0.85, 0.95, 1.0]
+  },
+  {
+    "id": "infernal-houndmaster-chained",
+    "subject": "large muscular fire-breathing hellhound with iron chains around its neck and flanks, exposed magma cracks across its hide, snarling toothy jaws breathing embers",
+    "flavor": "alpha hellhound, larger and angrier",
+    "palette": "deep crimson hide with bright orange magma cracks, iron-grey chains",
+    "bucket": "melee-elite", "min_wave": 24, "hp": 380.0, "dmg": 50.0, "speed": 125.0, "xp": 22
+  },
+  {
+    "id": "rotworm-burrower-segmented",
+    "subject": "huge segmented purplish-brown worm bursting up from the ground, ring of fanged tendrils around a circular maw, glistening wet skin",
+    "flavor": "giant burrowing rot-worm, erupts from the ground",
+    "palette": "wet purple-brown segmented skin, pale pink maw, off-yellow teeth",
+    "bucket": "melee", "min_wave": 25, "hp": 480.0, "dmg": 52.0, "speed": 80.0, "xp": 22
+  },
+  {
+    "id": "cinder-kamikaze-livingbomb",
+    "subject": "small spherical animated lump of molten magma with cracked obsidian skin, two tiny burning eyes, glowing internal core about to burst",
+    "flavor": "walking magma bomb, explodes on contact",
+    "palette": "obsidian black shell with bright glowing orange core, intense yellow eyes",
+    "bucket": "bomber", "min_wave": 26, "hp": 110.0, "dmg": 14.0, "speed": 145.0, "xp": 14,
+    "explode_on_contact": true, "explode_radius": 90.0, "explode_damage_mult": 2.2
+  },
+  {
+    "id": "molten-titan-forgewarden",
+    "subject": "huge towering humanoid forged from glowing molten metal, armored shoulders, lava streaming from joints, massive hammer-fists, eyes blazing white-hot",
+    "flavor": "massive molten-metal titan",
+    "palette": "blinding molten yellow-orange body, dark iron armor plates, white-hot eyes",
+    "bucket": "tank-elite", "min_wave": 28, "hp": 1100.0, "dmg": 80.0, "speed": 55.0, "xp": 38
+  },
+  {
+    "id": "basilisk-stonewing-flying",
+    "subject": "large flying basilisk-dragon with grey stone-textured wings, four-legged lizard body, ridged spine, slitted yellow eyes, breathing dim grey vapor",
+    "flavor": "flying basilisk with petrifying gaze",
+    "palette": "muted grey-green scales, stone-grey wings, slit yellow eyes",
+    "bucket": "flying-elite", "min_wave": 29, "hp": 520.0, "dmg": 55.0, "speed": 110.0, "xp": 26,
+    "flying": true
+  },
+  {
+    "id": "hex-baron-shadowcloak",
+    "subject": "tall regal hex mage in a long deep-black cloak with a wide-brimmed hat, crackling purple energy spiraling around both raised hands, gaunt skeletal face",
+    "flavor": "high-ranking hex mage, hurls large purple curse-bursts",
+    "palette": "deep black cloak with violet trim, glowing magenta energy, bone face",
+    "bucket": "ranged-elite", "min_wave": 30, "hp": 560.0, "dmg": 62.0, "speed": 78.0, "xp": 30,
+    "ranged_range": 340.0, "attack_cooldown": 2.3, "projectile_color": [0.8, 0.35, 1.0]
+  },
+  {
+    "id": "plague-baron-bloatlord",
+    "subject": "gigantic plague-bloated knight in cracked dull-green armor, swollen distended belly bursting through plate, weeping pustules on exposed skin, broken halberd in hand",
+    "flavor": "bloated plague baron, vast and lumbering",
+    "palette": "sickly green armor, putrid yellow-brown sores, rusted weapon",
+    "bucket": "tank-elite", "min_wave": 31, "hp": 1300.0, "dmg": 78.0, "speed": 50.0, "xp": 42
+  },
+  {
+    "id": "gargoyle-stoneborn-watcher",
+    "subject": "winged stone gargoyle with cracked grey statue body, fanged grimace, spread bat-like wings, hunched stone hands tipped in claws",
+    "flavor": "stone-skinned flying gargoyle watcher",
+    "palette": "weathered stone-grey, dark crack lines, glowing red eyes",
+    "bucket": "flying-elite", "min_wave": 33, "hp": 560.0, "dmg": 56.0, "speed": 105.0, "xp": 26,
+    "flying": true
+  },
+  {
+    "id": "void-martyr-selfblast",
+    "subject": "robed cultist with a glowing pulsing void-purple core visible through tattered chest, arms outstretched, hood empty showing nothing but starry void",
+    "flavor": "void cultist, blows themselves apart on contact",
+    "palette": "tattered black robes, glowing magenta-purple core, starry void interior",
+    "bucket": "bomber", "min_wave": 34, "hp": 200.0, "dmg": 18.0, "speed": 130.0, "xp": 18,
+    "explode_on_contact": true, "explode_radius": 110.0, "explode_damage_mult": 2.6
+  },
+  {
+    "id": "ember-champion-flameknight",
+    "subject": "large fire-armored knight wearing elaborate ember-red plate trimmed in gold, a horned crown helm, holding a flaming greatsword, flames licking around shoulders",
+    "flavor": "elite fire champion, larger sprite",
+    "palette": "bright red armor, gold trim, blazing orange flames, dark iron joints",
+    "bucket": "melee-elite", "min_wave": 35, "hp": 740.0, "dmg": 72.0, "speed": 95.0, "xp": 34
+  },
+  {
+    "id": "frost-duke-icebound",
+    "subject": "tall regal frost mage in a long pale-blue and silver robe, jagged ice crystal crown, holding a tall crystalline ice staff with frost mist trailing off",
+    "flavor": "elite frost mage lord, hurls splintering ice bolts",
+    "palette": "pale icy blue and silver-white, cold cyan glow, faint mist edge",
+    "bucket": "ranged-elite", "min_wave": 37, "hp": 580.0, "dmg": 64.0, "speed": 75.0, "xp": 32,
+    "ranged_range": 330.0, "attack_cooldown": 2.2, "projectile_color": [0.6, 0.85, 1.0]
+  },
+  {
+    "id": "void-overseer-throneless",
+    "subject": "large eldritch overlord with multiple glowing purple eyes covering its tall robed body, tendrils trailing from beneath the robe, no visible feet, hovering",
+    "flavor": "void overlord with many eyes",
+    "palette": "deep black robes with violet trim, multiple glowing magenta eyes, faint void glow",
+    "bucket": "tank-elite", "min_wave": 39, "hp": 1050.0, "dmg": 76.0, "speed": 65.0, "xp": 40
+  },
+  {
+    "id": "abyss-leviathan-deepborn",
+    "subject": "huge eldritch tank-creature with thick coiled tentacles around a central armored body, multiple glowing teal eyes, mossy scaled hide, four heavy stumpy legs",
+    "flavor": "massive eldritch tank, multi-tentacled abyss-born",
+    "palette": "deep teal-blue scaled hide, glowing teal eyes, mossy green accents",
+    "bucket": "tank-elite", "min_wave": 41, "hp": 1500.0, "dmg": 88.0, "speed": 55.0, "xp": 50
+  },
+  {
+    "id": "dread-archon-skyborn",
+    "subject": "winged elder demon with broad spread leathery wings, a tall jagged crown of bone, gold-trimmed regal armor, glowing red gauntlets, fanged grimace",
+    "flavor": "elder demon archon, flying elite",
+    "palette": "deep crimson skin, gold-trimmed black armor, bright red glow, bone crown",
+    "bucket": "flying-elite", "min_wave": 44, "hp": 880.0, "dmg": 78.0, "speed": 100.0, "xp": 42,
+    "flying": true
+  },
+  {
+    "id": "void-tyrant-eyeswarm",
+    "subject": "floating eldritch tyrant made of dozens of clustered glowing purple eyes around a dark void core, fleshy purple tendrils, no clear body outline",
+    "flavor": "floating tyrant of swarming eyes, fires multiple beam projectiles",
+    "palette": "deep void purple, many glowing magenta eyes, faint starry interior",
+    "bucket": "ranged-elite", "min_wave": 46, "hp": 920.0, "dmg": 82.0, "speed": 75.0, "xp": 46,
+    "flying": true, "ranged_range": 340.0, "attack_cooldown": 1.8, "projectile_color": [0.75, 0.3, 1.0]
+  },
+  {
+    "id": "eternity-shade-finalherald",
+    "subject": "tall ominous cloaked specter with twin black scythes crossed in front, hood empty showing two cold white eye-lights, ragged shadow-cloak trailing into mist",
+    "flavor": "endgame herald, twin-scythed specter",
+    "palette": "deep matte black cloak, cold white eye lights, dim silver scythe edges",
+    "bucket": "melee-elite", "min_wave": 49, "hp": 1300.0, "dmg": 95.0, "speed": 105.0, "xp": 52
+  }
+]
