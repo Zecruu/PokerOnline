@@ -90,6 +90,16 @@ function allSunk(board) {
     return board.ships.length > 0 && board.ships.every(isSunk);
 }
 
+// True if the resolved attack landed on at least one ship cell.
+// Sonar and recon never "hit" — they're info-only.
+function attackHitAny(result) {
+    if (!result) return false;
+    if (result.type === 'bomb') return !!result.hit;
+    if (result.type === 'torpedo') return !!result.hit;
+    if (result.type === 'barrage') return Array.isArray(result.cells) && result.cells.some(c => c.hit);
+    return false;
+}
+
 function nearestShipDistance(board, x, y) {
     let min = Infinity;
     let nearest = null;
@@ -431,8 +441,20 @@ function mount(server) {
             if (room.turnState && room.turnState.attacked) return cb({ error: 'Already attacked this turn' });
             const result = resolveAttack(room, myIdx, data?.type, data);
             if (result.error) return cb(result);
-            room.turnState = { attacked: true, moved: false, attackType: data.type };
+            const hit = attackHitAny(result);
+            const priorChain = room.turnState?.chainCount || 0;
+            // Chain-on-hit: a successful hit keeps `attacked: false` so the player
+            // can attack again. A miss (or sonar/recon) locks attack as before.
+            room.turnState = {
+                attacked: !hit,
+                moved: false,
+                attackType: data.type,
+                chainCount: priorChain + (hit ? 1 : 0),
+            };
             room.log.push({ type: 'attack', who: room.players[myIdx].name, msg: describeAttack(data.type, result) });
+            if (hit && room.turnState.chainCount >= 2) {
+                room.log.push({ type: 'system', msg: `${room.players[myIdx].name} chains attack! (×${room.turnState.chainCount})` });
+            }
             if (allSunk(room.boards[1 - myIdx])) {
                 room.phase = 'ended';
                 room.winner = myIdx;

@@ -362,7 +362,11 @@ function renderPlacementGrid(hover) {
     if (previewCells) previewCells.forEach(c => previewSet.add(key(c.x, c.y)));
 
     // Update existing cells in-place — no DOM destruction, click handlers persist.
+    // IMPORTANT: skip non-cell children (like .ship-overlay) — otherwise we'd overwrite
+    // their className and lose absolute positioning, dumping the sprite layer to a
+    // 13th implicit grid row at the bottom.
     for (const cell of grid.children) {
+        if (cell.dataset.x === undefined) continue;
         const x = +cell.dataset.x;
         const y = +cell.dataset.y;
         cell.className = 'cell';
@@ -893,9 +897,13 @@ function updateHintFromState() {
         return;
     }
     if (!ts.attacked) {
-        $('hint-box').textContent = `Your turn — pick an attack, then click the enemy grid. Move and End Turn become available after attacking.`;
+        if (ts.chainCount && ts.chainCount > 0) {
+            $('hint-box').textContent = `🔥 Hit chain ×${ts.chainCount} — fire again! You keep attacking until you miss.`;
+        } else {
+            $('hint-box').textContent = `Your turn — pick an attack, then click the enemy grid. Hits chain (keep firing until you miss).`;
+        }
     } else if (!ts.moved) {
-        $('hint-box').textContent = `Attack complete. You can move one ship by 1 cell, or end your turn.`;
+        $('hint-box').textContent = `You missed. Optionally move one ship by 1 cell, or end your turn.`;
     } else {
         $('hint-box').textContent = `Move complete. End your turn when ready.`;
     }
