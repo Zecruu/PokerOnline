@@ -12,6 +12,26 @@ const FLEET = [
 
 const socket = io({ path: '/battleship-mp' });
 
+// Stable per-device identity so the server can reattach us to our slot when
+// the WebSocket drops (mobile background, network blip). Generated once and
+// kept in localStorage; survives reloads.
+const CLIENT_ID = (() => {
+    try {
+        let id = localStorage.getItem('bs_client_id');
+        if (!id) {
+            id = 'cli_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem('bs_client_id', id);
+        }
+        return id;
+    } catch {
+        return 'cli_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+})();
+
+function rememberRoom(code) { try { localStorage.setItem('bs_room_code', code); } catch {} }
+function forgetRoom()       { try { localStorage.removeItem('bs_room_code'); } catch {} }
+function recalledRoom()     { try { return localStorage.getItem('bs_room_code'); } catch { return null; } }
+
 // =========== STATE ============
 let state = {
     screen: 'lobby',
@@ -181,11 +201,12 @@ function flashHint(msg, duration = 2500) {
 $('btn-create').addEventListener('click', () => {
     const name = $('player-name').value.trim() || 'Captain';
     localStorage.setItem('bs_name', name);
-    socket.emit('bs:create', { name }, (resp) => {
+    socket.emit('bs:create', { name, clientId: CLIENT_ID }, (resp) => {
         if (resp?.error) return showError(resp.error);
         if (resp?.success) {
             state.code = resp.code;
             state.myIdx = resp.myIdx;
+            rememberRoom(resp.code);
             $('room-code-display').textContent = resp.code;
             showScreen('waiting');
             // Update URL with ?room=CODE so it can be shared
@@ -204,11 +225,12 @@ function doJoin(prefilledCode) {
     if (!code) return showError('Enter a room code');
     const name = $('player-name').value.trim() || 'Captain';
     localStorage.setItem('bs_name', name);
-    socket.emit('bs:join', { code, name }, (resp) => {
+    socket.emit('bs:join', { code, name, clientId: CLIENT_ID }, (resp) => {
         if (resp?.error) return showError(resp.error);
         if (resp?.success) {
             state.code = resp.code;
             state.myIdx = resp.myIdx;
+            rememberRoom(resp.code);
             history.replaceState(null, '', `?room=${resp.code}`);
             // Server will broadcast state which will switch us to placement
         }
@@ -224,6 +246,7 @@ $('btn-copy-link').addEventListener('click', () => {
 });
 
 $('btn-leave-waiting').addEventListener('click', () => {
+    forgetRoom();
     socket.emit('bs:leave');
     location.href = location.pathname;
 });
@@ -921,6 +944,7 @@ function showEndScreen(server) {
     showScreen('end');
 }
 $('btn-play-again').addEventListener('click', () => {
+    forgetRoom();
     socket.emit('bs:leave');
     location.href = location.pathname;
 });
@@ -948,7 +972,34 @@ socket.on('bs:state', (server) => {
 
 socket.on('connect', () => {
     console.log('[BS] connected', socket.id);
+    // If we had a room before (page load with saved state, or returning from
+    // a mobile background that killed the socket), try to reattach. The server
+    // holds the slot for ~5 min after disconnect.
+    const code = recalledRoom();
+    if (code) {
+        socket.emit('bs:reclaim', { code, clientId: CLIENT_ID }, (resp) => {
+            if (resp?.success) {
+                state.code = resp.code;
+                state.myIdx = resp.myIdx;
+                history.replaceState(null, '', `?room=${resp.code}`);
+                // Server will broadcast state — bs:state handler routes us to
+                // the right screen (waiting / placement / battle / ended).
+            } else {
+                // Room is gone (timed out, or never existed). Drop the stale code
+                // so we don't keep retrying, and stay on the lobby.
+                forgetRoom();
+            }
+        });
+    }
 });
 socket.on('disconnect', () => {
-    flashHint('Disconnected from server. Refresh to reconnect.', 0);
+    // Soft notice — socket.io will auto-reconnect. The reclaim flow on the
+    // next 'connect' event will put us back in the room if it still exists.
+    flashHint('Connection lost — reconnecting…', 0);
+});
+socket.io.on('reconnect', () => {
+    // Belt-and-suspenders: socket.io fires both 'connect' (on the socket) and
+    // 'reconnect' (on the manager). The 'connect' handler above already runs
+    // the reclaim, so this is mostly for the hint clear.
+    flashHint('Reconnected.', 1500);
 });

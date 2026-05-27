@@ -378,9 +378,10 @@ function mount(server) {
         socket.on('bs:create', (data, cb) => {
             cb = typeof cb === 'function' ? cb : () => {};
             const code = generateRoomCode();
+            const clientId = (data?.clientId || '').slice(0, 64) || null;
             const room = {
                 code,
-                players: [{ socketId: socket.id, name: (data?.name || 'Player 1').slice(0, 20) }, null],
+                players: [{ socketId: socket.id, clientId, name: (data?.name || 'Player 1').slice(0, 20), disconnectedAt: null }, null],
                 boards: [makeBoard(), makeBoard()],
                 phase: 'placement',
                 turn: Math.random() < 0.5 ? 0 : 1,
@@ -401,17 +402,58 @@ function mount(server) {
         socket.on('bs:join', (data, cb) => {
             cb = typeof cb === 'function' ? cb : () => {};
             const code = (data?.code || '').toUpperCase();
+            const clientId = (data?.clientId || '').slice(0, 64) || null;
             const room = rooms.get(code);
             if (!room) return cb({ error: 'Room not found' });
+            // If this client previously occupied a slot here (mobile background reload, refresh),
+            // route them through reclaim instead of refusing as "full".
+            if (clientId) {
+                for (let i = 0; i < 2; i++) {
+                    if (room.players[i] && room.players[i].clientId === clientId) {
+                        room.players[i].socketId = socket.id;
+                        room.players[i].disconnectedAt = null;
+                        socket.join(code);
+                        currentRoom = code;
+                        myIdx = i;
+                        cb({ success: true, code, myIdx: i, reclaimed: true });
+                        broadcast(io, room);
+                        return;
+                    }
+                }
+            }
             if (room.players[0] && room.players[1]) return cb({ error: 'Room is full' });
             const slot = room.players[0] ? 1 : 0;
-            room.players[slot] = { socketId: socket.id, name: (data?.name || 'Player 2').slice(0, 20) };
+            room.players[slot] = { socketId: socket.id, clientId, name: (data?.name || 'Player 2').slice(0, 20), disconnectedAt: null };
             socket.join(code);
             currentRoom = code;
             myIdx = slot;
             room.log.push({ type: 'system', msg: `${room.players[slot].name} joined. Place your fleet!` });
             cb({ success: true, code, myIdx: slot });
             broadcast(io, room);
+        });
+
+        // Client returning from background / page reload — reattach to existing slot.
+        socket.on('bs:reclaim', (data, cb) => {
+            cb = typeof cb === 'function' ? cb : () => {};
+            const code = (data?.code || '').toUpperCase();
+            const clientId = (data?.clientId || '').slice(0, 64);
+            if (!code || !clientId) return cb({ error: 'Missing code or clientId' });
+            const room = rooms.get(code);
+            if (!room) return cb({ error: 'Room gone' });
+            for (let i = 0; i < 2; i++) {
+                const p = room.players[i];
+                if (p && p.clientId === clientId) {
+                    p.socketId = socket.id;
+                    p.disconnectedAt = null;
+                    socket.join(code);
+                    currentRoom = code;
+                    myIdx = i;
+                    cb({ success: true, code, myIdx: i });
+                    broadcast(io, room);
+                    return;
+                }
+            }
+            cb({ error: 'Slot not found in room' });
         });
 
         socket.on('bs:place', (data, cb) => {
@@ -511,24 +553,15 @@ function mount(server) {
             broadcast(io, room);
         });
 
+        // Explicit leave: user tapped "Cancel" / "Back to lobby". Nuke the slot.
         socket.on('bs:leave', () => {
-            handleLeave();
-        });
-
-        socket.on('disconnect', () => {
-            console.log(`[Battleship] disconnected: ${socket.id}`);
-            handleLeave();
-        });
-
-        function handleLeave() {
             const room = getRoom();
-            if (!room) return;
-            if (room.players[myIdx]) room.players[myIdx] = null;
-            socket.leave(currentRoom);
-            if (!room.players[0] && !room.players[1]) {
-                rooms.delete(currentRoom);
-            } else {
-                if (room.phase === 'battle' || room.phase === 'placement') {
+            if (room && myIdx >= 0) {
+                if (room.players[myIdx]) room.players[myIdx] = null;
+                socket.leave(currentRoom);
+                if (!room.players[0] && !room.players[1]) {
+                    rooms.delete(currentRoom);
+                } else if (room.phase === 'battle' || room.phase === 'placement') {
                     room.phase = 'ended';
                     room.winner = 1 - myIdx;
                     room.log.push({ type: 'system', msg: 'Opponent left — you win by forfeit.' });
@@ -537,16 +570,38 @@ function mount(server) {
             }
             currentRoom = null;
             myIdx = -1;
-        }
+        });
+
+        // Involuntary disconnect: mobile background, network blip, refresh.
+        // Hold the slot for ~5 min so the client can reclaim via bs:reclaim. The
+        // periodic cleanup loop below evicts rooms that stay disconnected too long.
+        socket.on('disconnect', () => {
+            console.log(`[Battleship] disconnected: ${socket.id}`);
+            const room = getRoom();
+            if (room && myIdx >= 0 && room.players[myIdx]) {
+                room.players[myIdx].socketId = null;
+                room.players[myIdx].disconnectedAt = Date.now();
+                broadcast(io, room);
+            }
+            currentRoom = null;
+            myIdx = -1;
+        });
     });
 
-    // Cleanup stale rooms every 5 min
+    // Cleanup stale rooms every 5 min. Evict if:
+    //  - both slots are null (explicit leaves), OR
+    //  - all occupied slots have been disconnected for > 5 min (mobile gave up), OR
+    //  - room is more than 6 hours old (catch-all).
+    const RECLAIM_GRACE_MS = 5 * 60 * 1000;
     setInterval(() => {
         const now = Date.now();
         for (const [code, room] of rooms) {
-            const empty = !room.players[0] && !room.players[1];
-            const old = now - room.createdAt > 6 * 60 * 60 * 1000;
-            if (empty || old) rooms.delete(code);
+            const occupied = room.players.filter(Boolean);
+            const noOne = occupied.length === 0;
+            const allLongGone = occupied.length > 0
+                && occupied.every(p => !p.socketId && p.disconnectedAt && now - p.disconnectedAt > RECLAIM_GRACE_MS);
+            const veryOld = now - room.createdAt > 6 * 60 * 60 * 1000;
+            if (noOne || allLongGone || veryOld) rooms.delete(code);
         }
     }, 5 * 60 * 1000);
 
