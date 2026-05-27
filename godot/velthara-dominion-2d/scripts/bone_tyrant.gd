@@ -190,7 +190,7 @@ func _die(source: Node) -> void:
 
 func _build_sprite_frames() -> SpriteFrames:
     var frames := SpriteFrames.new()
-    var prefix := "plate-corpse-tank"  # Phase 3 Pass B placeholder
+    var prefix := "bone-tyrant"
     var walk_tex: Texture2D = load("res://assets/enemies/%s-walk.png" % prefix)
     var attack_tex: Texture2D = load("res://assets/enemies/%s-attack.png" % prefix)
     var death_tex: Texture2D = load("res://assets/enemies/%s-death.png" % prefix)

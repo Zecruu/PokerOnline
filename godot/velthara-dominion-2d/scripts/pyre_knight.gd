@@ -201,10 +201,8 @@ func _die(source: Node) -> void:
     queue_free()
 
 func _build_sprite_frames() -> SpriteFrames:
-    # Placeholder sheets — plate-corpse-tank. Phase 3 Pass B will swap in
-    # the proper Pyre Knight sprites once Replicate credit is back.
     var frames := SpriteFrames.new()
-    var prefix := "plate-corpse-tank"
+    var prefix := "pyre-knight"
     var walk_tex: Texture2D = load("res://assets/enemies/%s-walk.png" % prefix)
     var attack_tex: Texture2D = load("res://assets/enemies/%s-attack.png" % prefix)
     var death_tex: Texture2D = load("res://assets/enemies/%s-death.png" % prefix)

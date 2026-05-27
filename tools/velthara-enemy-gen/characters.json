@@ -1,0 +1,14 @@
+[
+  {
+    "id": "necromancer",
+    "subject": "a regal Necromancer full-body humanoid character, hooded figure in flowing bone-white robes with sickly-green seam linings and a tattered hem, hood pulled low with a gaunt skeletal face just visible inside, holding a tall skull-topped bone staff in one hand, sickly green wisps of soul energy drifting from the staff and the free hand, faint glowing green eye lights inside the hood",
+    "flavor": "Necromancer playable character — bone-and-green palette, undead caster, raises skeletal minions",
+    "palette": "bone-white robes, sickly green seam glow, dim grey shadows, faint pale-green eye lights, weathered bone staff with a small skull topper"
+  },
+  {
+    "id": "void-empress",
+    "subject": "a regal Void Empress full-body humanoid sorceress character, deep void-purple ornate robes with silver and dark-violet trim, gold-trimmed shoulder pauldrons, a floating crown of dark crystal shards orbiting just above her brow, gauntleted hands crackling with magenta-violet void energy, glowing magenta eyes, faint starry-void aura around the lower hem of the robes",
+    "flavor": "Void Empress playable character — endgame eldritch sorceress with floating dark-crystal crown",
+    "palette": "deep void purple robes, gold trim, magenta-violet energy glow, dark crystal crown, faint starry void aura, silver highlights"
+  }
+]
