@@ -38,3 +38,5 @@ logs/
 
 # Claude Code per-project config
 .claude/
+
+.zed/settings.json
