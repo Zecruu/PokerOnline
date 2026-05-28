@@ -75,6 +75,7 @@ class PixiWorld {
     }
 
     // Cached texture from a URL (or an already-loaded HTMLImageElement).
+    // Failures are cached as null so a bad source can't re-throw every frame.
     texture(src) {
         if (!src) return null;
         const key = (typeof src === 'string') ? src : (src.src || src._pixiKey);
@@ -82,9 +83,15 @@ class PixiWorld {
         let tex = null;
         try {
             tex = PIXI.Texture.from(src);
-            tex.baseTexture.scaleMode = PIXI.SCALE_MODE.NEAREST;  // crisp pixel sprites
+            // Pixi v7 enum is SCALE_MODES (plural). Guard so a missing/renamed
+            // constant never throws — crisp pixels are a nicety, not critical.
+            const NEAREST = (PIXI.SCALE_MODES && PIXI.SCALE_MODES.NEAREST);
+            if (NEAREST != null && tex && tex.baseTexture) {
+                tex.baseTexture.scaleMode = NEAREST;
+            }
         } catch (e) {
-            console.warn('[PixiWorld] texture load failed:', key, e);
+            console.warn('[PixiWorld] texture load failed (cached as null):', key, e);
+            this._textures.set(key, null);   // don't retry every frame
             return null;
         }
         this._textures.set(key, tex);
@@ -101,11 +108,16 @@ class PixiWorld {
 
     // ── Background hell-floor: a TilingSprite covering the viewport. The tile
     //    offset scrolls with the camera so it reads as an infinite floor. ──
+    // Returns true if the background is rendering via Pixi; false means the
+    // caller should draw its Canvas2D floor fallback this frame (texture not
+    // ready / failed), so the floor is never missing.
     setBackground(img, worldX, worldY, tile, darken) {
-        if (!this.ok || !img) return;
+        if (!this.ok || !img) return false;
         if (!this._bgTile) {
             const tex = this.texture(img);
-            if (!tex) return;
+            // Texture must exist AND have real dimensions (a not-yet-loaded or
+            // CORS-tainted image yields a 0-size/invalid base texture).
+            if (!tex || !tex.baseTexture || !tex.baseTexture.valid || tex.width < 1) return false;
             this._bgTile = new PIXI.TilingSprite(tex, this.app.renderer.width, this.app.renderer.height);
             // Background must NOT take the camera zoom (the Canvas2D version
             // drew it in screen space before the camera transform), so it
@@ -126,6 +138,7 @@ class PixiWorld {
             this._bgDarken.drawRect(0, 0, this.app.renderer.width, this.app.renderer.height);
             this._bgDarken.endFill();
         }
+        return true;
     }
 
     // ── Per-frame sprite sync for an entity layer. `items` is an array of

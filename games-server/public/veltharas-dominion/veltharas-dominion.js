@@ -18991,24 +18991,29 @@ class DotsSurvivor {
       try {
         const ctx = this.ctx;
 
+        // pixiBgUp = the Pixi WebGL floor is actually rendering this frame. If
+        // it's not (texture still loading, CORS-tainted, or any error), we draw
+        // the Canvas2D floor instead so the floor is NEVER missing.
+        let pixiBgUp = false;
         if (this.pixi) {
-            // Pixi owns the background (Stage 1 of the WebGL migration). Clear
-            // the Canvas2D layer to transparent so the Pixi canvas underneath
-            // shows through; everything still drawn on Canvas2D composites on
-            // top of Pixi, preserving the original z-order. Any Pixi error
-            // disables it and the next frame uses the Canvas2D path.
             try {
-                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 if (HELL_FLOOR.loaded && HELL_FLOOR.img) {
-                    this.pixi.setBackground(HELL_FLOOR.img, this.worldX || 0, this.worldY || 0, 1024, 0.35);
+                    pixiBgUp = this.pixi.setBackground(HELL_FLOOR.img, this.worldX || 0, this.worldY || 0, 1024, 0.35);
+                }
+                if (pixiBgUp) {
+                    // Pixi owns the background — clear the Canvas2D layer to
+                    // transparent so the WebGL floor underneath shows through.
+                    // Everything else still drawn on Canvas2D composites on top.
+                    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 }
             } catch (perr) {
                 console.warn('[GAME] Pixi background failed — reverting to Canvas2D:', perr);
                 try { if (this.pixi.view) this.pixi.view.style.display = 'none'; } catch (_e) {}
                 this.pixi = null;
+                pixiBgUp = false;
             }
         }
-        if (!this.pixi) {
+        if (!pixiBgUp) {
             // Canvas2D fallback (Pixi unavailable).
             ctx.fillStyle = '#0a0508';
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
