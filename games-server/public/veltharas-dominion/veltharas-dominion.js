@@ -4481,6 +4481,8 @@ class DotsSurvivor {
         // incrementally; the game still renders everything on Canvas2D until a
         // layer is moved over. If Pixi fails to load we silently stay on canvas.
         this.pixi = null;
+        this.pixiEntities = true;     // Stage 2: enemy sprites via WebGL batch
+        this._pixiEnemyBatch = null;  // per-frame enemy sprite descriptors
         try {
             if (typeof PixiWorld !== 'undefined') {
                 this.pixi = new PixiWorld(this.canvas);
@@ -9465,9 +9467,20 @@ class DotsSurvivor {
         // Canvas2D background path, keeping the game fully playable.
         if (this.pixi) {
             try {
+                // Flush this frame's enemy sprite batch to the WebGL layer.
+                if (this._pixiEnemyBatch) {
+                    this.pixi.syncLayer('enemies', this._pixiEnemyBatch);
+                } else {
+                    this.pixi.syncLayer('enemies', []);  // clear when disabled
+                }
                 this.pixi.render();
             } catch (perr) {
                 console.warn('[GAME] Pixi render failed — falling back to Canvas2D for the rest of the session:', perr);
+                // Disable Pixi ENTITY rendering first; enemies revert to
+                // Canvas2D (drawEnemyAnimSprite without a batch). Keep trying
+                // the Pixi background unless it's the thing that failed.
+                this.pixiEntities = false;
+                this._pixiEnemyBatch = null;
                 try { if (this.pixi.view && this.pixi.view.parentNode) this.pixi.view.style.display = 'none'; } catch (_e) {}
                 this.pixi = null;
             }
@@ -12652,6 +12665,25 @@ class DotsSurvivor {
         if (!def || !sheet) return false;
         const frame = Math.floor((this.gameTime || 0) / (1000 / def.fps)) % def.frames;
         const size = e.radius * sizeMult;
+
+        // ── Pixi path: when an enemy batch is open this frame, queue the frame
+        //    as a WebGL sprite instead of a ctx.drawImage. The frame texture is
+        //    a cached sub-rect of the sheet. If the texture isn't ready yet
+        //    (image still decoding) we fall through to Canvas2D for this frame.
+        if (this._pixiEnemyBatch && this.pixi) {
+            const tex = this.pixi.frameTexture(sheet, frame * def.frameWidth, 0, def.frameWidth, def.frameHeight);
+            if (tex) {
+                this._pixiEnemyBatch.push({
+                    tex: tex, x: sx, y: sy,
+                    scaleX: size / def.frameWidth, scaleY: size / def.frameHeight,
+                    alpha: flash ? 0.5 : 1,
+                    blend: flash ? 'add' : null,
+                });
+                return true;
+            }
+            // else: fall through to the Canvas2D draw below this frame.
+        }
+
         if (flash) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -19048,6 +19080,17 @@ class DotsSurvivor {
         ctx.translate(centerX + shakeX, centerY + shakeY);
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
+
+        // Mirror the SAME camera transform (incl. this frame's shake) onto the
+        // Pixi world container so WebGL entities stay locked to their Canvas2D
+        // glow rings / HP bars. Open a fresh enemy sprite-batch for this frame;
+        // drawEnemyAnimSprite fills it, gameLoop flushes it to the GPU.
+        if (this.pixi && pixiBgUp) {
+            try { this.pixi.setCamera(centerX, centerY, scale, shakeX, shakeY); } catch (_e) {}
+            this._pixiEnemyBatch = (this.pixiEntities !== false) ? [] : null;
+        } else {
+            this._pixiEnemyBatch = null;
+        }
 
         // Demonic themed grid and border rendering
         this.drawDemonicSections();

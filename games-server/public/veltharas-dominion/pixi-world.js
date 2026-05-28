@@ -112,6 +112,27 @@ class PixiWorld {
         return tex;
     }
 
+    // Sub-rectangle texture of a sprite-sheet (one animation frame). Cached
+    // per (base, frame-rect). Returns null until the base image has loaded so
+    // the caller can fall back to Canvas2D for that frame.
+    frameTexture(baseSrc, fx, fy, fw, fh) {
+        if (!baseSrc) return null;
+        const baseKey = (typeof baseSrc === 'string') ? baseSrc : (baseSrc.src || baseSrc._pixiKey || '');
+        const cacheKey = baseKey + '#' + fx + ',' + fy + ',' + fw + ',' + fh;
+        if (this._textures.has(cacheKey)) return this._textures.get(cacheKey);
+        const base = this.texture(baseSrc);
+        if (!base || !base.baseTexture || !base.baseTexture.valid) return null;  // not ready — retry next frame, don't cache
+        let frameTex = null;
+        try {
+            frameTex = new PIXI.Texture(base.baseTexture, new PIXI.Rectangle(fx, fy, fw, fh));
+        } catch (e) {
+            this._textures.set(cacheKey, null);
+            return null;
+        }
+        this._textures.set(cacheKey, frameTex);
+        return frameTex;
+    }
+
     // Mirror of the Canvas2D camera transform.
     setCamera(centerX, centerY, scale, shakeX, shakeY) {
         if (!this.ok) return;
@@ -188,6 +209,9 @@ class PixiWorld {
                           it.scaleY != null ? it.scaleY : (it.scaleX != null ? it.scaleX : 1));
             spr.tint = (it.tint != null) ? it.tint : 0xffffff;
             spr.alpha = (it.alpha != null) ? it.alpha : 1;
+            // Additive blend for hit-flash overlays (mirrors Canvas2D 'lighter').
+            spr.blendMode = it.blend === 'add'
+                ? PIXI.BLEND_MODES.ADD : PIXI.BLEND_MODES.NORMAL;
         }
         // Hide leftover pooled sprites from a previous, larger frame.
         for (; i < pool.sprites.length; i++) {
