@@ -1,3 +1,4 @@
-tools/velthara-enemy-gen/node_modules/
-tools/velthara-enemy-gen/raw/
-tools/velthara-enemy-gen/batch.log*
+node_modules/
+raw/
+raw-characters/
+batch.log*
