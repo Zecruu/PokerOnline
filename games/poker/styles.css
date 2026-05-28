@@ -216,6 +216,11 @@ h2 {
     transform: translateY(-2px);
 }
 
+.secondary-btn:active:not(:disabled) {
+    transform: translateY(0);
+    background: var(--surface);
+}
+
 .back-btn {
     background: transparent;
     color: var(--text-secondary);
@@ -226,6 +231,10 @@ h2 {
 .back-btn:hover {
     color: var(--text-primary);
     border-color: var(--accent-primary);
+}
+
+.back-btn:active {
+    background: var(--surface);
 }
 
 .icon-btn {
@@ -239,6 +248,10 @@ h2 {
 .icon-btn:hover {
     background: var(--surface-light);
     border-color: var(--accent-primary);
+}
+
+.icon-btn:active {
+    transform: scale(0.97);
 }
 
 .btn-icon {
@@ -746,10 +759,19 @@ h2 {
     box-shadow: none;
 }
 
+/* Touch feedback for all action buttons */
+.action-btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.97);
+    filter: brightness(0.9);
+}
+
 /* ===== PLAYING CARDS ===== */
 .card {
-    width: 80px;
-    height: 112px;
+    /* Fluid card sizing: scales with viewport, clamped to a usable range.
+       Aspect ratio is locked so width and height stay in sync. */
+    width: clamp(48px, 11vw, 80px);
+    aspect-ratio: 5 / 7;
+    height: auto;
     background: white;
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-md);
@@ -761,13 +783,20 @@ h2 {
     cursor: pointer;
 }
 
-.card:hover {
-    transform: translateY(-10px);
+@media (hover: hover) {
+    .card:hover {
+        transform: translateY(-10px);
+    }
+}
+
+.card:active {
+    transform: translateY(-4px);
 }
 
 .card-back {
-    width: 60px;
-    height: 84px;
+    width: clamp(40px, 9vw, 60px);
+    aspect-ratio: 5 / 7;
+    height: auto;
     background: var(--gradient-secondary);
     border-radius: 4px;
     border: 2px solid white;
@@ -778,7 +807,23 @@ h2 {
     height: 100%;
 }
 
-/* ===== RESPONSIVE ===== */
+/* ===== RESPONSIVE — TABLET (≤1024px) ===== */
+@media (max-width: 1024px) {
+    .container {
+        padding: var(--spacing-md);
+    }
+
+    .poker-table {
+        border-radius: 140px;
+        padding: var(--spacing-lg);
+    }
+
+    .action-controls {
+        gap: var(--spacing-sm);
+    }
+}
+
+/* ===== RESPONSIVE — PHONE (≤768px) ===== */
 @media (max-width: 768px) {
     .game-title {
         font-size: 2.5rem;
@@ -787,19 +832,32 @@ h2 {
     .poker-table {
         border-radius: 100px;
         margin: var(--spacing-sm);
-    }
-
-    .card {
-        width: 60px;
-        height: 84px;
+        padding: var(--spacing-md);
+        min-height: 280px;
     }
 
     .action-buttons {
-        grid-template-columns: repeat(2, 1fr);
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .players-list {
         grid-template-columns: 1fr;
+    }
+
+    /* Action controls stack vertically on phones */
+    .action-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .bet-controls {
+        width: 100%;
+    }
+
+    .action-buttons .action-btn {
+        flex: 1 1 calc(50% - var(--spacing-sm));
+        min-width: 0;
     }
 }
 
@@ -904,10 +962,11 @@ h2 {
     opacity: 0.3;
 }
 
-/* Card placeholder */
+/* Card placeholder — matches fluid card sizing */
 .card-placeholder {
-    width: 80px;
-    height: 112px;
+    width: clamp(48px, 11vw, 80px);
+    aspect-ratio: 5 / 7;
+    height: auto;
 }
 
 /* ===== SETTINGS MODAL ===== */
@@ -1129,6 +1188,10 @@ h2 {
 .reveal-btn:hover {
     background: var(--surface-light);
     color: var(--text-primary);
+}
+
+.reveal-btn:active {
+    transform: scale(0.95);
 }
 
 .reveal-btn.active {
@@ -1409,6 +1472,10 @@ body {
 
 .chat-send-btn:hover {
     background: var(--accent-secondary);
+}
+
+.chat-send-btn:active {
+    transform: scale(0.95);
 }
 
 /* Responsive chat */
@@ -1720,4 +1787,235 @@ body {
     min-width: 140px;
     padding: 12px 24px;
     font-size: 1rem;
+}
+
+/* ===== MINI CARDS (opponent action-bar mini-cards) ===== */
+.mini-card {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(28px, 6vw, 36px);
+    aspect-ratio: 5 / 7;
+    background: #fff;
+    color: #1a202c;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    line-height: 1;
+}
+.mini-card.back {
+    /* Stylized card-back — works without depending on Unicode card glyphs.
+       Plain text content is hidden; pattern comes from the gradient + border. */
+    background: var(--gradient-secondary);
+    border: 2px solid rgba(255,255,255,0.8);
+    color: transparent;
+    background-image:
+        var(--gradient-secondary),
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 3px, transparent 3px 6px);
+    background-blend-mode: overlay;
+}
+
+/* ===== CONNECTION STATUS BANNER ===== */
+.connection-banner {
+    position: fixed;
+    top: env(safe-area-inset-top, 0);
+    left: 0;
+    right: 0;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: center;
+    z-index: 2000;
+    transform: translateY(-100%);
+    transition: transform 0.25s ease;
+    pointer-events: none;
+}
+.connection-banner.visible {
+    transform: translateY(0);
+}
+.connection-banner.level-warning {
+    background: rgba(251, 191, 36, 0.95);
+    color: #1a202c;
+}
+.connection-banner.level-info {
+    background: rgba(0, 212, 170, 0.95);
+    color: #1a202c;
+}
+.connection-banner.level-error {
+    background: rgba(239, 68, 68, 0.95);
+    color: #fff;
+}
+
+/* ===== CONNECTION ERROR MODAL ===== */
+.connection-error-content {
+    max-width: 400px;
+    text-align: center;
+}
+.connection-error-content h2 {
+    color: var(--danger);
+    margin-bottom: var(--spacing-sm);
+}
+.connection-error-content .modal-actions {
+    justify-content: center;
+}
+
+/* ===== TOUCH-DEVICE TWEAKS ===== */
+/* Larger slider thumb on coarse pointers (touch) for ≥44px tap target. */
+@media (pointer: coarse) {
+    #bet-slider {
+        height: 14px;
+    }
+    #bet-slider::-webkit-slider-thumb {
+        width: 44px;
+        height: 44px;
+    }
+    #bet-slider::-moz-range-thumb {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* ===== RESPONSIVE — SMALL PHONE (≤480px) ===== */
+@media (max-width: 480px) {
+    .game-title {
+        font-size: 2rem;
+    }
+    .tagline {
+        font-size: 1rem;
+    }
+    .container {
+        padding: var(--spacing-sm);
+    }
+    .menu-card,
+    .join-card,
+    .lobby-content {
+        padding: var(--spacing-lg);
+    }
+    .modal-content {
+        padding: var(--spacing-lg);
+    }
+
+    /* Opponents stop overlapping at narrow widths by collapsing the absolute
+       arc into a horizontal scroll strip above the table. */
+    .players-container {
+        position: static;
+        width: 100%;
+        height: auto;
+        display: flex;
+        gap: var(--spacing-sm);
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: var(--spacing-sm);
+        -webkit-overflow-scrolling: touch;
+        pointer-events: auto;
+    }
+    .opponent-player {
+        position: static !important;
+        transform: none !important;
+        flex: 0 0 auto;
+        min-width: 110px;
+    }
+    .opponent-info {
+        min-width: 0;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    .opponent-name,
+    .opponent-chips {
+        font-size: 0.8rem;
+    }
+
+    /* Poker-table loses its huge oval; becomes a compact billboard for community cards. */
+    .poker-table {
+        border-radius: var(--radius-lg);
+        border-width: 4px;
+        margin: var(--spacing-xs);
+        padding: var(--spacing-sm);
+        min-height: 160px;
+    }
+    .community-cards {
+        gap: 4px;
+    }
+
+    .player-cards {
+        gap: var(--spacing-sm);
+    }
+
+    /* Action buttons: 2x2 grid */
+    .action-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+    }
+    .action-btn {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    /* Chat shrinks but stays usable */
+    .game-chat {
+        width: calc(100vw - 20px);
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        max-height: 240px;
+    }
+    .game-chat.minimized {
+        width: 120px;
+    }
+}
+
+/* ===== RESPONSIVE — PHONE LANDSCAPE ===== */
+/* When height is constrained (e.g. iPhone landscape 667×375) keep modals usable
+   by making the action row sticky and trimming top/bottom padding. */
+@media (max-height: 500px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 95vh;
+        padding: var(--spacing-md);
+    }
+    .modal-content h2 {
+        font-size: 1.5rem;
+        margin-bottom: var(--spacing-xs);
+    }
+    .modal-actions {
+        position: sticky;
+        bottom: 0;
+        background: linear-gradient(to top, rgba(26, 31, 53, 0.95) 70%, transparent);
+        padding: var(--spacing-sm) 0 0;
+        margin-top: var(--spacing-sm);
+    }
+    .sd-content {
+        padding: var(--spacing-md);
+        max-height: 95vh;
+    }
+    .sd-actions {
+        position: sticky;
+        bottom: 0;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 70%, transparent);
+        padding: var(--spacing-sm) 0 0;
+    }
+
+    /* Poker table loses min-height so the action bar stays in view */
+    .poker-table {
+        min-height: 0;
+    }
+}
+
+/* ===== CHAT INPUT — RESERVE VIRTUAL KEYBOARD SPACE ===== */
+/* When the on-screen keyboard pops up, the chat input can be obscured.
+   We lift the chat container by max(env(keyboard-inset-height), --vv-keyboard-inset):
+   env() is the iOS 15+ path; the JS-set CSS var is the visualViewport fallback. */
+.game-chat {
+    --vv-keyboard-inset: 0px;
+    bottom: calc(20px + max(env(keyboard-inset-height, 0px), var(--vv-keyboard-inset)));
+}
+@media (max-width: 768px) {
+    .game-chat {
+        bottom: calc(80px + max(env(keyboard-inset-height, 0px), var(--vv-keyboard-inset)));
+    }
+}
+@media (max-width: 480px) {
+    .game-chat {
+        bottom: calc(10px + max(env(keyboard-inset-height, 0px), var(--vv-keyboard-inset)));
+    }
 }

@@ -569,6 +569,46 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Rejoin Room — fired by the client after socket auto-reconnects.
+    // Re-binds the new socket to the existing player slot and resyncs state.
+    socket.on('rejoinRoom', (data) => {
+        const code = ((data && data.roomCode) || '').toUpperCase();
+        const playerId = data && data.playerId;
+        const room = pokerRooms[code];
+
+        if (!room) {
+            socket.emit('rejoinFailed', { reason: 'Room no longer exists' });
+            return;
+        }
+        const player = room.players.find(p => p.oderId === playerId);
+        if (!player) {
+            socket.emit('rejoinFailed', { reason: 'Player not found in room' });
+            return;
+        }
+        // Don't allow a connected slot to be hijacked (e.g. two tabs racing).
+        // Idempotent for the same socket id, though, so a repeated rejoinRoom
+        // from the same socket is a no-op rather than an error.
+        if (player.isConnected && player.odId !== socket.id) {
+            socket.emit('rejoinFailed', { reason: 'Seat already connected' });
+            return;
+        }
+
+        player.odId = socket.id;
+        player.isConnected = true;
+        socket.roomCode = code;
+        socket.oderId = playerId;
+        socket.join(code);
+
+        socket.emit('rejoinSuccess', { playerId });
+        socket.emit('gameUpdate', { room: sanitizeRoom(room) });
+        socket.to(code).emit('playerReconnected', {
+            playerId,
+            room: sanitizeRoom(room)
+        });
+
+        console.log(`🔁 ${player.name} rejoined room ${code}`);
+    });
+
     // Disconnect
     socket.on('disconnect', () => {
         console.log(`🔌 Player disconnected: ${socket.id}`);

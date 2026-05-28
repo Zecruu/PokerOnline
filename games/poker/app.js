@@ -124,6 +124,71 @@ class PokerApp {
                 this.updateOnlineStartButton();
             }
         };
+
+        client.onDisconnect = (reason) => {
+            // Show banner only for active online sessions.
+            if (this.isOnlineMode && this.currentRoom) {
+                this.showConnectionBanner('Reconnecting…', 'warning');
+            }
+        };
+
+        client.onReconnecting = ({ attempt }) => {
+            if (!this.isOnlineMode || !this.currentRoom) return;
+            const label = attempt > 0 ? `Reconnecting… (attempt ${attempt})` : 'Reconnecting…';
+            this.showConnectionBanner(label, 'warning');
+        };
+
+        client.onReconnected = () => {
+            if (!this.isOnlineMode) return;
+            this.showConnectionBanner('Reconnected. Syncing…', 'info');
+        };
+
+        client.onReconnectFailed = () => {
+            this.showConnectionBanner('Connection lost. Please refresh.', 'error', { sticky: true });
+        };
+
+        client.onSessionExpired = (data) => {
+            const reason = data?.reason || 'Session expired';
+            this.showConnectionBanner(`${reason} — please rejoin.`, 'error', { sticky: true });
+        };
+
+        client.onPlayerReconnected = (data) => {
+            this.currentRoom = data.room;
+            if (this.currentScreen === 'game') {
+                this.renderOnlineGame();
+            } else if (this.currentScreen === 'lobby') {
+                this.updateOnlinePlayersList();
+                this.updateOnlineStartButton();
+            }
+            // If the reconnected player is us, take the banner down.
+            if (data?.playerId && data.playerId === this.currentPlayerId) {
+                this.hideConnectionBanner();
+            }
+        };
+    }
+
+    showConnectionBanner(message, level = 'info', opts = {}) {
+        let banner = document.getElementById('connection-banner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'connection-banner';
+            banner.className = 'connection-banner';
+            document.body.appendChild(banner);
+        }
+        banner.textContent = message;
+        banner.className = `connection-banner level-${level} visible`;
+        if (this._bannerAutoHide) {
+            clearTimeout(this._bannerAutoHide);
+            this._bannerAutoHide = null;
+        }
+        if (!opts.sticky && level === 'info') {
+            this._bannerAutoHide = setTimeout(() => this.hideConnectionBanner(), 2500);
+        }
+    }
+
+    hideConnectionBanner() {
+        const banner = document.getElementById('connection-banner');
+        if (banner) banner.classList.remove('visible');
     }
 
     initializeEventListeners() {
@@ -364,60 +429,6 @@ class PokerApp {
                     }
                 }
             }, 2000);
-        };
-    }
-
-    setupSyncCallbacks() {
-        if (!window.roomSync) return;
-
-        // When another player joins
-        window.roomSync.callbacks.onPlayerJoined = (player, room) => {
-            // Update local game with new player
-            if (this.currentGame && !this.currentGame.players.find(p => p.id === player.id)) {
-                this.currentGame.players.push(player);
-            }
-            this.updatePlayersList();
-            this.updateStartButton();
-        };
-
-        // When a player leaves
-        window.roomSync.callbacks.onPlayerLeft = (playerId, room) => {
-            if (this.currentGame) {
-                const player = this.currentGame.players.find(p => p.id === playerId);
-                if (player) player.isConnected = false;
-            }
-            this.updatePlayersList();
-        };
-
-        // When game updates
-        window.roomSync.callbacks.onGameUpdate = (room) => {
-            if (this.currentGame && this.currentScreen === 'game') {
-                // Sync game state
-                this.currentGame.players = room.players;
-                this.currentGame.communityCards = room.gameState.communityCards || [];
-                this.currentGame.pot = room.gameState.pot;
-                this.currentGame.currentBet = room.gameState.currentBet;
-                this.currentGame.gamePhase = room.gameState.phase;
-                this.currentGame.currentPlayerIndex = room.gameState.currentPlayerIndex;
-
-                this.updateGameDisplay();
-            }
-        };
-
-        // When chat message received
-        window.roomSync.callbacks.onChatMessage = (message) => {
-            this.addChatMessage(message);
-        };
-
-        // When room updates (general)
-        window.roomSync.callbacks.onRoomUpdate = (room) => {
-            if (this.currentScreen === 'lobby') {
-                if (this.currentGame) {
-                    this.currentGame.players = room.players;
-                }
-                this.updatePlayersList();
-                this.updateStartButton();
-            }
         };
     }
 
@@ -1007,6 +1018,25 @@ class PokerApp {
                 chatContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 300);
         });
+
+        // visualViewport fallback for keyboard inset on browsers that don't
+        // support env(keyboard-inset-height). Tracks the gap between the layout
+        // viewport and the visual viewport and exposes it as a CSS variable.
+        this.attachKeyboardInsetTracker(chatContainer);
+    }
+
+    attachKeyboardInsetTracker(chatContainer) {
+        if (this._keyboardTrackerAttached) return;
+        this._keyboardTrackerAttached = true;
+        const vv = window.visualViewport;
+        if (!vv) return;
+        const update = () => {
+            const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            chatContainer.style.setProperty('--vv-keyboard-inset', `${inset}px`);
+        };
+        vv.addEventListener('resize', update);
+        vv.addEventListener('scroll', update);
+        update();
     }
 
     sendChatMessage() {
@@ -1104,9 +1134,10 @@ class PokerApp {
             this.isOnlineMode = true;
             window.socketClient.createRoom(playerName, settings, withAI, this.selectedAvatar);
         } catch (error) {
-            alert('Failed to connect to server. Playing locally instead.');
-            this.isOnlineMode = false;
-            this.createLocalRoom(playerName, settings, withAI);
+            this.showConnectionError(
+                'Cannot reach multiplayer server',
+                error?.message || 'Check your connection and try again.'
+            );
         }
     }
 
@@ -1116,8 +1147,33 @@ class PokerApp {
             this.isOnlineMode = true;
             window.socketClient.joinRoom(roomCode, playerName, this.selectedAvatar);
         } catch (error) {
-            alert('Failed to connect to server: ' + error.message);
+            this.showConnectionError(
+                'Cannot reach multiplayer server',
+                error?.message || 'Check your connection and try again.'
+            );
         }
+    }
+
+    showConnectionError(title, detail) {
+        let modal = document.getElementById('connection-error-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'connection-error-modal';
+            modal.className = 'modal-overlay';
+            document.body.appendChild(modal);
+        }
+        modal.innerHTML = `
+            <div class="modal-content connection-error-content">
+                <h2>${this.escapeHtml(title)}</h2>
+                <p class="subtitle">${this.escapeHtml(detail)}</p>
+                <div class="modal-actions">
+                    <button class="primary-btn" id="connection-error-ok">OK</button>
+                </div>
+            </div>
+        `;
+        modal.classList.add('active');
+        const ok = modal.querySelector('#connection-error-ok');
+        ok.addEventListener('click', () => modal.classList.remove('active'));
     }
 
     showOnlineLobby(roomCode) {

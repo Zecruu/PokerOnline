@@ -9,12 +9,21 @@ class SocketClient {
         this.roomCode = null;
         this.playerId = null;
 
+        // Reconnect / queue state
+        this.intentionalDisconnect = false;
+        this.pendingActions = [];
+
         // Callbacks
         this.onConnect = null;
         this.onDisconnect = null;
+        this.onReconnecting = null;
+        this.onReconnected = null;
+        this.onReconnectFailed = null;
+        this.onSessionExpired = null;
         this.onRoomCreated = null;
         this.onRoomJoined = null;
         this.onPlayerJoined = null;
+        this.onPlayerReconnected = null;
         this.onGameStarted = null;
         this.onGameUpdate = null;
         this.onShowdown = null;
@@ -57,25 +66,78 @@ class SocketClient {
         try {
             this.socket = io(this.serverUrl, {
                 transports: ['websocket', 'polling'],
-                timeout: 10000
+                timeout: 10000,
+                reconnection: true,
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 30000,
+                randomizationFactor: 0
             });
+
+            let initialResolved = false;
+            const resolveOnce = () => {
+                if (initialResolved) return;
+                initialResolved = true;
+                resolve();
+            };
+            const rejectOnce = (err) => {
+                if (initialResolved) return;
+                initialResolved = true;
+                reject(err);
+            };
 
             this.socket.on('connect', () => {
                 console.log('✅ Connected to server');
                 this.connected = true;
                 if (this.onConnect) this.onConnect();
-                resolve();
+                resolveOnce();
             });
 
-            this.socket.on('disconnect', () => {
-                console.log('❌ Disconnected from server');
+            this.socket.on('disconnect', (reason) => {
+                console.log(`❌ Disconnected from server: ${reason}`);
                 this.connected = false;
-                if (this.onDisconnect) this.onDisconnect();
+                if (this.onDisconnect) this.onDisconnect(reason);
+                // socket.io v4 will auto-reconnect unless the disconnect was
+                // initiated by the server with reason "io server disconnect"
+                // or by us via socket.disconnect() (this.intentionalDisconnect).
+                if (!this.intentionalDisconnect && reason !== 'io server disconnect') {
+                    if (this.onReconnecting) this.onReconnecting({ attempt: 0 });
+                }
+            });
+
+            this.socket.io.on('reconnect_attempt', (attempt) => {
+                console.log(`🔄 Reconnect attempt #${attempt}`);
+                if (this.onReconnecting) this.onReconnecting({ attempt });
+            });
+
+            this.socket.io.on('reconnect', (attempt) => {
+                console.log(`✅ Reconnected after ${attempt} attempt(s)`);
+                this.connected = true;
+                // Rejoin BEFORE flushing queued actions so the server knows who we are.
+                if (this.roomCode && this.playerId) {
+                    this.socket.emit('rejoinRoom', {
+                        roomCode: this.roomCode,
+                        playerId: this.playerId
+                    });
+                }
+                if (this.onReconnected) this.onReconnected({ attempt });
+                // Don't flush actions yet — wait for rejoinRoom ack.
+            });
+
+            this.socket.io.on('reconnect_error', (error) => {
+                console.warn('Reconnect error:', error?.message || error);
+            });
+
+            this.socket.io.on('reconnect_failed', () => {
+                console.error('❌ Reconnect failed permanently');
+                if (this.onReconnectFailed) this.onReconnectFailed();
             });
 
             this.socket.on('connect_error', (error) => {
                 console.error('Connection error:', error);
-                reject(error);
+                // Only reject the initial connect Promise; later connect_errors
+                // are part of the reconnection loop and should not throw.
+                rejectOnce(error);
             });
 
             // Game events
@@ -89,6 +151,22 @@ class SocketClient {
                 this.roomCode = data.roomCode;
                 this.playerId = data.playerId;
                 if (this.onRoomJoined) this.onRoomJoined(data);
+            });
+
+            this.socket.on('rejoinSuccess', (data) => {
+                console.log('✅ Rejoin acknowledged by server');
+                this.flushPendingActions();
+            });
+
+            this.socket.on('rejoinFailed', (data) => {
+                console.warn('❌ Rejoin failed:', data?.reason);
+                // Clear queued actions — server has no slot for us.
+                this.pendingActions = [];
+                if (this.onSessionExpired) this.onSessionExpired(data);
+            });
+
+            this.socket.on('playerReconnected', (data) => {
+                if (this.onPlayerReconnected) this.onPlayerReconnected(data);
             });
 
             this.socket.on('playerJoined', (data) => {
@@ -133,6 +211,15 @@ class SocketClient {
         }
     }
 
+    flushPendingActions() {
+        if (this.pendingActions.length === 0) return;
+        const queue = this.pendingActions.slice();
+        this.pendingActions = [];
+        for (const item of queue) {
+            this.socket.emit(item.event, item.payload);
+        }
+    }
+
     // Room operations
     createRoom(playerName, settings, withAI, avatarId) {
         if (!this.socket) return;
@@ -144,39 +231,65 @@ class SocketClient {
         this.socket.emit('joinRoom', { roomCode, playerName, avatarId });
     }
 
-    // Game operations
-    startGame() {
-        if (!this.socket) return;
-        this.socket.emit('startGame');
-    }
-
+    // Game operations — queue when disconnected so they fire after reconnect.
     playerAction(action, amount) {
         if (!this.socket) return;
-        this.socket.emit('playerAction', { action, amount });
+        const payload = { action, amount };
+        if (this.connected) {
+            this.socket.emit('playerAction', payload);
+        } else {
+            this.pendingActions.push({ event: 'playerAction', payload });
+        }
+    }
+
+    startGame() {
+        if (!this.socket) return;
+        if (this.connected) {
+            this.socket.emit('startGame');
+        } else {
+            this.pendingActions.push({ event: 'startGame', payload: undefined });
+        }
     }
 
     nextRound() {
         if (!this.socket) return;
-        this.socket.emit('nextRound');
+        if (this.connected) {
+            this.socket.emit('nextRound');
+        } else {
+            this.pendingActions.push({ event: 'nextRound', payload: undefined });
+        }
     }
 
     buyBack() {
         if (!this.socket) return;
-        this.socket.emit('buyBack');
+        if (this.connected) {
+            this.socket.emit('buyBack');
+        } else {
+            this.pendingActions.push({ event: 'buyBack', payload: undefined });
+        }
     }
 
     // Chat
     sendChatMessage(message) {
         if (!this.socket) return;
-        this.socket.emit('chatMessage', { message });
+        const payload = { message };
+        if (this.connected) {
+            this.socket.emit('chatMessage', payload);
+        } else {
+            this.pendingActions.push({ event: 'chatMessage', payload });
+        }
     }
 
     // Cleanup
     disconnect() {
         if (this.socket) {
+            this.intentionalDisconnect = true;
             this.socket.disconnect();
             this.socket = null;
             this.connected = false;
+            this.roomCode = null;
+            this.playerId = null;
+            this.pendingActions = [];
         }
     }
 }
