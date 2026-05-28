@@ -36,17 +36,31 @@ class PixiWorld {
         this.view = this.app.view;
         this.app.ticker.stop();  // we drive rendering from the game loop
 
-        // Position the Pixi canvas exactly over the host, one z-layer below it.
-        const hostStyle = window.getComputedStyle(hostCanvas);
-        this.view.style.position = hostStyle.position === 'static' ? 'absolute' : hostStyle.position;
+        // Layering: the Pixi canvas must sit UNDER the host (game) canvas so
+        // the Canvas2D entities draw on top of the WebGL floor. Two gotchas:
+        //   1. #game-canvas is position:static, so an absolutely-positioned
+        //      Pixi canvas would paint ABOVE it (positioned > static). We give
+        //      the host canvas an explicit stacking context above Pixi.
+        //   2. #game-canvas has an opaque CSS background (#0a0508). With Pixi
+        //      underneath, that background would hide the floor through the
+        //      cleared-transparent canvas pixels — so we null it out. The
+        //      Canvas2D fallback path repaints its own background via fillRect.
+        this.view.style.position = 'fixed';
         this.view.style.left = '0';
         this.view.style.top = '0';
         this.view.style.width = '100%';
         this.view.style.height = '100%';
         this.view.style.pointerEvents = 'none';
-        const hostZ = parseInt(hostStyle.zIndex, 10);
-        this.view.style.zIndex = String(Number.isFinite(hostZ) ? hostZ - 1 : 0);
+        this.view.style.zIndex = '0';
         hostCanvas.parentNode.insertBefore(this.view, hostCanvas);
+
+        // Host canvas above Pixi, transparent so the WebGL floor shows through.
+        this._hostPrevBackground = hostCanvas.style.background;
+        if (window.getComputedStyle(hostCanvas).position === 'static') {
+            hostCanvas.style.position = 'relative';
+        }
+        hostCanvas.style.zIndex = '1';
+        hostCanvas.style.background = 'transparent';
 
         // World container carries the camera transform. Background is its own
         // child so it tiles independently of entity layers.
