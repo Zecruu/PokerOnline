@@ -4477,6 +4477,20 @@ class DotsSurvivor {
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
 
+        // PixiJS WebGL world renderer (sits under the Canvas2D layer). Migrated
+        // incrementally; the game still renders everything on Canvas2D until a
+        // layer is moved over. If Pixi fails to load we silently stay on canvas.
+        this.pixi = null;
+        try {
+            if (typeof PixiWorld !== 'undefined') {
+                this.pixi = new PixiWorld(this.canvas);
+                if (!this.pixi.ok) this.pixi = null;
+            }
+        } catch (e) {
+            console.warn('[GAME] PixiWorld init failed, staying on Canvas2D:', e);
+            this.pixi = null;
+        }
+
         this.gameRunning = false;
         this.gamePaused = false;
         this.upgradeMenuShowing = false; // Prevent multiple upgrade menus from showing
@@ -5940,6 +5954,7 @@ class DotsSurvivor {
         } else {
             this.cameraScale = 0.85;
         }
+        if (this.pixi) this.pixi.resize(this.canvas.width, this.canvas.height);
     }
 
     startGame() {
@@ -9443,6 +9458,20 @@ class DotsSurvivor {
             this.update(dt);
         }
         this.render();
+        // Flush the Pixi WebGL frame after the Canvas2D pass has populated
+        // its layers (background today; entities as the migration proceeds).
+        // Isolated try/catch: a Pixi failure must NEVER take down the game —
+        // it permanently disables Pixi and the next frame falls back to the
+        // Canvas2D background path, keeping the game fully playable.
+        if (this.pixi) {
+            try {
+                this.pixi.render();
+            } catch (perr) {
+                console.warn('[GAME] Pixi render failed — falling back to Canvas2D for the rest of the session:', perr);
+                try { if (this.pixi.view && this.pixi.view.parentNode) this.pixi.view.style.display = 'none'; } catch (_e) {}
+                this.pixi = null;
+            }
+        }
       } catch (err) {
         _reportError(err, 'gameLoop');
         // Stop the game loop to prevent infinite error spam
@@ -18962,26 +18991,40 @@ class DotsSurvivor {
       try {
         const ctx = this.ctx;
 
-        // Default background - dark demonic
-        ctx.fillStyle = '#0a0508';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Hellscape floor — manual tile loop (was using ctx.createPattern +
-        // setTransform but that triggered per-frame texture re-uploads in
-        // some Chromium builds and tanked the framerate). Plain drawImage
-        // tiling is reliably fast.
-        if (HELL_FLOOR.loaded && HELL_FLOOR.img) {
-            const tile = 1024;
-            const wx = this.worldX || 0, wy = this.worldY || 0;
-            let ox = (-wx) % tile; if (ox > 0) ox -= tile;
-            let oy = (-wy) % tile; if (oy > 0) oy -= tile;
-            for (let y = oy; y < this.canvas.height; y += tile) {
-                for (let x = ox; x < this.canvas.width; x += tile) {
-                    ctx.drawImage(HELL_FLOOR.img, x, y, tile, tile);
+        if (this.pixi) {
+            // Pixi owns the background (Stage 1 of the WebGL migration). Clear
+            // the Canvas2D layer to transparent so the Pixi canvas underneath
+            // shows through; everything still drawn on Canvas2D composites on
+            // top of Pixi, preserving the original z-order. Any Pixi error
+            // disables it and the next frame uses the Canvas2D path.
+            try {
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                if (HELL_FLOOR.loaded && HELL_FLOOR.img) {
+                    this.pixi.setBackground(HELL_FLOOR.img, this.worldX || 0, this.worldY || 0, 1024, 0.35);
                 }
+            } catch (perr) {
+                console.warn('[GAME] Pixi background failed — reverting to Canvas2D:', perr);
+                try { if (this.pixi.view) this.pixi.view.style.display = 'none'; } catch (_e) {}
+                this.pixi = null;
             }
-            ctx.fillStyle = 'rgba(10, 5, 8, 0.35)';
+        }
+        if (!this.pixi) {
+            // Canvas2D fallback (Pixi unavailable).
+            ctx.fillStyle = '#0a0508';
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            if (HELL_FLOOR.loaded && HELL_FLOOR.img) {
+                const tile = 1024;
+                const wx = this.worldX || 0, wy = this.worldY || 0;
+                let ox = (-wx) % tile; if (ox > 0) ox -= tile;
+                let oy = (-wy) % tile; if (oy > 0) oy -= tile;
+                for (let y = oy; y < this.canvas.height; y += tile) {
+                    for (let x = ox; x < this.canvas.width; x += tile) {
+                        ctx.drawImage(HELL_FLOOR.img, x, y, tile, tile);
+                    }
+                }
+                ctx.fillStyle = 'rgba(10, 5, 8, 0.35)';
+                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            }
         }
 
         // Apply camera zoom (centered on player) and screen shake
