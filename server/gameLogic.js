@@ -1,6 +1,8 @@
 // Poker Game Logic for Server
 // Deck, hand evaluation, and AI logic
 
+const HoldemRules = require('../games/poker/holdem-rules');
+
 // Card utilities
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -44,49 +46,11 @@ function getRankValue(rank) {
 }
 
 function evaluateHand(cards) {
-    if (!cards || cards.length < 5) {
-        return { rank: 1, name: 'High Card', value: 0 };
-    }
-
-    const sortedCards = [...cards].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank));
-    const ranks = sortedCards.map(c => getRankValue(c.rank));
-    const suits = sortedCards.map(c => c.suit);
-
-    const rankCounts = {};
-    ranks.forEach(r => rankCounts[r] = (rankCounts[r] || 0) + 1);
-    const counts = Object.values(rankCounts).sort((a, b) => b - a);
-
-    const isFlush = suits.filter(s => s === suits[0]).length >= 5;
-
-    let isStraight = false;
-    const uniqueRanks = [...new Set(ranks)].sort((a, b) => b - a);
-    for (let i = 0; i <= uniqueRanks.length - 5; i++) {
-        if (uniqueRanks[i] - uniqueRanks[i + 4] === 4) {
-            isStraight = true;
-            break;
-        }
-    }
-    // Check for Ace-low straight (A-2-3-4-5)
-    if (uniqueRanks.includes(14) && uniqueRanks.includes(2) && uniqueRanks.includes(3) && uniqueRanks.includes(4) && uniqueRanks.includes(5)) {
-        isStraight = true;
-    }
-
-    if (isFlush && isStraight) {
-        if (uniqueRanks.includes(14) && uniqueRanks.includes(13)) {
-            return { rank: 10, name: 'Royal Flush', value: 10000 };
-        }
-        return { rank: 9, name: 'Straight Flush', value: 9000 + uniqueRanks[0] };
-    }
-
-    if (counts[0] === 4) return { rank: 8, name: 'Four of a Kind', value: 8000 + ranks[0] };
-    if (counts[0] === 3 && counts[1] === 2) return { rank: 7, name: 'Full House', value: 7000 + ranks[0] };
-    if (isFlush) return { rank: 6, name: 'Flush', value: 6000 + ranks[0] };
-    if (isStraight) return { rank: 5, name: 'Straight', value: 5000 + uniqueRanks[0] };
-    if (counts[0] === 3) return { rank: 4, name: 'Three of a Kind', value: 4000 + ranks[0] };
-    if (counts[0] === 2 && counts[1] === 2) return { rank: 3, name: 'Two Pair', value: 3000 + ranks[0] };
-    if (counts[0] === 2) return { rank: 2, name: 'Pair', value: 2000 + ranks[0] };
-
-    return { rank: 1, name: 'High Card', value: 1000 + ranks[0] };
+    const hand = HoldemRules.evaluateBestHand(cards);
+    const value = (hand.rank || 0) * 1e10 + (hand.tiebreakers || []).reduce((sum, v, i) => {
+        return sum + (v || 0) * Math.pow(15, 5 - i);
+    }, 0);
+    return { ...hand, value };
 }
 
 // AI Trash Talk
@@ -263,5 +227,6 @@ module.exports = {
     getRankValue,
     makeAIDecision,
     getRandomTaunt,
-    AI_TAUNTS
+    AI_TAUNTS,
+    HoldemRules
 };

@@ -8,7 +8,7 @@ const cors = require('cors');
 const path = require('path');
 
 const { Room } = require('./models');
-const { createDeck, shuffleDeck, evaluateHand, makeAIDecision, getRandomTaunt } = require('./gameLogic');
+const { createDeck, shuffleDeck, evaluateHand, makeAIDecision, getRandomTaunt, HoldemRules } = require('./gameLogic');
 
 const app = express();
 const server = http.createServer(app);
@@ -43,6 +43,7 @@ app.use((req, res, next) => {
 });
 // Serve the Next.js static export from hub/out
 app.use(express.static(path.join(__dirname, '../hub/out')));
+app.use('/games', express.static(path.join(__dirname, '../games')));
 
 // Connect to MongoDB
 const mongoUri = process.env.MONGODB_URI?.trim();
@@ -323,6 +324,7 @@ io.on('connection', (socket) => {
                 startingChips: 1000,
                 smallBlind: 10,
                 bigBlind: 20,
+                ante: 0,
                 turnTimeLimit: 30,
                 allowBuyBack: true,
                 maxBuyBacks: 3,
@@ -333,9 +335,11 @@ io.on('connection', (socket) => {
             communityCards: [],
             pot: 0,
             currentBet: 0,
+            lastRaiseSize: (settings && settings.bigBlind) || 20,
             currentPlayerIndex: 0,
             gamePhase: 'waiting',
             dealerIndex: 0,
+            lastAggressorIndex: -1,
             chatMessages: [],
             playersActedThisRound: [],
             revealedCards: {}
@@ -525,7 +529,7 @@ io.on('connection', (socket) => {
         const room = pokerRooms[socket.roomCode];
         if (!room) return;
 
-        room.dealerIndex = (room.dealerIndex + 1) % room.players.length;
+        room.dealerIndex = HoldemRules.nextLiveIndex(room.players, room.dealerIndex + 1);
         startNewRound(room);
 
         io.to(socket.roomCode).emit('gameStarted', {
@@ -1283,140 +1287,220 @@ function startNewRound(room) {
     room.communityCards = [];
     room.pot = 0;
     room.currentBet = room.settings.bigBlind || 20;
+    room.lastRaiseSize = room.settings.bigBlind || 20;
     room.gamePhase = 'preflop';
     room.playersActedThisRound = [];
     room.revealedCards = {};
+    room.lastAggressorIndex = -1;
 
-    // Reset players
     room.players.forEach(p => {
         p.bet = 0;
+        p.committed = 0;
         p.cards = [];
         p.folded = p.chips <= 0;
         p.isActive = false;
+        p.lastAction = null;
+        p.lastActionAmount = 0;
     });
 
-    // Deal cards
-    room.players.forEach(p => {
-        if (!p.folded) {
-            p.cards = [room.deck.pop(), room.deck.pop()];
-        }
-    });
+    const live = [];
+    for (let i = 1; i <= room.players.length; i++) {
+        const player = room.players[(room.dealerIndex + i) % room.players.length];
+        if (player && !player.folded) live.push(player);
+    }
+    for (let round = 0; round < 2; round++) {
+        live.forEach(p => p.cards.push(room.deck.pop()));
+    }
 
-    // Post blinds
+    const ante = room.settings.ante || 0;
+    if (ante > 0) {
+        room.players.forEach(p => {
+            if (p.chips > 0) room.pot += HoldemRules.postForcedBet(p, ante);
+        });
+    }
+
     const sb = room.settings.smallBlind || 10;
     const bb = room.settings.bigBlind || 20;
-
-    let sbIndex, bbIndex;
+    let sbIndex;
+    let bbIndex;
     if (room.players.length === 2) {
-        sbIndex = room.dealerIndex;
-        bbIndex = (room.dealerIndex + 1) % room.players.length;
+        sbIndex = HoldemRules.nextLiveIndex(room.players, room.dealerIndex);
+        bbIndex = HoldemRules.nextLiveIndex(room.players, sbIndex + 1);
     } else {
-        sbIndex = (room.dealerIndex + 1) % room.players.length;
-        bbIndex = (room.dealerIndex + 2) % room.players.length;
+        sbIndex = HoldemRules.nextLiveIndex(room.players, room.dealerIndex + 1);
+        bbIndex = HoldemRules.nextLiveIndex(room.players, sbIndex + 1);
     }
 
     const sbPlayer = room.players[sbIndex];
-    const sbAmount = Math.min(sb, sbPlayer.chips);
-    sbPlayer.bet = sbAmount;
-    sbPlayer.chips -= sbAmount;
-    room.pot += sbAmount;
-
+    room.pot += HoldemRules.postForcedBet(sbPlayer, sb);
     const bbPlayer = room.players[bbIndex];
-    const bbAmount = Math.min(bb, bbPlayer.chips);
-    bbPlayer.bet = bbAmount;
-    bbPlayer.chips -= bbAmount;
-    room.pot += bbAmount;
+    room.pot += HoldemRules.postForcedBet(bbPlayer, bb);
 
-    // Set first player
-    if (room.players.length === 2) {
-        room.currentPlayerIndex = room.dealerIndex;
-    } else {
-        room.currentPlayerIndex = (room.dealerIndex + 3) % room.players.length;
-    }
+    room.currentBet = Math.max(sbPlayer.bet, bbPlayer.bet);
+    room.lastRaiseSize = bb;
+    room.lastAggressorIndex = bbIndex;
+    sbPlayer.lastAction = 'small-blind';
+    bbPlayer.lastAction = 'big-blind';
 
-    while (room.players[room.currentPlayerIndex].folded) {
-        room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
-    }
-
+    room.currentPlayerIndex = HoldemRules.firstToActIndex(room.players, room.dealerIndex, 'preflop');
+    room.players.forEach(p => { p.isActive = false; });
     room.players[room.currentPlayerIndex].isActive = true;
+
+    if (HoldemRules.shouldRunOutBoard(room.players)) {
+        dealRemainingBoard(room);
+        showdown(room);
+    }
 }
 
 function processAction(room, playerIndex, action, amount) {
     const player = room.players[playerIndex];
+    let resolved = action;
+    if (resolved === 'all-in') resolved = 'allin';
+    if (resolved === 'raise' && room.currentBet <= 0) resolved = 'bet';
+    if (resolved === 'bet' && room.currentBet > 0) resolved = 'raise';
 
-    switch (action) {
+    const validation = HoldemRules.validateAction(player, resolved, amount, {
+        currentBet: room.currentBet,
+        lastRaiseSize: room.lastRaiseSize,
+        settings: room.settings
+    });
+    if (!validation.ok) return { success: false, message: validation.message };
+
+    const previousBet = room.currentBet;
+    let displayAction = resolved;
+    let displayAmount = 0;
+
+    switch (resolved) {
         case 'fold':
             player.folded = true;
             break;
-
         case 'check':
-            if (player.bet < room.currentBet) {
-                return { success: false, message: 'Cannot check' };
-            }
             break;
-
-        case 'call':
-            const callAmount = Math.min(room.currentBet - player.bet, player.chips);
-            player.chips -= callAmount;
-            player.bet += callAmount;
-            room.pot += callAmount;
+        case 'call': {
+            const callAmount = Math.max(0, room.currentBet - player.bet);
+            room.pot += HoldemRules.commitChips(player, callAmount);
+            displayAmount = callAmount;
+            if (player.chips === 0) displayAction = 'allin';
             break;
-
+        }
+        case 'bet':
         case 'raise':
-            if (amount <= room.currentBet) {
-                return { success: false, message: 'Raise must be higher' };
+        case 'allin': {
+            const target = resolved === 'allin'
+                ? player.bet + player.chips
+                : (validation.target || amount);
+            room.pot += HoldemRules.commitChips(player, target - player.bet);
+            displayAmount = player.bet;
+            if (player.chips === 0) displayAction = 'allin';
+            else displayAction = previousBet > 0 ? 'raise' : 'bet';
+
+            if (player.bet > previousBet) {
+                const increment = player.bet - previousBet;
+                room.currentBet = player.bet;
+                room.lastAggressorIndex = playerIndex;
+                if (increment >= (room.lastRaiseSize || room.settings.bigBlind || 20)) {
+                    room.lastRaiseSize = increment;
+                    room.playersActedThisRound = [];
+                }
             }
-            const raiseTotal = Math.min(amount - player.bet, player.chips);
-            player.chips -= raiseTotal;
-            player.bet += raiseTotal;
-            room.pot += raiseTotal;
-            room.currentBet = player.bet;
-            room.playersActedThisRound = [player.oderId];
-            return { success: true };
+            break;
+        }
+        default:
+            return { success: false, message: 'Unknown action' };
     }
 
-    room.playersActedThisRound.push(player.oderId);
+    if (!room.playersActedThisRound.includes(player.oderId)) {
+        room.playersActedThisRound.push(player.oderId);
+    }
     player.isActive = false;
-
+    player.lastAction = displayAction;
+    player.lastActionAmount = displayAmount;
     return { success: true };
 }
 
 function moveToNextPlayer(room) {
-    room.players[room.currentPlayerIndex].isActive = false;
-
-    let nextIndex = (room.currentPlayerIndex + 1) % room.players.length;
-    let attempts = 0;
-
-    while (room.players[nextIndex].folded && attempts < room.players.length) {
-        nextIndex = (nextIndex + 1) % room.players.length;
-        attempts++;
+    if (room.players[room.currentPlayerIndex]) {
+        room.players[room.currentPlayerIndex].isActive = false;
     }
-
-    room.currentPlayerIndex = nextIndex;
-    room.players[nextIndex].isActive = true;
+    room.currentPlayerIndex = HoldemRules.nextActingIndex(
+        room.players,
+        (room.currentPlayerIndex + 1) % room.players.length
+    );
+    room.players.forEach(p => { p.isActive = false; });
+    room.players[room.currentPlayerIndex].isActive = true;
 }
 
 function isBettingRoundComplete(room) {
-    const activePlayers = room.players.filter(p => !p.folded);
-    if (activePlayers.length <= 1) return true;
+    const live = room.players.filter(p => !p.folded);
+    if (live.length <= 1) return true;
+    const toAct = live.filter(p => p.chips > 0);
+    if (toAct.length === 0) return true;
+    const allActed = toAct.every(p => room.playersActedThisRound.includes(p.oderId));
+    const betsMatched = toAct.every(p => p.bet === room.currentBet || p.chips === 0);
+    return allActed && betsMatched;
+}
 
-    const allActed = activePlayers.every(p => room.playersActedThisRound.includes(p.oderId));
-    const betsEqual = activePlayers.every(p => p.bet === room.currentBet || p.chips === 0);
+function dealRemainingBoard(room) {
+    if (room.communityCards.length === 0) {
+        room.deck.pop();
+        room.communityCards.push(room.deck.pop(), room.deck.pop(), room.deck.pop());
+    }
+    if (room.communityCards.length === 3) {
+        room.deck.pop();
+        room.communityCards.push(room.deck.pop());
+    }
+    if (room.communityCards.length === 4) {
+        room.deck.pop();
+        room.communityCards.push(room.deck.pop());
+    }
+    room.gamePhase = 'river';
+}
 
-    return allActed && betsEqual;
+function startStreetBetting(room) {
+    room.currentBet = 0;
+    room.lastRaiseSize = room.settings.bigBlind || 20;
+    room.playersActedThisRound = [];
+    room.players.forEach(p => {
+        p.bet = 0;
+        p.isActive = false;
+    });
+
+    if (HoldemRules.shouldRunOutBoard(room.players)) {
+        dealRemainingBoard(room);
+        showdown(room);
+        return;
+    }
+
+    room.currentPlayerIndex = HoldemRules.firstToActIndex(room.players, room.dealerIndex, room.gamePhase);
+    room.players[room.currentPlayerIndex].isActive = true;
+
+    io.to(room.roomCode).emit('gameUpdate', {
+        room: sanitizeRoom(room)
+    });
+    scheduleAITurn(room);
 }
 
 function advanceGamePhase(room) {
-    const activePlayers = room.players.filter(p => !p.folded);
+    const live = room.players.filter(p => !p.folded);
+    if (live.length === 1) {
+        handleWinner(room, live[0], 'All others folded');
+        return;
+    }
 
-    if (activePlayers.length === 1) {
-        handleWinner(room, activePlayers[0], 'All others folded');
+    if (room.gamePhase === 'river') {
+        showdown(room);
+        return;
+    }
+
+    if (HoldemRules.shouldRunOutBoard(room.players)) {
+        dealRemainingBoard(room);
+        showdown(room);
         return;
     }
 
     switch (room.gamePhase) {
         case 'preflop':
-            room.deck.pop(); // Burn
+            room.deck.pop();
             room.communityCards.push(room.deck.pop(), room.deck.pop(), room.deck.pop());
             room.gamePhase = 'flop';
             break;
@@ -1430,63 +1514,46 @@ function advanceGamePhase(room) {
             room.communityCards.push(room.deck.pop());
             room.gamePhase = 'river';
             break;
-        case 'river':
+        default:
             showdown(room);
             return;
     }
 
-    // Reset for new betting round
-    room.currentBet = 0;
-    room.playersActedThisRound = [];
-    room.players.forEach(p => {
-        p.bet = 0;
-        p.isActive = false;
-    });
-
-    let startIndex = (room.dealerIndex + 1) % room.players.length;
-    while (room.players[startIndex].folded) {
-        startIndex = (startIndex + 1) % room.players.length;
-    }
-    room.currentPlayerIndex = startIndex;
-    room.players[startIndex].isActive = true;
-
-    io.to(room.roomCode).emit('gameUpdate', {
-        room: sanitizeRoom(room)
-    });
-
-    scheduleAITurn(room);
+    startStreetBetting(room);
 }
 
 function showdown(room) {
     room.gamePhase = 'showdown';
 
     const activePlayers = room.players.filter(p => !p.folded);
+    if (activePlayers.length === 1) {
+        handleWinner(room, activePlayers[0], 'All others folded');
+        return;
+    }
 
-    // Evaluate hands
-    const hands = activePlayers.map(player => {
-        const allCards = [...player.cards, ...room.communityCards];
-        const hand = evaluateHand(allCards);
-        return { player, hand };
-    });
+    const potAwards = HoldemRules.awardPots(room.players, room.communityCards, room.dealerIndex);
+    const winnerIds = new Set(potAwards.flatMap(pot => pot.winners.map(w => w.playerId)));
+    const hands = activePlayers.map(player => ({
+        player,
+        hand: evaluateHand([...(player.cards || []), ...room.communityCards])
+    }));
+    hands.sort((a, b) => HoldemRules.compareHands(b.hand, a.hand));
 
-    hands.sort((a, b) => b.hand.value - a.hand.value);
-    const winner = hands[0].player;
-    const winAmount = room.pot;
-    winner.chips += winAmount;
+    const primary = hands.find(h => winnerIds.has(h.player.oderId)) || hands[0];
+    const winAmount = potAwards.reduce((sum, pot) => {
+        return sum + pot.winners
+            .filter(w => w.playerId === primary.player.oderId)
+            .reduce((inner, w) => inner + (pot.share || 0), 0);
+    }, 0);
 
-    // Reveal AI cards
     room.players.forEach(p => {
-        if (p.isAI && !p.folded) {
-            room.revealedCards[p.oderId] = [0, 1];
-        }
+        if (p.isAI && !p.folded) room.revealedCards[p.oderId] = [0, 1];
     });
 
-    // Send AI taunt
     const aiPlayer = room.players.find(p => p.isAI);
-    if (aiPlayer && winner.isAI) {
+    if (aiPlayer && primary.player.isAI) {
         setTimeout(() => {
-            const tauntCategory = winAmount > 100 ? 'bigWin' : 'win';
-            const taunt = getRandomTaunt(tauntCategory);
+            const taunt = getRandomTaunt(winAmount > 100 ? 'bigWin' : 'win');
             if (taunt) {
                 const chatMessage = {
                     playerId: aiPlayer.oderId,
@@ -1504,17 +1571,19 @@ function showdown(room) {
 
     io.to(room.roomCode).emit('showdown', {
         room: sanitizeRoom(room),
+        pots: potAwards,
         winner: {
-            playerId: winner.oderId,
-            name: winner.name,
-            hand: hands[0].hand,
+            playerId: primary.player.oderId,
+            name: primary.player.name,
+            hand: primary.hand,
             winAmount
         },
         hands: hands.map(h => ({
             playerId: h.player.oderId,
             playerName: h.player.name,
             cards: h.player.cards,
-            hand: h.hand
+            hand: h.hand,
+            isWinner: winnerIds.has(h.player.oderId)
         }))
     });
 }
@@ -1587,8 +1656,12 @@ function scheduleAITurn(room) {
             const decision = makeAIDecision(gameState, aiPlayer.cards, freshRoom.communityCards);
 
             // Process AI action
-            const result = processAction(freshRoom, freshRoom.currentPlayerIndex, decision.action, decision.amount);
-            if (!result.success) return;
+            let result = processAction(freshRoom, freshRoom.currentPlayerIndex, decision.action, decision.amount);
+            if (!result.success) {
+                const callAmount = Math.max(0, freshRoom.currentBet - aiPlayer.bet);
+                result = processAction(freshRoom, freshRoom.currentPlayerIndex, callAmount > 0 ? 'call' : 'check', 0);
+                if (!result.success) return;
+            }
 
             // Send taunt if applicable
             if (decision.taunt) {
@@ -1637,6 +1710,9 @@ function sanitizeRoom(room) {
 
     // Remove deck from response
     delete data.deck;
+
+    data.lastRaiseSize = room.lastRaiseSize;
+    data.minRaiseTo = HoldemRules.minRaiseTo(room.currentBet, room.lastRaiseSize, room.settings);
 
     // Only show revealed cards
     data.players = data.players.map(p => {

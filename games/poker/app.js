@@ -200,13 +200,17 @@ class PokerApp {
         document.getElementById('copy-code-btn').addEventListener('click', () => this.copyRoomCode());
         document.getElementById('start-game-btn').addEventListener('click', () => this.startGame());
         document.getElementById('leave-game-btn').addEventListener('click', () => this.leaveGame());
+        document.getElementById('rules-btn').addEventListener('click', () => this.showRulesModal());
+        document.getElementById('home-rules-btn').addEventListener('click', () => this.showRulesModal());
         document.getElementById('fold-btn').addEventListener('click', () => this.playerAction('fold'));
         document.getElementById('check-btn').addEventListener('click', () => this.playerAction('check'));
         document.getElementById('call-btn').addEventListener('click', () => this.playerAction('call'));
         document.getElementById('raise-btn').addEventListener('click', () => {
             const amount = parseInt(document.getElementById('bet-slider').value);
-            this.playerAction('raise', amount);
+            const facingBet = this.getCurrentBet() > this.getMyCurrentStreetBet();
+            this.playerAction(facingBet ? 'raise' : 'bet', amount);
         });
+        document.getElementById('allin-btn').addEventListener('click', () => this.playerAction('allin'));
 
         document.getElementById('bet-slider').addEventListener('input', (e) => {
             document.getElementById('bet-amount').textContent = e.target.value;
@@ -268,6 +272,11 @@ class PokerApp {
                         <div class="input-group">
                             <label>Big Blind</label>
                             <input type="number" id="settings-big-blind" value="20" min="2" step="10">
+                        </div>
+                        
+                        <div class="input-group">
+                            <label>Ante (0 = none)</label>
+                            <input type="number" id="settings-ante" value="0" min="0" step="1">
                         </div>
                         
                         <div class="input-group">
@@ -338,6 +347,7 @@ class PokerApp {
             startingChips: parseInt(document.getElementById('settings-chips').value) || 1000,
             smallBlind: parseInt(document.getElementById('settings-small-blind').value) || 10,
             bigBlind: parseInt(document.getElementById('settings-big-blind').value) || 20,
+            ante: parseInt(document.getElementById('settings-ante').value) || 0,
             turnTimeLimit: parseInt(document.getElementById('settings-turn-time').value) || 0,
             optionalBigBlind: document.getElementById('settings-optional-bb').checked,
             allowBuyBack: document.getElementById('settings-allow-buyback').checked,
@@ -555,7 +565,7 @@ class PokerApp {
         infoEl.innerHTML = `
             <div class="settings-summary">
                 <span>💰 ${s.startingChips} chips</span>
-                <span>🎲 Blinds: ${s.smallBlind}/${s.bigBlind}</span>
+                <span>🎲 Blinds: ${s.smallBlind}/${s.bigBlind}${s.ante ? ' · Ante ' + s.ante : ''}</span>
                 <span>⏱ ${s.turnTimeLimit > 0 ? s.turnTimeLimit + 's timer' : 'No timer'}</span>
                 <span>🔄 ${s.allowBuyBack ? s.maxBuyBacks + ' buy-backs' : 'No buy-backs'}</span>
             </div>
@@ -906,29 +916,95 @@ class PokerApp {
         return positions;
     }
 
+    getCurrentBet() {
+        if (this.isOnlineMode && this.currentRoom) return this.currentRoom.currentBet || 0;
+        return this.currentGame ? this.currentGame.currentBet : 0;
+    }
+
+    getMyCurrentStreetBet() {
+        if (this.isOnlineMode && this.currentRoom) {
+            const me = this.currentRoom.players.find(p => p.oderId === this.currentPlayerId);
+            return me ? (me.bet || 0) : 0;
+        }
+        if (!this.currentGame) return 0;
+        const me = this.currentGame.players.find(p => p.id === this.currentPlayerId);
+        return me ? (me.bet || 0) : 0;
+    }
+
+    updateStreetLabel(phase) {
+        const label = document.getElementById('street-label');
+        if (!label) return;
+        const names = (typeof HoldemRules !== 'undefined' && HoldemRules.STREET_NAMES) || {};
+        label.textContent = names[phase] || phase || '';
+        label.style.display = phase && phase !== 'waiting' ? 'inline-flex' : 'none';
+    }
+
+    showRulesModal() {
+        let modal = document.getElementById('rules-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'rules-modal';
+            modal.className = 'modal-overlay';
+            const sections = (typeof HoldemRules !== 'undefined' ? HoldemRules.RULES_TEXT : []).map(section => `
+                <div class="rules-section">
+                    <h3>${section.title}</h3>
+                    <p>${section.body}</p>
+                </div>
+            `).join('');
+            modal.innerHTML = `
+                <div class="modal-content rules-modal">
+                    <h2>Texas Hold'em Rules</h2>
+                    <p class="subtitle">No-limit Hold'em as played at this table</p>
+                    ${sections}
+                    <div class="modal-actions">
+                        <button id="rules-close" class="primary-btn" type="button">Got it</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.remove('active');
+            });
+            document.getElementById('rules-close').addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+        }
+        modal.classList.add('active');
+    }
+
     updateBetSlider(player, state) {
         const slider = document.getElementById('bet-slider');
-        const minRaise = Math.max(state.currentBet + this.currentGame.bigBlind, this.currentGame.bigBlind);
-        slider.min = minRaise;
-        slider.max = player.chips + player.bet;
-        slider.value = minRaise;
-        document.getElementById('bet-amount').textContent = minRaise;
+        const minRaise = state.minRaiseTo || HoldemRules.minRaiseTo(
+            state.currentBet,
+            state.lastRaiseSize || this.currentGame.bigBlind,
+            this.currentGame.settings
+        );
+        const maxBet = player.chips + player.bet;
+        slider.min = Math.min(minRaise, maxBet);
+        slider.max = maxBet;
+        slider.value = Math.min(Math.max(minRaise, slider.min), maxBet);
+        document.getElementById('bet-amount').textContent = slider.value;
+        this.updateStreetLabel(state.gamePhase);
     }
 
     updateActionControls(player, state) {
         const isMyTurn = player.isActive && !player.folded;
         const isGameActive = state.gamePhase !== 'showdown' && state.gamePhase !== 'waiting';
         const canCheck = player.bet >= state.currentBet;
-        const callAmount = state.currentBet - player.bet;
+        const callAmount = Math.max(0, state.currentBet - player.bet);
         const canAct = isMyTurn && isGameActive;
+        const facingBet = callAmount > 0;
+        const canOpen = canAct && player.chips > 0;
 
         document.getElementById('fold-btn').disabled = !canAct;
         document.getElementById('check-btn').disabled = !canAct || !canCheck;
         document.getElementById('call-btn').disabled = !canAct || canCheck;
-        document.getElementById('raise-btn').disabled = !canAct || player.chips <= 0;
+        document.getElementById('raise-btn').disabled = !canOpen;
+        document.getElementById('allin-btn').disabled = !canOpen;
 
-        const callBtn = document.getElementById('call-btn');
-        callBtn.textContent = callAmount > 0 ? `Call $${callAmount}` : 'Call';
+        document.getElementById('call-btn').textContent = callAmount > 0 ? `Call $${callAmount}` : 'Call';
+        document.getElementById('raise-btn').textContent = facingBet ? 'Raise' : 'Bet';
+        document.getElementById('allin-btn').textContent = `All-In $${player.chips}`;
 
         const controls = document.getElementById('action-controls');
         if (canAct) {
@@ -936,6 +1012,7 @@ class PokerApp {
         } else {
             controls.classList.remove('my-turn');
         }
+        this.updateStreetLabel(state.gamePhase);
     }
 
     playerAction(action, amount = 0) {
@@ -1322,16 +1399,20 @@ class PokerApp {
         const isMyTurn = player.isActive && !player.folded;
         const isGameActive = this.currentRoom.gamePhase !== 'showdown' && this.currentRoom.gamePhase !== 'waiting';
         const canCheck = player.bet >= this.currentRoom.currentBet;
-        const callAmount = this.currentRoom.currentBet - player.bet;
+        const callAmount = Math.max(0, this.currentRoom.currentBet - player.bet);
         const canAct = isMyTurn && isGameActive;
+        const facingBet = callAmount > 0;
+        const canOpen = canAct && player.chips > 0;
 
         document.getElementById('fold-btn').disabled = !canAct;
         document.getElementById('check-btn').disabled = !canAct || !canCheck;
         document.getElementById('call-btn').disabled = !canAct || canCheck;
-        document.getElementById('raise-btn').disabled = !canAct || player.chips <= 0;
+        document.getElementById('raise-btn').disabled = !canOpen;
+        document.getElementById('allin-btn').disabled = !canOpen;
 
-        const callBtn = document.getElementById('call-btn');
-        callBtn.textContent = callAmount > 0 ? `Call $${callAmount}` : 'Call';
+        document.getElementById('call-btn').textContent = callAmount > 0 ? `Call $${callAmount}` : 'Call';
+        document.getElementById('raise-btn').textContent = facingBet ? 'Raise' : 'Bet';
+        document.getElementById('allin-btn').textContent = `All-In $${player.chips}`;
 
         const controls = document.getElementById('action-controls');
         if (canAct) {
@@ -1339,16 +1420,23 @@ class PokerApp {
         } else {
             controls.classList.remove('my-turn');
         }
+        this.updateStreetLabel(this.currentRoom.gamePhase);
     }
 
     updateOnlineBetSlider(player) {
         const slider = document.getElementById('bet-slider');
-        const bigBlind = this.currentRoom.settings?.bigBlind || 20;
-        const minRaise = Math.max(this.currentRoom.currentBet + bigBlind, bigBlind);
-        slider.min = minRaise;
-        slider.max = player.chips + player.bet;
-        slider.value = minRaise;
-        document.getElementById('bet-amount').textContent = minRaise;
+        const settings = this.currentRoom.settings || {};
+        const minRaise = this.currentRoom.minRaiseTo || HoldemRules.minRaiseTo(
+            this.currentRoom.currentBet || 0,
+            this.currentRoom.lastRaiseSize || settings.bigBlind || 20,
+            settings
+        );
+        const maxBet = player.chips + player.bet;
+        slider.min = Math.min(minRaise, maxBet);
+        slider.max = maxBet;
+        slider.value = Math.min(Math.max(minRaise, slider.min), maxBet);
+        document.getElementById('bet-amount').textContent = slider.value;
+        this.updateStreetLabel(this.currentRoom.gamePhase);
     }
 
     showOnlineShowdown(data) {
@@ -1379,7 +1467,7 @@ class PokerApp {
         // Build player hands HTML
         let handsHtml = '';
         data.hands.forEach(hand => {
-            const isWinner = hand.playerId === data.winner.playerId;
+            const isWinner = hand.isWinner || hand.playerId === data.winner.playerId;
             const player = this.currentRoom?.players?.find(p => p.oderId === hand.playerId);
             const avatarId = player?.avatarId || 'avatar1';
             handsHtml += `

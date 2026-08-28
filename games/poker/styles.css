@@ -456,7 +456,7 @@ h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: calc(var(--spacing-md) + env(safe-area-inset-top, 0px)) var(--spacing-lg) var(--spacing-md);
     background: var(--surface);
     border-bottom: 2px solid var(--surface-light);
 }
@@ -594,8 +594,9 @@ h2 {
     background: var(--surface);
     border-top: 2px solid var(--surface-light);
     padding: var(--spacing-md);
-    padding-bottom: var(--spacing-lg);
+    padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom, 0px));
     flex-shrink: 0;
+    z-index: 40;
 }
 
 .player-cards {
@@ -749,6 +750,71 @@ h2 {
     box-shadow: var(--shadow-lg), var(--shadow-glow);
 }
 
+.allin-btn {
+    background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%);
+    color: white;
+}
+
+.allin-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.street-label {
+    background: rgba(0, 212, 170, 0.15);
+    color: var(--accent-primary);
+    border: 1px solid rgba(0, 212, 170, 0.35);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.game-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.blind-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.blind-badge.sb {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+.blind-badge.bb {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+.rules-modal .rules-section {
+    text-align: left;
+    margin-bottom: var(--spacing-md);
+}
+
+.rules-modal .rules-section h3 {
+    color: var(--accent-primary);
+    font-size: 1rem;
+    margin-bottom: 0.4rem;
+}
+
+.rules-modal .rules-section p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
 .action-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -845,6 +911,50 @@ h2 {
         grid-template-columns: 1fr;
     }
 
+    /* Keep the action bar pinned above the home indicator.
+       position:fixed is required because html/body are overflow:hidden + position:fixed,
+       which prevents position:sticky from locking to the visual viewport. */
+    .player-hand-section {
+        position: fixed !important;
+        left: 0;
+        right: 0;
+        bottom: 0 !important;
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 16px));
+        max-height: min(54vh, calc(100dvh - 110px));
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        z-index: 80;
+    }
+
+    .game-container {
+        padding-bottom: calc(min(54vh, 360px) + env(safe-area-inset-bottom, 16px));
+    }
+
+    .action-controls,
+    .action-controls.my-turn {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 8px;
+        margin: 0;
+    }
+
+    .action-buttons {
+        position: sticky;
+        bottom: 0;
+        background: var(--surface);
+        padding-top: 6px;
+        z-index: 2;
+    }
+
+    .player-cards {
+        margin-bottom: 8px;
+    }
+
+    .player-info-bar {
+        margin-bottom: 8px;
+    }
+
     /* Action controls stack vertically on phones */
     .action-controls {
         flex-direction: column;
@@ -853,11 +963,37 @@ h2 {
 
     .bet-controls {
         width: 100%;
+        padding: 8px;
     }
 
-    .action-buttons .action-btn {
-        flex: 1 1 calc(50% - var(--spacing-sm));
+    .action-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 8px;
+    }
+
+    .action-buttons .action-btn,
+    .action-btn {
+        flex: none;
         min-width: 0;
+        min-height: 48px;
+        padding: 12px 8px;
+        font-size: 0.85rem;
+    }
+
+    .allin-btn {
+        grid-column: 1 / -1;
+    }
+
+    .poker-table {
+        transform: none;
+        margin-top: 0;
+    }
+
+    .game-chat,
+    .game-chat.minimized {
+        bottom: calc(var(--action-bar-offset, 210px) + env(safe-area-inset-bottom, 16px));
     }
 }
 
@@ -1480,45 +1616,17 @@ body {
 
 /* Responsive chat */
 @media (max-width: 768px) {
-    .game-chat {
-        width: 250px;
-        /* Slightly smaller on mobile */
-        left: 10px;
-        bottom: 80px;
-        /* Moved up to avoid covering bottom controls */
-    }
-
+    .game-chat,
     .game-chat.minimized {
-        width: 140px;
-        bottom: 80px;
+        width: 160px;
+        left: 10px;
+        bottom: auto;
+        top: calc(72px + env(safe-area-inset-top, 0px));
     }
 
-    /* Optimize table for mobile */
     .poker-table {
-        transform: scale(0.85);
-        /* Scale down table slightly */
-        margin-top: -20px;
-    }
-
-    .player-cards {
-        bottom: 15%;
-        /* Move cards up */
-    }
-
-    .action-controls {
-        flex-direction: column;
-        padding: 5px;
-        gap: 5px;
-    }
-
-    .action-buttons {
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    .action-btn {
-        padding: 8px 12px;
-        font-size: 0.85rem;
+        transform: none;
+        margin-top: 0;
     }
 }
 
@@ -1941,27 +2049,37 @@ body {
         gap: var(--spacing-sm);
     }
 
-    /* Action buttons: 2x2 grid */
     .action-buttons {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         width: 100%;
     }
     .action-btn {
-        padding: 0.75rem 0.5rem;
+        min-height: 48px;
+        padding: 12px 8px;
         font-size: 0.85rem;
     }
-
-    /* Chat shrinks but stays usable */
-    .game-chat {
-        width: calc(100vw - 20px);
-        left: 10px;
-        right: 10px;
-        bottom: 10px;
-        max-height: 240px;
+    .allin-btn {
+        grid-column: 1 / -1;
     }
+
+    .player-hand-section {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 16px));
+        max-height: min(56vh, calc(100dvh - 96px));
+    }
+
+    .game-chat,
     .game-chat.minimized {
-        width: 120px;
+        width: 140px;
+        left: 8px;
+        right: auto;
+        bottom: auto;
+        top: calc(64px + env(safe-area-inset-top, 0px));
+        max-height: 200px;
     }
 }
 
@@ -1999,6 +2117,18 @@ body {
     .poker-table {
         min-height: 0;
     }
+    .player-hand-section {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 8px));
+        max-height: 58vh;
+    }
+    .action-btn {
+        min-height: 44px;
+        padding: 8px;
+    }
 }
 
 /* ===== CHAT INPUT — RESERVE VIRTUAL KEYBOARD SPACE ===== */
@@ -2011,11 +2141,13 @@ body {
 }
 @media (max-width: 768px) {
     .game-chat {
-        bottom: calc(80px + max(env(keyboard-inset-height, 0px), var(--vv-keyboard-inset)));
+        bottom: auto;
+        top: calc(72px + env(safe-area-inset-top, 0px) + max(env(keyboard-inset-height, 0px), var(--vv-keyboard-inset)));
     }
 }
 @media (max-width: 480px) {
     .game-chat {
-        bottom: calc(10px + max(env(keyboard-inset-height, 0px), var(--vv-keyboard-inset)));
+        bottom: auto;
+        top: calc(64px + env(safe-area-inset-top, 0px) + max(env(keyboard-inset-height, 0px), var(--vv-keyboard-inset)));
     }
 }

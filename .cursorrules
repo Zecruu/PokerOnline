@@ -7,36 +7,24 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - Branch name is `master`, not `main`
 - Use semicolons in PowerShell to chain commands (not `&&`)
 - Server runs on port 3001 (production) or 3002 (local dev)
+- This folder was a zip dump with no .git — `git init` + `remote add origin`, default branch is master
+- html/body overflow:hidden + position:fixed prevents position:sticky from pinning the poker action bar; use position:fixed on mobile
 
 ## Scratchpad
 
-### Current Task: Stacking Items System Rework
-[X] Fix Aura Fire Circle - thin ring, upgrades with kills
-[X] Create new STACKING_ITEMS system with 8 items
-[X] Items drop once, stack with kills
-[X] Item pickup popup explains mechanics
-[X] Evolution at max stacks with visual feedback
-[X] Stack progress display in HUD
-[X] Apply stacking bonuses to damage and crit
+### Current Task: GitHub + Hold'em Rules + Mobile Actions
+[X] Connected local folder to https://github.com/Zecruu/PokerOnline.git (origin fetch OK; on master)
+[X] Official No-Limit Texas Hold'em rules in client + server
+    - Best 5-card from 7, kickers, ties/split pots, wheel straight
+    - Antes, min-raise, bet vs raise, all-in, short all-in no-reopen
+    - Side pots, skip all-in players, run out remaining streets
+    - Rules modal + action labels
+[X] Mobile action bar: position:fixed + safe-area, buttons fully visible on 375x667 and 390x844
 
-### Previous Task: Map Boundaries
-[X] Add bounded map (2000x2000 units)
-[X] Add white border edges with glow effect
-[X] Add red warning gradient near edges
-[X] Clamp player movement to stay within bounds
+## Lessons
+- This folder was a zip dump with no .git; init + remote add origin, default branch is master
+- html/body overflow:hidden + position:fixed prevents position:sticky from pinning the action bar — use position:fixed on mobile instead
 
-### New Enemy Types
-[X] Add Vector enemy - V-shaped, 15k HP, circles player, spawns enemies
-[X] Add Spawn enemy - V-shaped, low HP, fast, spawned by Vectors
-
-### Gameplay Updates
-[X] Decrease player projectile travel range (800 -> 350px)
-[X] Increase all bosses health by 5x (boss: 12500, general: 30000)
-[X] Add Circle of Doom event (purple closing circle, player trapped)
-[X] Add cross design to healthpacks (white cross rendered on pickup)
-[X] Increase enemies damage by 1.25x (all enemy types)
-[X] Make swarm default enemy from wave 1
-
-### Enemy Types Summary
-- swarm, basic, runner, tank, splitter, bomber, mini, sticky, ice, poison
+### Previous Task: Stacking Items System Rework
+[X] Aura Fire Circle, STACKING_ITEMS, pickup popup, evolution, HUD, damage/crit
 

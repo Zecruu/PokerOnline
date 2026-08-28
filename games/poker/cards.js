@@ -138,71 +138,10 @@ class PokerHandEvaluator {
     }
 
     static evaluateHand(cards) {
-        // Sort cards by rank value
-        const sorted = cards.sort((a, b) =>
-            this.getRankValue(b.rank) - this.getRankValue(a.rank)
-        );
-
-        const ranks = sorted.map(c => c.rank);
-        const suits = sorted.map(c => c.suit);
-        const rankCounts = {};
-
-        ranks.forEach(rank => {
-            rankCounts[rank] = (rankCounts[rank] || 0) + 1;
-        });
-
-        const counts = Object.values(rankCounts).sort((a, b) => b - a);
-        const isFlush = suits.every(suit => suit === suits[0]);
-        const rankValues = ranks.map(r => this.getRankValue(r));
-        const isStraight = this.checkStraight(rankValues);
-
-        // Royal Flush
-        if (isFlush && isStraight && rankValues[0] === 14) {
-            return { rank: 10, name: 'Royal Flush' };
+        if (typeof HoldemRules !== 'undefined') {
+            return HoldemRules.evaluateBestHand(cards);
         }
-
-        // Straight Flush
-        if (isFlush && isStraight) {
-            return { rank: 9, name: 'Straight Flush' };
-        }
-
-        // Four of a Kind
-        if (counts[0] === 4) {
-            return { rank: 8, name: 'Four of a Kind' };
-        }
-
-        // Full House
-        if (counts[0] === 3 && counts[1] === 2) {
-            return { rank: 7, name: 'Full House' };
-        }
-
-        // Flush
-        if (isFlush) {
-            return { rank: 6, name: 'Flush' };
-        }
-
-        // Straight
-        if (isStraight) {
-            return { rank: 5, name: 'Straight' };
-        }
-
-        // Three of a Kind
-        if (counts[0] === 3) {
-            return { rank: 4, name: 'Three of a Kind' };
-        }
-
-        // Two Pair
-        if (counts[0] === 2 && counts[1] === 2) {
-            return { rank: 3, name: 'Two Pair' };
-        }
-
-        // One Pair
-        if (counts[0] === 2) {
-            return { rank: 2, name: 'One Pair' };
-        }
-
-        // High Card
-        return { rank: 1, name: 'High Card' };
+        return { rank: 1, name: 'High Card', tiebreakers: [], cards: cards || [] };
     }
 
     static checkStraight(values) {

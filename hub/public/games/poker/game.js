@@ -3,6 +3,7 @@ const DEFAULT_SETTINGS = {
     startingChips: 1000,
     smallBlind: 10,
     bigBlind: 20,
+    ante: 0,
     optionalBigBlind: false,
     turnTimeLimit: 30,
     allowBuyBack: true,
@@ -271,6 +272,8 @@ class PokerGame {
         this.dealerIndex = 0;
         this.playersActedThisRound = new Set();
         this.lastRaiserIndex = -1;
+        this.lastRaiseSize = this.settings.bigBlind;
+        this.lastAggressorIndex = -1;
 
         // Timer
         this.turnTimer = null;
@@ -361,7 +364,10 @@ class PokerGame {
             isActive: false,
             isAI: false,
             buyBacksUsed: 0,
-            isBankrupt: false
+            isBankrupt: false,
+            committed: 0,
+            lastAction: null,
+            lastActionAmount: 0
         };
 
         this.players.push(player);
@@ -393,7 +399,10 @@ class PokerGame {
             isAI: true,
             aiInstance: aiDealer,
             buyBacksUsed: 0,
-            isBankrupt: false
+            isBankrupt: false,
+            committed: 0,
+            lastAction: null,
+            lastActionAmount: 0
         };
 
         this.players.push(player);
@@ -450,6 +459,12 @@ class PokerGame {
         this.postBlinds();
         this.setFirstPlayerToAct();
 
+        if (HoldemRules.shouldRunOutBoard(this.players)) {
+            this.dealRemainingBoard();
+            this.showdown();
+            return { success: true };
+        }
+
         this.notifyStateChange();
         this.startTurnTimer();
         this.scheduleAITurnIfNeeded();
@@ -499,27 +514,16 @@ class PokerGame {
     }
 
     setFirstPlayerToAct() {
-        if (this.players.length === 2) {
-            this.currentPlayerIndex = this.dealerIndex;
-        } else {
-            // With optional BB rule, player after BB can choose to play or fold
-            if (this.settings.optionalBigBlind && this.players.length > 2) {
-                this.currentPlayerIndex = (this.dealerIndex + 3) % this.players.length;
-            } else {
-                this.currentPlayerIndex = (this.dealerIndex + 3) % this.players.length;
-            }
-        }
-
-        let attempts = 0;
-        while ((this.players[this.currentPlayerIndex].folded ||
-            this.players[this.currentPlayerIndex].chips <= 0) &&
-            attempts < this.players.length) {
-            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
-            attempts++;
-        }
+        this.currentPlayerIndex = HoldemRules.firstToActIndex(
+            this.players,
+            this.dealerIndex,
+            this.gamePhase
+        );
 
         this.players.forEach(p => p.isActive = false);
-        this.players[this.currentPlayerIndex].isActive = true;
+        if (this.players[this.currentPlayerIndex]) {
+            this.players[this.currentPlayerIndex].isActive = true;
+        }
     }
 
     resetRound() {
@@ -529,52 +533,67 @@ class PokerGame {
         this.currentBet = this.bigBlind;
         this.playersActedThisRound = new Set();
         this.lastRaiserIndex = -1;
+        this.lastRaiseSize = this.bigBlind;
+        this.lastAggressorIndex = -1;
         this.revealedCards = {};
 
         this.players.forEach(player => {
             player.bet = 0;
+            player.committed = 0;
             player.cards = [];
-            player.folded = player.chips <= 0; // Auto-fold if no chips
+            player.folded = player.chips <= 0;
             player.isActive = false;
+            player.lastAction = null;
+            player.lastActionAmount = 0;
             if (player.chips <= 0) player.isBankrupt = true;
         });
     }
 
     dealHoleCards() {
-        this.players.forEach(player => {
-            if (!player.folded) {
-                player.cards = [
-                    this.deck.pop(),
-                    this.deck.pop()
-                ];
-            }
-        });
+        const live = [];
+        for (let i = 1; i <= this.players.length; i++) {
+            const player = this.players[(this.dealerIndex + i) % this.players.length];
+            if (player && !player.folded) live.push(player);
+        }
+        live.forEach(player => { player.cards = []; });
+        for (let round = 0; round < 2; round++) {
+            live.forEach(player => {
+                player.cards.push(this.deck.pop());
+            });
+        }
     }
 
     postBlinds() {
-        let smallBlindIndex, bigBlindIndex;
-
-        if (this.players.length === 2) {
-            smallBlindIndex = this.dealerIndex;
-            bigBlindIndex = (this.dealerIndex + 1) % this.players.length;
-        } else {
-            smallBlindIndex = (this.dealerIndex + 1) % this.players.length;
-            bigBlindIndex = (this.dealerIndex + 2) % this.players.length;
+        const ante = this.settings.ante || 0;
+        if (ante > 0) {
+            this.players.forEach(player => {
+                if (player.chips > 0) {
+                    this.pot += HoldemRules.postForcedBet(player, ante);
+                }
+            });
         }
 
-        // Small blind
-        const sbPlayer = this.players[smallBlindIndex];
-        const sbAmount = Math.min(this.smallBlind, sbPlayer.chips);
-        sbPlayer.bet = sbAmount;
-        sbPlayer.chips -= sbAmount;
-        this.pot += sbAmount;
+        let smallBlindIndex;
+        let bigBlindIndex;
+        if (this.players.length === 2) {
+            smallBlindIndex = HoldemRules.nextLiveIndex(this.players, this.dealerIndex);
+            bigBlindIndex = HoldemRules.nextLiveIndex(this.players, smallBlindIndex + 1);
+        } else {
+            smallBlindIndex = HoldemRules.nextLiveIndex(this.players, this.dealerIndex + 1);
+            bigBlindIndex = HoldemRules.nextLiveIndex(this.players, smallBlindIndex + 1);
+        }
 
-        // Big blind
+        const sbPlayer = this.players[smallBlindIndex];
+        this.pot += HoldemRules.postForcedBet(sbPlayer, this.smallBlind);
+
         const bbPlayer = this.players[bigBlindIndex];
-        const bbAmount = Math.min(this.bigBlind, bbPlayer.chips);
-        bbPlayer.bet = bbAmount;
-        bbPlayer.chips -= bbAmount;
-        this.pot += bbAmount;
+        this.pot += HoldemRules.postForcedBet(bbPlayer, this.bigBlind);
+
+        this.currentBet = Math.max(sbPlayer.bet, bbPlayer.bet);
+        this.lastRaiseSize = this.bigBlind;
+        this.lastAggressorIndex = bigBlindIndex;
+        sbPlayer.lastAction = 'small-blind';
+        bbPlayer.lastAction = 'big-blind';
     }
 
     dealFlop() {
@@ -604,21 +623,23 @@ class PokerGame {
         this.currentBet = 0;
         this.playersActedThisRound = new Set();
         this.lastRaiserIndex = -1;
+        this.lastRaiseSize = this.bigBlind;
 
         this.players.forEach(player => {
             player.bet = 0;
             player.isActive = false;
         });
 
-        let startIndex = (this.dealerIndex + 1) % this.players.length;
-        let attempts = 0;
-        while ((this.players[startIndex].folded || this.players[startIndex].chips <= 0) &&
-            attempts < this.players.length) {
-            startIndex = (startIndex + 1) % this.players.length;
-            attempts++;
+        if (HoldemRules.shouldRunOutBoard(this.players)) {
+            this.advanceGamePhase();
+            return;
         }
 
-        this.currentPlayerIndex = startIndex;
+        this.currentPlayerIndex = HoldemRules.firstToActIndex(
+            this.players,
+            this.dealerIndex,
+            this.gamePhase
+        );
         this.players[this.currentPlayerIndex].isActive = true;
 
         this.notifyStateChange();
@@ -654,7 +675,11 @@ class PokerGame {
                 this.communityCards
             );
 
-            this.playerAction(aiPlayer.id, decision.action, decision.amount || 0);
+            let result = this.playerAction(aiPlayer.id, decision.action, decision.amount || 0);
+            if (!result.success) {
+                const callAmount = Math.max(0, this.currentBet - aiPlayer.bet);
+                result = this.playerAction(aiPlayer.id, callAmount > 0 ? 'call' : 'check');
+            }
         }, 2000);
     }
 
@@ -664,59 +689,87 @@ class PokerGame {
             return { success: false, message: 'Not your turn' };
         }
 
-        // Stop timer
         if (this.turnTimer) {
             clearInterval(this.turnTimer);
             this.turnTimer = null;
         }
 
-        switch (action) {
+        let resolvedAction = action;
+        if (resolvedAction === 'all-in') resolvedAction = 'allin';
+        if (resolvedAction === 'raise' && this.currentBet <= 0) resolvedAction = 'bet';
+        if (resolvedAction === 'bet' && this.currentBet > 0) resolvedAction = 'raise';
+
+        const validation = HoldemRules.validateAction(player, resolvedAction, amount, {
+            currentBet: this.currentBet,
+            lastRaiseSize: this.lastRaiseSize,
+            settings: this.settings
+        });
+        if (!validation.ok) {
+            return { success: false, message: validation.message };
+        }
+
+        const previousBet = this.currentBet;
+        let displayAction = resolvedAction;
+        let displayAmount = 0;
+
+        switch (resolvedAction) {
             case 'fold':
                 player.folded = true;
                 break;
 
             case 'check':
-                if (player.bet < this.currentBet) {
-                    return { success: false, message: 'Cannot check, must call or fold' };
-                }
                 break;
 
-            case 'call':
-                const callAmount = Math.min(this.currentBet - player.bet, player.chips);
-                player.chips -= callAmount;
-                player.bet += callAmount;
-                this.pot += callAmount;
+            case 'call': {
+                const callAmount = Math.max(0, this.currentBet - player.bet);
+                this.pot += HoldemRules.commitChips(player, callAmount);
+                displayAmount = callAmount;
+                if (player.chips === 0) displayAction = 'allin';
                 break;
+            }
 
+            case 'bet':
             case 'raise':
-                const raiseAmount = amount;
-                if (raiseAmount <= this.currentBet) {
-                    return { success: false, message: 'Raise must be higher than current bet' };
+            case 'allin': {
+                const target = resolvedAction === 'allin'
+                    ? player.bet + player.chips
+                    : (validation.target || amount);
+                const putIn = HoldemRules.commitChips(player, target - player.bet);
+                this.pot += putIn;
+                displayAmount = player.bet;
+                if (player.chips === 0) displayAction = 'allin';
+                else displayAction = previousBet > 0 ? 'raise' : 'bet';
+
+                if (player.bet > previousBet) {
+                    const increment = player.bet - previousBet;
+                    const isFullRaise = increment >= this.lastRaiseSize;
+                    this.currentBet = player.bet;
+                    this.lastRaiserIndex = this.currentPlayerIndex;
+                    this.lastAggressorIndex = this.currentPlayerIndex;
+                    if (isFullRaise) {
+                        this.lastRaiseSize = increment;
+                        this.playersActedThisRound = new Set();
+                    }
                 }
-                const totalAmount = Math.min(raiseAmount - player.bet, player.chips);
-                player.chips -= totalAmount;
-                player.bet += totalAmount;
-                this.pot += totalAmount;
-                this.currentBet = player.bet;
-                this.lastRaiserIndex = this.currentPlayerIndex;
-                this.playersActedThisRound = new Set([playerId]);
                 break;
+            }
         }
 
         this.playersActedThisRound.add(playerId);
         player.isActive = false;
+        player.lastAction = displayAction;
+        player.lastActionAmount = displayAmount;
 
-        const activePlayers = this.players.filter(p => !p.folded && p.chips >= 0);
-        if (activePlayers.length === 1) {
-            this.handleWinner(activePlayers[0], 'All others folded');
+        const livePlayers = this.players.filter(p => !p.folded);
+        if (livePlayers.length === 1) {
+            this.handleWinner(livePlayers[0], 'All others folded');
             return { success: true };
         }
-
-        this.moveToNextPlayer();
 
         if (this.isBettingRoundComplete()) {
             this.advanceGamePhase();
         } else {
+            this.moveToNextPlayer();
             this.notifyStateChange();
             this.startTurnTimer();
             this.scheduleAITurnIfNeeded();
@@ -733,35 +786,43 @@ class PokerGame {
     }
 
     moveToNextPlayer() {
-        let nextIndex = (this.currentPlayerIndex + 1) % this.players.length;
-        let attempts = 0;
-
-        while ((this.players[nextIndex].folded || this.players[nextIndex].chips < 0) &&
-            attempts < this.players.length) {
-            nextIndex = (nextIndex + 1) % this.players.length;
-            attempts++;
+        this.currentPlayerIndex = HoldemRules.nextActingIndex(
+            this.players,
+            (this.currentPlayerIndex + 1) % this.players.length
+        );
+        this.players.forEach(p => { p.isActive = false; });
+        if (this.players[this.currentPlayerIndex]) {
+            this.players[this.currentPlayerIndex].isActive = true;
         }
-
-        this.currentPlayerIndex = nextIndex;
-        this.players[this.currentPlayerIndex].isActive = true;
     }
 
     isBettingRoundComplete() {
-        const activePlayers = this.players.filter(p => !p.folded);
+        const live = this.players.filter(p => !p.folded);
+        if (live.length <= 1) return true;
 
-        if (activePlayers.length <= 1) return true;
+        const toAct = live.filter(p => p.chips > 0);
+        if (toAct.length === 0) return true;
 
-        const allActed = activePlayers.every(p => this.playersActedThisRound.has(p.id));
-        const betsEqual = activePlayers.every(p => p.bet === this.currentBet || p.chips === 0);
-
-        return allActed && betsEqual;
+        const allActed = toAct.every(p => this.playersActedThisRound.has(p.id));
+        const betsMatched = toAct.every(p => p.bet === this.currentBet || p.chips === 0);
+        return allActed && betsMatched;
     }
 
     advanceGamePhase() {
-        const activePlayers = this.players.filter(p => !p.folded);
+        const live = this.players.filter(p => !p.folded);
+        if (live.length === 1) {
+            this.handleWinner(live[0], 'All others folded');
+            return;
+        }
 
-        if (activePlayers.length === 1) {
-            this.handleWinner(activePlayers[0], 'All others folded');
+        if (this.gamePhase === 'river') {
+            this.showdown();
+            return;
+        }
+
+        if (HoldemRules.shouldRunOutBoard(this.players)) {
+            this.dealRemainingBoard();
+            this.showdown();
             return;
         }
 
@@ -775,10 +836,23 @@ class PokerGame {
             case 'turn':
                 this.dealRiver();
                 break;
-            case 'river':
-                this.showdown();
-                break;
         }
+    }
+
+    dealRemainingBoard() {
+        if (this.communityCards.length === 0) {
+            this.deck.pop();
+            this.communityCards.push(this.deck.pop(), this.deck.pop(), this.deck.pop());
+        }
+        if (this.communityCards.length === 3) {
+            this.deck.pop();
+            this.communityCards.push(this.deck.pop());
+        }
+        if (this.communityCards.length === 4) {
+            this.deck.pop();
+            this.communityCards.push(this.deck.pop());
+        }
+        this.gamePhase = 'river';
     }
 
     handleWinner(winner, reason) {
@@ -841,60 +915,53 @@ class PokerGame {
         this.clearTimers();
 
         const activePlayers = this.players.filter(p => !p.folded);
-
         if (activePlayers.length === 1) {
             this.handleWinner(activePlayers[0], 'All others folded');
             return;
         }
 
-        // Evaluate hands
+        const potAwards = HoldemRules.awardPots(this.players, this.communityCards, this.dealerIndex);
+        const winnerIds = new Set(potAwards.flatMap(pot => pot.winners.map(w => w.playerId)));
         const hands = activePlayers.map(player => {
-            const allCards = [...player.cards, ...this.communityCards];
-            const hand = PokerHandEvaluator.evaluateHand(allCards);
-            return {
-                player,
-                hand,
-                cards: player.cards // Include cards for reveal
-            };
+            const hand = HoldemRules.evaluateBestHand([...(player.cards || []), ...this.communityCards]);
+            return { player, hand, cards: player.cards };
         });
+        hands.sort((a, b) => HoldemRules.compareHands(b.hand, a.hand));
 
-        hands.sort((a, b) => b.hand.rank - a.hand.rank);
-        const winner = hands[0].player;
-        const winAmount = this.pot;
-        winner.chips += winAmount;
+        const primaryWinner = hands.find(h => winnerIds.has(h.player.id)) || hands[0];
+        const winAmount = potAwards.reduce((sum, pot) => {
+            return sum + pot.winners
+                .filter(w => w.playerId === primaryWinner.player.id)
+                .reduce((inner, w) => inner + (pot.share || 0), 0);
+        }, 0);
 
-        // Auto-reveal AI cards
         hands.forEach(h => {
-            if (h.player.isAI) {
-                this.revealedCards[h.player.id] = [0, 1]; // Reveal both cards
-            }
+            if (h.player.isAI) this.revealedCards[h.player.id] = [0, 1];
         });
 
         this.notifyStateChange();
 
-        // Showdown data for UI
         const showdownData = {
+            pots: potAwards,
             hands: hands.map(h => ({
                 playerId: h.player.id,
                 playerName: h.player.name,
                 cards: h.cards,
                 handName: h.hand.name,
                 handRank: h.hand.rank,
-                isWinner: h.player.id === winner.id,
+                isWinner: winnerIds.has(h.player.id),
                 isAI: h.player.isAI
             }))
         };
 
-        if (this.onShowdown) {
-            this.onShowdown(showdownData);
-        }
-
+        if (this.onShowdown) this.onShowdown(showdownData);
         if (this.onWinner) {
             this.onWinner({
-                winner: winner,
-                hand: hands[0].hand,
-                winAmount: winAmount,
-                showdownData: showdownData
+                winner: primaryWinner.player,
+                hand: primaryWinner.hand,
+                winAmount,
+                showdownData,
+                split: winnerIds.size > 1
             });
         }
     }
@@ -915,6 +982,8 @@ class PokerGame {
             gamePhase: this.gamePhase,
             currentPlayerIndex: this.currentPlayerIndex,
             dealerIndex: this.dealerIndex,
+            lastRaiseSize: this.lastRaiseSize,
+            minRaiseTo: HoldemRules.minRaiseTo(this.currentBet, this.lastRaiseSize, this.settings),
             settings: this.settings,
             revealedCards: this.revealedCards,
             turnTimeRemaining: this.turnTimeRemaining

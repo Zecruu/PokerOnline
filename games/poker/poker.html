@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Poker Online - Free Texas Hold'em Multiplayer | Zecru Games</title>
 
     <!-- Favicon -->
@@ -67,6 +67,10 @@
                 <button id="join-room-btn" class="secondary-btn">
                     <span class="btn-icon">→</span>
                     Join Room
+                </button>
+                <button id="home-rules-btn" class="secondary-btn" type="button">
+                    <span class="btn-icon">?</span>
+                    Texas Hold'em Rules
                 </button>
             </div>
         </div>
@@ -145,8 +149,12 @@
                 <div class="game-info">
                     <span class="pot-label">Pot:</span>
                     <span id="pot-amount" class="pot-amount">$0</span>
+                    <span id="street-label" class="street-label">Preflop</span>
                 </div>
-                <button id="leave-game-btn" class="icon-btn">Exit</button>
+                <div class="game-header-actions">
+                    <button id="rules-btn" class="icon-btn" type="button" title="Texas Hold'em rules">Rules</button>
+                    <button id="leave-game-btn" class="icon-btn">Exit</button>
+                </div>
             </div>
 
             <div class="poker-table">
@@ -192,6 +200,7 @@
                         <button id="check-btn" class="action-btn check-btn">Check</button>
                         <button id="call-btn" class="action-btn call-btn">Call</button>
                         <button id="raise-btn" class="action-btn raise-btn">Raise</button>
+                        <button id="allin-btn" class="action-btn allin-btn">All-In</button>
                     </div>
                 </div>
             </div>
@@ -199,6 +208,7 @@
     </div>
 
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="holdem-rules.js"></script>
     <script src="cards.js"></script>
     <script src="game.js"></script>
     <script src="socket-client.js"></script>
