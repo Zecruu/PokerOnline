@@ -12,9 +12,6 @@ const BS_FLEET = [
     { id: 'submarine', name: 'Submarine', size: 3 },
     { id: 'destroyer', name: 'Destroyer', size: 2 },
 ];
-// Cooldown values = "usable every N own-turns". Sonar=2 → usable on own-turn 1, 3, 5...
-// After use, cd is set to N. At end of each own-turn, cd decrements. Usable when cd <= 0.
-const BS_COOLDOWNS = { sonar: 2, torpedo: 3, recon: 4, barrage: 5 };
 const BS_BOMB_TURNS = 4; // bomb zone blocks ship movement for 4 of the defender's own turns
 
 function generateRoomCode() {
@@ -29,7 +26,7 @@ function makeBoard() {
         ships: [],          // {id,name,size,cells:[{x,y}],orient,hits:Set<idx>}
         bombs: new Map(),   // "x,y" → own-turns remaining
         revealed: new Map(),// "x,y" → {type, ...} (this is what the OPPONENT sees about this board)
-        cooldowns: { sonar: 0, torpedo: 0, recon: 0, barrage: 0 },
+        cooldowns: {},
     };
 }
 
@@ -90,14 +87,8 @@ function allSunk(board) {
     return board.ships.length > 0 && board.ships.every(isSunk);
 }
 
-// True if the resolved attack landed on at least one ship cell.
-// Sonar and recon never "hit" — they're info-only.
 function attackHitAny(result) {
-    if (!result) return false;
-    if (result.type === 'bomb') return !!result.hit;
-    if (result.type === 'torpedo') return !!result.hit;
-    if (result.type === 'barrage') return Array.isArray(result.cells) && result.cells.some(c => c.hit);
-    return false;
+    return !!(result && result.type === 'bomb' && result.hit);
 }
 
 function nearestShipDistance(board, x, y) {
@@ -157,125 +148,20 @@ function applyHit(room, attackerIdx, defenderBoard, x, y) {
 }
 
 function resolveAttack(room, attackerIdx, type, payload) {
+    if (type !== 'bomb') return { error: 'Only bomb attacks are allowed' };
     const defender = room.boards[1 - attackerIdx];
-    const attacker = room.boards[attackerIdx];
-
-    if (type === 'bomb') {
-        const { x, y } = payload || {};
-        if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= BS_GRID || y < 0 || y >= BS_GRID) {
-            return { error: 'Bad coordinates' };
-        }
-        const h = applyHit(room, attackerIdx, defender, x, y);
-        if (h.hit) {
-            return { type: 'bomb', x, y, hit: true, sunk: h.sunk, shipName: h.shipName };
-        }
-        const { distance } = nearestShipDistance(defender, x, y);
-        const tier = tierForDistance(distance);
-        defender.revealed.set(`${x},${y}`, { type: 'miss', tier });
-        return { type: 'bomb', x, y, hit: false, tier };
+    const { x, y } = payload || {};
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= BS_GRID || y < 0 || y >= BS_GRID) {
+        return { error: 'Bad coordinates' };
     }
-
-    if (type === 'sonar') {
-        if (attacker.cooldowns.sonar > 0) return { error: 'Sonar on cooldown' };
-        const { x, y } = payload || {};
-        if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= BS_GRID || y < 0 || y >= BS_GRID) {
-            return { error: 'Bad coordinates' };
-        }
-        const { distance, nearest } = nearestShipDistance(defender, x, y);
-        const tier = tierForDistance(distance);
-        const direction = nearest ? compassDirection(x, y, nearest.x, nearest.y) : 'NONE';
-        // Sonar ping is visible to defender (they see opponent pinged this cell)
-        const existing = defender.revealed.get(`${x},${y}`);
-        if (!existing || existing.type === 'recon-empty' || existing.type === 'recon-occ') {
-            defender.revealed.set(`${x},${y}`, { type: 'sonar', tier, direction });
-        }
-        attacker.cooldowns.sonar = BS_COOLDOWNS.sonar;
-        return { type: 'sonar', x, y, tier, direction };
+    const h = applyHit(room, attackerIdx, defender, x, y);
+    if (h.hit) {
+        return { type: 'bomb', x, y, hit: true, sunk: h.sunk, shipName: h.shipName };
     }
-
-    if (type === 'torpedo') {
-        if (attacker.cooldowns.torpedo > 0) return { error: 'Torpedo on cooldown' };
-        const { axis, index, fromStart } = payload || {};
-        if ((axis !== 'row' && axis !== 'col') || !Number.isInteger(index) || index < 0 || index >= BS_GRID) {
-            return { error: 'Bad torpedo target' };
-        }
-        const order = [...Array(BS_GRID).keys()];
-        if (!fromStart) order.reverse();
-        let hitInfo = null;
-        const pathCells = [];
-        for (const i of order) {
-            const c = axis === 'row' ? { x: i, y: index } : { x: index, y: i };
-            pathCells.push(c);
-            const found = findShipAt(defender, c.x, c.y);
-            if (found && cellIsAlive(found)) {
-                found.ship.hits.add(found.idx);
-                defender.revealed.set(`${c.x},${c.y}`, { type: 'hit' });
-                defender.bombs.set(`${c.x},${c.y}`, BS_BOMB_TURNS);
-                hitInfo = { x: c.x, y: c.y, sunk: isSunk(found.ship), shipName: found.ship.name };
-                break;
-            }
-        }
-        attacker.cooldowns.torpedo = BS_COOLDOWNS.torpedo;
-        return { type: 'torpedo', axis, index, fromStart, hit: hitInfo };
-    }
-
-    if (type === 'recon') {
-        if (attacker.cooldowns.recon > 0) return { error: 'Recon on cooldown' };
-        const { x, y } = payload || {};
-        if (!Number.isInteger(x) || !Number.isInteger(y) || x < 1 || x >= BS_GRID - 1 || y < 1 || y >= BS_GRID - 1) {
-            return { error: 'Recon must be 1 cell from edge' };
-        }
-        const cells = [];
-        for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-                const cx = x + dx, cy = y + dy;
-                const found = findShipAt(defender, cx, cy);
-                const occupied = found && cellIsAlive(found);
-                const key = `${cx},${cy}`;
-                const existing = defender.revealed.get(key);
-                // Don't downgrade a hit/miss/sonar to a recon marker
-                if (!existing || existing.type === 'recon-empty' || existing.type === 'recon-occ') {
-                    defender.revealed.set(key, { type: occupied ? 'recon-occ' : 'recon-empty' });
-                }
-                cells.push({ x: cx, y: cy, occupied: !!occupied });
-            }
-        }
-        attacker.cooldowns.recon = BS_COOLDOWNS.recon;
-        return { type: 'recon', x, y, cells };
-    }
-
-    if (type === 'barrage') {
-        if (attacker.cooldowns.barrage > 0) return { error: 'Barrage on cooldown' };
-        const { x, y, orient } = payload || {};
-        if (orient !== 'h' && orient !== 'v') return { error: 'Bad barrage orient' };
-        if (!Number.isInteger(x) || !Number.isInteger(y)) return { error: 'Bad coordinates' };
-        let cells;
-        if (orient === 'h') {
-            if (x < 1 || x >= BS_GRID - 1 || y < 0 || y >= BS_GRID) return { error: 'Out of bounds' };
-            cells = [{ x: x - 1, y }, { x, y }, { x: x + 1, y }];
-        } else {
-            if (y < 1 || y >= BS_GRID - 1 || x < 0 || x >= BS_GRID) return { error: 'Out of bounds' };
-            cells = [{ x, y: y - 1 }, { x, y }, { x, y: y + 1 }];
-        }
-        const results = [];
-        for (const c of cells) {
-            const found = findShipAt(defender, c.x, c.y);
-            if (found && cellIsAlive(found)) {
-                found.ship.hits.add(found.idx);
-                defender.revealed.set(`${c.x},${c.y}`, { type: 'hit' });
-                defender.bombs.set(`${c.x},${c.y}`, BS_BOMB_TURNS);
-                results.push({ x: c.x, y: c.y, hit: true, sunk: isSunk(found.ship), shipName: found.ship.name });
-            } else {
-                defender.revealed.set(`${c.x},${c.y}`, { type: 'miss' });
-                defender.bombs.set(`${c.x},${c.y}`, BS_BOMB_TURNS);
-                results.push({ x: c.x, y: c.y, hit: false });
-            }
-        }
-        attacker.cooldowns.barrage = BS_COOLDOWNS.barrage;
-        return { type: 'barrage', x, y, orient, cells: results };
-    }
-
-    return { error: 'Unknown attack type' };
+    const { distance } = nearestShipDistance(defender, x, y);
+    const tier = tierForDistance(distance);
+    defender.revealed.set(`${x},${y}`, { type: 'miss', tier });
+    return { type: 'bomb', x, y, hit: false, tier };
 }
 
 function moveShip(room, playerIdx, shipId, dx, dy) {
@@ -345,7 +231,7 @@ function viewForPlayer(room, idx) {
         enemyBoard: enemyBoardView,
         log: room.log.slice(-25),
         winner: room.winner,
-        cooldownConfig: BS_COOLDOWNS,
+        cooldownConfig: {},
         gridSize: BS_GRID,
         fleet: BS_FLEET,
     };
@@ -481,19 +367,19 @@ function mount(server) {
             if (room.phase !== 'battle') return cb({ error: 'Not in battle phase' });
             if (room.turn !== myIdx) return cb({ error: 'Not your turn' });
             if (room.turnState && room.turnState.attacked) return cb({ error: 'Already attacked this turn' });
-            const result = resolveAttack(room, myIdx, data?.type, data);
+            const result = resolveAttack(room, myIdx, 'bomb', data);
             if (result.error) return cb(result);
             const hit = attackHitAny(result);
             const priorChain = room.turnState?.chainCount || 0;
-            // Chain-on-hit: a successful hit keeps `attacked: false` so the player
-            // can attack again. A miss (or sonar/recon) locks attack as before.
+            const alreadyMoved = !!(room.turnState && room.turnState.moved);
+            // Hits keep `attacked: false` so you can bomb again. A miss locks the attack.
             room.turnState = {
                 attacked: !hit,
-                moved: false,
-                attackType: data.type,
+                moved: alreadyMoved,
+                attackType: 'bomb',
                 chainCount: priorChain + (hit ? 1 : 0),
             };
-            room.log.push({ type: 'attack', who: room.players[myIdx].name, msg: describeAttack(data.type, result) });
+            room.log.push({ type: 'attack', who: room.players[myIdx].name, msg: describeAttack('bomb', result) });
             if (hit && room.turnState.chainCount >= 2) {
                 room.log.push({ type: 'system', msg: `${room.players[myIdx].name} chains attack! (×${room.turnState.chainCount})` });
             }
@@ -512,7 +398,9 @@ function mount(server) {
             if (!room) return cb({ error: 'Not in room' });
             if (room.phase !== 'battle') return cb({ error: 'Not in battle phase' });
             if (room.turn !== myIdx) return cb({ error: 'Not your turn' });
-            if (!room.turnState || !room.turnState.attacked) return cb({ error: 'Attack before moving' });
+            if (!room.turnState) {
+                room.turnState = { attacked: false, moved: false, chainCount: 0 };
+            }
             if (room.turnState.moved) return cb({ error: 'Already moved this turn' });
             const r = moveShip(room, myIdx, data?.shipId, data?.dx | 0, data?.dy | 0);
             if (r.error) return cb(r);
@@ -610,24 +498,8 @@ function mount(server) {
 }
 
 function describeAttack(type, result) {
-    if (type === 'bomb') {
-        if (result.hit) return `bomb (${result.x},${result.y}) HIT${result.sunk ? ` — SUNK ${result.shipName}!` : ''}`;
-        return `bomb (${result.x},${result.y}) MISS — ${result.tier}`;
-    }
-    if (type === 'sonar') return `sonar (${result.x},${result.y}) → ${result.tier}, ${result.direction}`;
-    if (type === 'torpedo') {
-        if (result.hit) return `torpedo ${result.axis} ${result.index} → HIT (${result.hit.x},${result.hit.y})${result.hit.sunk ? ` — SUNK ${result.hit.shipName}!` : ''}`;
-        return `torpedo ${result.axis} ${result.index} → no contact`;
-    }
-    if (type === 'recon') {
-        const occ = result.cells.filter(c => c.occupied).length;
-        return `recon (${result.x},${result.y}) → ${occ}/9 occupied`;
-    }
-    if (type === 'barrage') {
-        const hits = result.cells.filter(c => c.hit).length;
-        return `barrage (${result.x},${result.y}) ${result.orient} → ${hits}/3 hits`;
-    }
-    return type;
+    if (result.hit) return `bomb (${result.x},${result.y}) HIT${result.sunk ? ` — SUNK ${result.shipName}!` : ''}`;
+    return `bomb (${result.x},${result.y}) MISS — ${result.tier}`;
 }
 
 module.exports = { mount };

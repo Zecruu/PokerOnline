@@ -121,7 +121,7 @@ export const GAMES: Game[] = [
     id: "battleship",
     title: "Tactical Waters",
     description:
-      "Battleship reimagined. Hot/cold radar, moving fleets, sonar pings, torpedoes, and recon planes. Share a room code and outmaneuver your rival.",
+      "Battleship reimagined. Drop hot/cold bombs and shift your fleet one cell each turn. Share a room code and outmaneuver your rival.",
     thumbnail: "https://games.zecrugames.com/battleship/thumbnail.svg",
     href: "https://games.zecrugames.com/battleship/",
     badge: "NEW",

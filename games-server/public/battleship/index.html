@@ -13,7 +13,7 @@
     <div id="screen-lobby" class="screen active">
         <div class="lobby-card">
             <h1 class="title">TACTICAL WATERS</h1>
-            <p class="subtitle">Hot/cold radar · Moving fleets · 5 attack types</p>
+            <p class="subtitle">Hot/cold bombs · Move your fleet each turn</p>
 
             <label class="input-label">Your Name</label>
             <input id="player-name" type="text" maxlength="20" placeholder="Captain..." />
@@ -31,14 +31,10 @@
             <details class="how-to-play">
                 <summary>How to play</summary>
                 <ul>
-                    <li><b>Each turn:</b> hits chain — every successful hit lets you fire again. Miss and you can optionally move one ship by 1 cell.</li>
-                    <li><b>Hot/Cold:</b> bombs that miss reveal proximity — Burning / Warm / Cold / Freezing.</li>
-                    <li><b>Sonar Ping:</b> no damage, returns distance tier + compass direction to nearest ship.</li>
-                    <li><b>Torpedo:</b> fires across a row or column, hits the first ship in its path.</li>
-                    <li><b>Recon Plane:</b> reveals a 3×3 grid as occupied/empty (no damage).</li>
-                    <li><b>Missile Barrage:</b> 3-cell line damage, no info.</li>
-                    <li><b>Bombed zones:</b> any cell that was bombed can't have a ship moved into it for <b>4 of your turns</b>.</li>
-                    <li><b>Cooldowns:</b> Sonar every 2 own turns, Torpedo every 3, Recon every 4, Barrage every 5.</li>
+                    <li><b>Each turn:</b> drop bombs on enemy waters (hits chain — keep firing until you miss) and move one ship by 1 cell at any time.</li>
+                    <li><b>Bomb:</b> the only attack. A miss reveals proximity — Burning / Warm / Cold / Freezing.</li>
+                    <li><b>Move:</b> shift one floating ship one cell orthogonally during your turn, before or after bombing.</li>
+                    <li><b>Bombed zones:</b> a cell that was bombed can't have a ship moved into it for <b>4 of your turns</b>.</li>
                 </ul>
             </details>
         </div>
@@ -120,29 +116,9 @@
             </div>
 
             <div class="attack-bar">
-                <button class="attack-btn" data-attack="bomb">
+                <button class="attack-btn" data-attack="bomb" id="btn-bomb">
                     <span class="atk-name">Bomb</span>
                     <span class="atk-desc">1 cell · hot/cold</span>
-                    <span class="atk-cd"></span>
-                </button>
-                <button class="attack-btn" data-attack="sonar">
-                    <span class="atk-name">Sonar Ping</span>
-                    <span class="atk-desc">No damage · direction</span>
-                    <span class="atk-cd"></span>
-                </button>
-                <button class="attack-btn" data-attack="torpedo">
-                    <span class="atk-name">Torpedo</span>
-                    <span class="atk-desc">Row/Col · first hit</span>
-                    <span class="atk-cd"></span>
-                </button>
-                <button class="attack-btn" data-attack="recon">
-                    <span class="atk-name">Recon Plane</span>
-                    <span class="atk-desc">3×3 reveal</span>
-                    <span class="atk-cd"></span>
-                </button>
-                <button class="attack-btn" data-attack="barrage">
-                    <span class="atk-name">Barrage</span>
-                    <span class="atk-desc">3-cell line</span>
                     <span class="atk-cd"></span>
                 </button>
                 <button id="btn-move" class="action-btn" disabled>Move Ship</button>
@@ -164,15 +140,6 @@
             <h2 id="end-title">Game Over</h2>
             <p id="end-message">—</p>
             <button id="btn-play-again" class="btn primary">Back to Lobby</button>
-        </div>
-    </div>
-
-    <!-- Torpedo / Barrage direction picker overlay -->
-    <div id="picker-overlay" class="picker-overlay hidden">
-        <div class="picker-card">
-            <h3 id="picker-title">Pick direction</h3>
-            <div id="picker-options"></div>
-            <button id="picker-cancel" class="btn ghost">Cancel</button>
         </div>
     </div>
 

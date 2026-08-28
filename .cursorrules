@@ -12,14 +12,14 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: GitHub + Hold'em Rules + Mobile Actions
-[X] Connected local folder to https://github.com/Zecruu/PokerOnline.git (origin fetch OK; on master)
-[X] Official No-Limit Texas Hold'em rules in client + server
-    - Best 5-card from 7, kickers, ties/split pots, wheel straight
-    - Antes, min-raise, bet vs raise, all-in, short all-in no-reopen
-    - Side pots, skip all-in players, run out remaining streets
-    - Rules modal + action labels
-[X] Mobile action bar: position:fixed + safe-area, buttons fully visible on 375x667 and 390x844
+### Current Task: Tactical Waters — bomb-only + move during turn
+[X] Remove sonar, torpedo, recon, barrage
+[X] Only bomb attack
+[X] Allow ship move during the turn (not only after a miss)
+[X] Update how-to-play copy
+
+### Previous Task: GitHub + Hold'em Rules + Mobile Actions
+[X] Connected to GitHub, Hold'em rules, mobile action bar
 
 ## Lessons
 - This folder was a zip dump with no .git; init + remote add origin, default branch is master

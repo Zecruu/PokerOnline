@@ -440,7 +440,7 @@ input[type="text"]:focus {
 
 .attack-bar {
     display: grid;
-    grid-template-columns: repeat(5, 1fr) auto auto;
+    grid-template-columns: 1fr auto auto;
     gap: 8px;
     background: var(--panel);
     padding: 10px;
@@ -572,12 +572,12 @@ input[type="text"]:focus {
     .turn-indicator { font-size: 1em; }
     .ship-card { padding: 8px 10px; }
     .ship-preview .ship-cell { width: 12px; height: 12px; }
-    .attack-bar { grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; }
-    .attack-btn { padding: 8px 4px; min-height: 56px; }
+    .attack-bar { grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; }
+    .attack-btn { padding: 8px 4px; min-height: 56px; grid-column: 1 / -1; }
     .atk-name { font-size: 0.85em; }
     .atk-desc { font-size: 0.65em; }
     .action-btn { min-height: 48px; padding: 10px 14px; }
-    #btn-end-turn, #btn-move { grid-column: span 2; }
+    #btn-end-turn, #btn-move { grid-column: span 1; }
     .picker-card { min-width: 0; width: calc(100% - 32px); max-width: 360px; }
     .picker-opt { min-height: 48px; }
 

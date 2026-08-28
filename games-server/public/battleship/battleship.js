@@ -45,7 +45,7 @@ let state = {
     },
     // battle UI state (local only)
     ui: {
-        selectedAttack: null,
+        selectedAttack: 'bomb',
         moveMode: false,
         moveShipId: null,
     },
@@ -537,9 +537,9 @@ function renderBattle(server) {
     // Attack buttons
     renderAttackButtons(server, isMyTurn);
 
-    // Move + End-turn buttons
+    // Move anytime during your turn (once). End turn after you've bombed (or after a miss if chaining).
     const turnState = server.turnState || {};
-    $('btn-move').disabled = !isMyTurn || !turnState.attacked || turnState.moved || server.phase !== 'battle';
+    $('btn-move').disabled = !isMyTurn || turnState.moved || server.phase !== 'battle';
     $('btn-move').classList.toggle('active', state.ui.moveMode);
     $('btn-end-turn').disabled = !isMyTurn || !turnState.attacked || server.phase !== 'battle';
 
@@ -556,22 +556,14 @@ function renderBattle(server) {
 }
 
 function renderAttackButtons(server, isMyTurn) {
-    const cds = server.myBoard.cooldowns;
     const turnState = server.turnState || {};
     const attackedAlready = !!turnState.attacked;
-    document.querySelectorAll('.attack-btn').forEach(btn => {
-        const type = btn.dataset.attack;
-        const cd = cds[type] || 0;
-        const cdSpan = btn.querySelector('.atk-cd');
-        if (type !== 'bomb' && cd > 0) {
-            cdSpan.textContent = `${cd}T`;
-        } else {
-            cdSpan.textContent = '';
-        }
-        const onCd = type !== 'bomb' && cd > 0;
-        btn.disabled = !isMyTurn || server.phase !== 'battle' || attackedAlready || onCd;
-        btn.classList.toggle('selected', state.ui.selectedAttack === type);
-    });
+    const btn = document.querySelector('.attack-btn[data-attack="bomb"]');
+    if (!btn) return;
+    const cdSpan = btn.querySelector('.atk-cd');
+    if (cdSpan) cdSpan.textContent = '';
+    btn.disabled = !isMyTurn || server.phase !== 'battle' || attackedAlready;
+    btn.classList.toggle('selected', isMyTurn && !attackedAlready);
 }
 
 function renderEnemyGrid(server) {
@@ -599,19 +591,8 @@ function renderEnemyGrid(server) {
                 } else if (r.type === 'miss') {
                     cell.classList.add('miss');
                     if (r.tier) cell.classList.add(r.tier.toLowerCase());
-                } else if (r.type === 'recon-empty') {
-                    cell.classList.add('recon-empty');
-                } else if (r.type === 'recon-occ') {
-                    cell.classList.add('recon-occ');
-                } else if (r.type === 'sonar') {
-                    cell.classList.add('sonar');
-                    const arrow = document.createElement('span');
-                    arrow.className = 'sonar-arrow';
-                    arrow.textContent = directionArrow(r.direction) + (r.tier ? ` ${tierShort(r.tier)}` : '');
-                    cell.appendChild(arrow);
                 }
             }
-            // Click handler depends on selected attack
             cell.addEventListener('click', () => onEnemyCellClick(x, y));
             cell.addEventListener('mouseenter', () => onEnemyCellHover(x, y));
             cell.addEventListener('mouseleave', () => onEnemyCellLeave());
@@ -623,14 +604,6 @@ function renderEnemyGrid(server) {
         id: s.id, orient: s.orient, cells: s.cells, sunk: true,
     }));
     renderShipOverlay(grid, sunk);
-}
-
-function directionArrow(dir) {
-    const map = { 'N':'↑','NE':'↗','E':'→','SE':'↘','S':'↓','SW':'↙','W':'←','NW':'↖','HERE':'⊙','NONE':'?' };
-    return map[dir] || dir;
-}
-function tierShort(t) {
-    return { 'Burning':'B','Warm':'W','Cold':'C','Freezing':'F' }[t] || t[0];
 }
 
 function renderMyGrid(server) {
@@ -734,7 +707,7 @@ function onMyCellClick(x, y) {
     if (!server) return;
     if (!state.ui.moveMode) {
         // Clicking a ship cell selects it for movement (will activate move mode if eligible)
-        if (server.turn !== server.myIdx || !server.turnState?.attacked || server.turnState?.moved) return;
+        if (server.turn !== server.myIdx || server.turnState?.moved) return;
         const ship = server.myBoard.ships.find(s => s.cells.some(c => c.x === x && c.y === y) && !s.sunk);
         if (ship) {
             state.ui.moveMode = true;
@@ -770,20 +743,12 @@ function onMyCellClick(x, y) {
     });
 }
 
-// =========== ATTACKS ============
 document.querySelectorAll('.attack-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (btn.disabled) return;
-        state.ui.selectedAttack = btn.dataset.attack;
-        renderAttackButtons(state.server, true);
-        const hints = {
-            bomb: 'Click an enemy cell to drop a bomb.',
-            sonar: 'Click an enemy cell to ping — no damage, reveals direction.',
-            torpedo: 'Click an enemy cell — you\'ll pick row/col + direction.',
-            recon: 'Click an enemy cell (interior, not on the edge) for a 3×3 scan.',
-            barrage: 'Click an enemy cell — you\'ll pick horizontal or vertical 3-cell line.',
-        };
-        flashHint(hints[btn.dataset.attack], 0);
+        state.ui.selectedAttack = 'bomb';
+        if (state.server) renderAttackButtons(state.server, true);
+        flashHint('Click an enemy cell to drop a bomb.', 0);
     });
 });
 
@@ -800,7 +765,7 @@ $('btn-move').addEventListener('click', () => {
 $('btn-end-turn').addEventListener('click', () => {
     socket.emit('bs:end-turn', {}, (resp) => {
         if (resp?.error) flashHint('End turn failed: ' + resp.error);
-        state.ui.selectedAttack = null;
+        state.ui.selectedAttack = 'bomb';
         state.ui.moveMode = false;
         state.ui.moveShipId = null;
     });
@@ -816,82 +781,21 @@ function onEnemyCellClick(x, y) {
     if (!server || server.phase !== 'battle') return;
     if (server.turn !== server.myIdx) return flashHint('Not your turn.');
     if (server.turnState?.attacked) return flashHint('Already attacked this turn.');
-    const type = state.ui.selectedAttack || 'bomb';
-    if (type === 'bomb') {
-        fireAttack('bomb', { x, y });
-    } else if (type === 'sonar') {
-        fireAttack('sonar', { x, y });
-    } else if (type === 'torpedo') {
-        openTorpedoPicker(x, y);
-    } else if (type === 'recon') {
-        if (x < 1 || x >= GRID - 1 || y < 1 || y >= GRID - 1) return flashHint('Recon must be at least 1 cell from edges.');
-        fireAttack('recon', { x, y });
-    } else if (type === 'barrage') {
-        openBarragePicker(x, y);
-    }
+    fireAttack('bomb', { x, y });
 }
 
 function fireAttack(type, payload) {
     socket.emit('bs:attack', { type, ...payload }, (resp) => {
         if (resp?.error) return flashHint('Attack failed: ' + resp.error);
-        state.ui.selectedAttack = null;
+        state.ui.selectedAttack = 'bomb';
         if (resp.result) describeResult(resp.result);
     });
 }
 
 function describeResult(r) {
-    if (r.type === 'bomb') {
-        if (r.hit) flashHint(r.sunk ? `🎯 HIT — SUNK ${r.shipName}!` : `🎯 HIT at (${r.x},${r.y})!`, 3500);
-        else flashHint(`💧 Miss — ${r.tier}`, 3000);
-    } else if (r.type === 'sonar') {
-        flashHint(`📡 Sonar → ${r.tier}, ${r.direction}`, 3500);
-    } else if (r.type === 'torpedo') {
-        if (r.hit) flashHint(r.hit.sunk ? `🚀 Torpedo SUNK ${r.hit.shipName}!` : `🚀 Torpedo HIT (${r.hit.x},${r.hit.y})`, 3500);
-        else flashHint(`🚀 Torpedo — no contact`, 3000);
-    } else if (r.type === 'recon') {
-        const occ = r.cells.filter(c => c.occupied).length;
-        flashHint(`✈️ Recon → ${occ}/9 occupied`, 3500);
-    } else if (r.type === 'barrage') {
-        const hits = r.cells.filter(c => c.hit).length;
-        flashHint(`💣 Barrage → ${hits}/3 hits`, 3500);
-    }
+    if (r.hit) flashHint(r.sunk ? `🎯 HIT — SUNK ${r.shipName}!` : `🎯 HIT at (${r.x},${r.y})!`, 3500);
+    else flashHint(`💧 Miss — ${r.tier}`, 3000);
 }
-
-// =========== PICKERS ============
-function openTorpedoPicker(x, y) {
-    showPicker('Torpedo direction', [
-        { label: `Row ${y} →`, action: () => fireAttack('torpedo', { axis: 'row', index: y, fromStart: true }) },
-        { label: `Row ${y} ←`, action: () => fireAttack('torpedo', { axis: 'row', index: y, fromStart: false }) },
-        { label: `Col ${x} ↓`, action: () => fireAttack('torpedo', { axis: 'col', index: x, fromStart: true }) },
-        { label: `Col ${x} ↑`, action: () => fireAttack('torpedo', { axis: 'col', index: x, fromStart: false }) },
-    ]);
-}
-
-function openBarragePicker(x, y) {
-    const opts = [];
-    if (x >= 1 && x < GRID - 1) opts.push({ label: 'Horizontal (3 cells across)', action: () => fireAttack('barrage', { x, y, orient: 'h' }) });
-    if (y >= 1 && y < GRID - 1) opts.push({ label: 'Vertical (3 cells down)', action: () => fireAttack('barrage', { x, y, orient: 'v' }) });
-    if (!opts.length) return flashHint('Cell must be at least 1 from the edge (in chosen direction).');
-    showPicker('Barrage orientation', opts);
-}
-
-function showPicker(title, options) {
-    $('picker-title').textContent = title;
-    const container = $('picker-options');
-    container.innerHTML = '';
-    for (const opt of options) {
-        const b = document.createElement('button');
-        b.className = 'picker-opt';
-        b.textContent = opt.label;
-        b.addEventListener('click', () => {
-            $('picker-overlay').classList.add('hidden');
-            opt.action();
-        });
-        container.appendChild(b);
-    }
-    $('picker-overlay').classList.remove('hidden');
-}
-$('picker-cancel').addEventListener('click', () => $('picker-overlay').classList.add('hidden'));
 
 // =========== LOG ============
 function renderLog(log) {
@@ -923,10 +827,10 @@ function updateHintFromState() {
         if (ts.chainCount && ts.chainCount > 0) {
             $('hint-box').textContent = `🔥 Hit chain ×${ts.chainCount} — fire again! You keep attacking until you miss.`;
         } else {
-            $('hint-box').textContent = `Your turn — pick an attack, then click the enemy grid. Hits chain (keep firing until you miss).`;
+            $('hint-box').textContent = `Your turn — bomb an enemy cell, and move one ship by 1 cell anytime. Hits chain until you miss.`;
         }
     } else if (!ts.moved) {
-        $('hint-box').textContent = `You missed. Optionally move one ship by 1 cell, or end your turn.`;
+        $('hint-box').textContent = `You can still move one ship by 1 cell, or end your turn.`;
     } else {
         $('hint-box').textContent = `Move complete. End your turn when ready.`;
     }
