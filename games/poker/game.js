@@ -8,7 +8,9 @@ const DEFAULT_SETTINGS = {
     turnTimeLimit: 30,
     allowBuyBack: true,
     maxBuyBacks: 3,
-    buyBackAmount: 1000
+    buyBackAmount: 1000,
+    gameMode: 'holdem',
+    minBet: 10
 };
 
 // AI Trash Talk Messages

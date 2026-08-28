@@ -23,6 +23,8 @@ class PokerApp {
         this.lastRenderedCommunity = '';
         this.lastRenderedOpponents = '';
         this.gameSettings = { ...DEFAULT_SETTINGS };
+        this.selectedGameMode = 'holdem';
+        this.blackjackTable = null;
 
         // Avatar
         this.selectedAvatar = PLAYER_AVATARS[0].id;
@@ -39,6 +41,7 @@ class PokerApp {
 
         this.initializeEventListeners();
         this.showScreen('home');
+        this.setHomeGameMode('holdem');
     }
 
     setupSocketCallbacks() {
@@ -211,6 +214,28 @@ class PokerApp {
             this.playerAction(facingBet ? 'raise' : 'bet', amount);
         });
         document.getElementById('allin-btn').addEventListener('click', () => this.playerAction('allin'));
+        document.getElementById('bj-bet-btn').addEventListener('click', () => {
+            const amount = parseInt(document.getElementById('bet-slider').value, 10);
+            this.playerAction('bet', amount);
+        });
+        document.getElementById('bj-hit-btn').addEventListener('click', () => this.playerAction('hit'));
+        document.getElementById('bj-stand-btn').addEventListener('click', () => this.playerAction('stand'));
+        document.getElementById('bj-double-btn').addEventListener('click', () => this.playerAction('double'));
+        document.getElementById('bj-split-btn').addEventListener('click', () => this.playerAction('split'));
+        document.getElementById('bj-surrender-btn').addEventListener('click', () => this.playerAction('surrender'));
+        document.getElementById('bj-insurance-btn').addEventListener('click', () => this.playerAction('insurance'));
+        document.getElementById('bj-no-ins-btn').addEventListener('click', () => this.playerAction('no-insurance'));
+        document.getElementById('bj-even-btn').addEventListener('click', () => this.playerAction('even-money'));
+        document.getElementById('bj-next-btn').addEventListener('click', () => {
+            if (this.isOnlineMode) window.socketClient.nextRound();
+            else this.playerAction('next');
+        });
+
+        document.getElementById('home-mode-toggle').addEventListener('click', (e) => {
+            const btn = e.target.closest('.mode-btn');
+            if (!btn) return;
+            this.setHomeGameMode(btn.dataset.mode);
+        });
 
         document.getElementById('bet-slider').addEventListener('input', (e) => {
             document.getElementById('bet-amount').textContent = e.target.value;
@@ -246,9 +271,16 @@ class PokerApp {
             modal.innerHTML = `
                 <div class="modal-content">
                     <h2>Game Settings</h2>
-                    <p class="subtitle">Configure your poker game</p>
+                    <p class="subtitle" id="settings-subtitle">Configure your poker game</p>
                     
                     <div class="settings-form">
+                        <div class="input-group">
+                            <label>Game Mode</label>
+                            <div class="mode-toggle" id="settings-mode-toggle">
+                                <button type="button" class="mode-btn" data-mode="holdem">Texas Hold'em</button>
+                                <button type="button" class="mode-btn" data-mode="blackjack">Blackjack</button>
+                            </div>
+                        </div>
                         <div class="input-group">
                             <label>Your Name</label>
                             <input type="text" id="settings-player-name" placeholder="Enter your name" maxlength="20">
@@ -264,27 +296,32 @@ class PokerApp {
                             <input type="number" id="settings-chips" value="1000" min="100" step="100">
                         </div>
                         
-                        <div class="input-group">
+                        <div class="input-group bj-only">
+                            <label>Minimum Bet</label>
+                            <input type="number" id="settings-min-bet" value="10" min="1" step="5">
+                        </div>
+                        
+                        <div class="input-group holdem-only">
                             <label>Small Blind</label>
                             <input type="number" id="settings-small-blind" value="10" min="1" step="5">
                         </div>
                         
-                        <div class="input-group">
+                        <div class="input-group holdem-only">
                             <label>Big Blind</label>
                             <input type="number" id="settings-big-blind" value="20" min="2" step="10">
                         </div>
                         
-                        <div class="input-group">
+                        <div class="input-group holdem-only">
                             <label>Ante (0 = none)</label>
                             <input type="number" id="settings-ante" value="0" min="0" step="1">
                         </div>
                         
-                        <div class="input-group">
+                        <div class="input-group holdem-only">
                             <label>Turn Time Limit (seconds, 0 = no limit)</label>
                             <input type="number" id="settings-turn-time" value="30" min="0" max="120" step="5">
                         </div>
                         
-                        <div class="checkbox-group">
+                        <div class="checkbox-group holdem-only">
                             <label>
                                 <input type="checkbox" id="settings-optional-bb">
                                 Optional Big Blind (3+ players: player after BB can fold free)
@@ -330,10 +367,55 @@ class PokerApp {
                 this.createRoomWithSettings(false);
             });
 
+            document.getElementById('settings-mode-toggle').addEventListener('click', (e) => {
+                const btn = e.target.closest('.mode-btn');
+                if (!btn) return;
+                this.setHomeGameMode(btn.dataset.mode);
+                this.updateSettingsModeFields();
+            });
+
             this.renderAvatarPicker('settings-avatar-picker');
         }
 
+        this.updateSettingsModeFields();
         modal.classList.add('active');
+    }
+
+    setHomeGameMode(mode) {
+        this.selectedGameMode = mode === 'blackjack' ? 'blackjack' : 'holdem';
+        document.querySelectorAll('#home-mode-toggle .mode-btn, #settings-mode-toggle .mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === this.selectedGameMode);
+        });
+        const tagline = document.getElementById('home-tagline');
+        const rulesLabel = document.getElementById('home-rules-label');
+        if (this.selectedGameMode === 'blackjack') {
+            if (tagline) tagline.textContent = 'Player vs dealer blackjack — host banks the table';
+            if (rulesLabel) rulesLabel.textContent = 'Blackjack Rules';
+        } else {
+            if (tagline) tagline.textContent = 'Play Texas Hold\'em with friends anywhere';
+            if (rulesLabel) rulesLabel.textContent = 'Texas Hold\'em Rules';
+        }
+    }
+
+    updateSettingsModeFields() {
+        const isBj = this.selectedGameMode === 'blackjack';
+        document.querySelectorAll('#settings-modal .holdem-only').forEach(el => el.classList.toggle('hidden', isBj));
+        document.querySelectorAll('#settings-modal .bj-only').forEach(el => el.classList.toggle('hidden', !isBj));
+        const subtitle = document.getElementById('settings-subtitle');
+        if (subtitle) {
+            subtitle.textContent = isBj
+                ? 'Host is the dealer. One friend joins as the player.'
+                : 'Configure your poker game';
+        }
+        const single = document.getElementById('settings-single');
+        if (single) single.textContent = isBj ? 'Play vs AI Dealer' : 'Play vs AI Dealer';
+        this.setHomeGameMode(this.selectedGameMode);
+    }
+
+    getActiveGameMode() {
+        if (this.currentRoom && this.currentRoom.gameMode) return this.currentRoom.gameMode;
+        if (this.blackjackTable) return 'blackjack';
+        return this.selectedGameMode || 'holdem';
     }
 
     createRoomWithSettings(withDealer) {
@@ -352,7 +434,9 @@ class PokerApp {
             optionalBigBlind: document.getElementById('settings-optional-bb').checked,
             allowBuyBack: document.getElementById('settings-allow-buyback').checked,
             maxBuyBacks: parseInt(document.getElementById('settings-max-buybacks').value) || 3,
-            buyBackAmount: parseInt(document.getElementById('settings-buyback-amount').value) || 1000
+            buyBackAmount: parseInt(document.getElementById('settings-buyback-amount').value) || 1000,
+            minBet: parseInt(document.getElementById('settings-min-bet').value) || 10,
+            gameMode: this.selectedGameMode
         };
 
         this.gameSettings = settings;
@@ -361,6 +445,11 @@ class PokerApp {
         // For multiplayer without AI - always use online server
         if (!withDealer) {
             this.createOnlineRoom(playerName, settings, false);
+            return;
+        }
+
+        if (this.selectedGameMode === 'blackjack') {
+            this.startLocalBlackjack(playerName, settings);
             return;
         }
 
@@ -376,6 +465,26 @@ class PokerApp {
         if (withDealer && game.players.length === 2) {
             setTimeout(() => this.startGame(), 500);
         }
+    }
+
+    startLocalBlackjack(playerName, settings) {
+        this.isOnlineMode = false;
+        this.currentRoom = null;
+        this.currentGame = null;
+        this.blackjackTable = BlackjackRules.createTable({
+            playerName,
+            dealerName: 'Dealer',
+            dealerIsAI: true,
+            startingChips: settings.startingChips,
+            minBet: settings.minBet || 10
+        });
+        BlackjackRules.startRound(this.blackjackTable);
+        this.currentPlayerId = this.blackjackTable.player.id;
+        this.showScreen('game');
+        this.resetRenderCache();
+        this.setTableChrome('blackjack');
+        this.renderBlackjack();
+        this.createChatUI();
     }
 
     joinRoom() {
@@ -653,6 +762,17 @@ class PokerApp {
         }
     }
 
+    setTableChrome(mode) {
+        const isBj = mode === 'blackjack';
+        document.body.classList.toggle('mode-blackjack', isBj);
+        const holdem = document.getElementById('holdem-actions');
+        const bj = document.getElementById('blackjack-actions');
+        if (holdem) holdem.classList.toggle('hidden', isBj);
+        if (bj) bj.classList.toggle('hidden', !isBj);
+        const potLabel = document.getElementById('pot-label');
+        if (potLabel) potLabel.textContent = isBj ? 'Bet:' : 'Pot:';
+    }
+
     startGame() {
         if (this.isOnlineMode) {
             // Online multiplayer - send to server
@@ -664,6 +784,7 @@ class PokerApp {
             if (result.success) {
                 this.showScreen('game');
                 this.resetRenderCache();
+                this.setTableChrome('holdem');
                 this.forceFullRender();
                 this.addCardRevealButtons();
                 this.createChatUI();
@@ -941,34 +1062,37 @@ class PokerApp {
 
     showRulesModal() {
         let modal = document.getElementById('rules-modal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'rules-modal';
-            modal.className = 'modal-overlay';
-            const sections = (typeof HoldemRules !== 'undefined' ? HoldemRules.RULES_TEXT : []).map(section => `
+        if (modal) modal.remove();
+        modal = document.createElement('div');
+        modal.id = 'rules-modal';
+        modal.className = 'modal-overlay';
+        const isBj = this.getActiveGameMode() === 'blackjack';
+        const pack = isBj
+            ? (typeof BlackjackRules !== 'undefined' ? BlackjackRules.RULES_TEXT : [])
+            : (typeof HoldemRules !== 'undefined' ? HoldemRules.RULES_TEXT : []);
+        const sections = pack.map(section => `
                 <div class="rules-section">
                     <h3>${section.title}</h3>
                     <p>${section.body}</p>
                 </div>
             `).join('');
-            modal.innerHTML = `
+        modal.innerHTML = `
                 <div class="modal-content rules-modal">
-                    <h2>Texas Hold'em Rules</h2>
-                    <p class="subtitle">No-limit Hold'em as played at this table</p>
+                    <h2>${isBj ? 'Blackjack Rules' : 'Texas Hold\'em Rules'}</h2>
+                    <p class="subtitle">${isBj ? 'American / Las Vegas Strip rules at this table' : 'No-limit Hold\'em as played at this table'}</p>
                     ${sections}
                     <div class="modal-actions">
                         <button id="rules-close" class="primary-btn" type="button">Got it</button>
                     </div>
                 </div>
             `;
-            document.body.appendChild(modal);
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.classList.remove('active');
-            });
-            document.getElementById('rules-close').addEventListener('click', () => {
-                modal.classList.remove('active');
-            });
-        }
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.remove('active');
+        });
+        document.getElementById('rules-close').addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
         modal.classList.add('active');
     }
 
@@ -1016,6 +1140,15 @@ class PokerApp {
     }
 
     playerAction(action, amount = 0) {
+        if (this.getActiveGameMode() === 'blackjack' && !this.isOnlineMode && this.blackjackTable) {
+            const result = BlackjackRules.apply(this.blackjackTable, this.currentPlayerId, action, { amount });
+            if (!result.ok) {
+                alert(result.error || 'Illegal action');
+                return;
+            }
+            this.renderBlackjack();
+            return;
+        }
         if (this.isOnlineMode) {
             // Online multiplayer - send to server
             window.socketClient.playerAction(action, amount);
@@ -1033,10 +1166,13 @@ class PokerApp {
 
     leaveGame() {
         if (confirm('Are you sure you want to leave the game?')) {
-            this.currentGame.clearTimers();
+            if (this.currentGame && this.currentGame.clearTimers) this.currentGame.clearTimers();
             this.showScreen('home');
             this.currentGame = null;
+            this.blackjackTable = null;
+            this.currentRoom = null;
             this.currentPlayerId = null;
+            this.setTableChrome('holdem');
             this.resetRenderCache();
         }
     }
@@ -1274,6 +1410,8 @@ class PokerApp {
                 <div class="player-details">
                     <div class="player-name">${player.name}</div>
                     ${player.isHost ? '<div class="player-badge">👑 Host</div>' : ''}
+                    ${this.currentRoom.gameMode === 'blackjack' && (player.isDealer || player.isHost) ? '<div class="player-badge">♠ Dealer</div>' : ''}
+                    ${this.currentRoom.gameMode === 'blackjack' && !player.isHost && !player.isDealer ? '<div class="player-badge">Player</div>' : ''}
                     ${player.isAI ? '<div class="player-badge" style="color:#00d4aa">🤖 AI</div>' : ''}
                     ${!player.isConnected ? '<div class="player-badge" style="color:#ff3b5c">Disconnected</div>' : ''}
                 </div>
@@ -1290,21 +1428,37 @@ class PokerApp {
 
         const playerCount = this.currentRoom.players.length;
         const myPlayer = this.currentRoom.players.find(p => p.oderId === this.currentPlayerId);
+        const isBj = this.currentRoom.gameMode === 'blackjack';
+        const lobbyTitle = document.querySelector('#lobby-screen h2');
+        const lobbySub = document.querySelector('#lobby-screen .subtitle');
+        if (isBj) {
+            if (lobbyTitle) lobbyTitle.textContent = 'Blackjack Table';
+            if (lobbySub) lobbySub.textContent = 'Host is the dealer. One player can join.';
+        } else {
+            if (lobbyTitle) lobbyTitle.textContent = 'Waiting for Players';
+            if (lobbySub) lobbySub.textContent = 'Share the room code with your friends';
+        }
 
         if (playerCount >= 2 && myPlayer?.isHost) {
             startBtn.disabled = false;
-            countSpan.textContent = `(${playerCount} players ready)`;
+            countSpan.textContent = isBj ? '(Dealer + player ready)' : `(${playerCount} players ready)`;
         } else if (!myPlayer?.isHost) {
             startBtn.disabled = true;
             countSpan.textContent = '(Waiting for host)';
         } else {
             startBtn.disabled = true;
-            countSpan.textContent = `(${playerCount}/2+ players)`;
+            countSpan.textContent = isBj ? `(${playerCount}/2 — waiting for player)` : `(${playerCount}/2+ players)`;
         }
     }
 
     renderOnlineGame() {
         if (!this.currentRoom) return;
+        if (this.currentRoom.gameMode === 'blackjack') {
+            this.setTableChrome('blackjack');
+            this.renderBlackjack();
+            return;
+        }
+        this.setTableChrome('holdem');
 
         const myPlayer = this.currentRoom.players.find(p => p.oderId === this.currentPlayerId);
         if (!myPlayer) return;
@@ -1321,6 +1475,176 @@ class PokerApp {
         // Update controls
         this.updateOnlineActionControls(myPlayer);
         this.updateOnlineBetSlider(myPlayer);
+    }
+
+    getBlackjackView() {
+        if (this.isOnlineMode && this.currentRoom && this.currentRoom.bj) {
+            return this.currentRoom.bj;
+        }
+        if (this.blackjackTable && typeof BlackjackRules !== 'undefined') {
+            return BlackjackRules.viewFor(this.blackjackTable, this.currentPlayerId);
+        }
+        return null;
+    }
+
+    renderBlackjack() {
+        const view = this.getBlackjackView();
+        if (!view) return;
+        this.setTableChrome('blackjack');
+
+        const amDealer = this.currentPlayerId === view.dealer.id || this.currentPlayerId === 'bj_dealer';
+        const myChips = amDealer ? view.dealer.chips : view.player.chips;
+        const betTotal = (view.player.hands || []).reduce((s, h) => s + (h.bet || 0), 0) + (view.pendingBet || 0);
+        document.getElementById('pot-amount').textContent = `$${betTotal}`;
+        document.getElementById('player-chips-amount').textContent = `$${myChips}`;
+        const street = document.getElementById('street-label');
+        const phaseNames = {
+            waiting: 'Waiting',
+            betting: 'Betting',
+            insurance: 'Insurance',
+            player: amDealer ? 'Player acting' : 'Your play',
+            dealer: 'Dealer',
+            complete: 'Result'
+        };
+        if (street) street.textContent = phaseNames[view.phase] || view.phase;
+
+        this.renderBlackjackDealer(view);
+        this.renderBlackjackHands(view);
+        this.renderBlackjackOpponents(view, amDealer);
+        this.updateBlackjackActions(view, amDealer);
+        this.updateBlackjackBetSlider(view, amDealer);
+    }
+
+    renderBlackjackDealer(view) {
+        const container = document.getElementById('community-cards');
+        container.innerHTML = '';
+        const label = document.createElement('div');
+        label.className = 'bj-dealer-label';
+        const totalText = view.holeRevealed || this.currentPlayerId === view.dealer.id
+            ? `Dealer — ${view.dealer.total}`
+            : `Dealer — ${view.dealer.upcard ? view.dealer.upcard.rank + ' showing' : ''}`;
+        label.textContent = totalText;
+        container.appendChild(label);
+        (view.dealer.cards || []).forEach((card, i) => {
+            if (card.hidden) {
+                const back = CardRenderer.createCardElement('A', 'spades', true);
+                back.classList.add('dealing');
+                back.style.animationDelay = `${i * 0.08}s`;
+                container.appendChild(back);
+            } else {
+                const el = CardRenderer.createCardElement(card.rank, card.suit);
+                el.classList.add('dealing');
+                el.style.animationDelay = `${i * 0.08}s`;
+                container.appendChild(el);
+            }
+        });
+        if (view.message) {
+            const msg = document.createElement('div');
+            msg.className = 'bj-status';
+            msg.textContent = view.message;
+            container.appendChild(msg);
+        }
+    }
+
+    renderBlackjackHands(view) {
+        const container = document.getElementById('player-cards');
+        container.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'bj-hands';
+        const hands = view.player.hands || [];
+        if (!hands.length) {
+            const empty = document.createElement('div');
+            empty.className = 'bj-hand-meta';
+            empty.textContent = view.phase === 'betting' ? 'Place your bet' : 'Waiting for the deal';
+            container.appendChild(empty);
+            return;
+        }
+        hands.forEach((hand, index) => {
+            const col = document.createElement('div');
+            col.className = 'bj-hand' + (index === view.activeHand && view.phase === 'player' ? ' active-hand' : '');
+            const meta = document.createElement('div');
+            meta.className = 'bj-hand-meta';
+            let status = `$${hand.bet} · ${hand.total}${hand.soft ? ' soft' : ''}`;
+            if (hand.blackjack) status += ' · BJ';
+            if (hand.busted) status += ' · bust';
+            if (hand.surrendered) status += ' · surrender';
+            meta.textContent = status;
+            col.appendChild(meta);
+            const cardsRow = document.createElement('div');
+            cardsRow.style.display = 'flex';
+            cardsRow.style.gap = '6px';
+            (hand.cards || []).forEach(card => {
+                cardsRow.appendChild(CardRenderer.createCardElement(card.rank, card.suit));
+            });
+            col.appendChild(cardsRow);
+            wrap.appendChild(col);
+        });
+        container.appendChild(wrap);
+    }
+
+    renderBlackjackOpponents(view, amDealer) {
+        const container = document.getElementById('players-container');
+        container.innerHTML = '';
+        const other = amDealer
+            ? { name: view.player.name, chips: view.player.chips, role: 'Player' }
+            : { name: view.dealer.name, chips: view.dealer.chips, role: 'Dealer' };
+        const seat = document.createElement('div');
+        seat.className = 'opponent-player';
+        seat.style.left = '50%';
+        seat.style.top = '8%';
+        seat.style.transform = 'translate(-50%, -50%)';
+        seat.innerHTML = `
+            <div class="opponent-info">
+                <div class="opponent-name">${other.name}</div>
+                <div class="opponent-chips">$${other.chips} · ${other.role}</div>
+            </div>
+        `;
+        container.appendChild(seat);
+    }
+
+    updateBlackjackActions(view, amDealer) {
+        const legal = amDealer
+            ? (view.phase === 'complete' ? ['next'] : [])
+            : (view.legalActions || []);
+        const map = {
+            bet: 'bj-bet-btn',
+            hit: 'bj-hit-btn',
+            stand: 'bj-stand-btn',
+            double: 'bj-double-btn',
+            split: 'bj-split-btn',
+            surrender: 'bj-surrender-btn',
+            insurance: 'bj-insurance-btn',
+            'no-insurance': 'bj-no-ins-btn',
+            'even-money': 'bj-even-btn',
+            next: 'bj-next-btn'
+        };
+        Object.entries(map).forEach(([action, id]) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const on = legal.includes(action);
+            btn.disabled = !on;
+            btn.style.display = on ? '' : 'none';
+        });
+        const sliderWrap = document.querySelector('.bet-controls');
+        if (sliderWrap) sliderWrap.style.display = legal.includes('bet') ? '' : 'none';
+        const controls = document.getElementById('action-controls');
+        if (legal.length) controls.classList.add('my-turn');
+        else controls.classList.remove('my-turn');
+    }
+
+    updateBlackjackBetSlider(view, amDealer) {
+        if (amDealer) return;
+        const slider = document.getElementById('bet-slider');
+        const min = view.minBet || 10;
+        const max = Math.max(min, view.player.chips);
+        slider.min = min;
+        slider.max = max;
+        slider.step = 5;
+        const current = parseInt(slider.value, 10);
+        if (!Number.isFinite(current) || current < min || current > max) {
+            slider.value = Math.min(Math.max(min * 2, min), max);
+        }
+        document.getElementById('bet-amount').textContent = slider.value;
     }
 
     getActionBadgeHtml(playerId) {

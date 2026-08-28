@@ -9,6 +9,14 @@ const path = require('path');
 
 const { Room } = require('./models');
 const { createDeck, shuffleDeck, evaluateHand, makeAIDecision, getRandomTaunt, HoldemRules } = require('./gameLogic');
+const {
+    isBlackjackRoom,
+    createBlackjackTable,
+    applyBlackjackAction,
+    buyBackBlackjack,
+    sanitizeBlackjackRoom,
+    broadcastPoker
+} = require('./blackjack');
 
 const app = express();
 const server = http.createServer(app);
@@ -317,6 +325,7 @@ io.on('connection', (socket) => {
                 isHost: true,
                 isActive: false,
                 isAI: false,
+                isDealer: (settings && settings.gameMode === 'blackjack'),
                 buyBacksUsed: 0,
                 isConnected: true
             }],
@@ -329,8 +338,11 @@ io.on('connection', (socket) => {
                 allowBuyBack: true,
                 maxBuyBacks: 3,
                 buyBackAmount: 1000,
+                minBet: 10,
+                gameMode: 'holdem',
                 ...(settings || {})
             },
+            gameMode: (settings && settings.gameMode === 'blackjack') ? 'blackjack' : 'holdem',
             deck: [],
             communityCards: [],
             pot: 0,
@@ -388,6 +400,10 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Room not found' });
             return;
         }
+        if (isBlackjackRoom(room) && room.players.length >= 2) {
+            socket.emit('error', { message: 'Blackjack is 1 dealer + 1 player. This room is full.' });
+            return;
+        }
         if (room.players.length >= 8) {
             socket.emit('error', { message: 'Room is full' });
             return;
@@ -410,6 +426,7 @@ io.on('connection', (socket) => {
             isHost: false,
             isActive: false,
             isAI: false,
+            isDealer: false,
             buyBacksUsed: 0,
             isConnected: true
         });
@@ -447,6 +464,20 @@ io.on('connection', (socket) => {
             return;
         }
 
+        if (isBlackjackRoom(room)) {
+            if (room.players.length !== 2) {
+                socket.emit('error', { message: 'Blackjack needs exactly 1 dealer (host) and 1 player' });
+                return;
+            }
+            const started = createBlackjackTable(room);
+            if (started.error) {
+                socket.emit('error', { message: started.error });
+                return;
+            }
+            broadcastPoker(io, room, 'gameStarted');
+            return;
+        }
+
         startNewRound(room);
 
         io.to(socket.roomCode).emit('gameStarted', {
@@ -461,6 +492,18 @@ io.on('connection', (socket) => {
         const { action, amount } = data;
         const room = pokerRooms[socket.roomCode];
         if (!room) return;
+
+        if (isBlackjackRoom(room)) {
+            const result = applyBlackjackAction(room, socket.oderId, action, amount);
+            if (!result.ok) {
+                socket.emit('error', { message: result.error || 'Illegal action' });
+                return;
+            }
+            broadcastPoker(io, room, 'gameUpdate', {
+                lastAction: { playerId: socket.oderId, action, amount }
+            });
+            return;
+        }
 
         const playerIndex = room.players.findIndex(p => p.oderId === socket.oderId);
         if (playerIndex === -1 || playerIndex !== room.currentPlayerIndex) {
@@ -529,6 +572,16 @@ io.on('connection', (socket) => {
         const room = pokerRooms[socket.roomCode];
         if (!room) return;
 
+        if (isBlackjackRoom(room)) {
+            const result = applyBlackjackAction(room, socket.oderId, 'next');
+            if (!result.ok) {
+                socket.emit('error', { message: result.error || 'Cannot start next hand' });
+                return;
+            }
+            broadcastPoker(io, room, 'gameStarted');
+            return;
+        }
+
         room.dealerIndex = HoldemRules.nextLiveIndex(room.players, room.dealerIndex + 1);
         startNewRound(room);
 
@@ -555,6 +608,22 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Max buy-backs reached' });
             return;
         }
+        if (isBlackjackRoom(room)) {
+            const bought = buyBackBlackjack(room, socket.oderId);
+            if (!bought.ok) {
+                socket.emit('error', { message: bought.error });
+                return;
+            }
+            const seat = room.players.find(p => p.oderId === socket.oderId);
+            if (seat) seat.buyBacksUsed = (seat.buyBacksUsed || 0) + 1;
+            socket.emit('buyBackSuccess', {
+                chips: bought.chips,
+                buyBacksRemaining: bought.buyBacksRemaining
+            });
+            broadcastPoker(io, room, 'gameUpdate');
+            return;
+        }
+
         if (player.chips > 0) {
             socket.emit('error', { message: 'You still have chips' });
             return;
@@ -604,11 +673,16 @@ io.on('connection', (socket) => {
         socket.join(code);
 
         socket.emit('rejoinSuccess', { playerId });
-        socket.emit('gameUpdate', { room: sanitizeRoom(room) });
-        socket.to(code).emit('playerReconnected', {
-            playerId,
-            room: sanitizeRoom(room)
-        });
+        if (isBlackjackRoom(room) && room.bj) {
+            socket.emit('gameUpdate', { room: sanitizeBlackjackRoom(room, playerId) });
+            broadcastPoker(io, room, 'playerReconnected', { playerId });
+        } else {
+            socket.emit('gameUpdate', { room: sanitizeRoom(room) });
+            socket.to(code).emit('playerReconnected', {
+                playerId,
+                room: sanitizeRoom(room)
+            });
+        }
 
         console.log(`🔁 ${player.name} rejoined room ${code}`);
     });
@@ -1711,6 +1785,7 @@ function sanitizeRoom(room) {
     // Remove deck from response
     delete data.deck;
 
+    data.gameMode = room.gameMode || 'holdem';
     data.lastRaiseSize = room.lastRaiseSize;
     data.minRaiseTo = HoldemRules.minRaiseTo(room.currentBet, room.lastRaiseSize, room.settings);
 

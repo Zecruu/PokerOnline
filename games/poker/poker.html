@@ -56,10 +56,14 @@
                     Poker Online
                     <span class="card-icon">♥</span>
                 </h1>
-                <p class="tagline">Play Texas Hold'em with friends anywhere</p>
+                <p class="tagline" id="home-tagline">Play Texas Hold'em with friends anywhere</p>
             </div>
 
             <div class="menu-card">
+                <div class="mode-toggle" id="home-mode-toggle" role="tablist" aria-label="Game mode">
+                    <button type="button" class="mode-btn active" data-mode="holdem">Texas Hold'em</button>
+                    <button type="button" class="mode-btn" data-mode="blackjack">Blackjack</button>
+                </div>
                 <button id="create-room-btn" class="primary-btn">
                     <span class="btn-icon">+</span>
                     Create New Room
@@ -70,7 +74,7 @@
                 </button>
                 <button id="home-rules-btn" class="secondary-btn" type="button">
                     <span class="btn-icon">?</span>
-                    Texas Hold'em Rules
+                    <span id="home-rules-label">Texas Hold'em Rules</span>
                 </button>
             </div>
         </div>
@@ -147,12 +151,12 @@
         <div class="game-container">
             <div class="game-header">
                 <div class="game-info">
-                    <span class="pot-label">Pot:</span>
+                    <span class="pot-label" id="pot-label">Pot:</span>
                     <span id="pot-amount" class="pot-amount">$0</span>
                     <span id="street-label" class="street-label">Preflop</span>
                 </div>
                 <div class="game-header-actions">
-                    <button id="rules-btn" class="icon-btn" type="button" title="Texas Hold'em rules">Rules</button>
+                    <button id="rules-btn" class="icon-btn" type="button" title="Game rules">Rules</button>
                     <button id="leave-game-btn" class="icon-btn">Exit</button>
                 </div>
             </div>
@@ -195,12 +199,24 @@
                         </div>
                     </div>
 
-                    <div class="action-buttons">
+                    <div class="action-buttons holdem-actions" id="holdem-actions">
                         <button id="fold-btn" class="action-btn fold-btn">Fold</button>
                         <button id="check-btn" class="action-btn check-btn">Check</button>
                         <button id="call-btn" class="action-btn call-btn">Call</button>
                         <button id="raise-btn" class="action-btn raise-btn">Raise</button>
                         <button id="allin-btn" class="action-btn allin-btn">All-In</button>
+                    </div>
+                    <div class="action-buttons blackjack-actions hidden" id="blackjack-actions">
+                        <button id="bj-bet-btn" class="action-btn raise-btn">Place Bet</button>
+                        <button id="bj-hit-btn" class="action-btn check-btn">Hit</button>
+                        <button id="bj-stand-btn" class="action-btn call-btn">Stand</button>
+                        <button id="bj-double-btn" class="action-btn raise-btn">Double</button>
+                        <button id="bj-split-btn" class="action-btn allin-btn">Split</button>
+                        <button id="bj-surrender-btn" class="action-btn fold-btn">Surrender</button>
+                        <button id="bj-insurance-btn" class="action-btn raise-btn">Insurance</button>
+                        <button id="bj-no-ins-btn" class="action-btn check-btn">No Insurance</button>
+                        <button id="bj-even-btn" class="action-btn call-btn">Even Money</button>
+                        <button id="bj-next-btn" class="action-btn raise-btn">Next Hand</button>
                     </div>
                 </div>
             </div>
@@ -209,6 +225,7 @@
 
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <script src="holdem-rules.js"></script>
+    <script src="blackjack-rules.js"></script>
     <script src="cards.js"></script>
     <script src="game.js"></script>
     <script src="socket-client.js"></script>

@@ -32,7 +32,7 @@ export const GAMES: Game[] = [
     id: "poker",
     title: "Poker Online",
     description:
-      "Experience the thrill of Texas Hold'em! Play with friends in real-time or challenge our trash-talking AI.",
+      "Texas Hold'em and Blackjack. Play Hold'em with friends or sit a 1v1 blackjack table — host deals, one player bets.",
     thumbnail: "/games/poker/poker_thumbnail.png",
     href: "/games/poker/poker.html",
     badge: "HOT",

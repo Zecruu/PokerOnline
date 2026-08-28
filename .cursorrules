@@ -9,17 +9,23 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - Server runs on port 3001 (production) or 3002 (local dev)
 - This folder was a zip dump with no .git — `git init` + `remote add origin`, default branch is master
 - html/body overflow:hidden + position:fixed prevents position:sticky from pinning the poker action bar; use position:fixed on mobile
+- Poker client is duplicated in `games/poker` and `hub/public/games/poker` — update both
+- Blackjack multiplayer: host is the dealer bank, joiner is the only player; rooms cap at 2
 
 ## Scratchpad
 
-### Current Task: Tactical Waters — bomb-only + move during turn
+### Current Task: Poker game modes + Blackjack multiplayer
+[X] Home/settings game mode: Hold'em vs Blackjack
+[X] Official blackjack rules engine + tests
+[X] Multiplayer: 1 dealer (host) + 1 player
+[X] Blackjack table UI (hit/stand/double/split/insurance)
+[X] Sync hub copy + catalog
+
+### Previous Task: Tactical Waters — bomb-only + move during turn
 [X] Remove sonar, torpedo, recon, barrage
 [X] Only bomb attack
 [X] Allow ship move during the turn (not only after a miss)
 [X] Update how-to-play copy
-
-### Previous Task: GitHub + Hold'em Rules + Mobile Actions
-[X] Connected to GitHub, Hold'em rules, mobile action bar
 
 ## Lessons
 - This folder was a zip dump with no .git; init + remote add origin, default branch is master
