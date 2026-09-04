@@ -101,7 +101,24 @@ export default function Home() {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-8 pb-10 lg:pt-12 lg:pb-14">
-          <div className="grid gap-4 lg:gap-6 lg:grid-cols-2 items-stretch">
+          <div className="grid gap-4 lg:gap-6 lg:grid-cols-2 xl:grid-cols-3 items-stretch">
+            <PromoTile
+              title="Graveborn"
+              eyebrow="New"
+              badgeClassName="badge-featured"
+              description="Necromancer survivor. Auto-fire, auto-raise a capped skeleton army, draft League-style class cards."
+              bgImage="/games/graveborn/thumbnail.svg"
+              theme="purple"
+              action={
+                <Link
+                  href="/games/graveborn/index.html"
+                  className="btn-glass btn-glass-primary px-5 py-2.5 text-sm sm:text-base"
+                >
+                  <span className="mr-1.5">▶</span> Play now
+                </Link>
+              }
+            />
+
             <PromoTile
               title="Velthara's Dominion"
               eyebrow={ownsVelthara ? "Owned" : "Featured"}
@@ -229,12 +246,14 @@ function PromoTile({
   badgeClassName: string;
   description: string;
   bgImage: string;
-  theme: "cyan" | "green";
+  theme: "cyan" | "green" | "purple";
   action: React.ReactNode;
 }) {
   const themeClass =
     theme === "cyan"
       ? "from-[rgba(0,212,170,0.18)] to-[rgba(14,17,28,0.94)]"
+      : theme === "purple"
+      ? "from-[rgba(157,109,255,0.22)] to-[rgba(14,17,28,0.94)]"
       : "from-[rgba(165,214,167,0.18)] to-[rgba(14,17,28,0.94)]";
 
   return (

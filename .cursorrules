@@ -22,7 +22,13 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Graveborn mobile-friendly web play
+### Current Task: Ship Graveborn card to live zecrugames.com
+[ ] Hub-local card href/thumbnail so www serves it like Poker
+[ ] Hero tile on homepage
+[ ] Push master so Railway deploys
+[ ] Confirm live homepage shows the card
+
+### Previous Task: Graveborn mobile-friendly web play
 [X] Phone HUD / title / draft cards + safe-area
 [X] Visible virtual joystick + touch input
 [X] Sync games/ + hub/public + games-server copies
