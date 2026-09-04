@@ -25,9 +25,9 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ### Current Task: Graveborn horde — more enemies, scaling, bosses
 [X] Enemy catalog + tests
-[ ] Web combat + sprites
-[ ] Godot port
-[ ] Sync, playtest, ship
+[X] Web combat + sprites
+[X] Godot port
+[X] Sync, playtest, ship
 
 ### Previous Task: Ship Graveborn card to live zecrugames.com
 [X] Hub-local card href/thumbnail so www serves it like Poker
