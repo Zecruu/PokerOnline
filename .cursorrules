@@ -14,16 +14,16 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - The animation/experience engine is **Rive** (rive.app), not "Rise". GameKit-for-Flutter is a stale preview; current path is Apple `RiveRuntime` + Luau + optional GPU Canvas
 - Rive GPU Canvas compiles WGSL to Metal on iOS but is a low-level GPU API, not a horde/3D engine; official GLTF/lighting libraries were still a production gap
 - Shipping any iOS game still needs a Mac, Apple Developer Program, and (after 2026-04-28) Xcode 26 + iOS 26 SDK — Linux cannot archive an IPA
+- Necromancer/mage iOS survivor is **2D** when art is sprite sheets and the world is procedural; 3D billboards waste battery and hide the army. Cap summons; overflow = stats/novas. Godot 2D + atlases + pooling, not uncapped entities
 
 ## Scratchpad
 
-### Current Task: Rive (rive.app) research for iOS survivor
-[X] Confirm product: Rive, not "Rise" / Rise Tools / GameKit-only
-[X] Research editor, Luau scripting, Apple runtime, GPU Canvas
-[X] Map iOS App Store path (Xcode 26 / iOS 26 SDK, Cadet exports)
-[X] Compare to Godot (velthara-dominion-2d) and Unity (Megabonk)
-[X] Write docs/rive-ios-survivor-research.md + spike plan
-[ ] Next: time-boxed Spike 1 in Rive editor (50/150/300 enemies) if we proceed
+### Current Task: iOS necromancer/mage survivor — 2D decision
+[X] Rive researched; not the horde engine
+[X] Decision: **2D** (sprite sheets + procedural + iOS). Not 3D, not sprite-billboard 3D
+[X] Addiction loop: corpses as currency, capped army, spell draft, 8–15 min runs
+[X] Engine: Godot 4.6 2D; reuse velthara-dominion-2d; Rive optional for player/HUD only
+[ ] Next if we build: touch joystick, pooled horde, corpse-raise, iOS export preset
 
 ### Previous Task: Poker game modes + Blackjack multiplayer
 [X] Home/settings game mode: Hold'em vs Blackjack

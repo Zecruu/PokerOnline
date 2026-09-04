@@ -243,6 +243,73 @@ Keep Godot as sim. Use Rive only for the player + HUD. Measure draw-call cost of
 
 ---
 
+## 10. Decision: 2D necromancer/mage survivor (not 3D)
+
+**Ship it in 2D.** Top-down, sprite-sheet characters, procedurally assembled arenas. Godot 4.6, Compatibility or Mobile renderer, MultiMesh + pooling for the horde.
+
+This is not a taste call. The constraints already pick the dimension.
+
+| Constraint | What it implies |
+| --- | --- |
+| Art is **sprite sheets** | That is a 2D pipeline. In 3D those sheets become billboards (flat cards that always face the camera). You pay 3D cost and still look 2D. |
+| World is **procedural** | 2D chunked tilemaps are cheap to generate, stream, and cull on a phone. 3D procgen needs meshes, collision, lighting, and pathfinding on height. |
+| Must stay smooth on **iOS** | Vampire Survivors-likes live or die at 400–2,000 entities. 2D instancing + an atlas is the proven mobile pattern. 3D horde (Megabonk-style) is a Unity desktop game, not an iPhone thermal budget. |
+| Fantasy is **necromancer / mage** | Orbiting skulls, summon rings, bone walls, auras, and corpse explosions read instantly from above. A 3D camera hides the army you are proud of. |
+| Must be **addicting** | Addiction is the run loop, not the camera. 3D does not make drafts, summons, or “one more run” better. |
+
+Megabonk is the wrong reference for *this* asset plan. It is Unity 3D with meshes. Our existing work is already the right reference: Velthara’s Dominion (mage path, skulls, wolves, imps, fire aura) and `godot/velthara-dominion-2d` (sprite-sheet player + 3 enemy types + waves).
+
+### Why 2.5D / fake-3D is a trap
+
+Y-sorted 2D with chunky shadows (Hades, Dead Cells, Brotato) is fine and still 2D. A real 3D camera with sprite-sheet characters is the expensive way to get a worse silhouette on a 6-inch screen, plus more draw calls, more heat, and a harder App Store performance review.
+
+Use a slight isometric or “3/4 view” **sprite** if you want depth. Do not put a perspective camera on a sprite horde.
+
+### What actually makes the mage/necro loop addicting
+
+Keep runs at 8–15 minutes. The player is not a gun — they are a **growing army**.
+
+1. **Corpses are currency.** Kills leave bodies. Spend them: raise a skeleton, detonate a bone bomb, feed a skull, or freeze a bone wall. Every pack on the ground is a decision, not litter.
+2. **The army is the scoreboard.** Caps stay hard for iOS (for example 12 skeletons, 6 skulls, 3 elites). Overflow becomes damage / size / on-death nova so power fantasy continues without spawning entity 200.
+3. **Spell draft, not bullet stats.** Level-up cards change *shape*: orbit, nova, chain, summon, curse aura. Three cards, pick one, no pausing longer than a breath on mobile (or a big Pause button).
+4. **One signature feel per run.** Start as glass mage. By minute 6 you are a moving graveyard. Visual noise must stay readable: recolor via sheet variants, not extra particles per minion.
+5. **Short meta.** Unlock one new starting grimoire or minion type per successful run. Daily seed for the procedural map.
+
+That is the Vampire Survivors dopamine loop with a necromancer skin. It does not need 3D.
+
+### iOS performance budget (2D, sprite sheets)
+
+Target: **30 fps minimum, 60 fps on A15+**, 10-minute run without thermal collapse, on a 3-year-old iPhone.
+
+| Rule | Why |
+| --- | --- |
+| One texture atlas per “family” (player, undead, demons, pickups) | Draw calls kill iOS more than poly count. Sheets already want an atlas. |
+| ASTC (or ETC2) import, no uncompressed PNG at runtime | VRAM and memory warnings on 3 GB phones. |
+| Pool every enemy, gem, projectile, corpse | `new`/`free` mid-horde = frame spikes. |
+| Far entities: 2-frame walk cycle, no shadows, no AI tick every frame | LOD by distance. Necro army behind the camera-follow radius can be dumb. |
+| Combat overlap, not physics bodies, for the horde | Circle vs circle in a grid/hash. `CharacterBody2D` per skeleton will not survive 800 units. |
+| Cap on-screen FX | One blood/bone burst type, pooled. No per-minion particle system. |
+| Procedural map in chunks, recycle off-screen tiles | Infinite graveyard without an infinite node tree. |
+| Godot Compatibility renderer for 2D, or Mobile if we add a few 3D FX later | Do not use Forward+. |
+| Virtual joystick + auto-aim; thumbs never cover the army | Mobile-first. Keyboard is a debug device. |
+
+Minion fantasy vs performance: **simulate cheap, render cheaper.** A raised skeleton can be a MultiMesh instance with a facing bit and a frame index, not a full scene node.
+
+### Engine for this decision
+
+- **Godot 4.6 2D** — already in repo, MIT, iOS Xcode export, sprite + tilemap + MultiMesh2D.
+- **Rive** — optional later for the player cast/HUD only. Not the horde.
+- **Unity 3D** — only if we throw away sprite sheets and build Megabonk. That is a different game.
+
+### Do not do
+
+- Sprite-sheet characters in a 3D world “so it looks like Megabonk.”
+- One unique `.riv` / full skeleton rig per trash mob.
+- Uncapped summons (“infinite army”) on iOS.
+- HTML5 wrap of the current Velthara JS for App Store (Apple 4.2 / 4.7).
+
+---
+
 ## Sources
 
 - [Rive docs index](https://rive.app/docs/llms.txt)
