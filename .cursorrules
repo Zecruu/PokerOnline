@@ -11,21 +11,26 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - html/body overflow:hidden + position:fixed prevents position:sticky from pinning the poker action bar; use position:fixed on mobile
 - Poker client is duplicated in `games/poker` and `hub/public/games/poker` — update both
 - Blackjack multiplayer: host is the dealer bank, joiner is the only player; rooms cap at 2
+- The animation/experience engine is **Rive** (rive.app), not "Rise". GameKit-for-Flutter is a stale preview; current path is Apple `RiveRuntime` + Luau + optional GPU Canvas
+- Rive GPU Canvas compiles WGSL to Metal on iOS but is a low-level GPU API, not a horde/3D engine; official GLTF/lighting libraries were still a production gap
+- Shipping any iOS game still needs a Mac, Apple Developer Program, and (after 2026-04-28) Xcode 26 + iOS 26 SDK — Linux cannot archive an IPA
 
 ## Scratchpad
 
-### Current Task: Poker game modes + Blackjack multiplayer
+### Current Task: Rive (rive.app) research for iOS survivor
+[X] Confirm product: Rive, not "Rise" / Rise Tools / GameKit-only
+[X] Research editor, Luau scripting, Apple runtime, GPU Canvas
+[X] Map iOS App Store path (Xcode 26 / iOS 26 SDK, Cadet exports)
+[X] Compare to Godot (velthara-dominion-2d) and Unity (Megabonk)
+[X] Write docs/rive-ios-survivor-research.md + spike plan
+[ ] Next: time-boxed Spike 1 in Rive editor (50/150/300 enemies) if we proceed
+
+### Previous Task: Poker game modes + Blackjack multiplayer
 [X] Home/settings game mode: Hold'em vs Blackjack
 [X] Official blackjack rules engine + tests
 [X] Multiplayer: 1 dealer (host) + 1 player
 [X] Blackjack table UI (hit/stand/double/split/insurance)
 [X] Sync hub copy + catalog
-
-### Previous Task: Tactical Waters — bomb-only + move during turn
-[X] Remove sonar, torpedo, recon, barrage
-[X] Only bomb attack
-[X] Allow ship move during the turn (not only after a miss)
-[X] Update how-to-play copy
 
 ## Lessons
 - This folder was a zip dump with no .git; init + remote add origin, default branch is master
