@@ -14,18 +14,25 @@
 
 html, body {
   height: 100%;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--bone);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   touch-action: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #wrap {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 #game {
@@ -33,13 +40,14 @@ html, body {
   width: 100%;
   height: 100%;
   background: #0b0a10;
+  touch-action: none;
 }
 
 #hud {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  top: 10px;
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  top: max(8px, env(safe-area-inset-top));
   pointer-events: none;
   z-index: 5;
 }
@@ -57,7 +65,8 @@ html, body {
 
 .meta {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   font-size: 13px;
   letter-spacing: 0.04em;
   text-shadow: 0 1px 2px #000;
@@ -94,7 +103,10 @@ html, body {
   justify-content: center;
   background: rgba(4, 3, 8, 0.72);
   z-index: 10;
-  padding: 16px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .overlay.open { display: flex; }
@@ -127,11 +139,13 @@ button.cta {
   color: #fff;
   border: 1px solid #b896ff;
   padding: 12px 28px;
+  min-height: 48px;
   font-size: 16px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
   margin: 6px;
+  touch-action: manipulation;
 }
 
 button.cta.ghost {
@@ -143,7 +157,57 @@ button.cta.ghost {
 button.cta:hover { filter: brightness(1.12); }
 
 .hub-link { margin-top: 10px; }
-.hub-link a { color: #9b6dff; letter-spacing: 0.06em; }
+.hub-link a {
+  color: #9b6dff;
+  letter-spacing: 0.06em;
+  display: inline-block;
+  padding: 10px 8px;
+  touch-action: manipulation;
+}
+
+.stick {
+  display: none;
+  position: absolute;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 7;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+body.touch-ui.playing:not(.drafting) .stick { display: flex; }
+
+.stick-ring {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  border: 2px solid rgba(232, 220, 200, 0.28);
+  background: rgba(12, 10, 18, 0.38);
+  position: relative;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45);
+}
+
+.stick-knob {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(180, 140, 255, 0.72);
+  border: 2px solid rgba(232, 220, 200, 0.55);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.stick-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: rgba(232, 220, 200, 0.55);
+}
 
 #draft {
   flex-direction: column;
@@ -255,18 +319,82 @@ button.cta:hover { filter: brightness(1.12); }
 #how ul { padding-left: 18px; color: #c8beae; }
 
 @media (max-width: 700px) {
+  .bar { height: 8px; margin-bottom: 4px; }
+  .meta { font-size: 11px; gap: 4px 8px; }
+  #banner { font-size: 18px; top: 26%; }
+
+  .panel {
+    width: min(520px, 100%);
+    padding: 18px 16px 16px;
+  }
+  .panel h1 {
+    font-size: clamp(28px, 11vw, 42px);
+    letter-spacing: 0.1em;
+  }
+  .panel .tag { margin: 6px 0 12px; font-size: 13px; }
+  .panel p { font-size: 14px; margin-bottom: 12px; }
+  button.cta {
+    display: block;
+    width: 100%;
+    margin: 8px 0;
+  }
+
+  #draft {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+  #draft h2 { font-size: 18px; letter-spacing: 0.12em; }
+  #cardRow {
+    flex-direction: column;
+    width: min(460px, 100%);
+    gap: 10px;
+  }
   .aram-card {
-    width: 92vw;
-    min-height: 0;
+    width: 100%;
+    min-height: 72px;
     min-width: 0;
     display: grid;
-    grid-template-columns: 56px 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-columns: 48px 1fr;
+    grid-template-rows: auto auto auto auto;
     text-align: left;
     gap: 0 10px;
-    padding: 12px;
+    padding: 12px 40px 12px 12px;
   }
-  .card-icon { grid-row: 1 / span 3; font-size: 32px; margin: 8px 0; }
-  .card-desc { min-height: 0; }
-  #cardRow { flex-direction: column; width: min(420px, 96vw); }
+  .card-icon { grid-row: 1 / span 4; font-size: 28px; margin: 6px 0; }
+  .card-desc { min-height: 0; font-size: 13px; }
+  .card-flavor { display: none; }
+  .card-key { display: none; }
+
+  #how { max-height: 32vh; }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .panel { padding: 14px 16px; }
+  .panel h1 { font-size: 32px; }
+  #title .panel > p:not(.hub-link) { display: none; }
+  #how { max-height: 28vh; }
+  #cardRow {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: 100%;
+    gap: 8px;
+  }
+  .aram-card {
+    width: 33%;
+    min-width: 0;
+    min-height: 0;
+    display: block;
+    text-align: center;
+    padding: 8px 8px 10px;
+  }
+  .card-icon { display: block; font-size: 22px; margin: 4px auto; }
+  .card-desc { font-size: 12px; min-height: 0; }
+  .card-flavor, .card-key { display: none; }
+  .stick-ring { width: 88px; height: 88px; }
+  .stick-knob { width: 36px; height: 36px; }
+}
+
+@media (max-height: 500px) {
+  #hud .bar:nth-child(2) { display: none; }
+  .meta { font-size: 11px; }
 }

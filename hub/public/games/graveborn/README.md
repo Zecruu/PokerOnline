@@ -30,7 +30,7 @@ python3 -m http.server 8765 --directory games/graveborn
 
 Then visit `http://localhost:8765`.
 
-WASD or hold the left half of the screen to move.
+WASD on desktop. On a phone, drag the MOVE stick or anywhere on the field.
 
 ## Godot
 

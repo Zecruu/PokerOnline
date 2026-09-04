@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#07060c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Graveborn — Necromancer Survivor | Zecru Games</title>
   <meta name="description" content="Play Graveborn, a necromancer survivor from Zecru Games. Auto-fire bone bolts, raise a capped skeleton army, and draft League-style class cards.">
   <meta name="author" content="Zecru Games">
@@ -33,6 +37,12 @@
       </div>
     </div>
     <div id="banner"></div>
+    <div id="stick" class="stick" aria-hidden="true">
+      <div class="stick-ring" id="stickRing">
+        <div class="stick-knob" id="stickKnob"></div>
+      </div>
+      <span class="stick-label">MOVE</span>
+    </div>
 
     <div id="title" class="overlay open">
       <div class="panel">
@@ -45,14 +55,14 @@
         <div id="how">
           <h3>Combat</h3>
           <ul>
-            <li>WASD or hold the left side of the screen to move. Attacks and raises are automatic.</li>
+            <li>Move with WASD, or on a phone drag the MOVE stick (or anywhere on the field). Attacks and raises are automatic.</li>
             <li>Killed enemies leave corpses. Every few seconds you raise the nearest corpse.</li>
             <li>Army is capped. Extra raises explode the corpse so power never needs uncapped entities.</li>
           </ul>
           <h3>Cards</h3>
           <ul>
             <li>Silver = general stats. Gold / Prismatic = Necromancer upgrades.</li>
-            <li>Click a card or press 1 / 2 / 3.</li>
+            <li>Tap a card, or press 1 / 2 / 3 on a keyboard.</li>
           </ul>
         </div>
       </div>

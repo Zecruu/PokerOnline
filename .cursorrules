@@ -18,10 +18,17 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - First Graveborn slice was HTML5 because this Linux agent had no Godot binary and Vercel only hosts web. Engine source is now `godot/graveborn`; `games/graveborn` is the Vercel/web build. Do not skip Godot again.
 - `npx vercel deploy --temporary --yes` works logged-out and returns a claim URL; unclaimed previews expire in ~60 minutes. User must claim to keep the project.
 - Zecru-hosted HTML5 games go in `games-server/public/<id>/` with hub `href`/`thumbnail` pointing at `https://games.zecrugames.com/<id>/` (Velthara pattern). Hub catalog + store `ALL_GAMES` + sidebar + games-server sitemap. Live only after merge to `master` (Railway). Do not treat Vercel as the real host.
+- Graveborn HTML5 is copied in `games/graveborn`, `hub/public/games/graveborn`, and `games-server/public/graveborn` — update all three. Mobile: viewport-fit=cover, 100dvh/visualViewport, safe-area HUD, on-screen MOVE stick, overlay `touch-action: pan-y`.
 
 ## Scratchpad
 
-### Current Task: Graveborn prototype — necro auto-raise + ARAM cards
+### Current Task: Graveborn mobile-friendly web play
+[ ] Phone HUD / title / draft cards + safe-area
+[ ] Visible virtual joystick + touch input
+[ ] Sync games/ + hub/public + games-server copies
+[ ] Verify desktop + mobile viewports
+
+### Previous Task: Graveborn prototype — necro auto-raise + ARAM cards
 [X] Decision: 2D sprite-sheet survivor for iOS
 [X] HTML5 prototype: necromancer, auto-attack, auto-raise, ARAM class cards
 [X] Hub catalog entry

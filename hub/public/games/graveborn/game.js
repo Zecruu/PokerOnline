@@ -27,8 +27,11 @@
   const MAX_GEMS = 80;
 
   const keys = Object.create(null);
-  const pointer = { x: 0, y: 0, active: false, id: null };
-  const joy = { dx: 0, dy: 0, show: false, ox: 0, oy: 0 };
+  const pointer = { x: 0, y: 0, active: false, id: null, mode: null };
+  const joy = { dx: 0, dy: 0, show: false, cx: 0, cy: 0, ox: 0, oy: 0 };
+  const stickKnob = document.getElementById("stickKnob");
+  const stickEl = document.getElementById("stick");
+  const stickRing = document.getElementById("stickRing");
 
   let state;
   let lastT = 0;
@@ -453,6 +456,8 @@
     overlay.classList.add("open");
     overlay.dataset.ready = "1";
     state._offers = offers;
+    document.body.classList.add("drafting");
+    resetJoy();
     showBanner("LEVEL " + state.player._level);
   }
 
@@ -462,6 +467,7 @@
     state.player.taken.push(card.id);
     drafting = false;
     document.getElementById("draft").classList.remove("open");
+    document.body.classList.remove("drafting");
     showBanner(card.name);
     if ((state.player._draftQueue || 0) > 0) {
       openDraft();
@@ -488,6 +494,8 @@
       document.getElementById("overStats").textContent =
         "Survived " + formatTime(state.time) + " · " + state.kills + " kills · Level " + (p._level || 1);
       document.getElementById("over").classList.add("open");
+      document.body.classList.remove("playing");
+      resetJoy();
     }
   }
 
@@ -666,13 +674,49 @@
     state.camY += (p.y - state.camY) * Math.min(1, dt * 8);
   }
 
+  function isTouchUI() {
+    return document.body.classList.contains("touch-ui")
+      || window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  }
+
+  function markTouchUI() {
+    document.body.classList.add("touch-ui");
+  }
+
+  function resetJoy() {
+    pointer.active = false;
+    pointer.id = null;
+    pointer.mode = null;
+    joy.show = false;
+    joy.dx = 0;
+    joy.dy = 0;
+    syncStick();
+  }
+
+  function syncStick() {
+    if (!stickKnob) return;
+    const reach = 28;
+    stickKnob.style.transform =
+      "translate(calc(-50% + " + (joy.dx * reach) + "px), calc(-50% + " + (joy.dy * reach) + "px))";
+  }
+
   function resize() {
     const wrap = canvas.parentElement;
-    const w = wrap.clientWidth;
-    const h = wrap.clientHeight;
+    const vv = window.visualViewport;
+    if (vv && wrap) {
+      wrap.style.position = "fixed";
+      wrap.style.left = vv.offsetLeft + "px";
+      wrap.style.top = vv.offsetTop + "px";
+      wrap.style.width = vv.width + "px";
+      wrap.style.height = vv.height + "px";
+      wrap.style.right = "auto";
+      wrap.style.bottom = "auto";
+    }
+    const w = wrap.clientWidth || window.innerWidth;
+    const h = wrap.clientHeight || window.innerHeight;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.max(320, w * dpr);
-    canvas.height = Math.max(240, h * dpr);
+    canvas.width = Math.max(320, Math.round(w * dpr));
+    canvas.height = Math.max(240, Math.round(h * dpr));
     canvas.style.width = w + "px";
     canvas.style.height = h + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -767,13 +811,16 @@
     }
 
     if (joy.show) {
+      const rect = canvas.getBoundingClientRect();
+      const ox = (joy.cx || joy.ox) - rect.left;
+      const oy = (joy.cy || joy.oy) - rect.top;
       ctx.strokeStyle = "rgba(255,255,255,0.25)";
       ctx.beginPath();
-      ctx.arc(joy.ox, joy.oy, 48, 0, Math.PI * 2);
+      ctx.arc(ox, oy, 48, 0, Math.PI * 2);
       ctx.stroke();
       ctx.fillStyle = "rgba(180,140,255,0.45)";
       ctx.beginPath();
-      ctx.arc(joy.ox + joy.dx * 28, joy.oy + joy.dy * 28, 18, 0, Math.PI * 2);
+      ctx.arc(ox + joy.dx * 28, oy + joy.dy * 28, 18, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -810,8 +857,16 @@
     document.getElementById("draft").classList.remove("open");
     document.getElementById("over").classList.remove("open");
     document.getElementById("title").classList.remove("open");
+    document.body.classList.add("playing");
+    document.body.classList.remove("drafting");
+    resetJoy();
     showBanner("Raise the dead");
     for (let i = 0; i < 10; i++) spawnEnemy();
+  }
+
+  function playingField() {
+    return state && !state.over && !drafting
+      && !document.getElementById("title").classList.contains("open");
   }
 
   function bindInput() {
@@ -827,47 +882,80 @@
       keys[e.code] = false;
     });
 
-    function joyFrom(clientX, clientY) {
-      const rect = canvas.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-      if (!joy.show) {
-        joy.ox = x;
-        joy.oy = y;
-        joy.show = true;
+    function joyFromClient(clientX, clientY, setOrigin, showRing) {
+      if (setOrigin) {
+        joy.cx = clientX;
+        joy.cy = clientY;
+        joy.ox = clientX;
+        joy.oy = clientY;
+        joy.show = !!showRing;
       }
-      const dx = x - joy.ox;
-      const dy = y - joy.oy;
+      const dx = clientX - joy.cx;
+      const dy = clientY - joy.cy;
       const d = Math.hypot(dx, dy) || 1;
       const cap = Math.min(1, d / 48);
       joy.dx = (dx / d) * cap;
       joy.dy = (dy / d) * cap;
+      syncStick();
     }
 
-    canvas.addEventListener("pointerdown", (e) => {
-      if (e.clientX > window.innerWidth * 0.62) return;
+    function beginJoy(e, mode, originEl) {
+      if (e.pointerType === "touch" || e.pointerType === "pen") markTouchUI();
+      if (e.pointerType === "mouse" && !isTouchUI()) return false;
+      if (!playingField()) return false;
+      e.preventDefault();
       pointer.active = true;
       pointer.id = e.pointerId;
-      canvas.setPointerCapture(e.pointerId);
-      joyFrom(e.clientX, e.clientY);
-    });
-    canvas.addEventListener("pointermove", (e) => {
+      pointer.mode = mode;
+      try { (originEl || canvas).setPointerCapture(e.pointerId); } catch (_) {}
+      if (mode === "pad" && stickRing) {
+        const r = stickRing.getBoundingClientRect();
+        joyFromClient(r.left + r.width / 2, r.top + r.height / 2, true, false);
+        joyFromClient(e.clientX, e.clientY, false, false);
+      } else {
+        joyFromClient(e.clientX, e.clientY, true, true);
+      }
+      return true;
+    }
+
+    function moveJoy(e) {
       if (!pointer.active || e.pointerId !== pointer.id) return;
-      joyFrom(e.clientX, e.clientY);
-    });
+      e.preventDefault();
+      joyFromClient(e.clientX, e.clientY, false, pointer.mode !== "pad");
+    }
+
     function endJoy(e) {
       if (pointer.id != null && e.pointerId !== pointer.id) return;
-      pointer.active = false;
-      pointer.id = null;
-      joy.show = false;
-      joy.dx = 0;
-      joy.dy = 0;
+      resetJoy();
     }
+
+    canvas.addEventListener("pointerdown", (e) => beginJoy(e, "float", canvas), { passive: false });
+    canvas.addEventListener("pointermove", moveJoy, { passive: false });
     canvas.addEventListener("pointerup", endJoy);
     canvas.addEventListener("pointercancel", endJoy);
+    canvas.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+
+    if (stickEl) {
+      stickEl.addEventListener("pointerdown", (e) => beginJoy(e, "pad", stickEl), { passive: false });
+      stickEl.addEventListener("pointermove", moveJoy, { passive: false });
+      stickEl.addEventListener("pointerup", endJoy);
+      stickEl.addEventListener("pointercancel", endJoy);
+    }
+
+    window.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "touch") markTouchUI();
+    }, { passive: true });
+
+    document.addEventListener("gesturestart", (e) => e.preventDefault());
   }
 
   window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", () => setTimeout(resize, 80));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", resize);
+    window.visualViewport.addEventListener("scroll", resize);
+  }
+  if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) markTouchUI();
   document.getElementById("btnPlay").addEventListener("click", startRun);
   document.getElementById("btnHow").addEventListener("click", () => {
     document.getElementById("how").classList.toggle("open");
