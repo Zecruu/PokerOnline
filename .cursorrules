@@ -22,7 +22,7 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 [X] Decision: 2D sprite-sheet survivor for iOS
 [X] HTML5 prototype: necromancer, auto-attack, auto-raise, ARAM class cards
 [X] Hub catalog entry
-[ ] Browser playtest
+[X] Browser playtest (title, bolts, raise to 6/6, drafts Lv2–6, gold/prismatic necro cards)
 [ ] Godot port later (reuse velthara-dominion-2d)
 
 ### Previous Task: Poker game modes + Blackjack multiplayer
