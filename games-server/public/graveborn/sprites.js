@@ -100,6 +100,78 @@
     pixel(ctx, 17, 26 + (1 - bob), 5, 5, "#1a1208");
   }
 
+  function miteFrame(ctx, i) {
+    const hop = i % 2;
+    pixel(ctx, 12, 14 + hop, 8, 6, "#6a3a18");
+    pixel(ctx, 13, 16 + hop, 2, 2, "#ffaa33");
+    pixel(ctx, 17, 16 + hop, 2, 2, "#ffaa33");
+    pixel(ctx, 10, 20 + hop, 3, 3, "#4a2810");
+    pixel(ctx, 19, 20 + hop, 3, 3, "#4a2810");
+  }
+
+  function spitFrame(ctx, i) {
+    const bob = i % 2;
+    pixel(ctx, 11, 8 + bob, 10, 8, "#2a4030");
+    pixel(ctx, 13, 10 + bob, 2, 2, "#66ff99");
+    pixel(ctx, 17, 10 + bob, 2, 2, "#66ff99");
+    pixel(ctx, 12, 16 + bob, 8, 10, "#1e3024");
+    pixel(ctx, 20, 12 + bob, 6, 4, "#3d5a40");
+    pixel(ctx, 24, 13 + bob, 3, 2, "#8dff9a");
+  }
+
+  function exploderFrame(ctx, i) {
+    const pulse = i % 2;
+    pixel(ctx, 11, 8 + pulse, 10, 8, "#5a1818");
+    pixel(ctx, 13, 10 + pulse, 2, 2, "#ffee66");
+    pixel(ctx, 17, 10 + pulse, 2, 2, "#ffee66");
+    pixel(ctx, 12, 16, 8, 10, "#3a1010");
+    pixel(ctx, 14, 18 + pulse, 4, 4, "#ff6644");
+    pixel(ctx, 15, 19 + pulse, 2, 2, "#ffe08a");
+  }
+
+  function wraithFrame(ctx, i) {
+    const drift = i % 2 ? 1 : 0;
+    pixel(ctx, 11 + drift, 6, 10, 18, "#3a2a68");
+    pixel(ctx, 13 + drift, 8, 6, 5, "#c8c0ff");
+    pixel(ctx, 14 + drift, 9, 2, 2, "#7d3cff");
+    pixel(ctx, 17 + drift, 9, 2, 2, "#7d3cff");
+    pixel(ctx, 12 + drift, 16, 8, 8, "#2a1a50");
+  }
+
+  function shamanFrame(ctx, i) {
+    const bob = i % 2;
+    pixel(ctx, 11, 8 + bob, 10, 8, "#204050");
+    pixel(ctx, 13, 10 + bob, 2, 2, "#66e0ff");
+    pixel(ctx, 17, 10 + bob, 2, 2, "#66e0ff");
+    pixel(ctx, 12, 16 + bob, 8, 10, "#183038");
+    pixel(ctx, 10, 6 + bob, 3, 8, "#7d3cff");
+    pixel(ctx, 20, 6 + bob, 3, 8, "#7d3cff");
+  }
+
+  function titanFrame(ctx, i) {
+    bruteFrame(ctx, i);
+    pixel(ctx, 10, 3, 12, 4, "#8a6a30");
+    pixel(ctx, 14, 1, 4, 3, "#f0c75e");
+  }
+
+  function sovereignFrame(ctx, i) {
+    skeletonFrame(ctx, i);
+    pixel(ctx, 11, 4, 10, 3, "#7d3cff");
+    pixel(ctx, 14, 2, 4, 3, "#f0c75e");
+  }
+
+  function duchessFrame(ctx, i) {
+    runnerFrame(ctx, i);
+    pixel(ctx, 10, 4, 12, 3, "#ffe066");
+    pixel(ctx, 8, 12, 4, 8, "#c8b8a0");
+  }
+
+  function bishopFrame(ctx, i) {
+    shamanFrame(ctx, i);
+    pixel(ctx, 10, 3, 12, 4, "#1a4030");
+    pixel(ctx, 14, 1, 4, 3, "#6dff8a");
+  }
+
   function corpseStill(ctx) {
     pixel(ctx, 8, 18, 16, 8, "#2a2018");
     pixel(ctx, 10, 16, 8, 6, "#3a2c1e");
@@ -117,8 +189,17 @@
     necro: sheet(necroFrame),
     skeleton: sheet(skeletonFrame),
     husk: sheet(huskFrame),
+    mite: sheet(miteFrame),
     runner: sheet(runnerFrame),
+    spit: sheet(spitFrame),
+    exploder: sheet(exploderFrame),
     brute: sheet(bruteFrame),
+    wraith: sheet(wraithFrame),
+    shaman: sheet(shamanFrame),
+    titan: sheet(titanFrame),
+    sovereign: sheet(sovereignFrame),
+    duchess: sheet(duchessFrame),
+    bishop: sheet(bishopFrame),
     corpse: sheet((ctx) => corpseStill(ctx)),
     gem: sheet((ctx) => gemStill(ctx)),
   };

@@ -62,6 +62,20 @@ html, body {
 
 #hpFill { height: 100%; width: 100%; background: linear-gradient(90deg, #6a1b2b, #c43c54); }
 #xpFill { height: 100%; width: 0; background: linear-gradient(90deg, #4b2d88, #9b6dff); }
+#bossFill { height: 100%; width: 0; background: linear-gradient(90deg, #7d3cff, #f0c75e); }
+
+.boss-hud {
+  display: none;
+  margin-top: 6px;
+}
+.boss-hud.show { display: block; }
+.boss-hud #bossName {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  margin-bottom: 3px;
+}
+.bar.boss { height: 10px; border-color: #5a3a20; }
 
 .meta {
   display: flex;

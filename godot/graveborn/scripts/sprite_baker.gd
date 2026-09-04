@@ -8,8 +8,17 @@ func _ready() -> void:
 	frames["necro"] = _sheet(_necro)
 	frames["skeleton"] = _sheet(_skel)
 	frames["husk"] = _sheet(_husk)
+	frames["mite"] = _sheet(_mite)
 	frames["runner"] = _sheet(_runner)
+	frames["spit"] = _sheet(_spit)
+	frames["exploder"] = _sheet(_exploder)
 	frames["brute"] = _sheet(_brute)
+	frames["wraith"] = _sheet(_wraith)
+	frames["shaman"] = _sheet(_shaman)
+	frames["titan"] = _sheet(_titan)
+	frames["sovereign"] = _sheet(_sovereign)
+	frames["duchess"] = _sheet(_duchess)
+	frames["bishop"] = _sheet(_bishop)
 	frames["corpse"] = _sheet(_corpse)
 	frames["gem"] = _sheet(_gem)
 
@@ -93,6 +102,65 @@ func _brute(img: Image, i: int) -> void:
 	px(img, 22, 16 + bob, 4, 10, Color.html("#24180c"))
 	px(img, 10, 26 + bob, 5, 5, Color.html("#1a1208"))
 	px(img, 17, 26 + (1 - bob), 5, 5, Color.html("#1a1208"))
+
+func _mite(img: Image, i: int) -> void:
+	var hop := i % 2
+	px(img, 12, 14 + hop, 8, 6, Color.html("#6a3a18"))
+	px(img, 13, 16 + hop, 2, 2, Color.html("#ffaa33"))
+	px(img, 17, 16 + hop, 2, 2, Color.html("#ffaa33"))
+	px(img, 10, 20 + hop, 3, 3, Color.html("#4a2810"))
+	px(img, 19, 20 + hop, 3, 3, Color.html("#4a2810"))
+
+func _spit(img: Image, i: int) -> void:
+	var bob := i % 2
+	px(img, 11, 8 + bob, 10, 8, Color.html("#2a4030"))
+	px(img, 13, 10 + bob, 2, 2, Color.html("#66ff99"))
+	px(img, 17, 10 + bob, 2, 2, Color.html("#66ff99"))
+	px(img, 12, 16 + bob, 8, 10, Color.html("#1e3024"))
+	px(img, 20, 12 + bob, 6, 4, Color.html("#3d5a40"))
+
+func _exploder(img: Image, i: int) -> void:
+	var pulse := i % 2
+	px(img, 11, 8 + pulse, 10, 8, Color.html("#5a1818"))
+	px(img, 13, 10 + pulse, 2, 2, Color.html("#ffee66"))
+	px(img, 17, 10 + pulse, 2, 2, Color.html("#ffee66"))
+	px(img, 12, 16, 8, 10, Color.html("#3a1010"))
+	px(img, 14, 18 + pulse, 4, 4, Color.html("#ff6644"))
+
+func _wraith(img: Image, i: int) -> void:
+	var drift := 1 if i % 2 else 0
+	px(img, 11 + drift, 6, 10, 18, Color.html("#3a2a68"))
+	px(img, 13 + drift, 8, 6, 5, Color.html("#c8c0ff"))
+	px(img, 14 + drift, 9, 2, 2, Color.html("#7d3cff"))
+	px(img, 17 + drift, 9, 2, 2, Color.html("#7d3cff"))
+
+func _shaman(img: Image, i: int) -> void:
+	var bob := i % 2
+	px(img, 11, 8 + bob, 10, 8, Color.html("#204050"))
+	px(img, 13, 10 + bob, 2, 2, Color.html("#66e0ff"))
+	px(img, 17, 10 + bob, 2, 2, Color.html("#66e0ff"))
+	px(img, 12, 16 + bob, 8, 10, Color.html("#183038"))
+	px(img, 10, 6 + bob, 3, 8, Color.html("#7d3cff"))
+	px(img, 20, 6 + bob, 3, 8, Color.html("#7d3cff"))
+
+func _titan(img: Image, i: int) -> void:
+	_brute(img, i)
+	px(img, 10, 3, 12, 4, Color.html("#8a6a30"))
+	px(img, 14, 1, 4, 3, Color.html("#f0c75e"))
+
+func _sovereign(img: Image, i: int) -> void:
+	_skel(img, i)
+	px(img, 11, 4, 10, 3, Color.html("#7d3cff"))
+	px(img, 14, 2, 4, 3, Color.html("#f0c75e"))
+
+func _duchess(img: Image, i: int) -> void:
+	_runner(img, i)
+	px(img, 10, 4, 12, 3, Color.html("#ffe066"))
+
+func _bishop(img: Image, i: int) -> void:
+	_shaman(img, i)
+	px(img, 10, 3, 12, 4, Color.html("#1a4030"))
+	px(img, 14, 1, 4, 3, Color.html("#6dff8a"))
 
 func _corpse(img: Image, _i: int) -> void:
 	px(img, 8, 18, 16, 8, Color.html("#2a2018"))

@@ -3,11 +3,11 @@ extends Node2D
 
 const WORLD := 2400.0
 const TILE := 64.0
-const MAX_ENEMIES := 80
+const MAX_ENEMIES := 180
 const MAX_MINIONS := 16
-const MAX_CORPSES := 50
-const MAX_BOLTS := 40
-const MAX_GEMS := 80
+const MAX_CORPSES := 90
+const MAX_BOLTS := 50
+const MAX_GEMS := 120
 
 var p: Dictionary = {}
 var time_s := 0.0
@@ -15,6 +15,7 @@ var wave := 1
 var spawn_acc := 0.0
 var raise_acc := 0.0
 var aura_acc := 0.0
+var next_boss_at := 60.0
 var kills := 0
 var over := false
 var drafting := false
@@ -125,9 +126,10 @@ func start_run() -> void:
 	draft.visible = false
 	over_ui.visible = false
 	hud.visible = true
+	next_boss_at = EnemyDB.FIRST_BOSS
 	_show_banner("Raise the dead")
-	for i in range(10):
-		_spawn_enemy()
+	for i in range(5):
+		_spawn_pack()
 
 func _process(dt: float) -> void:
 	if banner_t > 0.0:
@@ -137,7 +139,7 @@ func _process(dt: float) -> void:
 	if not running or over or drafting:
 		return
 	time_s += dt
-	wave = 1 + int(time_s / 22.0)
+	wave = EnemyDB.wave_from_time(time_s)
 	p.iframe = max(0.0, p.iframe - dt)
 	p.atk_cd = max(0.0, p.atk_cd - dt)
 	raise_acc += dt
@@ -155,11 +157,13 @@ func _process(dt: float) -> void:
 	$World/Player.modulate.a = 0.55 if p.iframe > 0.0 else 1.0
 	cam.position = cam.position.lerp(p.pos as Vector2, minf(1.0, dt * 8.0))
 
-	var spawn_every: float = maxf(0.28, 1.05 - float(wave) * 0.07)
+	var spawn_every: float = EnemyDB.spawn_interval(wave)
 	spawn_acc += dt
 	while spawn_acc >= spawn_every:
 		spawn_acc -= spawn_every
-		_spawn_enemy()
+		_spawn_pack()
+	if time_s >= next_boss_at:
+		_spawn_boss()
 
 	var target := _nearest_enemy(p.pos as Vector2, float(p.atk_range))
 	if target.size() > 0 and float(p.atk_cd) <= 0.0:
@@ -226,50 +230,87 @@ func _unhandled_input(event: InputEvent) -> void:
 			delta = delta.normalized() * 48.0
 		joy = delta / 48.0
 
-func _spawn_enemy() -> void:
+func _count_enemies() -> int:
+	var n := 0
+	for e in enemies:
+		if e.alive:
+			n += 1
+	return n
+
+func _spawn_enemy(forced: Dictionary = {}) -> void:
+	if _count_enemies() >= EnemyDB.live_cap(wave):
+		return
 	var e := _acquire(enemies)
 	if e.is_empty():
 		return
+	var def: Dictionary = forced if not forced.is_empty() else EnemyDB.pick_type(time_s)
+	var stats: Dictionary = EnemyDB.scaled(def, wave, 0)
+	var elite := forced.is_empty() and randf() < EnemyDB.elite_chance(wave)
 	var ang := randf() * TAU
-	var dist := 420.0 + randf() * 180.0
-	var roll := randf()
-	var typ := "husk"
-	var hp := 28.0 + wave * 6.0
-	var speed := 58.0 + wave * 1.4
-	var dmg := 8.0 + wave * 0.8
-	var r := 14.0
-	var xp := 5
-	if time_s > 25.0 and roll > 0.72:
-		typ = "runner"
-		hp = 20.0 + wave * 4.0
-		speed = 110.0 + wave * 2.0
-		dmg = 7.0 + wave * 0.6
-		r = 12.0
-		xp = 6
-	if time_s > 45.0 and roll > 0.9:
-		typ = "brute"
-		hp = 90.0 + wave * 14.0
-		speed = 42.0
-		dmg = 16.0 + wave * 1.2
-		r = 20.0
-		xp = 14
+	var dist := 400.0 + randf() * 240.0
 	e.alive = true
 	e.pos = Vector2(clampf(p.pos.x + cos(ang) * dist, 40.0, WORLD - 40.0), clampf(p.pos.y + sin(ang) * dist, 40.0, WORLD - 40.0))
-	e.hp = hp
-	e.max_hp = hp
-	e.speed = speed
-	e.dmg = dmg
-	e.type = typ
-	e.sheet = typ
-	e.xp = xp
-	e.r = r
+	e.hp = stats.hp * (1.85 if elite else 1.0)
+	e.max_hp = e.hp
+	e.speed = stats.spd * (1.08 if elite else 1.0)
+	e.dmg = stats.dmg * (1.2 if elite else 1.0)
+	e.type = def.id
+	e.sheet = def.id
+	e.role = def.role
+	e.xp = int(def.xp * (2.4 if elite else 1.0))
+	e.r = def.r
+	e.elite = elite
+	e.boss = false
+	e.special_cd = 0.6
+	e.buff_t = 0.0
 	e.frame = randf() * 4.0
 	e.hit = 0.0
 	e.poison = 0.0
 	e.atk_cd = 0.0
 	e.spr.visible = true
 	e.spr.position = e.pos
-	e.spr.scale = Vector2(1.6, 1.6) if typ == "brute" else Vector2(1.25, 1.25)
+	var sc: float = def.scale * (1.12 if elite else 1.0)
+	e.spr.scale = Vector2(sc, sc)
+	e.spr.modulate = Color(1.3, 1.15, 0.6) if elite else Color.WHITE
+
+func _spawn_pack() -> void:
+	var def: Dictionary = EnemyDB.pick_type(time_s)
+	var extra := EnemyDB.pack_bonus(wave)
+	var n := int(def.pack) + (extra if def.role == "swarm" else 0)
+	for i in range(n):
+		_spawn_enemy(def)
+
+func _spawn_boss() -> void:
+	var idx := EnemyDB.boss_index(next_boss_at)
+	var info: Dictionary = EnemyDB.boss_for_index(maxi(0, idx))
+	if info.is_empty():
+		return
+	var e := _acquire(enemies)
+	if e.is_empty():
+		return
+	var def: Dictionary = info.def
+	var stats: Dictionary = EnemyDB.scaled(def, info.wave, info.cycle)
+	var ang := randf() * TAU
+	e.alive = true
+	e.pos = Vector2(clampf(p.pos.x + cos(ang) * 520.0, 40.0, WORLD - 40.0), clampf(p.pos.y + sin(ang) * 520.0, 40.0, WORLD - 40.0))
+	e.hp = stats.hp
+	e.max_hp = stats.hp
+	e.speed = stats.spd
+	e.dmg = stats.dmg
+	e.type = def.id
+	e.sheet = def.id
+	e.role = def.role
+	e.xp = def.xp
+	e.r = def.r
+	e.elite = false
+	e.boss = true
+	e.special_cd = 1.2
+	e.buff_t = 0.0
+	e.spr.visible = true
+	e.spr.position = e.pos
+	e.spr.scale = Vector2(def.scale, def.scale)
+	next_boss_at = EnemyDB.next_boss_at(next_boss_at)
+	_show_banner(def.name)
 
 func _acquire(arr: Array[Dictionary]) -> Dictionary:
 	for e in arr:
@@ -345,8 +386,12 @@ func _drop_gem(pos: Vector2, val: int) -> void:
 	g.spr.texture = SpriteBaker.frame("gem", 0)
 
 func _kill_enemy(e: Dictionary) -> void:
+	if not e.alive:
+		return
 	e.alive = false
 	e.spr.visible = false
+	if str(e.get("role", "")) == "suicide":
+		_explode(e.pos, 70.0, e.dmg * 0.85)
 	kills += 1
 	if p.soul_harvest and p.soul_stacks < 40:
 		p.soul_stacks += 1
@@ -440,23 +485,43 @@ func _update_enemies(dt: float) -> void:
 			continue
 		e.frame += dt * 8.0
 		e.hit = max(0.0, e.hit - dt)
+		e.atk_cd = max(0.0, e.atk_cd - dt)
+		e.special_cd = max(0.0, float(e.get("special_cd", 0.0)) - dt)
+		e.buff_t = max(0.0, float(e.get("buff_t", 0.0)) - dt)
 		if e.poison > 0.0:
 			e.poison -= dt
 			_damage_enemy(e, e.poison_dps * dt, false)
 			if not e.alive:
 				continue
-		var to: Vector2 = (p.pos as Vector2) - (e.pos as Vector2)
+		var role := str(e.get("role", "chase"))
+		var dest: Vector2 = p.pos
+		var spd_mul := 1.28 if float(e.get("buff_t", 0.0)) > 0.0 else 1.0
+		if role == "ranged" or role == "support" or role == "boss_mage" or role == "boss_summon":
+			var dist: float = e.pos.distance_to(p.pos)
+			if dist < 160.0:
+				dest = e.pos + (e.pos - p.pos)
+			spd_mul *= 0.8
+			if e.special_cd <= 0.0 and role == "boss_summon":
+				_spawn_enemy(EnemyDB.TYPES["husk"])
+				e.special_cd = 3.6
+		var to: Vector2 = dest - (e.pos as Vector2)
 		if to.length() > 0.001:
 			to = to.normalized()
-		e.pos = (e.pos as Vector2) + to * float(e.speed) * dt
-		e.atk_cd = max(0.0, e.atk_cd - dt)
+		e.pos = (e.pos as Vector2) + to * float(e.speed) * spd_mul * dt
 		e.spr.position = e.pos
 		e.spr.texture = SpriteBaker.frame(e.sheet, int(e.frame))
 		e.spr.flip_h = e.pos.x < p.pos.x
-		e.spr.modulate = Color(2, 2, 2) if e.hit > 0.0 else Color.WHITE
+		if e.hit > 0.0:
+			e.spr.modulate = Color(2, 2, 2)
+		elif e.get("elite", false):
+			e.spr.modulate = Color(1.3, 1.15, 0.6)
+		else:
+			e.spr.modulate = Color.WHITE
 		if e.pos.distance_to(p.pos) < e.r + p.r and e.atk_cd <= 0.0:
 			_hurt_player(e.dmg)
 			e.atk_cd = 0.9
+			if role == "suicide":
+				_kill_enemy(e)
 
 func _update_minions(dt: float) -> void:
 	for m in minions:
@@ -568,7 +633,7 @@ func _hurt_player(dmg: float) -> void:
 		p.hp = 0.0
 		over = true
 		running = false
-		over_stats.text = "Survived %s  ·  %d kills  ·  Level %d" % [_fmt_time(time_s), kills, p.level]
+		over_stats.text = "Survived %s  ·  %d kills  ·  Wave %d  ·  Level %d" % [_fmt_time(time_s), kills, wave, p.level]
 		over_ui.visible = true
 
 func _show_banner(text: String) -> void:
@@ -584,6 +649,6 @@ func _sync_hud() -> void:
 	hp_bar.value = p.hp
 	xp_bar.max_value = p.need
 	xp_bar.value = p.xp
-	meta.text = "%d / %d    Lv %d    Army %d / %d    Kills %d    %s" % [
-		int(ceil(p.hp)), int(p.max_hp), p.level, minion_count, p.max_minions, kills, _fmt_time(time_s)
+	meta.text = "%d / %d    Lv %d    Army %d / %d    Kills %d    Wave %d    %s" % [
+		int(ceil(p.hp)), int(p.max_hp), p.level, minion_count, p.max_minions, kills, wave, _fmt_time(time_s)
 	]

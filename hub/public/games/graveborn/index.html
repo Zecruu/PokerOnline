@@ -34,7 +34,12 @@
         <span id="levelText">Lv 1</span>
         <span>Army <b id="armyText">0 / 6</b></span>
         <span>Kills <b id="killText">0</b></span>
+        <span>Wave <b id="waveText">1</b></span>
         <span id="timeText">0:00</span>
+      </div>
+      <div id="bossHud" class="boss-hud">
+        <div id="bossName">BOSS</div>
+        <div class="bar boss"><div id="bossFill"></div></div>
       </div>
     </div>
     <div id="banner"></div>
@@ -59,6 +64,7 @@
             <li>Move with WASD, or on a phone drag the MOVE stick (or anywhere on the field). Attacks and raises are automatic.</li>
             <li>Killed enemies leave corpses. Every few seconds you raise the nearest corpse.</li>
             <li>Army is capped. Extra raises explode the corpse so power never needs uncapped entities.</li>
+            <li>Waves scale every 20s. Elites glow gold. A named boss arrives about once a minute.</li>
           </ul>
           <h3>Cards</h3>
           <ul>
@@ -84,6 +90,7 @@
     </div>
   </div>
   <script src="cards.js"></script>
+  <script src="enemies.js"></script>
   <script src="sprites.js"></script>
   <script src="game.js"></script>
 </body>

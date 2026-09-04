@@ -13,18 +13,23 @@
     levelText: document.getElementById("levelText"),
     armyText: document.getElementById("armyText"),
     killText: document.getElementById("killText"),
+    waveText: document.getElementById("waveText"),
     timeText: document.getElementById("timeText"),
     banner: document.getElementById("banner"),
+    bossHud: document.getElementById("bossHud"),
+    bossName: document.getElementById("bossName"),
+    bossFill: document.getElementById("bossFill"),
   };
 
   const WORLD = 2400;
   const TILE = 64;
   const GRID = 128;
-  const MAX_ENEMIES = 80;
+  const MAX_ENEMIES = 180;
   const MAX_MINIONS = 16;
-  const MAX_CORPSES = 50;
-  const MAX_PROJS = 40;
-  const MAX_GEMS = 80;
+  const MAX_CORPSES = 90;
+  const MAX_PROJS = 50;
+  const MAX_EPROJS = 36;
+  const MAX_GEMS = 120;
 
   const keys = Object.create(null);
   const pointer = { x: 0, y: 0, active: false, id: null, mode: null };
@@ -122,6 +127,8 @@
       spawnAcc: 0,
       raiseAcc: 0,
       auraAcc: 0,
+      nextBossAt: GravebornEnemies.FIRST_BOSS,
+      boss: null,
       camX: WORLD / 2,
       camY: WORLD / 2,
       shake: 0,
@@ -172,7 +179,8 @@
       },
       enemies: emptyPool(MAX_ENEMIES, () => ({
         alive: false, x: 0, y: 0, r: 14, hp: 0, maxHp: 0, speed: 0, dmg: 0,
-        type: "husk", xp: 4, frame: 0, hit: 0, poison: 0, poisonDps: 0, atkCd: 0,
+        type: "husk", role: "chase", xp: 4, frame: 0, hit: 0, poison: 0, poisonDps: 0,
+        atkCd: 0, elite: false, boss: false, name: "", specialCd: 0, buffT: 0, vx: 0, vy: 0,
       })),
       minions: emptyPool(MAX_MINIONS, () => ({
         alive: false, x: 0, y: 0, r: 13, hp: 0, maxHp: 0, dmg: 0, atkCd: 0,
@@ -183,6 +191,9 @@
       })),
       projs: emptyPool(MAX_PROJS, () => ({
         alive: false, x: 0, y: 0, vx: 0, vy: 0, dmg: 0, life: 0, poison: false,
+      })),
+      eprojs: emptyPool(MAX_EPROJS, () => ({
+        alive: false, x: 0, y: 0, vx: 0, vy: 0, dmg: 0, life: 0, poison: false, r: 5,
       })),
       gems: emptyPool(MAX_GEMS, () => ({
         alive: false, x: 0, y: 0, val: 4, life: 18,
@@ -219,50 +230,109 @@
     return Math.min(0.65, state.player.dr + fromArmy);
   }
 
-  function spawnEnemy() {
-    const e = acquire(state.enemies);
-    if (!e) return;
+  function countEnemies() {
+    let n = 0;
+    for (let i = 0; i < state.enemies.length; i++) if (state.enemies[i].alive) n++;
+    return n;
+  }
+
+  function placeAroundPlayer(minR, maxR) {
     const p = state.player;
     const ang = rand() * Math.PI * 2;
-    const dist = 420 + rand() * 180;
-    const roll = rand();
-    let type = "husk";
-    let hp = 28 + state.wave * 6;
-    let speed = 58 + state.wave * 1.4;
-    let dmg = 8 + state.wave * 0.8;
-    let r = 14;
-    let xp = 5;
-    if (state.time > 25 && roll > 0.72) {
-      type = "runner";
-      hp = 20 + state.wave * 4;
-      speed = 110 + state.wave * 2;
-      dmg = 7 + state.wave * 0.6;
-      r = 12;
-      xp = 6;
-    }
-    if (state.time > 45 && roll > 0.9) {
-      type = "brute";
-      hp = 90 + state.wave * 14;
-      speed = 42;
-      dmg = 16 + state.wave * 1.2;
-      r = 20;
-      xp = 14;
-    }
+    const dist = minR + rand() * (maxR - minR);
+    return {
+      x: clamp(p.x + Math.cos(ang) * dist, 40, WORLD - 40),
+      y: clamp(p.y + Math.sin(ang) * dist, 40, WORLD - 40),
+    };
+  }
+
+  function fillEnemy(e, def, stats, opts) {
+    const pos = placeAroundPlayer(opts.minR || 400, opts.maxR || 640);
     e.alive = true;
-    e.x = clamp(p.x + Math.cos(ang) * dist, 40, WORLD - 40);
-    e.y = clamp(p.y + Math.sin(ang) * dist, 40, WORLD - 40);
-    e.hp = hp;
-    e.maxHp = hp;
-    e.speed = speed;
-    e.dmg = dmg;
-    e.type = type;
-    e.xp = xp;
-    e.r = r;
+    e.x = pos.x;
+    e.y = pos.y;
+    e.hp = stats.hp;
+    e.maxHp = stats.hp;
+    e.speed = stats.spd;
+    e.dmg = stats.dmg;
+    e.type = def.id;
+    e.role = def.role;
+    e.xp = def.xp * (opts.elite ? 2 : opts.boss ? 1 : 1);
+    if (opts.boss) e.xp = def.xp;
+    e.r = def.r;
     e.frame = rand() * 4;
     e.hit = 0;
     e.poison = 0;
     e.poisonDps = 0;
-    e.atkCd = 0;
+    e.atkCd = rand() * 0.4;
+    e.elite = !!opts.elite;
+    e.boss = !!opts.boss;
+    e.name = opts.name || "";
+    e.specialCd = opts.boss ? 1.2 : 0.6;
+    e.buffT = 0;
+    e.vx = 0;
+    e.vy = 0;
+    e._popped = false;
+    if (opts.elite) {
+      e.hp *= 1.85;
+      e.maxHp = e.hp;
+      e.dmg *= 1.2;
+      e.speed *= 1.08;
+      e.r *= 1.08;
+      e.xp = (def.xp * 2.4) | 0;
+    }
+  }
+
+  function spawnEnemy(forced) {
+    if (countEnemies() >= GravebornEnemies.liveCap(state.wave)) return null;
+    const e = acquire(state.enemies);
+    if (!e) return null;
+    const def = forced || GravebornEnemies.pickType(state.time, rand);
+    const stats = GravebornEnemies.scaled(def, state.wave, 0);
+    const elite = !forced && rand() < GravebornEnemies.eliteChance(state.wave);
+    fillEnemy(e, def, stats, { elite: elite });
+    return e;
+  }
+
+  function spawnPack() {
+    const def = GravebornEnemies.pickType(state.time, rand);
+    const extra = GravebornEnemies.packBonus(state.wave);
+    const n = def.pack + (def.role === "swarm" ? extra : extra > 2 && rand() < 0.35 ? 1 : 0);
+    for (let i = 0; i < n; i++) spawnEnemy(def);
+  }
+
+  function spawnBoss() {
+    const idx = GravebornEnemies.bossIndex(state.nextBossAt);
+    const info = GravebornEnemies.bossForIndex(Math.max(0, idx));
+    if (!info) return;
+    const e = acquire(state.enemies);
+    if (!e) return;
+    const stats = GravebornEnemies.scaled(info.def, info.wave, info.cycle);
+    fillEnemy(e, info.def, stats, {
+      boss: true,
+      name: info.def.name,
+      minR: 480,
+      maxR: 560,
+    });
+    state.boss = e;
+    state.nextBossAt = GravebornEnemies.nextBossAt(state.nextBossAt);
+    showBanner(info.def.name);
+    return e;
+  }
+
+  function fireEnemyBolt(e, tx, ty, speed, poison) {
+    const b = acquire(state.eprojs);
+    if (!b) return;
+    const d = norm(tx - e.x, ty - e.y);
+    b.alive = true;
+    b.x = e.x;
+    b.y = e.y;
+    b.vx = d.x * speed;
+    b.vy = d.y * speed;
+    b.dmg = e.dmg;
+    b.life = 1.15;
+    b.poison = !!poison;
+    b.r = poison ? 6 : 5;
   }
 
   function dropCorpse(x, y) {
@@ -290,7 +360,13 @@
   }
 
   function killEnemy(e, creditRaise) {
+    if (!e.alive) return;
     e.alive = false;
+    if (state.boss === e) state.boss = null;
+    if (e.role === "suicide" && !e._popped) {
+      e._popped = true;
+      explode(e.x, e.y, 70, e.dmg * 0.85);
+    }
     state.kills++;
     if (state.player.soulHarvest && state.player.soulStacks < 40) {
       state.player.soulStacks++;
@@ -492,7 +568,7 @@
       state.over = true;
       document.getElementById("overTitle").textContent = "The grave is full";
       document.getElementById("overStats").textContent =
-        "Survived " + formatTime(state.time) + " · " + state.kills + " kills · Level " + (p._level || 1);
+        "Survived " + formatTime(state.time) + " · " + state.kills + " kills · Wave " + state.wave + " · Level " + (p._level || 1);
       document.getElementById("over").classList.add("open");
       document.body.classList.remove("playing");
       resetJoy();
@@ -517,11 +593,132 @@
     return { x: x / d, y: y / d };
   }
 
+  function steerToward(e, tx, ty, dt, mult) {
+    const to = norm(tx - e.x, ty - e.y);
+    const spd = e.speed * (mult || 1) * (e.buffT > 0 ? 1.28 : 1);
+    e.x = clamp(e.x + to.x * spd * dt, 16, WORLD - 16);
+    e.y = clamp(e.y + to.y * spd * dt, 16, WORLD - 16);
+  }
+
+  function tryMelee(e, p) {
+    const ddx = e.x - p.x;
+    const ddy = e.y - p.y;
+    if (ddx * ddx + ddy * ddy >= (e.r + p.r) * (e.r + p.r) || e.atkCd > 0) return;
+    if (e.role === "suicide") {
+      hurtPlayer(e.dmg);
+      killEnemy(e, true);
+      return;
+    }
+    hurtPlayer(e.dmg);
+    e.atkCd = e.boss ? 1.1 : 0.9;
+  }
+
+  function updateEnemyAI(e, p, dt) {
+    const dist = Math.hypot(p.x - e.x, p.y - e.y);
+    switch (e.role) {
+      case "ranged":
+        if (dist > 220) steerToward(e, p.x, p.y, dt, 1);
+        else if (dist < 150) steerToward(e, e.x * 2 - p.x, e.y * 2 - p.y, dt, 0.85);
+        if (e.specialCd <= 0 && dist < 340) {
+          fireEnemyBolt(e, p.x, p.y, 260, false);
+          e.specialCd = 1.45;
+        }
+        tryMelee(e, p);
+        break;
+      case "suicide":
+        steerToward(e, p.x, p.y, dt, 1.05);
+        tryMelee(e, p);
+        break;
+      case "support":
+        if (dist < 200) steerToward(e, e.x * 2 - p.x, e.y * 2 - p.y, dt, 0.7);
+        else if (dist > 280) steerToward(e, p.x, p.y, dt, 0.8);
+        if (e.specialCd <= 0) {
+          const list = state._near;
+          near(state.enemyGrid, e.x, e.y, 140, list);
+          for (let i = 0; i < list.length; i++) {
+            if (list[i] !== e) list[i].buffT = 1.6;
+          }
+          addFx(e.x, e.y, "rgba(100,220,255,0.45)", 0.3, 50);
+          e.specialCd = 2.2;
+        }
+        tryMelee(e, p);
+        break;
+      case "swarm":
+        steerToward(
+          e,
+          p.x + Math.sin(state.time * 8 + e.x) * 18,
+          p.y + Math.cos(state.time * 8 + e.y) * 18,
+          dt,
+          1
+        );
+        tryMelee(e, p);
+        break;
+      case "boss_slam":
+        steerToward(e, p.x, p.y, dt, 1);
+        if (e.specialCd <= 0 && dist < 86) {
+          explode(e.x, e.y, 96, e.dmg * 0.55);
+          hurtPlayer(e.dmg * 1.15);
+          e.specialCd = 2.8;
+          e.atkCd = 0.8;
+          state.shake = 12;
+        } else {
+          tryMelee(e, p);
+        }
+        break;
+      case "boss_summon":
+        if (dist < 170) steerToward(e, e.x * 2 - p.x, e.y * 2 - p.y, dt, 0.7);
+        else steerToward(e, p.x, p.y, dt, 0.75);
+        if (e.specialCd <= 0) {
+          spawnEnemy(GravebornEnemies.TYPES.husk);
+          spawnEnemy(GravebornEnemies.TYPES.husk);
+          e.specialCd = 3.6;
+          addFx(e.x, e.y, "rgba(200,180,255,0.5)", 0.35, 40);
+        }
+        tryMelee(e, p);
+        break;
+      case "boss_dash":
+        if (e.vx || e.vy) {
+          e.x = clamp(e.x + e.vx * dt, 16, WORLD - 16);
+          e.y = clamp(e.y + e.vy * dt, 16, WORLD - 16);
+          e.vx *= 0.9;
+          e.vy *= 0.9;
+          if (Math.hypot(e.vx, e.vy) < 20) {
+            e.vx = 0;
+            e.vy = 0;
+          }
+        } else {
+          steerToward(e, p.x, p.y, dt, 1);
+          if (e.specialCd <= 0) {
+            const d = norm(p.x - e.x, p.y - e.y);
+            e.vx = d.x * 420;
+            e.vy = d.y * 420;
+            e.specialCd = 2.3;
+          }
+        }
+        tryMelee(e, p);
+        break;
+      case "boss_mage":
+        if (dist < 200) steerToward(e, e.x * 2 - p.x, e.y * 2 - p.y, dt, 0.7);
+        else if (dist > 300) steerToward(e, p.x, p.y, dt, 0.7);
+        if (e.specialCd <= 0) {
+          fireEnemyBolt(e, p.x, p.y, 240, true);
+          fireEnemyBolt(e, p.x + 40, p.y - 20, 240, true);
+          fireEnemyBolt(e, p.x - 40, p.y + 20, 240, true);
+          e.specialCd = 2.1;
+        }
+        tryMelee(e, p);
+        break;
+      default:
+        steerToward(e, p.x, p.y, dt, 1);
+        tryMelee(e, p);
+    }
+  }
+
   function update(dt) {
     if (state.over || drafting) return;
     const p = state.player;
     state.time += dt;
-    state.wave = 1 + ((state.time / 22) | 0);
+    state.wave = GravebornEnemies.waveFromTime(state.time);
     p.iframe = Math.max(0, p.iframe - dt);
     p.atkCd = Math.max(0, p.atkCd - dt);
     state.raiseAcc += dt;
@@ -538,12 +735,13 @@
     if (dir.x !== 0) p.facing = dir.x < 0 ? -1 : 1;
     p.frame += dt * (dir.x || dir.y ? 10 : 4);
 
-    const spawnEvery = Math.max(0.28, 1.05 - state.wave * 0.07);
+    const spawnEvery = GravebornEnemies.spawnInterval(state.wave);
     state.spawnAcc += dt;
     while (state.spawnAcc >= spawnEvery) {
       state.spawnAcc -= spawnEvery;
-      spawnEnemy();
+      spawnPack();
     }
+    if (state.time >= state.nextBossAt) spawnBoss();
 
     rebuildGrid(state.enemies, state.enemyGrid);
 
@@ -587,27 +785,39 @@
       }
     }
 
+    for (let i = 0; i < state.eprojs.length; i++) {
+      const b = state.eprojs[i];
+      if (!b.alive) continue;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0) {
+        b.alive = false;
+        continue;
+      }
+      const dx = b.x - p.x;
+      const dy = b.y - p.y;
+      if (dx * dx + dy * dy < (b.r + p.r) * (b.r + p.r)) {
+        hurtPlayer(b.dmg);
+        b.alive = false;
+      }
+    }
+
     // enemies
     for (let i = 0; i < state.enemies.length; i++) {
       const e = state.enemies[i];
       if (!e.alive) continue;
-      e.frame += dt * 8;
+      e.frame += dt * (e.role === "swarm" ? 12 : 8);
       e.hit = Math.max(0, e.hit - dt);
+      e.atkCd = Math.max(0, e.atkCd - dt);
+      e.specialCd = Math.max(0, e.specialCd - dt);
+      e.buffT = Math.max(0, e.buffT - dt);
       if (e.poison > 0) {
         e.poison -= dt;
         damageEnemy(e, e.poisonDps * dt, false);
         if (!e.alive) continue;
       }
-      const to = norm(p.x - e.x, p.y - e.y);
-      e.x += to.x * e.speed * dt;
-      e.y += to.y * e.speed * dt;
-      e.atkCd = Math.max(0, e.atkCd - dt);
-      const ddx = e.x - p.x;
-      const ddy = e.y - p.y;
-      if (ddx * ddx + ddy * ddy < (e.r + p.r) * (e.r + p.r) && e.atkCd <= 0) {
-        hurtPlayer(e.dmg);
-        e.atkCd = 0.9;
-      }
+      updateEnemyAI(e, p, dt);
     }
 
     // minions
@@ -768,10 +978,25 @@
 
     for (let i = 0; i < state.enemies.length; i++) {
       const e = state.enemies[i];
-      if (!e.alive || !inView(e.x, e.y, 24)) continue;
+      if (!e.alive || !inView(e.x, e.y, 56)) continue;
       if (e.hit > 0) ctx.filter = "brightness(2)";
-      GravebornSprites.draw(ctx, e.type, e.x - camX, e.y - camY, e.type === "brute" ? 1.6 : 1.25, e.frame | 0, e.x < state.player.x);
+      const def = GravebornEnemies.TYPES[e.type] || GravebornEnemies.BOSSES.find((b) => b.id === e.type);
+      let sc = (def && def.scale) || 1.25;
+      if (e.elite) sc *= 1.12;
+      GravebornSprites.draw(ctx, e.type, e.x - camX, e.y - camY, sc, e.frame | 0, e.x < state.player.x);
       ctx.filter = "none";
+      if (e.elite) {
+        ctx.strokeStyle = "rgba(240,199,94,0.7)";
+        ctx.beginPath();
+        ctx.arc(e.x - camX, e.y - camY, e.r + 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (e.boss) {
+        ctx.fillStyle = "#2a1020";
+        ctx.fillRect(e.x - camX - 22, e.y - camY - e.r - 14, 44, 5);
+        ctx.fillStyle = "#f0c75e";
+        ctx.fillRect(e.x - camX - 22, e.y - camY - e.r - 14, 44 * clamp(e.hp / e.maxHp, 0, 1), 5);
+      }
     }
 
     for (let i = 0; i < state.minions.length; i++) {
@@ -797,6 +1022,14 @@
       if (!b.alive) continue;
       ctx.beginPath();
       ctx.arc(b.x - camX, b.y - camY, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < state.eprojs.length; i++) {
+      const b = state.eprojs[i];
+      if (!b.alive) continue;
+      ctx.fillStyle = b.poison ? "#6dff8a" : "#ff6644";
+      ctx.beginPath();
+      ctx.arc(b.x - camX, b.y - camY, b.r, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -836,7 +1069,16 @@
     hud.levelText.textContent = "Lv " + lvl;
     hud.armyText.textContent = state.minionCount + " / " + p.maxMinions;
     hud.killText.textContent = String(state.kills);
+    if (hud.waveText) hud.waveText.textContent = String(state.wave);
     hud.timeText.textContent = formatTime(state.time);
+    if (hud.bossHud) {
+      const boss = state.boss && state.boss.alive ? state.boss : null;
+      hud.bossHud.classList.toggle("show", !!boss);
+      if (boss) {
+        hud.bossName.textContent = boss.name || "BOSS";
+        hud.bossFill.style.width = (100 * boss.hp) / boss.maxHp + "%";
+      }
+    }
   }
 
   function loop(t) {
@@ -861,7 +1103,7 @@
     document.body.classList.remove("drafting");
     resetJoy();
     showBanner("Raise the dead");
-    for (let i = 0; i < 10; i++) spawnEnemy();
+    for (let i = 0; i < 5; i++) spawnPack();
   }
 
   function playingField() {
@@ -970,5 +1212,5 @@
   raf = requestAnimationFrame(loop);
 
   // Dev hook for tests / debug.
-  window.Graveborn = { startRun, getState: () => state, pickCard, openDraft };
+  window.Graveborn = { startRun, getState: () => state, pickCard, openDraft, spawnBoss, spawnPack };
 })();

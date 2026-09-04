@@ -7,6 +7,7 @@ First playable prototype of the 2D necromancer survivor (iOS-bound, sprite sheet
 - **Auto-attack** — bone bolts at the nearest enemy
 - **Auto-raise** — corpses on the ground become skeletons on a timer
 - **Hard army cap** (starts at 6) — overflow detonates the corpse
+- **Horde** — mites, husks, runners, spitters, exploders, brutes, wraiths, shamans. Stats scale every 20s. Gold elites mix in. A named boss every ~75s (Titan, Sovereign, Duchess, Bishop).
 - **ARAM / Arena cards** on level-up: 3 tall cards, `1`/`2`/`3` or tap
   - Silver = generic stats
   - Gold / Prismatic = **Necromancer** class upgrades

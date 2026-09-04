@@ -12,6 +12,7 @@ config/icon="res://icon.svg"
 
 CardDB="*res://scripts/card_db.gd"
 SpriteBaker="*res://scripts/sprite_baker.gd"
+EnemyDB="*res://scripts/enemy_db.gd"
 
 [display]
 

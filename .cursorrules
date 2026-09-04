@@ -19,10 +19,17 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - `npx vercel deploy --temporary --yes` works logged-out and returns a claim URL; unclaimed previews expire in ~60 minutes. User must claim to keep the project.
 - Zecru-hosted HTML5 games go in `games-server/public/<id>/` with hub `href`/`thumbnail` pointing at `https://games.zecrugames.com/<id>/` (Velthara pattern). Hub catalog + store `ALL_GAMES` + sidebar + games-server sitemap. Live only after merge to `master` (Railway). Do not treat Vercel as the real host.
 - Graveborn HTML5 is copied in `games/graveborn`, `hub/public/games/graveborn`, and `games-server/public/graveborn` — update all three. Mobile: viewport-fit=cover, 100dvh/visualViewport, safe-area HUD, on-screen MOVE stick, overlay `touch-action: pan-y`.
+- Graveborn horde tables live in `games/graveborn/enemies.js` and `godot/graveborn/scripts/enemy_db.gd` — keep them in sync. Catalog changes only appear on www after `master` deploys.
 
 ## Scratchpad
 
-### Current Task: Ship Graveborn card to live zecrugames.com
+### Current Task: Graveborn horde — more enemies, scaling, bosses
+[X] Enemy catalog + tests
+[ ] Web combat + sprites
+[ ] Godot port
+[ ] Sync, playtest, ship
+
+### Previous Task: Ship Graveborn card to live zecrugames.com
 [X] Hub-local card href/thumbnail so www serves it like Poker
 [X] Hero tile on homepage
 [X] Push master so Railway deploys
