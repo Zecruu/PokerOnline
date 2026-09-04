@@ -11,14 +11,14 @@ First playable prototype of the 2D necromancer survivor (iOS-bound, sprite sheet
   - Silver = generic stats
   - Gold / Prismatic = **Necromancer** class upgrades
 
-## Vercel
+## Live host (Zecru Games)
 
-Anonymous preview (claim to keep — expires in ~60 minutes if unclaimed):
+Same pattern as Velthara's Dominion. Production files live in `games-server/public/graveborn/` and ship with the games-server Railway service.
 
-- Play: https://temporary-turbo-magenta-wn9vad5.vercel.app
-- Claim: https://vercel.com/claim-deployment?code=2d03f695-17a6-44b5-bd78-d287d458cc91
+- Play: https://games.zecrugames.com/graveborn/
+- Hub card / store / sidebar: https://www.zecrugames.com
 
-After claiming, connect this folder (`games/graveborn`) or the repo root with Root Directory `games/graveborn` for permanent deploys.
+Goes live when this lands on `master`. Keep `games/graveborn`, `hub/public/games/graveborn`, and `games-server/public/graveborn` in sync.
 
 ## Run locally
 
@@ -34,7 +34,7 @@ WASD or hold the left half of the screen to move.
 
 ## Godot
 
-Engine project: `godot/graveborn`. This folder is the **web / Vercel** build (Vercel cannot host a Godot editor project). Keep card data in sync with `godot/graveborn/scripts/card_db.gd`.
+Engine project: `godot/graveborn`. This folder is the **web** build served from `games.zecrugames.com/graveborn/`. Keep card data in sync with `godot/graveborn/scripts/card_db.gd`.
 
 ## Next (App Store)
 

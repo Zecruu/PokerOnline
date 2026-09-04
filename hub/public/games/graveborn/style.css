@@ -142,6 +142,9 @@ button.cta.ghost {
 
 button.cta:hover { filter: brightness(1.12); }
 
+.hub-link { margin-top: 10px; }
+.hub-link a { color: #9b6dff; letter-spacing: 0.06em; }
+
 #draft {
   flex-direction: column;
   gap: 18px;
@@ -219,8 +222,6 @@ button.cta:hover { filter: brightness(1.12); }
   border: 1px solid #4a3a68;
   color: #c4b0ff;
 }
-
-.aram-card .card-class:contains("GENERAL") { color: #aaa; }
 
 .card-icon { font-size: 42px; margin: 16px 0 8px; }
 .aram-card h3 { font-size: 18px; margin-bottom: 10px; color: #fff; }

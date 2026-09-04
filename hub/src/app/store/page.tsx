@@ -6,6 +6,17 @@ import { GameCard } from "@/components/game-card";
 
 const ALL_GAMES = [
   {
+    id: "graveborn",
+    title: "Graveborn",
+    description: "Necromancer survivor. Auto-fire, auto-raise a capped skeleton army, draft League-style class cards.",
+    thumbnail: "https://games.zecrugames.com/graveborn/thumbnail.svg",
+    href: "https://games.zecrugames.com/graveborn/",
+    badge: "NEW",
+    badgeColor: "green" as const,
+    isFree: true,
+    category: "action",
+  },
+  {
     id: "poker",
     title: "Poker Online",
     description: "Experience the thrill of Texas Hold'em! Play with friends in real-time or challenge our trash-talking AI.",

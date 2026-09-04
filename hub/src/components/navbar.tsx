@@ -293,6 +293,14 @@ export function Navbar() {
           <p className="text-xs text-white/40 uppercase tracking-wider px-3 mb-2">Games</p>
           <div className="space-y-1">
             <a
+              href="https://games.zecrugames.com/graveborn/"
+              onClick={(e) => { handleGameClick(e, "https://games.zecrugames.com/graveborn/"); setSidebarOpen(false); }}
+              className="flex items-center gap-3 px-3 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+            >
+              <span className="text-lg">💀</span>
+              <span className="font-medium">Graveborn</span>
+            </a>
+            <a
               href="https://games.zecrugames.com/veltharas-dominion/"
               onClick={(e) => { handleGameClick(e, "https://games.zecrugames.com/veltharas-dominion/"); setSidebarOpen(false); }}
               className="flex items-center gap-3 px-3 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all"

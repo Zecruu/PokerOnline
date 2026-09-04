@@ -17,6 +17,7 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - Necromancer/mage iOS survivor is **2D** when art is sprite sheets and the world is procedural; 3D billboards waste battery and hide the army. Cap summons; overflow = stats/novas. Godot 2D + atlases + pooling, not uncapped entities
 - First Graveborn slice was HTML5 because this Linux agent had no Godot binary and Vercel only hosts web. Engine source is now `godot/graveborn`; `games/graveborn` is the Vercel/web build. Do not skip Godot again.
 - `npx vercel deploy --temporary --yes` works logged-out and returns a claim URL; unclaimed previews expire in ~60 minutes. User must claim to keep the project.
+- Zecru-hosted HTML5 games go in `games-server/public/<id>/` with hub `href`/`thumbnail` pointing at `https://games.zecrugames.com/<id>/` (Velthara pattern). Hub catalog + store `ALL_GAMES` + sidebar + games-server sitemap. Live only after merge to `master` (Railway). Do not treat Vercel as the real host.
 
 ## Scratchpad
 
@@ -27,6 +28,7 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 [X] Browser playtest (title, bolts, raise to 6/6, drafts Lv2–6, gold/prismatic necro cards)
 [X] Godot 4.6 project at godot/graveborn
 [X] Vercel host games/graveborn (claim URL in README; anonymous preview expires ~60m)
+[X] Add to games.zecrugames.com like Velthara: games-server/public/graveborn + hub catalog/store/nav + sitemap
 
 ### Previous Task: Poker game modes + Blackjack multiplayer
 [X] Home/settings game mode: Hold'em vs Blackjack

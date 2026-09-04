@@ -20,8 +20,8 @@ export const GAMES: Game[] = [
     title: "Graveborn",
     description:
       "Necromancer survivor. Auto-fire, auto-raise a capped skeleton army, draft League-style class cards.",
-    thumbnail: "/games/graveborn/thumbnail.svg",
-    href: "/games/graveborn/index.html",
+    thumbnail: "https://games.zecrugames.com/graveborn/thumbnail.svg",
+    href: "https://games.zecrugames.com/graveborn/",
     badge: "NEW",
     badgeColor: "green",
     isFree: true,
