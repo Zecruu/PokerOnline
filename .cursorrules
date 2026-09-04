@@ -18,12 +18,12 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: iOS necromancer/mage survivor — 2D decision
-[X] Rive researched; not the horde engine
-[X] Decision: **2D** (sprite sheets + procedural + iOS). Not 3D, not sprite-billboard 3D
-[X] Addiction loop: corpses as currency, capped army, spell draft, 8–15 min runs
-[X] Engine: Godot 4.6 2D; reuse velthara-dominion-2d; Rive optional for player/HUD only
-[ ] Next if we build: touch joystick, pooled horde, corpse-raise, iOS export preset
+### Current Task: Graveborn prototype — necro auto-raise + ARAM cards
+[X] Decision: 2D sprite-sheet survivor for iOS
+[X] HTML5 prototype: necromancer, auto-attack, auto-raise, ARAM class cards
+[X] Hub catalog entry
+[ ] Browser playtest
+[ ] Godot port later (reuse velthara-dominion-2d)
 
 ### Previous Task: Poker game modes + Blackjack multiplayer
 [X] Home/settings game mode: Hold'em vs Blackjack

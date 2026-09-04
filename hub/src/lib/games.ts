@@ -16,6 +16,17 @@ export interface Game {
 
 export const GAMES: Game[] = [
   {
+    id: "graveborn",
+    title: "Graveborn",
+    description:
+      "Necromancer survivor. Auto-fire, auto-raise a capped skeleton army, draft League-style class cards.",
+    thumbnail: "/games/graveborn/thumbnail.svg",
+    href: "/games/graveborn/index.html",
+    badge: "NEW",
+    badgeColor: "green",
+    isFree: true,
+  },
+  {
     id: "veltharas-dominion",
     title: "Velthara's Dominion",
     description:

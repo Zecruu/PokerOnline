@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Graveborn — Necromancer Survivor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <div id="hud">
+      <div class="bar"><div id="hpFill"></div></div>
+      <div class="bar"><div id="xpFill"></div></div>
+      <div class="meta">
+        <span id="hpText">100 / 100</span>
+        <span id="levelText">Lv 1</span>
+        <span>Army <b id="armyText">0 / 6</b></span>
+        <span>Kills <b id="killText">0</b></span>
+        <span id="timeText">0:00</span>
+      </div>
+    </div>
+    <div id="banner"></div>
+
+    <div id="title" class="overlay open">
+      <div class="panel">
+        <h1>GRAVEBORN</h1>
+        <div class="tag">NECROMANCER SURVIVOR</div>
+        <p>Auto-fire bone bolts. Corpses are currency — you auto-raise them into a capped skeleton army. Level up and draft League-style cards. Class golds and prismatics reshape the grave.</p>
+        <button class="cta" id="btnPlay">Enter the field</button>
+        <button class="cta ghost" id="btnHow">How to play</button>
+        <div id="how">
+          <h3>Combat</h3>
+          <ul>
+            <li>WASD or hold the left side of the screen to move. Attacks and raises are automatic.</li>
+            <li>Killed enemies leave corpses. Every few seconds you raise the nearest corpse.</li>
+            <li>Army is capped. Extra raises explode the corpse so power never needs uncapped entities.</li>
+          </ul>
+          <h3>Cards</h3>
+          <ul>
+            <li>Silver = general stats. Gold / Prismatic = Necromancer upgrades.</li>
+            <li>Click a card or press 1 / 2 / 3.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="draft" class="overlay">
+      <h2>CHOOSE AN AUGMENT</h2>
+      <div class="sub"><span id="draftLevel">LEVEL 2</span> · NECROMANCER</div>
+      <div id="cardRow"></div>
+    </div>
+
+    <div id="over" class="overlay">
+      <div class="panel">
+        <h1 id="overTitle">Fallen</h1>
+        <p id="overStats"></p>
+        <button class="cta" id="btnAgain">Rise again</button>
+      </div>
+    </div>
+  </div>
+  <script src="cards.js"></script>
+  <script src="sprites.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
