@@ -1,0 +1,191 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/floor.gd" id="2_floor"]
+
+[sub_resource type="StyleBoxFlat" id="hp_style"]
+bg_color = Color(0.77, 0.24, 0.33, 1)
+
+[sub_resource type="StyleBoxFlat" id="xp_style"]
+bg_color = Color(0.61, 0.43, 1, 1)
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Floor" type="Node2D" parent="World"]
+z_index = -10
+script = ExtResource("2_floor")
+
+[node name="Camera2D" type="Camera2D" parent="World"]
+position = Vector2(1200, 1200)
+
+[node name="Player" type="Sprite2D" parent="World"]
+texture_filter = 0
+scale = Vector2(1.55, 1.55)
+position = Vector2(1200, 1200)
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Hud" type="Control" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/Hud"]
+offset_left = 12.0
+offset_top = 10.0
+offset_right = 1260.0
+offset_bottom = 80.0
+
+[node name="Hp" type="ProgressBar" parent="UI/Hud/VBox"]
+custom_minimum_size = Vector2(0, 14)
+max_value = 100.0
+value = 100.0
+show_percentage = false
+theme_override_styles/fill = SubResource("hp_style")
+
+[node name="Xp" type="ProgressBar" parent="UI/Hud/VBox"]
+custom_minimum_size = Vector2(0, 10)
+max_value = 28.0
+value = 0.0
+show_percentage = false
+theme_override_styles/fill = SubResource("xp_style")
+
+[node name="Meta" type="Label" parent="UI/Hud/VBox"]
+theme_override_font_sizes/font_size = 16
+text = "100 / 100    Lv 1    Army 0 / 6    Kills 0    0:00"
+
+[node name="Banner" type="Label" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -160.0
+offset_right = 280.0
+offset_bottom = -100.0
+theme_override_colors/font_color = Color(0.94, 0.78, 0.37, 1)
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+text = "GRAVEBORN"
+
+[node name="Title" type="Control" parent="UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="UI/Title"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.015, 0.03, 0.82)
+
+[node name="Center" type="CenterContainer" parent="UI/Title"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="VBoxContainer" parent="UI/Title/Center"]
+custom_minimum_size = Vector2(520, 0)
+theme_override_constants/separation = 10
+
+[node name="Name" type="Label" parent="UI/Title/Center/Panel"]
+theme_override_colors/font_color = Color(0.94, 0.78, 0.37, 1)
+theme_override_font_sizes/font_size = 52
+horizontal_alignment = 1
+text = "GRAVEBORN"
+
+[node name="Tag" type="Label" parent="UI/Title/Center/Panel"]
+theme_override_colors/font_color = Color(0.61, 0.43, 1, 1)
+horizontal_alignment = 1
+text = "NECROMANCER SURVIVOR"
+
+[node name="Blurb" type="Label" parent="UI/Title/Center/Panel"]
+autowrap_mode = 3
+horizontal_alignment = 1
+text = "Auto-fire bone bolts. Corpses are currency — you auto-raise them into a capped skeleton army. Level up and draft League-style class cards."
+
+[node name="Play" type="Button" parent="UI/Title/Center/Panel"]
+text = "Enter the field"
+
+[node name="How" type="Button" parent="UI/Title/Center/Panel"]
+text = "How to play"
+
+[node name="HowText" type="Label" parent="UI/Title/Center/Panel"]
+visible = false
+autowrap_mode = 3
+text = "WASD or hold the left side of the screen to move. Attacks and raises are automatic. Killed enemies leave corpses. Extra raises explode when the army is full. Silver cards are general stats. Gold and Prismatic are Necromancer upgrades. Press 1 / 2 / 3 to pick."
+
+[node name="Draft" type="Control" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="UI/Draft"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.015, 0.03, 0.72)
+
+[node name="Center" type="CenterContainer" parent="UI/Draft"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="UI/Draft/Center"]
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="UI/Draft/Center/VBox"]
+theme_override_colors/font_color = Color(0.94, 0.78, 0.37, 1)
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+text = "CHOOSE AN AUGMENT"
+
+[node name="Sub" type="Label" parent="UI/Draft/Center/VBox"]
+horizontal_alignment = 1
+text = "LEVEL 2  ·  NECROMANCER"
+
+[node name="CardRow" type="HBoxContainer" parent="UI/Draft/Center/VBox"]
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Over" type="Control" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="UI/Over"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.015, 0.03, 0.82)
+
+[node name="Center" type="CenterContainer" parent="UI/Over"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="VBoxContainer" parent="UI/Over/Center"]
+custom_minimum_size = Vector2(420, 0)
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="UI/Over/Center/Panel"]
+theme_override_colors/font_color = Color(0.94, 0.78, 0.37, 1)
+theme_override_font_sizes/font_size = 40
+horizontal_alignment = 1
+text = "The grave is full"
+
+[node name="Stats" type="Label" parent="UI/Over/Center/Panel"]
+horizontal_alignment = 1
+text = "Survived 0:00"
+
+[node name="Again" type="Button" parent="UI/Over/Center/Panel"]
+text = "Rise again"

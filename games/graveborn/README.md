@@ -11,7 +11,16 @@ First playable prototype of the 2D necromancer survivor (iOS-bound, sprite sheet
   - Silver = generic stats
   - Gold / Prismatic = **Necromancer** class upgrades
 
-## Run
+## Vercel
+
+Anonymous preview (claim to keep — expires in ~60 minutes if unclaimed):
+
+- Play: https://temporary-turbo-magenta-wn9vad5.vercel.app
+- Claim: https://vercel.com/claim-deployment?code=2d03f695-17a6-44b5-bd78-d287d458cc91
+
+After claiming, connect this folder (`games/graveborn`) or the repo root with Root Directory `games/graveborn` for permanent deploys.
+
+## Run locally
 
 Open `index.html` locally or via any static server:
 
@@ -23,6 +32,10 @@ Then visit `http://localhost:8765`.
 
 WASD or hold the left half of the screen to move.
 
-## Next (Godot / App Store)
+## Godot
 
-Port the same systems onto `godot/velthara-dominion-2d` (already has a Necromancer + skeleton minion). This HTML5 slice exists so we can feel the loop without Xcode.
+Engine project: `godot/graveborn`. This folder is the **web / Vercel** build (Vercel cannot host a Godot editor project). Keep card data in sync with `godot/graveborn/scripts/card_db.gd`.
+
+## Next (App Store)
+
+Export `godot/graveborn` to iOS from a Mac (Xcode 26, Apple Developer Program).

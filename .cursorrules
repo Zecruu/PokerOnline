@@ -15,6 +15,8 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - Rive GPU Canvas compiles WGSL to Metal on iOS but is a low-level GPU API, not a horde/3D engine; official GLTF/lighting libraries were still a production gap
 - Shipping any iOS game still needs a Mac, Apple Developer Program, and (after 2026-04-28) Xcode 26 + iOS 26 SDK — Linux cannot archive an IPA
 - Necromancer/mage iOS survivor is **2D** when art is sprite sheets and the world is procedural; 3D billboards waste battery and hide the army. Cap summons; overflow = stats/novas. Godot 2D + atlases + pooling, not uncapped entities
+- First Graveborn slice was HTML5 because this Linux agent had no Godot binary and Vercel only hosts web. Engine source is now `godot/graveborn`; `games/graveborn` is the Vercel/web build. Do not skip Godot again.
+- `npx vercel deploy --temporary --yes` works logged-out and returns a claim URL; unclaimed previews expire in ~60 minutes. User must claim to keep the project.
 
 ## Scratchpad
 
@@ -23,7 +25,8 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 [X] HTML5 prototype: necromancer, auto-attack, auto-raise, ARAM class cards
 [X] Hub catalog entry
 [X] Browser playtest (title, bolts, raise to 6/6, drafts Lv2–6, gold/prismatic necro cards)
-[ ] Godot port later (reuse velthara-dominion-2d)
+[X] Godot 4.6 project at godot/graveborn
+[X] Vercel host games/graveborn (claim URL in README; anonymous preview expires ~60m)
 
 ### Previous Task: Poker game modes + Blackjack multiplayer
 [X] Home/settings game mode: Hold'em vs Blackjack
