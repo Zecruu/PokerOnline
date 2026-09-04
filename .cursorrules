@@ -23,10 +23,10 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 ## Scratchpad
 
 ### Current Task: Graveborn mobile-friendly web play
-[ ] Phone HUD / title / draft cards + safe-area
-[ ] Visible virtual joystick + touch input
-[ ] Sync games/ + hub/public + games-server copies
-[ ] Verify desktop + mobile viewports
+[X] Phone HUD / title / draft cards + safe-area
+[X] Visible virtual joystick + touch input
+[X] Sync games/ + hub/public + games-server copies
+[X] Verify desktop + mobile viewports
 
 ### Previous Task: Graveborn prototype — necro auto-raise + ARAM cards
 [X] Decision: 2D sprite-sheet survivor for iOS
