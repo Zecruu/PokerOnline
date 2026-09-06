@@ -20,10 +20,16 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - Zecru-hosted HTML5 games go in `games-server/public/<id>/` with hub `href`/`thumbnail` pointing at `https://games.zecrugames.com/<id>/` (Velthara pattern). Hub catalog + store `ALL_GAMES` + sidebar + games-server sitemap. Live only after merge to `master` (Railway). Do not treat Vercel as the real host.
 - Graveborn HTML5 is copied in `games/graveborn`, `hub/public/games/graveborn`, and `games-server/public/graveborn` — update all three. Mobile: viewport-fit=cover, 100dvh/visualViewport, safe-area HUD, on-screen MOVE stick, overlay `touch-action: pan-y`.
 - Graveborn horde tables live in `games/graveborn/enemies.js` and `godot/graveborn/scripts/enemy_db.gd` — keep them in sync. Catalog changes only appear on www after `master` deploys.
+- Imposter lives in `games-server/public/imposter/index.html` + Socket.IO on `games-server/server.js` (`/imposter-mp`). Hub only has catalog/store copy + thumbnail. Classic word mode: crew gets the word, imposter gets no hint.
 
 ## Scratchpad
 
-### Current Task: Graveborn horde — more enemies, scaling, bosses
+### Current Task: Imposter — remove hints and deploy
+[X] Strip hint from in-person + online word mode (client + server)
+[X] Update hub catalog copy
+[X] Playtest and ship (PR; live after master / Railway)
+
+### Previous Task: Graveborn horde — more enemies, scaling, bosses
 [X] Enemy catalog + tests
 [X] Web combat + sprites
 [X] Godot port

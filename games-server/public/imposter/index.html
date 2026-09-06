@@ -642,7 +642,7 @@
     <div id="screen-ip-discuss" class="screen">
         <div class="ip-all-done">
             <h2>Everyone has seen their word!</h2>
-            <p>Discuss, ask questions, and figure out who the imposter is. The imposter only got a vague hint - they're bluffing!</p>
+            <p>Discuss, ask questions, and figure out who the imposter is. The imposter doesn't know the word — they're bluffing!</p>
             <button class="btn-primary" onclick="ipRevealAnswer()" style="margin-top:10px;">
                 Reveal the Answer
             </button>
@@ -777,56 +777,56 @@
 // WORD BANK (shared for in-person mode)
 // ============================================
 const WORD_BANK = [
-    { category: 'Animals', word: 'Elephant', hint: 'Big' },
-    { category: 'Animals', word: 'Flamingo', hint: 'Pink' },
-    { category: 'Animals', word: 'Chameleon', hint: 'Colorful' },
-    { category: 'Animals', word: 'Penguin', hint: 'Cold' },
-    { category: 'Animals', word: 'Dolphin', hint: 'Playful' },
-    { category: 'Animals', word: 'Owl', hint: 'Nocturnal' },
-    { category: 'Animals', word: 'Cheetah', hint: 'Fast' },
-    { category: 'Animals', word: 'Turtle', hint: 'Slow' },
-    { category: 'Animals', word: 'Parrot', hint: 'Talkative' },
-    { category: 'Animals', word: 'Shark', hint: 'Scary' },
-    { category: 'Food', word: 'Pizza', hint: 'Round' },
-    { category: 'Food', word: 'Sushi', hint: 'Japanese' },
-    { category: 'Food', word: 'Watermelon', hint: 'Green' },
-    { category: 'Food', word: 'Chocolate', hint: 'Sweet' },
-    { category: 'Food', word: 'Taco', hint: 'Crunchy' },
-    { category: 'Food', word: 'Ice Cream', hint: 'Cold' },
-    { category: 'Food', word: 'Pancake', hint: 'Flat' },
-    { category: 'Food', word: 'Avocado', hint: 'Trendy' },
-    { category: 'Food', word: 'Popcorn', hint: 'Movie' },
-    { category: 'Food', word: 'Donut', hint: 'Hole' },
-    { category: 'Places', word: 'Beach', hint: 'Sandy' },
-    { category: 'Places', word: 'Library', hint: 'Quiet' },
-    { category: 'Places', word: 'Hospital', hint: 'White' },
-    { category: 'Places', word: 'Volcano', hint: 'Hot' },
-    { category: 'Places', word: 'Castle', hint: 'Medieval' },
-    { category: 'Places', word: 'Airport', hint: 'Busy' },
-    { category: 'Places', word: 'Cave', hint: 'Dark' },
-    { category: 'Places', word: 'Gym', hint: 'Strong' },
-    { category: 'Places', word: 'Museum', hint: 'Old' },
-    { category: 'Places', word: 'Carnival', hint: 'Fun' },
-    { category: 'Objects', word: 'Umbrella', hint: 'Rainy' },
-    { category: 'Objects', word: 'Guitar', hint: 'Musical' },
-    { category: 'Objects', word: 'Telescope', hint: 'Far' },
-    { category: 'Objects', word: 'Candle', hint: 'Warm' },
-    { category: 'Objects', word: 'Balloon', hint: 'Light' },
-    { category: 'Objects', word: 'Clock', hint: 'Ticking' },
-    { category: 'Objects', word: 'Mirror', hint: 'Reflective' },
-    { category: 'Objects', word: 'Diamond', hint: 'Shiny' },
-    { category: 'Objects', word: 'Backpack', hint: 'Heavy' },
-    { category: 'Objects', word: 'Compass', hint: 'North' },
-    { category: 'Activities', word: 'Swimming', hint: 'Wet' },
-    { category: 'Activities', word: 'Dancing', hint: 'Rhythmic' },
-    { category: 'Activities', word: 'Camping', hint: 'Outdoors' },
-    { category: 'Activities', word: 'Cooking', hint: 'Hot' },
-    { category: 'Activities', word: 'Painting', hint: 'Colorful' },
-    { category: 'Activities', word: 'Skateboarding', hint: 'Wheeled' },
-    { category: 'Activities', word: 'Fishing', hint: 'Patient' },
-    { category: 'Activities', word: 'Karaoke', hint: 'Loud' },
-    { category: 'Activities', word: 'Yoga', hint: 'Flexible' },
-    { category: 'Activities', word: 'Gaming', hint: 'Digital' },
+    { category: 'Animals', word: 'Elephant' },
+    { category: 'Animals', word: 'Flamingo' },
+    { category: 'Animals', word: 'Chameleon' },
+    { category: 'Animals', word: 'Penguin' },
+    { category: 'Animals', word: 'Dolphin' },
+    { category: 'Animals', word: 'Owl' },
+    { category: 'Animals', word: 'Cheetah' },
+    { category: 'Animals', word: 'Turtle' },
+    { category: 'Animals', word: 'Parrot' },
+    { category: 'Animals', word: 'Shark' },
+    { category: 'Food', word: 'Pizza' },
+    { category: 'Food', word: 'Sushi' },
+    { category: 'Food', word: 'Watermelon' },
+    { category: 'Food', word: 'Chocolate' },
+    { category: 'Food', word: 'Taco' },
+    { category: 'Food', word: 'Ice Cream' },
+    { category: 'Food', word: 'Pancake' },
+    { category: 'Food', word: 'Avocado' },
+    { category: 'Food', word: 'Popcorn' },
+    { category: 'Food', word: 'Donut' },
+    { category: 'Places', word: 'Beach' },
+    { category: 'Places', word: 'Library' },
+    { category: 'Places', word: 'Hospital' },
+    { category: 'Places', word: 'Volcano' },
+    { category: 'Places', word: 'Castle' },
+    { category: 'Places', word: 'Airport' },
+    { category: 'Places', word: 'Cave' },
+    { category: 'Places', word: 'Gym' },
+    { category: 'Places', word: 'Museum' },
+    { category: 'Places', word: 'Carnival' },
+    { category: 'Objects', word: 'Umbrella' },
+    { category: 'Objects', word: 'Guitar' },
+    { category: 'Objects', word: 'Telescope' },
+    { category: 'Objects', word: 'Candle' },
+    { category: 'Objects', word: 'Balloon' },
+    { category: 'Objects', word: 'Clock' },
+    { category: 'Objects', word: 'Mirror' },
+    { category: 'Objects', word: 'Diamond' },
+    { category: 'Objects', word: 'Backpack' },
+    { category: 'Objects', word: 'Compass' },
+    { category: 'Activities', word: 'Swimming' },
+    { category: 'Activities', word: 'Dancing' },
+    { category: 'Activities', word: 'Camping' },
+    { category: 'Activities', word: 'Cooking' },
+    { category: 'Activities', word: 'Painting' },
+    { category: 'Activities', word: 'Skateboarding' },
+    { category: 'Activities', word: 'Fishing' },
+    { category: 'Activities', word: 'Karaoke' },
+    { category: 'Activities', word: 'Yoga' },
+    { category: 'Activities', word: 'Gaming' },
 ];
 
 // Question bank for Question mode (in-person + online)
@@ -925,7 +925,7 @@ let ipPlayers = [];       // array of player name strings
 let ipRound = 0;
 let ipUsedWords = new Set();
 let ipUsedQuestions = new Set();
-let ipCurrentWord = null; // { category, word, hint }
+let ipCurrentWord = null; // { category, word }
 let ipCurrentQuestion = null; // { question, imposterQuestion }
 let ipImposterId = -1;    // index into ipPlayers
 let ipRevealIdx = 0;      // which player is currently revealing
@@ -1038,11 +1038,11 @@ function ipReveal() {
     const catEl = document.getElementById('ip-category');
 
     if (ipRevealIdx === ipImposterId) {
-        roleEl.textContent = 'You are the IMPOSTER! Your hint:';
+        roleEl.textContent = 'You are the IMPOSTER!';
         roleEl.style.color = '#ff3333';
         wordEl.className = 'the-word imposter';
-        wordEl.textContent = ipCurrentWord.hint;
-        catEl.textContent = '';
+        wordEl.textContent = '???';
+        catEl.textContent = 'You don\'t know the word. Blend in!';
     } else {
         roleEl.textContent = 'The word is:';
         roleEl.style.color = '#88ff88';
@@ -1084,8 +1084,7 @@ function ipRevealAnswer() {
              <span style="color:#ff4444;">Imposter question: <strong>${esc(ipCurrentQuestion.imposterQuestion)}</strong></span>`;
     } else {
         document.getElementById('ip-results-word').innerHTML =
-            `The word was: <strong>${esc(ipCurrentWord.word)}</strong><br>
-             <span style="color:#888;">The imposter's hint was: <span style="color:#ff4444;">${esc(ipCurrentWord.hint)}</span></span>`;
+            `The word was: <strong>${esc(ipCurrentWord.word)}</strong>`;
     }
 }
 
@@ -1341,11 +1340,11 @@ socket.on('imposter:round-start', (data) => {
         wordEl.style.fontSize = '';
 
         if (data.role === 'imposter') {
-            roleEl.textContent = 'You are the IMPOSTER! You got a hint:';
+            roleEl.textContent = 'You are the IMPOSTER!';
             roleEl.style.color = '#ff3333';
             wordEl.className = 'the-word imposter';
-            wordEl.textContent = data.hint;
-            catEl.textContent = '';
+            wordEl.textContent = '???';
+            catEl.textContent = 'You don\'t know the word. Blend in!';
         } else {
             roleEl.textContent = 'You are CREW. The word is:';
             roleEl.style.color = '#88ff88';
@@ -1509,7 +1508,7 @@ socket.on('imposter:results', (data) => {
         wordEl.innerHTML = `Crew question: <strong>${esc(data.crewQuestion)}</strong><br>
             <span style="color:#ff4444;">Imposter question: <strong>${esc(data.imposterQuestion)}</strong></span>`;
     } else {
-        wordEl.innerHTML = `The word was: <strong>${esc(data.word)}</strong> (hint: ${esc(data.hint)})`;
+        wordEl.innerHTML = `The word was: <strong>${esc(data.word)}</strong>`;
     }
 
     const sb = document.getElementById('scoreboard');
