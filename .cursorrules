@@ -24,7 +24,17 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Imposter — add more words and push master
+### Current Task: Imposter — add more words
+[X] Grow word banks in client + server (no dupes, stay in sync)
+[X] Verify both banks match
+[ ] Commit and PR
+
+### Previous Task: Imposter — pick who goes first
+[X] Random first speaker each round (in-person + online)
+[X] Show it on discussion screens
+[X] Playtest, commit, PR
+
+### Previous Task: Imposter — add more words and push master
 [X] Expand word banks in client + server (keep in sync)
 [X] Verify banks match and new words appear in play
 [X] Commit and push to master
