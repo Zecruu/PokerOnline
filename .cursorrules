@@ -23,7 +23,12 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 
 ## Scratchpad
 
-### Current Task: Graveborn horde — more enemies, scaling, bosses
+### Current Task: Imposter — remove hints and deploy
+[X] Strip hint from in-person + online word mode (client + server)
+[X] Update hub catalog copy
+[ ] Playtest and ship (PR; live after master / Railway)
+
+### Previous Task: Graveborn horde — more enemies, scaling, bosses
 [X] Enemy catalog + tests
 [X] Web combat + sprites
 [X] Godot port
