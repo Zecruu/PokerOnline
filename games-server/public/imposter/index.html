@@ -772,6 +772,7 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script src="pick.js"></script>
 <script>
 // ============================================
 // WORD BANK (shared for in-person mode)
@@ -1213,6 +1214,7 @@ let ipUsedQuestions = new Set();
 let ipCurrentWord = null; // { category, word }
 let ipCurrentQuestion = null; // { question, imposterQuestion }
 let ipImposterId = -1;    // index into ipPlayers
+let ipImposterCounts = {}; // player index -> times they were the faker this cycle
 let ipRevealIdx = 0;      // which player is currently revealing
 let ipGameMode = 'word';  // 'word' or 'question'
 let ipAnswers = [];       // [{ name, answer }] for question mode
@@ -1226,6 +1228,7 @@ function ipSetGameMode(mode) {
 function ipInit() {
     // Start with 3 empty player slots
     ipPlayers = ['', '', ''];
+    ipImposterCounts = {};
     ipRenderPlayerInputs();
 }
 
@@ -1285,8 +1288,8 @@ function ipStartRound() {
     ipRound++;
     ipRevealIdx = 0;
 
-    // Pick imposter
-    ipImposterId = Math.floor(Math.random() * ipPlayers.length);
+    // Pick imposter — nobody is faker more than twice until everyone has had 2
+    ipImposterId = pickCappedImposter(ipPlayers.map((_, i) => i), ipImposterCounts);
 
     if (ipGameMode === 'question') {
         // QUESTION MODE
@@ -1377,6 +1380,7 @@ function ipBackToSetup() {
     ipRound = 0;
     ipUsedWords.clear();
     ipUsedQuestions.clear();
+    ipImposterCounts = {};
     ipRenderPlayerInputs();
     showScreen('ip-setup');
 }
