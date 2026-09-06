@@ -810,6 +810,7 @@ imposterIo.on('connection', (socket) => {
             currentWord: null,
             currentQuestion: null,
             imposterId: null,
+            goesFirstId: null,
             votes: new Map(),
             answers: new Map(), // playerId → answer string (question mode)
             timers: [],
@@ -982,15 +983,21 @@ function clearRoomTimers(room) {
     room.timers = [];
 }
 
+function goesFirstPayload(room) {
+    const player = room.players.get(room.goesFirstId);
+    return { id: room.goesFirstId, name: player?.name || 'Player' };
+}
+
 function startNewRound(roomId, room) {
     clearRoomTimers(room);
     room.round++;
     room.votes = new Map();
     room.answers = new Map();
 
-    // Pick imposter
+    // Pick imposter and who starts talking
     const playerIds = [...room.players.keys()];
     room.imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
+    room.goesFirstId = playerIds[Math.floor(Math.random() * playerIds.length)];
 
     if (room.gameMode === 'question') {
         // ── QUESTION MODE ──
@@ -1055,6 +1062,7 @@ function startNewRound(roomId, room) {
                     gameMode: 'word',
                     round: room.round,
                     discussTime: room.discussTime,
+                    goesFirst: goesFirstPayload(room),
                 });
             } else {
                 sock.emit('imposter:round-start', {
@@ -1064,6 +1072,7 @@ function startNewRound(roomId, room) {
                     category: wordObj.category,
                     round: room.round,
                     discussTime: room.discussTime,
+                    goesFirst: goesFirstPayload(room),
                 });
             }
         }
@@ -1096,6 +1105,7 @@ function revealAnswers(roomId, room) {
         answers: answerList,
         crewQuestion: room.currentQuestion ? room.currentQuestion.question : null,
         discussTime: room.discussTime,
+        goesFirst: goesFirstPayload(room),
     });
 
     // After discussion → vote

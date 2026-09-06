@@ -20,11 +20,16 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - Zecru-hosted HTML5 games go in `games-server/public/<id>/` with hub `href`/`thumbnail` pointing at `https://games.zecrugames.com/<id>/` (Velthara pattern). Hub catalog + store `ALL_GAMES` + sidebar + games-server sitemap. Live only after merge to `master` (Railway). Do not treat Vercel as the real host.
 - Graveborn HTML5 is copied in `games/graveborn`, `hub/public/games/graveborn`, and `games-server/public/graveborn` — update all three. Mobile: viewport-fit=cover, 100dvh/visualViewport, safe-area HUD, on-screen MOVE stick, overlay `touch-action: pan-y`.
 - Graveborn horde tables live in `games/graveborn/enemies.js` and `godot/graveborn/scripts/enemy_db.gd` — keep them in sync. Catalog changes only appear on www after `master` deploys.
-- Imposter lives in `games-server/public/imposter/index.html` + Socket.IO on `games-server/server.js` (`/imposter-mp`). Hub only has catalog/store copy + thumbnail. Classic word mode: crew gets the word, imposter gets no hint.
+- Imposter lives in `games-server/public/imposter/index.html` + Socket.IO on `games-server/server.js` (`/imposter-mp`). Hub only has catalog/store copy + thumbnail. Classic word mode: crew gets the word, imposter gets no hint. Each round picks a random first speaker for discussion.
 
 ## Scratchpad
 
-### Current Task: Imposter — add more words and push master
+### Current Task: Imposter — pick who goes first
+[X] Random first speaker each round (in-person + online)
+[X] Show it on discussion screens
+[X] Playtest, commit, PR
+
+### Previous Task: Imposter — add more words and push master
 [X] Expand word banks in client + server (keep in sync)
 [X] Verify banks match and new words appear in play
 [X] Commit and push to master
