@@ -27,7 +27,7 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 ### Current Task: Imposter — add more words
 [X] Grow word banks in client + server (no dupes, stay in sync)
 [X] Verify both banks match
-[ ] Commit and PR
+[X] Commit and PR
 
 ### Previous Task: Imposter — pick who goes first
 [X] Random first speaker each round (in-person + online)
