@@ -533,6 +533,36 @@
             color: #888;
             margin-bottom: 20px;
         }
+
+        .goes-first {
+            margin: 16px 0 20px;
+            padding: 16px 18px;
+            border-radius: 14px;
+            background: #1a1208;
+            border: 1px solid #ff8800;
+            text-align: center;
+        }
+
+        .goes-first-kicker {
+            color: #ffaa44;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .goes-first-name {
+            color: #fff;
+            font-size: 1.6em;
+            font-weight: 800;
+        }
+
+        .goes-first.you {
+            background: #221808;
+            border-color: #ffaa00;
+        }
+
+        .goes-first.you .goes-first-name { color: #ff8800; }
     </style>
 </head>
 <body>
@@ -605,6 +635,7 @@
         <div class="ip-all-done">
             <h2>Everyone has answered!</h2>
             <p>Read the answers below and figure out who got a different question.</p>
+            <div id="ip-answers-goes-first" class="goes-first" hidden></div>
         </div>
         <div class="answers-list" id="ip-answers-list"></div>
         <button class="btn-primary" onclick="ipRevealAnswer()" style="margin-top:12px;">Reveal the Imposter</button>
@@ -643,6 +674,7 @@
         <div class="ip-all-done">
             <h2>Everyone has seen their word!</h2>
             <p>Discuss, ask questions, and figure out who the imposter is. The imposter doesn't know the word — they're bluffing!</p>
+            <div id="ip-goes-first" class="goes-first" hidden></div>
             <button class="btn-primary" onclick="ipRevealAnswer()" style="margin-top:10px;">
                 Reveal the Answer
             </button>
@@ -722,6 +754,7 @@
     <div id="screen-game" class="screen">
         <div class="phase-label" id="phase-label">Discussion</div>
         <div class="timer" id="timer">60</div>
+        <div id="goes-first" class="goes-first" hidden></div>
 
         <div class="word-display">
             <div class="your-role" id="your-role"></div>
@@ -1023,6 +1056,25 @@ function showScreen(id) {
     document.getElementById('screen-' + id).classList.add('active');
 }
 
+function pickGoesFirstName(names) {
+    return names[Math.floor(Math.random() * names.length)];
+}
+
+function renderGoesFirst(el, name, isYou) {
+    if (!el) return;
+    if (!name) {
+        el.hidden = true;
+        el.innerHTML = '';
+        el.classList.remove('you');
+        return;
+    }
+    el.hidden = false;
+    el.classList.toggle('you', !!isYou);
+    el.innerHTML = isYou
+        ? `<div class="goes-first-kicker">First to speak</div><div class="goes-first-name">You go first!</div>`
+        : `<div class="goes-first-kicker">First to speak</div><div class="goes-first-name">${esc(name)}</div>`;
+}
+
 function selectMode(mode) {
     gameMode = mode;
     document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
@@ -1049,6 +1101,7 @@ let ipCurrentWord = null; // { category, word }
 let ipCurrentQuestion = null; // { question, imposterQuestion }
 let ipImposterId = -1;    // index into ipPlayers
 let ipRevealIdx = 0;      // which player is currently revealing
+let ipGoesFirst = '';     // player name who starts discussion
 let ipGameMode = 'word';  // 'word' or 'question'
 let ipAnswers = [];       // [{ name, answer }] for question mode
 
@@ -1120,8 +1173,9 @@ function ipStartRound() {
     ipRound++;
     ipRevealIdx = 0;
 
-    // Pick imposter
+    // Pick imposter and who starts talking
     ipImposterId = Math.floor(Math.random() * ipPlayers.length);
+    ipGoesFirst = pickGoesFirstName(ipPlayers);
 
     if (ipGameMode === 'question') {
         // QUESTION MODE
@@ -1187,6 +1241,7 @@ function ipNext() {
     } else {
         // All players have seen their word — go to discussion (word mode only)
         showScreen('ip-discuss');
+        renderGoesFirst(document.getElementById('ip-goes-first'), ipGoesFirst, false);
         document.getElementById('ip-discuss-round').textContent = `Round ${ipRound}`;
     }
 }
@@ -1264,6 +1319,7 @@ function ipSubmitAnswer() {
 
 function ipShowAnswersDiscuss() {
     showScreen('ip-answers-discuss');
+    renderGoesFirst(document.getElementById('ip-answers-goes-first'), ipGoesFirst, false);
     document.getElementById('ip-answers-discuss-round').textContent = `Round ${ipRound}`;
     const list = document.getElementById('ip-answers-list');
     list.innerHTML = `<div style="text-align:center;margin-bottom:14px;padding:12px;background:#111;border-radius:10px;">
@@ -1428,6 +1484,7 @@ socket.on('imposter:round-start', (data) => {
     document.getElementById('round-info').textContent = `Round ${data.round}`;
     document.getElementById('chat-box').innerHTML = '';
     document.getElementById('answer-count').textContent = '';
+    renderGoesFirst(document.getElementById('goes-first'), null);
 
     if (currentGameMode === 'question') {
         // QUESTION MODE
@@ -1474,6 +1531,9 @@ socket.on('imposter:round-start', (data) => {
         }
 
         document.getElementById('phase-label').textContent = 'Discussion Phase - Talk it out!';
+        if (data.goesFirst) {
+            renderGoesFirst(document.getElementById('goes-first'), data.goesFirst.name, data.goesFirst.id === myId);
+        }
         startTimer(data.discussTime);
     }
 });
@@ -1500,6 +1560,7 @@ function startTimer(seconds) {
 socket.on('imposter:vote-phase', (data) => {
     gamePhase = 'vote';
     document.getElementById('phase-label').textContent = 'Voting Phase - Who is the imposter?';
+    renderGoesFirst(document.getElementById('goes-first'), null);
     startTimer(data.voteTime);
 
     const voteSection = document.getElementById('vote-section');
@@ -1574,6 +1635,9 @@ socket.on('imposter:answers-revealed', (data) => {
     });
 
     document.getElementById('phase-label').textContent = 'Discussion Phase - Who gave a suspicious answer?';
+    if (data.goesFirst) {
+        renderGoesFirst(document.getElementById('goes-first'), data.goesFirst.name, data.goesFirst.id === myId);
+    }
     startTimer(data.discussTime);
 });
 
