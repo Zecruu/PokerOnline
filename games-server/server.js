@@ -7,6 +7,7 @@ const http = require('http');
 const { Server: SocketServer } = require('socket.io');
 const leaderboard = require('./leaderboard');
 const battleship = require('./battleship');
+const { pickCappedImposter } = require('./public/imposter/pick.js');
 
 // ============================================
 // STRIPE CONFIGURATION (Add API keys when ready)
@@ -975,6 +976,7 @@ imposterIo.on('connection', (socket) => {
             currentWord: null,
             currentQuestion: null,
             imposterId: null,
+            imposterCounts: new Map(),
             votes: new Map(),
             answers: new Map(), // playerId → answer string (question mode)
             timers: [],
@@ -984,6 +986,7 @@ imposterIo.on('connection', (socket) => {
             color: IMP_COLORS[0],
         });
         room.scores.set(socket.id, 0);
+        room.imposterCounts.set(socket.id, 0);
         imposterRooms.set(roomId, room);
         socket.join(roomId);
         currentRoom = roomId;
@@ -1005,6 +1008,7 @@ imposterIo.on('connection', (socket) => {
             color: IMP_COLORS[colorIdx],
         });
         room.scores.set(socket.id, 0);
+        room.imposterCounts.set(socket.id, 0);
         socket.join(data.roomId);
         currentRoom = data.roomId;
 
@@ -1121,6 +1125,7 @@ imposterIo.on('connection', (socket) => {
 
         room.players.delete(socket.id);
         room.scores.delete(socket.id);
+        if (room.imposterCounts) room.imposterCounts.delete(socket.id);
         socket.leave(currentRoom);
 
         if (room.players.size === 0) {
@@ -1153,9 +1158,10 @@ function startNewRound(roomId, room) {
     room.votes = new Map();
     room.answers = new Map();
 
-    // Pick imposter
+    // Pick imposter — nobody is faker more than twice until everyone has had 2
+    if (!room.imposterCounts) room.imposterCounts = new Map();
     const playerIds = [...room.players.keys()];
-    room.imposterId = playerIds[Math.floor(Math.random() * playerIds.length)];
+    room.imposterId = pickCappedImposter(playerIds, room.imposterCounts);
 
     if (room.gameMode === 'question') {
         // ── QUESTION MODE ──
