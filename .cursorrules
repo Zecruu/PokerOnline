@@ -30,7 +30,7 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 [X] In-person + online client
 [X] Socket.IO rooms on games-server
 [X] Hub catalog / store / sidebar / sitemap
-[ ] Playtest and PR
+[X] Playtest and PR
 
 ### Previous Task: Imposter — add more words and push master
 [X] Expand word banks in client + server (keep in sync)
