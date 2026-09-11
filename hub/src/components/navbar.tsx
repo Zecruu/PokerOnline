@@ -302,6 +302,14 @@ export function Navbar() {
               <span className="font-medium">Velthara&apos;s Dominion</span>
             </a>
             <SidebarLink href="/games/poker/poker.html" icon="🃏" onClick={() => setSidebarOpen(false)}>Poker Online</SidebarLink>
+            <a
+              href="https://games.zecrugames.com/range-1-10/"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-3 px-3 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+            >
+              <span className="text-lg">🔢</span>
+              <span className="font-medium">1–10 Range</span>
+            </a>
           </div>
 
           <div className="my-4 border-t border-white/10" />

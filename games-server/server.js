@@ -7,6 +7,7 @@ const http = require('http');
 const { Server: SocketServer } = require('socket.io');
 const leaderboard = require('./leaderboard');
 const battleship = require('./battleship');
+const rangeGame = require('./range');
 
 // ============================================
 // STRIPE CONFIGURATION (Add API keys when ready)
@@ -118,6 +119,12 @@ app.get('/sitemap.xml', (req, res) => {
     </url>
     <url>
         <loc>https://games.zecrugames.com/imposter/</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://games.zecrugames.com/range-1-10/</loc>
         <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
@@ -1358,12 +1365,14 @@ const HOST = '0.0.0.0';
 
 // Mount Battleship multiplayer on the same HTTP server
 battleship.mount(server);
+rangeGame.mount(server);
 
 server.listen(PORT, HOST, () => {
     console.log(`🎮 Games server running on http://${HOST}:${PORT}`);
     console.log(`   Serving games from: ${path.join(__dirname, 'public')}`);
     console.log(`   🌐 Colony Multiplayer: Socket.IO on /colony-mp`);
     console.log(`   🕵️ Imposter Game: Socket.IO on /imposter-mp`);
+    console.log(`   🔢 1-10 Range: Socket.IO on /range-mp`);
 }).on('error', (err) => {
     console.error('❌ Server failed to start:', err);
     process.exit(1);

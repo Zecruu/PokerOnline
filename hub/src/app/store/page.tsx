@@ -106,6 +106,17 @@ const ALL_GAMES = [
     isFree: true,
     category: "party",
   },
+  {
+    id: "range-1-10",
+    title: "1–10 Range",
+    description: "The game rolls a range like 1–3 or 6–8. Guess a number inside it — closest to the hidden target wins. Play in person or online.",
+    thumbnail: "https://games.zecrugames.com/range-1-10/thumbnail.svg",
+    href: "https://games.zecrugames.com/range-1-10/",
+    badge: "NEW",
+    badgeColor: "gold" as const,
+    isFree: true,
+    category: "party",
+  },
 ];
 
 const CATEGORIES = [

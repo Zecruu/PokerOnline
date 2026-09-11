@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>1–10 Range</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #061018;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #app { width: 100%; max-width: 600px; padding: 20px; }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #2ee6a6, #3d9eff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle { text-align: center; color: #6a8894; margin-bottom: 28px; font-size: 0.9em; }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        input, button, select {
+            font-family: inherit;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 20px;
+            width: 100%;
+            outline: none;
+        }
+
+        input {
+            background: #0e1e28;
+            color: #fff;
+            border: 1px solid #1e3a48;
+            margin-bottom: 12px;
+        }
+        input:focus { border-color: #2ee6a6; }
+        input::placeholder { color: #4a6670; }
+
+        select { background: #0e1e28; color: #fff; border: 1px solid #1e3a48; }
+
+        button { cursor: pointer; font-weight: 600; transition: transform 0.1s, opacity 0.2s; }
+        button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2ee6a6, #1aa87a);
+            color: #04141c;
+            margin-bottom: 10px;
+        }
+        .btn-secondary {
+            background: #0e1e28;
+            color: #c5d8e0;
+            border: 1px solid #1e3a48;
+            margin-bottom: 10px;
+        }
+        .btn-secondary:hover { border-color: #2ee6a6; color: #fff; }
+        .btn-small { width: auto; padding: 8px 16px; font-size: 0.85em; display: inline-block; }
+
+        .mode-cards { display: grid; gap: 12px; }
+        .mode-card {
+            background: #0e1e28;
+            border: 1px solid #1e3a48;
+            border-radius: 14px;
+            padding: 20px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .mode-card:hover, .mode-card.selected { border-color: #2ee6a6; }
+        .mode-icon { font-size: 2em; display: block; margin-bottom: 8px; }
+        .mode-title { font-weight: 800; font-size: 1.15em; margin-bottom: 4px; }
+        .mode-desc { color: #6a8894; font-size: 0.85em; }
+
+        .status-msg { text-align: center; color: #6a8894; font-size: 0.85em; margin: 8px 0 14px; }
+        .player-turn-label { text-align: center; font-size: 1.3em; font-weight: 700; color: #2ee6a6; margin-bottom: 12px; }
+        .pass-notice { text-align: center; color: #4a6670; font-size: 0.85em; margin-top: 12px; }
+        .round-info { text-align: center; color: #4a6670; font-size: 0.8em; margin-top: 16px; }
+
+        .reveal-btn {
+            background: linear-gradient(135deg, #12232c, #0e1e28);
+            border: 2px dashed #2a4a58;
+            color: #8aa;
+            padding: 40px 20px;
+            border-radius: 16px;
+            font-size: 1.2em;
+            cursor: pointer;
+            width: 100%;
+        }
+        .reveal-btn:hover { border-color: #2ee6a6; color: #fff; }
+
+        .range-chip {
+            display: inline-block;
+            background: linear-gradient(135deg, #2ee6a6, #3d9eff);
+            color: #04141c;
+            font-weight: 900;
+            font-size: 1.6em;
+            padding: 8px 22px;
+            border-radius: 999px;
+            letter-spacing: 1px;
+        }
+        .range-wrap { text-align: center; margin: 12px 0 18px; }
+        .range-kicker { color: #6a8894; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+        .num-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin: 12px 0 16px;
+        }
+        .num-btn {
+            background: #0e1e28;
+            border: 1px solid #1e3a48;
+            color: #fff;
+            font-size: 1.2em;
+            font-weight: 800;
+            padding: 14px 0;
+            border-radius: 12px;
+            width: 100%;
+        }
+        .num-btn.in-range { border-color: #2ee6a6; color: #2ee6a6; }
+        .num-btn.in-range:hover { background: #12382e; }
+        .num-btn.picked { background: linear-gradient(135deg, #2ee6a6, #1aa87a); color: #04141c; border-color: transparent; }
+        .num-btn:disabled:not(.picked) { opacity: 0.28; }
+
+        .how-to { color: #6a8894; font-size: 0.82em; line-height: 1.45; margin: 16px 0 8px; text-align: center; }
+
+        .room-code {
+            text-align: center;
+            font-size: 2em;
+            font-weight: 800;
+            letter-spacing: 8px;
+            color: #2ee6a6;
+            margin: 8px 0;
+        }
+        .player-list { list-style: none; margin: 12px 0 16px; }
+        .player-list li {
+            background: #0e1e28;
+            border: 1px solid #1e3a48;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .you-badge { font-size: 0.7em; color: #2ee6a6; margin-left: 6px; }
+
+        .timer { text-align: center; font-size: 2em; font-weight: 700; color: #3d9eff; margin: 8px 0; }
+        .timer.urgent { color: #ff5555; }
+
+        .settings-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+        .settings-row label { color: #6a8894; font-size: 0.8em; white-space: nowrap; }
+        .settings-row select { width: auto; }
+
+        .results-box {
+            background: #0e1e28;
+            border: 1px solid #2ee6a6;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .results-title { color: #2ee6a6; font-size: 1.3em; font-weight: 800; }
+        .results-target { font-size: 2.4em; font-weight: 900; margin: 8px 0; }
+        .guess-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0a1820;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-top: 8px;
+            text-align: left;
+        }
+        .guess-row.winner { border: 1px solid #2ee6a6; }
+        .guess-pts { color: #2ee6a6; font-weight: 800; }
+        .scoreboard { margin: 12px 0 16px; }
+        .score-row { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #1e3a48; }
+
+        .ip-player-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .remove-btn { width: auto; background: #331111; color: #ff6666; padding: 8px 12px; }
+        .add-player-btn {
+            background: none; border: 1px dashed #2a4a58; color: #6a8894;
+            padding: 10px; border-radius: 8px; margin-bottom: 15px;
+        }
+        .add-player-btn:hover { border-color: #2ee6a6; color: #fff; }
+
+        .phase-label { text-align: center; color: #8aa; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h1>1–10 Range</h1>
+    <p class="subtitle">A random range. Guess the hidden number.</p>
+
+    <div id="screen-mode" class="screen active">
+        <div class="mode-cards">
+            <div class="mode-card" id="mode-inperson" onclick="selectMode('inperson')">
+                <span class="mode-icon">&#x1F3E0;</span>
+                <div class="mode-title">In Person</div>
+                <div class="mode-desc">Pass the phone. Everyone secretly picks a number in the range.</div>
+            </div>
+            <div class="mode-card" id="mode-online" onclick="selectMode('online')">
+                <span class="mode-icon">&#x1F310;</span>
+                <div class="mode-title">Online</div>
+                <div class="mode-desc">Share a room code. Closest to the hidden number wins.</div>
+            </div>
+        </div>
+        <p class="how-to">Each round rolls a range like 1–3, 6–8, or 8–10. A secret target sits inside it. Pick a number in that range — exact hit is 3 pts, closest is 2 pts.</p>
+    </div>
+
+    <div id="screen-ip-setup" class="screen">
+        <h2 style="text-align:center;margin-bottom:15px;color:#2ee6a6;">In-Person Setup</h2>
+        <p class="status-msg">Enter player names (1–8)</p>
+        <div id="ip-player-inputs"></div>
+        <button class="add-player-btn" onclick="ipAddPlayer()">+ Add Player</button>
+        <button class="btn-primary" id="ip-start-btn" onclick="ipStartRound()" disabled>Start Round</button>
+        <button class="btn-secondary" onclick="showScreen('mode')">Back</button>
+    </div>
+
+    <div id="screen-ip-guess" class="screen">
+        <div class="player-turn-label" id="ip-turn-label"></div>
+        <div id="ip-cover">
+            <button class="reveal-btn" onclick="ipReveal()">Tap to see the range</button>
+            <p class="pass-notice">Only the current player should look!</p>
+        </div>
+        <div id="ip-play" style="display:none;">
+            <div class="range-wrap">
+                <div class="range-kicker">This round’s range</div>
+                <div class="range-chip" id="ip-range-chip">1–3</div>
+            </div>
+            <div class="num-grid" id="ip-num-grid"></div>
+            <button class="btn-primary" id="ip-lock-btn" onclick="ipLockGuess()" disabled>Lock in guess</button>
+        </div>
+        <div class="round-info" id="ip-round-info"></div>
+    </div>
+
+    <div id="screen-ip-results" class="screen">
+        <div class="results-box">
+            <div class="results-title">The number was</div>
+            <div class="results-target" id="ip-target"></div>
+            <div class="range-kicker" id="ip-results-range"></div>
+            <div id="ip-guess-list"></div>
+        </div>
+        <div class="scoreboard" id="ip-scoreboard"></div>
+        <button class="btn-primary" onclick="ipStartRound()">Next Round</button>
+        <button class="btn-secondary" onclick="ipBackToSetup()">Change Players</button>
+    </div>
+
+    <div id="screen-menu" class="screen">
+        <input type="text" id="input-name" placeholder="Your name" maxlength="16" autocomplete="off">
+        <button class="btn-primary" onclick="createRoom()">Create Room</button>
+        <button class="btn-secondary" onclick="showJoin()">Join Room</button>
+        <div id="join-section" style="display:none; margin-top: 12px;">
+            <input type="text" id="input-room" placeholder="Room code" maxlength="5"
+                   style="text-transform:uppercase; text-align:center; letter-spacing:6px; font-size:1.3em;"
+                   autocomplete="off">
+            <button class="btn-primary" onclick="joinRoom()">Join</button>
+        </div>
+        <button class="btn-secondary" onclick="showScreen('mode')" style="margin-top:8px;">Back</button>
+        <p class="status-msg" id="menu-status"></p>
+    </div>
+
+    <div id="screen-lobby" class="screen">
+        <div class="room-code" id="lobby-code"></div>
+        <p class="status-msg">Share this code with friends</p>
+        <ul class="player-list" id="lobby-players"></ul>
+        <div id="host-controls" style="display:none;">
+            <div class="settings-row">
+                <label>Guess time:</label>
+                <select id="setting-guess-time">
+                    <option value="15">15s</option>
+                    <option value="25" selected>25s</option>
+                    <option value="40">40s</option>
+                </select>
+            </div>
+            <button class="btn-primary" id="btn-start" onclick="startGame()">Start Round</button>
+        </div>
+        <p class="status-msg" id="lobby-status">Waiting for host to start...</p>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="phase-label" id="phase-label">Guess a number in the range</div>
+        <div class="timer" id="timer">25</div>
+        <div class="range-wrap">
+            <div class="range-kicker">This round’s range</div>
+            <div class="range-chip" id="ol-range-chip">1–3</div>
+        </div>
+        <div class="num-grid" id="ol-num-grid"></div>
+        <button class="btn-primary" id="ol-lock-btn" onclick="submitGuess()" disabled>Lock in guess</button>
+        <div class="status-msg" id="guess-count"></div>
+        <div class="round-info" id="ol-round-info"></div>
+    </div>
+
+    <div id="screen-results" class="screen">
+        <div class="results-box">
+            <div class="results-title">The number was</div>
+            <div class="results-target" id="ol-target"></div>
+            <div class="range-kicker" id="ol-results-range"></div>
+            <div id="ol-guess-list"></div>
+        </div>
+        <div class="scoreboard" id="ol-scoreboard"></div>
+        <button class="btn-primary" id="btn-next" onclick="nextRound()" style="display:none;">Next Round</button>
+        <p class="status-msg" id="results-status">Waiting for host...</p>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script src="range.js"></script>
+<script>
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+}
+
+function esc(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+}
+
+function fmtRange(min, max) { return min + '–' + max; }
+
+function renderNumGrid(containerId, min, max, picked, onPick, locked) {
+    const grid = document.getElementById(containerId);
+    grid.innerHTML = '';
+    for (let n = 1; n <= 10; n++) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'num-btn';
+        btn.textContent = n;
+        const inRange = n >= min && n <= max;
+        if (inRange) btn.classList.add('in-range');
+        if (picked === n) btn.classList.add('picked');
+        btn.disabled = locked || !inRange;
+        btn.onclick = () => onPick(n);
+        grid.appendChild(btn);
+    }
+}
+
+function renderGuessList(el, guesses, target) {
+    el.innerHTML = '';
+    guesses.forEach(g => {
+        const row = document.createElement('div');
+        row.className = 'guess-row' + (g.closest ? ' winner' : '');
+        const guessTxt = g.guess == null ? '—' : g.guess;
+        const tag = g.exact ? 'Exact!' : (g.closest ? 'Closest' : '');
+        row.innerHTML = `<span>${esc(g.name)} picked <strong>${guessTxt}</strong> ${tag ? '<span class="you-badge">' + tag + '</span>' : ''}</span>
+            <span class="guess-pts">${g.points} pts</span>`;
+        el.appendChild(row);
+    });
+}
+
+function renderScores(el, scores) {
+    el.innerHTML = '<h3 style="text-align:center;margin-bottom:8px;">Scores</h3>';
+    scores.slice().sort((a, b) => b.score - a.score).forEach(s => {
+        el.innerHTML += `<div class="score-row"><span>${esc(s.name)}</span><span class="guess-pts">${s.score} pts</span></div>`;
+    });
+}
+
+function selectMode(mode) {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('mode-' + mode).classList.add('selected');
+    setTimeout(() => {
+        if (mode === 'inperson') { ipInit(); showScreen('ip-setup'); }
+        else showScreen('menu');
+    }, 160);
+}
+
+// ── In person ──
+let ipPlayers = [];
+let ipScores = {};
+let ipRound = 0;
+let ipIdx = 0;
+let ipRoundState = null; // { min, max, target, guesses: [] }
+let ipPicked = null;
+
+function ipInit() {
+    ipPlayers = ['', ''];
+    ipScores = {};
+    ipRound = 0;
+    ipRenderInputs();
+}
+
+function ipRenderInputs() {
+    const box = document.getElementById('ip-player-inputs');
+    box.innerHTML = '';
+    ipPlayers.forEach((name, i) => {
+        const row = document.createElement('div');
+        row.className = 'ip-player-row';
+        row.innerHTML = `<input type="text" placeholder="Player ${i + 1}" value="${esc(name)}" maxlength="16" autocomplete="off" oninput="ipUpdateName(${i}, this.value)">
+            ${ipPlayers.length > 1 ? `<button class="remove-btn" onclick="ipRemovePlayer(${i})">x</button>` : ''}`;
+        box.appendChild(row);
+    });
+    ipUpdateStart();
+}
+
+function ipUpdateName(i, val) { ipPlayers[i] = val.trim(); ipUpdateStart(); }
+function ipRemovePlayer(i) { ipPlayers.splice(i, 1); ipRenderInputs(); }
+function ipAddPlayer() {
+    if (ipPlayers.length >= 8) return;
+    ipPlayers.push('');
+    ipRenderInputs();
+    const inputs = document.querySelectorAll('#ip-player-inputs input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function ipUpdateStart() {
+    const n = ipPlayers.filter(p => p.length).length;
+    const btn = document.getElementById('ip-start-btn');
+    btn.disabled = n < 1;
+    btn.textContent = n < 1 ? 'Start Round (need a name)' : `Start Round (${n} player${n === 1 ? '' : 's'})`;
+}
+
+function ipStartRound() {
+    ipPlayers = ipPlayers.filter(n => n.length > 0);
+    if (!ipPlayers.length) return;
+    ipPlayers.forEach(n => { if (ipScores[n] == null) ipScores[n] = 0; });
+    ipRound++;
+    ipIdx = 0;
+    ipPicked = null;
+    const rolled = RangeGame.rollRange();
+    ipRoundState = { min: rolled.min, max: rolled.max, target: rolled.target, guesses: [] };
+    ipShowTurn();
+}
+
+function ipShowTurn() {
+    showScreen('ip-guess');
+    document.getElementById('ip-turn-label').textContent = ipPlayers[ipIdx] + "'s Turn";
+    document.getElementById('ip-round-info').textContent = `Round ${ipRound} — Player ${ipIdx + 1} of ${ipPlayers.length}`;
+    if (ipPlayers.length === 1) {
+        ipReveal();
+    } else {
+        document.getElementById('ip-cover').style.display = 'block';
+        document.getElementById('ip-play').style.display = 'none';
+    }
+}
+
+function ipReveal() {
+    document.getElementById('ip-cover').style.display = 'none';
+    document.getElementById('ip-play').style.display = 'block';
+    ipPicked = null;
+    document.getElementById('ip-range-chip').textContent = fmtRange(ipRoundState.min, ipRoundState.max);
+    renderNumGrid('ip-num-grid', ipRoundState.min, ipRoundState.max, null, ipPickNumber, false);
+    document.getElementById('ip-lock-btn').disabled = true;
+    document.getElementById('ip-lock-btn').textContent = ipIdx < ipPlayers.length - 1 ? 'Lock in & pass phone' : 'Lock in & reveal';
+}
+
+function ipPickNumber(n) {
+    ipPicked = n;
+    renderNumGrid('ip-num-grid', ipRoundState.min, ipRoundState.max, n, ipPickNumber, false);
+    document.getElementById('ip-lock-btn').disabled = false;
+}
+
+function ipLockGuess() {
+    if (!RangeGame.isInRange(ipPicked, ipRoundState.min, ipRoundState.max)) return;
+    ipRoundState.guesses.push({ id: String(ipIdx), name: ipPlayers[ipIdx], guess: ipPicked });
+    ipIdx++;
+    if (ipIdx < ipPlayers.length) ipShowTurn();
+    else ipShowResults();
+}
+
+function ipShowResults() {
+    const scored = RangeGame.scoreRound(ipRoundState.target, ipRoundState.guesses);
+    scored.forEach(s => { ipScores[s.name] = (ipScores[s.name] || 0) + s.points; });
+    showScreen('ip-results');
+    document.getElementById('ip-target').textContent = ipRoundState.target;
+    document.getElementById('ip-results-range').textContent = 'Range was ' + fmtRange(ipRoundState.min, ipRoundState.max);
+    renderGuessList(document.getElementById('ip-guess-list'), scored, ipRoundState.target);
+    renderScores(document.getElementById('ip-scoreboard'), ipPlayers.map(n => ({ name: n, score: ipScores[n] || 0 })));
+}
+
+function ipBackToSetup() {
+    ipRound = 0;
+    ipScores = {};
+    ipRenderInputs();
+    showScreen('ip-setup');
+}
+
+// ── Online ──
+const socket = io({ path: '/range-mp' });
+let myId = null, isHost = false, players = [], myGuess = null, currentMin = 1, currentMax = 10, olPicked = null;
+
+socket.on('connect', () => { myId = socket.id; });
+
+function setMenuStatus(msg) { document.getElementById('menu-status').textContent = msg || ''; }
+
+function getName() {
+    const name = (document.getElementById('input-name').value || '').trim();
+    if (!name) { setMenuStatus('Enter your name first'); return null; }
+    return name;
+}
+
+function showJoin() { document.getElementById('join-section').style.display = 'block'; }
+
+function createRoom() {
+    const name = getName();
+    if (!name) return;
+    socket.emit('range:create', { name }, (res) => {
+        if (!res || !res.success) { setMenuStatus((res && res.error) || 'Could not create room'); return; }
+        isHost = true;
+        players = res.players;
+        document.getElementById('lobby-code').textContent = res.roomId;
+        enterLobby();
+    });
+}
+
+function joinRoom() {
+    const name = getName();
+    if (!name) return;
+    const code = (document.getElementById('input-room').value || '').trim().toUpperCase();
+    if (code.length < 4) { setMenuStatus('Enter a valid room code'); return; }
+    socket.emit('range:join', { name, roomId: code }, (res) => {
+        if (!res || !res.success) { setMenuStatus((res && res.error) || 'Could not join'); return; }
+        isHost = false;
+        players = res.players;
+        document.getElementById('lobby-code').textContent = code;
+        enterLobby();
+    });
+}
+
+function enterLobby() {
+    showScreen('lobby');
+    renderLobby();
+}
+
+function renderLobby() {
+    const ul = document.getElementById('lobby-players');
+    ul.innerHTML = '';
+    players.forEach(p => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span style="color:${p.color}">${esc(p.name)}${p.id === myId ? ' <span class="you-badge">YOU</span>' : ''}</span>
+            <span>${p.isHost ? 'Host' : ''}</span>`;
+        ul.appendChild(li);
+    });
+    document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+    document.getElementById('lobby-status').textContent = isHost ? '' : 'Waiting for host to start...';
+}
+
+socket.on('range:player-joined', (data) => { players = data.players; renderLobby(); });
+socket.on('range:player-left', (data) => {
+    players = data.players;
+    if (data.newHost === myId) isHost = true;
+    if (document.getElementById('screen-lobby').classList.contains('active')) renderLobby();
+});
+
+function startGame() {
+    if (!isHost) return;
+    const guessTime = parseInt(document.getElementById('setting-guess-time').value, 10);
+    socket.emit('range:start', { guessTime });
+}
+
+socket.on('range:round-start', (data) => {
+    myGuess = null;
+    olPicked = null;
+    currentMin = data.min;
+    currentMax = data.max;
+    showScreen('game');
+    document.getElementById('ol-range-chip').textContent = fmtRange(data.min, data.max);
+    document.getElementById('ol-round-info').textContent = 'Round ' + data.round;
+    document.getElementById('guess-count').textContent = '';
+    document.getElementById('ol-lock-btn').disabled = true;
+    document.getElementById('ol-lock-btn').textContent = 'Lock in guess';
+    renderNumGrid('ol-num-grid', data.min, data.max, null, olPickNumber, false);
+    startTimer(data.guessTime || 25);
+});
+
+function olPickNumber(n) {
+    if (myGuess != null) return;
+    olPicked = n;
+    renderNumGrid('ol-num-grid', currentMin, currentMax, n, olPickNumber, false);
+    document.getElementById('ol-lock-btn').disabled = false;
+}
+
+function submitGuess() {
+    if (myGuess != null) return;
+    if (!RangeGame.isInRange(olPicked, currentMin, currentMax)) return;
+    myGuess = olPicked;
+    socket.emit('range:guess', { guess: olPicked });
+    document.getElementById('ol-lock-btn').disabled = true;
+    document.getElementById('ol-lock-btn').textContent = 'Locked in!';
+    renderNumGrid('ol-num-grid', currentMin, currentMax, olPicked, () => {}, true);
+}
+
+socket.on('range:guess-count', (data) => {
+    document.getElementById('guess-count').textContent = data.guessed + ' / ' + data.total + ' guessed';
+});
+
+socket.on('range:results', (data) => {
+    clearInterval(timerInterval);
+    showScreen('results');
+    document.getElementById('ol-target').textContent = data.target;
+    document.getElementById('ol-results-range').textContent = 'Range was ' + fmtRange(data.min, data.max);
+    renderGuessList(document.getElementById('ol-guess-list'), data.guesses, data.target);
+    renderScores(document.getElementById('ol-scoreboard'), data.scores);
+    document.getElementById('btn-next').style.display = isHost ? 'block' : 'none';
+    document.getElementById('results-status').textContent = isHost ? '' : 'Waiting for host to start next round...';
+});
+
+function nextRound() {
+    if (!isHost) return;
+    socket.emit('range:next-round');
+}
+
+let timerInterval = null;
+function startTimer(seconds) {
+    clearInterval(timerInterval);
+    const el = document.getElementById('timer');
+    let left = seconds;
+    el.textContent = left;
+    el.classList.remove('urgent');
+    timerInterval = setInterval(() => {
+        left--;
+        el.textContent = left;
+        if (left <= 8) el.classList.add('urgent');
+        if (left <= 0) clearInterval(timerInterval);
+    }, 1000);
+}
+</script>
+</body>
+</html>
