@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "format": "stick-royale-vfx/1",
+  "source": "authored-fallback",
+  "bakedAt": "2026-10-23T22:42:34.610Z",
+  "zecruriggerReport": {
+    "attempted": false,
+    "note": "No --zecrurigger path. Clone of https://github.com/Zecruu/zecrurigger failed (private, 404)."
+  },
+  "presets": {
+    "meleeRibbon": {
+      "type": "ribbon",
+      "width": 7,
+      "life": 0.24,
+      "color": "#ffe7a3",
+      "fade": 0.2,
+      "joint": "hand_R",
+      "length": 22
+    },
+    "castRibbon": {
+      "type": "ribbon",
+      "width": 5,
+      "life": 0.28,
+      "color": "#7dd3fc",
+      "fade": 0.22,
+      "joint": "hand_R",
+      "length": 26
+    },
+    "impactBurst": {
+      "type": "burst",
+      "count": 14,
+      "speed": 90,
+      "life": 0.32,
+      "size": 3.2,
+      "gravity": 180,
+      "colors": [
+        "#fff4c2",
+        "#ffb020",
+        "#ff6a00"
+      ]
+    },
+    "groundRing": {
+      "type": "ring",
+      "radius": 18,
+      "grow": 28,
+      "life": 0.38,
+      "width": 2,
+      "color": "#fde68a",
+      "fade": 0.3
+    },
+    "spawnRing": {
+      "type": "ring",
+      "radius": 10,
+      "grow": 22,
+      "life": 0.4,
+      "width": 2,
+      "color": "#5eead4",
+      "fade": 0.32
+    },
+    "auraViolet": {
+      "type": "aura",
+      "color": "#a78bfa",
+      "glow": 0.55,
+      "wispCount": 5,
+      "wispColor": "#c4b5fd",
+      "radius": 16,
+      "pulse": 1.6
+    },
+    "auraCyan": {
+      "type": "aura",
+      "color": "#22d3ee",
+      "glow": 0.5,
+      "wispCount": 5,
+      "wispColor": "#67e8f9",
+      "radius": 16,
+      "pulse": 1.4
+    },
+    "deathPoof": {
+      "type": "burst",
+      "count": 18,
+      "speed": 70,
+      "life": 0.45,
+      "size": 4,
+      "gravity": 40,
+      "colors": [
+        "#e5e7eb",
+        "#9ca3af",
+        "#6b7280"
+      ]
+    },
+    "bloodSpray": {
+      "type": "blood",
+      "count": 10,
+      "speed": 120,
+      "life": 0.4,
+      "size": 2.6,
+      "gravity": 260,
+      "color": "#b91c1c"
+    },
+    "bloodSplatter": {
+      "type": "stain",
+      "count": 6,
+      "radius": 10,
+      "life": 4.5,
+      "color": "#7f1d1d"
+    },
+    "spark": {
+      "type": "burst",
+      "count": 10,
+      "speed": 100,
+      "life": 0.3,
+      "size": 2.4,
+      "gravity": 60,
+      "colors": [
+        "#f8fafc",
+        "#fde68a",
+        "#93c5fd"
+      ]
+    }
+  },
+  "bindings": {
+    "attack_melee": [
+      {
+        "preset": "meleeRibbon",
+        "frame": 5
+      },
+      {
+        "preset": "impactBurst",
+        "frame": 8
+      },
+      {
+        "preset": "groundRing",
+        "frame": 8
+      }
+    ],
+    "attack_cast": [
+      {
+        "preset": "castRibbon",
+        "frame": 7
+      },
+      {
+        "preset": "impactBurst",
+        "frame": 10
+      }
+    ],
+    "hit": [
+      {
+        "preset": "bloodSpray",
+        "frame": 1,
+        "alt": "spark"
+      },
+      {
+        "preset": "impactBurst",
+        "frame": 2
+      }
+    ],
+    "death": [
+      {
+        "preset": "deathPoof",
+        "frame": 2
+      },
+      {
+        "preset": "bloodSplatter",
+        "frame": 4,
+        "alt": "spark"
+      }
+    ],
+    "spawn": [
+      {
+        "preset": "spawnRing",
+        "frame": 0
+      }
+    ]
+  }
+}

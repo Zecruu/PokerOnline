@@ -292,6 +292,7 @@ export function Navbar() {
 
           <p className="text-xs text-white/40 uppercase tracking-wider px-3 mb-2">Games</p>
           <div className="space-y-1">
+            <SidebarLink href="/games/stick-royale/index.html" icon="⚔️" onClick={() => setSidebarOpen(false)}>Stick Royale</SidebarLink>
             <SidebarLink href="/games/graveborn/index.html" icon="💀" onClick={() => setSidebarOpen(false)}>Graveborn</SidebarLink>
             <a
               href="https://games.zecrugames.com/veltharas-dominion/"

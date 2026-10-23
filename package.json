@@ -10,7 +10,7 @@
     "client": "npx http-server -p 8000 -c-1",
     "build": "cd hub && npm install && npm run build && cd .. && npm run postbuild",
     "postbuild": "node scripts/copy-assets.js",
-    "test": "node --test server/realtyrush.test.js"
+    "test": "node --test server/realtyrush.test.js server/stickroyale.test.js"
   },
   "repository": {
     "type": "git",

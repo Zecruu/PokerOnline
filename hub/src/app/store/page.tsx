@@ -6,6 +6,17 @@ import { GameCard } from "@/components/game-card";
 
 const ALL_GAMES = [
   {
+    id: "stick-royale",
+    title: "Stick Royale",
+    description: "Clash-style lane battler with stick-figure units. Elixir, cards, towers, and an augment pick every 30s. Solo, co-op survival, or 1v1.",
+    thumbnail: "/games/stick-royale/thumbnail.svg",
+    href: "/games/stick-royale/index.html",
+    badge: "NEW",
+    badgeColor: "green" as const,
+    isFree: true,
+    category: "strategy",
+  },
+  {
     id: "graveborn",
     title: "Graveborn",
     description: "Necromancer survivor. Auto-fire, auto-raise a capped skeleton army, draft League-style class cards.",

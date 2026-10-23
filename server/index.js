@@ -106,12 +106,14 @@ function generatePlayerId() {
 
 // In-memory rooms (no DB needed, rooms are ephemeral)
 const { attachRealtyRush, handleRealtyRushDisconnect } = require('./realtyrush');
+const { attachStickRoyale, handleStickRoyaleDisconnect } = require('./stickroyale');
 
 const tdRooms = {};
 const pokerRooms = {};
 const clueRooms = {};
 const wmRooms = {};
 const rrRooms = {};
+const srRooms = {};
 
 const CLUE_WORD_BANK = [
     // Animals
@@ -763,6 +765,9 @@ io.on('connection', (socket) => {
         // Handle RealtyRush room disconnect
         handleRealtyRushDisconnect(socket, io, rrRooms);
 
+        // Handle Stick Royale room disconnect
+        handleStickRoyaleDisconnect(socket, io, srRooms);
+
         // Handle poker room disconnect
         if (socket.roomCode) {
             const room = pokerRooms[socket.roomCode];
@@ -1362,6 +1367,9 @@ io.on('connection', (socket) => {
 
     // ── REALTYRUSH MULTIPLAYER ───────────────────────────────
     attachRealtyRush(socket, io, rrRooms);
+
+    // ── STICK ROYALE MULTIPLAYER ─────────────────────────────
+    attachStickRoyale(socket, io, srRooms);
 });
 
 // Game Logic Functions
