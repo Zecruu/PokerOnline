@@ -271,7 +271,8 @@ class RealtyRush {
   // ─── SOCKET CONNECTION ────────────────────────────────────
   connectSocket() {
     if (this.socket) return;
-    const host = window.location.hostname === "localhost"
+    const hostname = window.location.hostname;
+    const host = (hostname === "localhost" || hostname === "127.0.0.1")
       ? "http://localhost:3001"
       : "https://www.zecrugames.com";
 
@@ -288,6 +289,10 @@ class RealtyRush {
     });
 
     // ── Room events ──
+    this.socket.on("rr:error", (data) => {
+      this.setConnStatus("disconnected", (data && data.msg) || "Error");
+    });
+
     this.socket.on("rr:roomCreated", (data) => {
       this.roomCode = data.code;
       this.isHost = true;
