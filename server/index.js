@@ -105,10 +105,13 @@ function generatePlayerId() {
 }
 
 // In-memory rooms (no DB needed, rooms are ephemeral)
+const { attachRealtyRush, handleRealtyRushDisconnect } = require('./realtyrush');
+
 const tdRooms = {};
 const pokerRooms = {};
 const clueRooms = {};
 const wmRooms = {};
+const rrRooms = {};
 
 const CLUE_WORD_BANK = [
     // Animals
@@ -757,6 +760,9 @@ io.on('connection', (socket) => {
             }
         }
 
+        // Handle RealtyRush room disconnect
+        handleRealtyRushDisconnect(socket, io, rrRooms);
+
         // Handle poker room disconnect
         if (socket.roomCode) {
             const room = pokerRooms[socket.roomCode];
@@ -1353,6 +1359,9 @@ io.on('connection', (socket) => {
             safeFound: room.safeFound
         });
     });
+
+    // ── REALTYRUSH MULTIPLAYER ───────────────────────────────
+    attachRealtyRush(socket, io, rrRooms);
 });
 
 // Game Logic Functions

@@ -21,11 +21,22 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - Graveborn HTML5 is copied in `games/graveborn`, `hub/public/games/graveborn`, and `games-server/public/graveborn` — update all three. Mobile: viewport-fit=cover, 100dvh/visualViewport, safe-area HUD, on-screen MOVE stick, overlay `touch-action: pan-y`.
 - Graveborn horde tables live in `games/graveborn/enemies.js` and `godot/graveborn/scripts/enemy_db.gd` — keep them in sync. Catalog changes only appear on www after `master` deploys.
 - Imposter lives in `games-server/public/imposter/index.html` + Socket.IO on `games-server/server.js` (`/imposter-mp`). Hub only has catalog/store copy + thumbnail. Classic word mode: crew gets the word, imposter gets no hint. Each round picks a random first speaker for discussion.
+- RealtyRush online rooms use `rr:*` Socket.IO events on the main hub server (`server/index.js` → `server/realtyrush.js`), same host as Tower Defense (`localhost:3001` / `www.zecrugames.com`). Client copies live in `games/realtyrush` and `hub/public/games/realtyrush`. A client emit with no matching server handler means Create Room never shows a code.
+- RealtyRush (and TD) socket host used to treat only `localhost` as local. Opening via `127.0.0.1` sent the client to production. Treat `127.0.0.1` as local too.
 - 1–10 Range lives in `games-server/public/range-1-10/` + Socket.IO `games-server/range.js` (`/range-mp`). Shared rules in `range.js`. Hub catalog + store + sidebar + sitemap.
 
 ## Scratchpad
 
-### Current Task: 1-10 Range Game
+### Current Task: RealtyRush Create Room broken
+Owner (Michael): clicking Create Room never shows a room code. TD works.
+Plan: compare RR vs TD create-room client+server, find real cause, fix, verify host+joiner, PR.
+[X] Locate RR + TD room flows
+[X] Confirm root cause: client emits rr:* but server had no handlers
+[X] Fix: server/realtyrush.js + wire into server/index.js; rr:error + 127.0.0.1 local socket
+[X] Verify: node tests + Chrome host/joiner (A8ICVU / LGBJ5Q, 2 players)
+[X] Commit and PR (note server redeploy)
+
+### Previous Task: 1-10 Range Game
 [X] Shared range + scoring rules
 [X] In-person + online client
 [X] Socket.IO rooms on games-server
