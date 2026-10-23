@@ -25,10 +25,26 @@ Online gaming platform with Texas Hold'em Poker and Dots Survivor games.
 - RealtyRush (and TD) socket host used to treat only `localhost` as local. Opening via `127.0.0.1` sent the client to production. Treat `127.0.0.1` as local too.
 - RealtyRush `.btn-primary` is `width:100%`. Inside `.join-row` that made Join eat the row and crush `#roomCodeInput` to ~30px (padding only). Override `.btn-join` to `width:auto; flex:0 0 auto` and give the input `min-width` — same idea as TD's fixed-width join field. Update both `games/realtyrush` and `hub/public/games/realtyrush`.
 - 1–10 Range lives in `games-server/public/range-1-10/` + Socket.IO `games-server/range.js` (`/range-mp`). Shared rules in `range.js`. Hub catalog + store + sidebar + sitemap.
+- Stick Royale is hub-hosted like RealtyRush/TD: `games/stick-royale` + `hub/public/games/stick-royale`, `sr:*` on `server/stickroyale.js` attached from `server/index.js`. Live www needs Railway rebuild of this repo (hub `npm run build` + `postbuild` copies `games/`). Homepage has a dedicated New Release section in `hub/src/app/page.tsx`.
+- ZecruRigger (`https://github.com/Zecruu/zecrurigger`) is private — this agent's GitHub token gets 404. Bake motion/VFX with `tools/bake-stick-motion.mjs` and `tools/bake-stick-vfx.mjs --zecrurigger <path>`. Without a checkout they write authored-fallback JSON in the same schema.
 
 ## Scratchpad
 
-### Current Task: RealtyRush join-code input won't accept typing
+### Current Task: Stick Royale — Clash-style stick-figure lane battler
+Owner (Michael): real-time lane battler; stick bodies + unique head shapes/colors.
+Modes: Co-op Survival (2P room code, shared side vs AI waves), Versus 1v1, Solo vs AI.
+Elixir + hand + drop units; towers/king; augment every 30s (pick 1 of 3).
+Hub-hosted like TD/RealtyRush (`games/` + `hub/public/games/`), `sr:*` on main hub server.
+Avoid join-input crush (`.btn-join` width:auto). Treat 127.0.0.1 as local.
+[X] Branch from latest master
+[X] Shared sim + ~12 base + ~12 augment units (sim.js + server rooms)
+[X] Bake scripts + authored-fallback clips/VFX (zecrurigger clone 404)
+[X] Client plays JSON clips + VFX/blood toggle
+[X] Server tests + hub New Release + catalog / both copies
+[X] E2E solo + host/joiner + hub New Release screenshot
+[ ] PR against master (bake notes + Railway redeploy)
+
+### Previous Task: RealtyRush join-code input won't accept typing
 Owner (Michael): after PR #8, Create Room works but he can't type a room code to join.
 Compare with TD join flow. Could be overlay, CSS, key handler, disabled input — find real cause.
 [X] Branch from latest master

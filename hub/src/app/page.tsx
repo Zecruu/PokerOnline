@@ -92,6 +92,46 @@ export default function Home() {
     <div className="min-h-screen">
       <Navbar />
 
+      {/* New Release — Stick Royale */}
+      <section className="relative overflow-hidden border-b border-white/6">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute left-[-6%] top-[-20%] h-[22rem] w-[22rem] rounded-full bg-[rgba(0,212,170,0.14)] blur-3xl" />
+          <div className="absolute right-[5%] bottom-[-30%] h-[18rem] w-[18rem] rounded-full bg-[rgba(124,58,237,0.12)] blur-3xl" />
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-6 pb-2">
+          <p className="text-[11px] uppercase tracking-[0.28em] text-[rgb(0,212,170)]">New Release</p>
+          <article className="mt-3 group overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[rgba(0,212,170,0.16)] to-[rgba(14,17,28,0.94)] shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+            <div className="grid md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-stretch">
+              <div className="relative aspect-[16/9] md:aspect-auto md:min-h-[240px] overflow-hidden">
+                <img
+                  src="/games/stick-royale/thumbnail.svg"
+                  alt="Stick Royale"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-[rgb(10,12,18)] via-[rgba(10,12,18,0.15)] to-transparent" />
+                <div className="absolute left-4 top-4">
+                  <span className="badge badge-featured">NEW</span>
+                </div>
+              </div>
+              <div className="flex flex-col justify-center p-6 sm:p-8">
+                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Stick Royale</h2>
+                <p className="mt-3 text-sm sm:text-base leading-relaxed text-white/65">
+                  Lane battler. Stick bodies. Wild heads. Drop units with elixir, defend your king, and pick a new unit every 30 seconds.
+                </p>
+                <div className="mt-6">
+                  <Link
+                    href="/games/stick-royale/index.html"
+                    className="btn-glass btn-glass-primary px-5 py-2.5 text-sm sm:text-base inline-flex items-center"
+                  >
+                    <span className="mr-1.5">▶</span> Play
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
       {/* Hero — dual-feature: Velthara + Critter Colony, equal billing */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">

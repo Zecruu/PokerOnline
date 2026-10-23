@@ -16,6 +16,17 @@ export interface Game {
 
 export const GAMES: Game[] = [
   {
+    id: "stick-royale",
+    title: "Stick Royale",
+    description:
+      "Clash-style lane battler with stick-figure units. Elixir, cards, towers, and an augment pick every 30s. Solo, co-op survival, or 1v1.",
+    thumbnail: "/games/stick-royale/thumbnail.svg",
+    href: "/games/stick-royale/index.html",
+    badge: "NEW",
+    badgeColor: "green",
+    isFree: true,
+  },
+  {
     id: "graveborn",
     title: "Graveborn",
     description:

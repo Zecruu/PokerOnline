@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Stick Royale — Zecru Games</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="menuScreen" class="screen active">
+    <div class="menu-bg"></div>
+    <div class="menu-content">
+      <p class="eyebrow">New Release</p>
+      <h1 class="game-title">STICK<br><span>ROYALE</span></h1>
+      <p class="tagline">Lane battler. Stick bodies. Wild heads. Draft a new unit every 30 seconds.</p>
+      <div class="menu-buttons">
+        <button id="btnSoloSurvival" class="menu-btn primary">Solo Survival</button>
+        <button id="btnSoloVersus" class="menu-btn">Solo Versus (vs AI)</button>
+        <button id="btnCoop" class="menu-btn">Co-op Survival</button>
+        <button id="btnVersus" class="menu-btn">1v1 Versus</button>
+      </div>
+      <div class="menu-footer">
+        <label class="blood-toggle">
+          <input type="checkbox" id="bloodToggle" checked>
+          Blood: <strong id="bloodLabel">On</strong>
+        </label>
+        <span>12 base units • 12 augments • room codes</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="lobbyScreen" class="screen">
+    <div class="lobby-panel">
+      <h2 id="lobbyTitle">Online Lobby</h2>
+      <p id="lobbyModeLabel" class="lobby-mode">Co-op Survival</p>
+      <label>Your Name</label>
+      <input type="text" id="playerName" maxlength="12" placeholder="Player" class="lobby-input" autocomplete="username">
+      <div class="lobby-options">
+        <button id="btnCreateRoom" class="menu-btn primary">Create Room</button>
+        <div class="divider">OR</div>
+        <div class="join-row">
+          <input id="roomCodeInput" type="text" placeholder="ROOM CODE" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text">
+          <button id="btnJoinRoom" class="menu-btn btn-join">Join</button>
+        </div>
+      </div>
+      <div id="lobbyInfo" class="lobby-info hidden">
+        <p>Room: <strong id="lobbyRoomCode"></strong></p>
+        <p>Players: <span id="lobbyPlayerCount">1</span>/2</p>
+        <div id="lobbyPlayerList" class="player-list"></div>
+        <button id="btnStartGame" class="menu-btn primary hidden">Start Game</button>
+        <p id="lobbyWait" class="wait-msg">Share the code — host starts when both are in.</p>
+      </div>
+      <div id="lobbyError" class="lobby-error"></div>
+      <button id="btnBackToMenu" class="menu-btn small">Back</button>
+    </div>
+  </div>
+
+  <div id="gameScreen" class="screen">
+    <div id="hud" class="hud">
+      <div class="hud-left">
+        <div class="hud-item" id="hudWaveWrap">Wave <strong id="hudWave">0</strong></div>
+        <div class="hud-item">Score <strong id="hudScore">0</strong></div>
+        <div class="hud-item" id="hudTimeWrap">Time <strong id="hudTime">3:00</strong></div>
+      </div>
+      <div class="hud-mid">
+        <div id="hudPhase">Battle</div>
+        <div id="hudAugmentEta">Augment in 30s</div>
+      </div>
+      <div class="hud-right">
+        <button id="btnSettings" class="hud-btn" type="button">Settings</button>
+        <button id="btnQuit" class="hud-btn" type="button">Quit</button>
+      </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="elixirBar">
+      <div id="elixirFill"></div>
+      <span id="elixirText">5 / 10</span>
+    </div>
+    <div id="hand" class="hand"></div>
+    <div id="dropHint" class="drop-hint hidden">Tap your side of the arena</div>
+  </div>
+
+  <div id="augmentOverlay" class="overlay hidden">
+    <div class="augment-panel">
+      <p class="eyebrow">Augment Phase</p>
+      <h2>Pick a new unit</h2>
+      <p class="augment-sub">Added to your deck for the rest of this match. <span id="augmentTimer">8</span>s</p>
+      <div id="augmentChoices" class="augment-choices"></div>
+    </div>
+  </div>
+
+  <div id="settingsOverlay" class="overlay hidden">
+    <div class="settings-panel">
+      <h2>Settings</h2>
+      <label class="blood-toggle">
+        <input type="checkbox" id="bloodToggleGame" checked>
+        Blood: <strong id="bloodLabelGame">On</strong>
+      </label>
+      <p class="settings-note">Off swaps blood for neutral sparks. Saved on this device.</p>
+      <button id="btnCloseSettings" class="menu-btn primary">Done</button>
+    </div>
+  </div>
+
+  <div id="gameOverScreen" class="screen">
+    <div class="gameover-panel">
+      <h2 id="goTitle">GAME OVER</h2>
+      <p id="goDesc"></p>
+      <div class="gameover-stats">
+        <p>Waves: <strong id="goWave">0</strong></p>
+        <p>Score: <strong id="goScore">0</strong></p>
+        <p>Damage: <strong id="goDmg">0</strong></p>
+      </div>
+      <button id="btnPlayAgain" class="menu-btn primary">Play Again</button>
+      <button id="btnMainMenu" class="menu-btn">Main Menu</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="sim.js"></script>
+  <script src="motion.js"></script>
+  <script src="vfx.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

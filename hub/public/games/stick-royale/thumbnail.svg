@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#07140f"/>
+      <stop offset="100%" style="stop-color:#10261c"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00d4aa"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="225" fill="url(#bg)"/>
+  <rect x="70" y="28" width="260" height="132" rx="10" fill="#163322" stroke="rgba(0,212,170,0.25)"/>
+  <rect x="70" y="90" width="260" height="10" fill="#1d4ed8" opacity="0.35"/>
+  <circle cx="130" cy="148" r="10" fill="#3b82f6"/>
+  <line x1="130" y1="148" x2="130" y2="168" stroke="#14141c" stroke-width="3" stroke-linecap="round"/>
+  <polygon points="200,46 208,62 192,62" fill="#84cc16"/>
+  <line x1="200" y1="62" x2="200" y2="82" stroke="#14141c" stroke-width="3" stroke-linecap="round"/>
+  <rect x="262" y="44" width="16" height="16" fill="#94a3b8"/>
+  <line x1="270" y1="60" x2="270" y2="80" stroke="#14141c" stroke-width="3" stroke-linecap="round"/>
+  <polygon points="248,138 262,146 248,154 234,146" fill="#22d3ee"/>
+  <text x="200" y="198" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="22" fill="white">STICK</text>
+  <text x="200" y="218" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="18" fill="url(#accent)">ROYALE</text>
+</svg>
