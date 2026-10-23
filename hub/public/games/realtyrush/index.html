@@ -30,7 +30,7 @@
           <div class="online-btns">
             <button class="btn-primary" id="createRoomBtn" onclick="game.createRoom()">Create Room</button>
             <div class="join-row">
-              <input type="text" id="roomCodeInput" maxlength="6" placeholder="ROOM CODE" class="lobby-input code-input">
+              <input type="text" id="roomCodeInput" maxlength="6" placeholder="ROOM CODE" class="lobby-input code-input" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text">
               <button class="btn-primary btn-join" onclick="game.joinRoom()">Join</button>
             </div>
           </div>
